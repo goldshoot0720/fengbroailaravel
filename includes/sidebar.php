@@ -20,6 +20,14 @@ $menuItems = [
 $currentPage = $_GET['page'] ?? 'home';
 ?>
 
+<!-- 手機版漢堡選單按鈕 -->
+<button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+    <i class="fa-solid fa-bars"></i>
+</button>
+
+<!-- 側邊欄遮罩 -->
+<div class="sidebar-overlay" onclick="closeMobileMenu()"></div>
+
 <nav class="sidebar">
     <div class="sidebar-header">
         <h2><i class="fa-solid fa-dragon"></i> 鋒兄AI</h2>
@@ -31,7 +39,7 @@ $currentPage = $_GET['page'] ?? 'home';
     <ul class="menu">
         <?php foreach ($menuItems as $key => $item): ?>
             <li class="menu-item <?php echo $currentPage === $key ? 'active' : ''; ?>">
-                <a href="index.php?page=<?php echo $key; ?>">
+                <a href="index.php?page=<?php echo $key; ?>" onclick="closeMobileMenu()">
                     <i class="fa-solid <?php echo $item['icon']; ?>"></i>
                     <span><?php echo $item['label']; ?></span>
                 </a>
@@ -39,3 +47,19 @@ $currentPage = $_GET['page'] ?? 'home';
         <?php endforeach; ?>
     </ul>
 </nav>
+
+<script>
+    function toggleMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('show');
+    }
+
+    function closeMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+    }
+</script>

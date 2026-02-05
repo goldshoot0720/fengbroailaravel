@@ -2,13 +2,19 @@
 /**
  * Pure PHP ZIP creation class - streaming version for large files
  */
-class PureZip {
+class PureZip
+{
     private $files = [];
     private $centralDir = [];
     private $offset = 0;
 
-    public function addFile($content, $name) {
+    public function addFile($content, $name)
+    {
         $name = str_replace('\\', '/', $name);
+        // 確保使用 UTF-8 編碼
+        if (function_exists('mb_convert_encoding')) {
+            $name = mb_convert_encoding($name, 'UTF-8', 'auto');
+        }
         $size = strlen($content);
 
         // For small files, use compression
@@ -26,10 +32,10 @@ class PureZip {
             $method = 0; // Store
         }
 
-        // Local file header
+        // Local file header with UTF-8 flag (bit 11 = 0x0800)
         $header = "\x50\x4b\x03\x04";
         $header .= "\x14\x00";
-        $header .= "\x00\x00";
+        $header .= "\x00\x08"; // UTF-8 flag
         $header .= pack('v', $method);
         $header .= "\x00\x00\x00\x00";
         $header .= pack('V', $crc);
@@ -41,11 +47,11 @@ class PureZip {
 
         $this->files[] = ['header' => $header, 'data' => $zdata];
 
-        // Central directory entry
+        // Central directory entry with UTF-8 flag
         $cdr = "\x50\x4b\x01\x02";
         $cdr .= "\x14\x00";
         $cdr .= "\x14\x00";
-        $cdr .= "\x00\x00";
+        $cdr .= "\x00\x08"; // UTF-8 flag
         $cdr .= pack('v', $method);
         $cdr .= "\x00\x00\x00\x00";
         $cdr .= pack('V', $crc);
@@ -64,13 +70,15 @@ class PureZip {
         $this->offset += strlen($header) + $csize;
     }
 
-    public function addFileFromPath($path, $name) {
+    public function addFileFromPath($path, $name)
+    {
         if (file_exists($path)) {
             $this->addFile(file_get_contents($path), $name);
         }
     }
 
-    public function getZipContent() {
+    public function getZipContent()
+    {
         $data = '';
         foreach ($this->files as $file) {
             $data .= $file['header'] . $file['data'];
@@ -90,7 +98,8 @@ class PureZip {
         return $data . $cdr . $eocd;
     }
 
-    public function download($filename) {
+    public function download($filename)
+    {
         $content = $this->getZipContent();
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -102,12 +111,14 @@ class PureZip {
 /**
  * Streaming ZIP class for very large files - writes directly to output
  */
-class StreamingZip {
+class StreamingZip
+{
     private $centralDir = [];
     private $offset = 0;
     private $fileCount = 0;
 
-    public function begin($filename) {
+    public function begin($filename)
+    {
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: no-cache, must-revalidate');
@@ -116,17 +127,24 @@ class StreamingZip {
         flush();
     }
 
-    public function addLargeFile($path, $name) {
-        if (!file_exists($path)) return;
+    public function addLargeFile($path, $name)
+    {
+        if (!file_exists($path))
+            return;
 
         $name = str_replace('\\', '/', $name);
+        // 確保使用 UTF-8 編碼
+        if (function_exists('mb_convert_encoding')) {
+            $name = mb_convert_encoding($name, 'UTF-8', 'auto');
+        }
         $size = filesize($path);
         $crc = $this->fileCrc32($path);
 
         // Local file header (no compression for streaming)
+        // 使用 UTF-8 標記 (bit 11 = 0x0800)
         $header = "\x50\x4b\x03\x04";
         $header .= "\x14\x00";
-        $header .= "\x00\x00";
+        $header .= "\x00\x08"; // General purpose bit flag: bit 11 set for UTF-8
         $header .= "\x00\x00"; // Store method
         $header .= "\x00\x00\x00\x00";
         $header .= pack('V', $crc);
@@ -148,10 +166,11 @@ class StreamingZip {
         fclose($handle);
 
         // Central directory entry
+        // 使用 UTF-8 標記 (bit 11 = 0x0800)
         $cdr = "\x50\x4b\x01\x02";
         $cdr .= "\x14\x00";
         $cdr .= "\x14\x00";
-        $cdr .= "\x00\x00";
+        $cdr .= "\x00\x08"; // General purpose bit flag: bit 11 set for UTF-8
         $cdr .= "\x00\x00"; // Store method
         $cdr .= "\x00\x00\x00\x00";
         $cdr .= pack('V', $crc);
@@ -171,7 +190,8 @@ class StreamingZip {
         $this->fileCount++;
     }
 
-    public function finish() {
+    public function finish()
+    {
         $cdr = implode('', $this->centralDir);
         echo $cdr;
 
@@ -188,7 +208,8 @@ class StreamingZip {
         flush();
     }
 
-    private function fileCrc32($path) {
+    private function fileCrc32($path)
+    {
         $hash = hash_file('crc32b', $path);
         return hexdec($hash);
     }
@@ -197,11 +218,13 @@ class StreamingZip {
 /**
  * Pure PHP ZIP extraction class
  */
-class PureZipExtract {
+class PureZipExtract
+{
     private $zipData;
     private $files = [];
 
-    public function open($path) {
+    public function open($path)
+    {
         if (!file_exists($path)) {
             return false;
         }
@@ -209,7 +232,8 @@ class PureZipExtract {
         return $this->parse();
     }
 
-    private function parse() {
+    private function parse()
+    {
         $offset = 0;
         $len = strlen($this->zipData);
 
@@ -246,7 +270,8 @@ class PureZipExtract {
         return count($this->files) > 0;
     }
 
-    public function extractTo($path) {
+    public function extractTo($path)
+    {
         if (!is_dir($path)) {
             mkdir($path, 0755, true);
         }
@@ -267,7 +292,8 @@ class PureZipExtract {
         return true;
     }
 
-    public function getFiles() {
+    public function getFiles()
+    {
         return array_keys($this->files);
     }
 }

@@ -15,7 +15,7 @@
     --input-bg: #fff;
     --input-border: #ddd;
     --modal-bg: #fff;
-    --shadow: rgba(0,0,0,0.08);
+    --shadow: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] {
@@ -29,7 +29,7 @@
     --input-bg: #16213e;
     --input-border: #0f3460;
     --modal-bg: #16213e;
-    --shadow: rgba(0,0,0,0.3);
+    --shadow: rgba(0, 0, 0, 0.3);
 }
 
 body {
@@ -59,7 +59,7 @@ body {
     position: absolute;
     top: 15px;
     right: 15px;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     border: none;
     color: #fff;
     width: 32px;
@@ -70,7 +70,7 @@ body {
 }
 
 .dark-mode-btn:hover {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-header {
@@ -80,7 +80,7 @@ body {
 .sidebar-header {
     padding: 20px;
     text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-header h2 {
@@ -94,7 +94,7 @@ body {
 }
 
 .menu-item {
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .menu-item a {
@@ -115,7 +115,7 @@ body {
 }
 
 .menu-item a:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255, 255, 255, 0.1);
     padding-left: 25px;
 }
 
@@ -291,7 +291,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     justify-content: center;
     align-items: center;
@@ -347,28 +347,287 @@ textarea.form-control {
 
 .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
     transition: all 0.3s ease;
 }
 
 /* 響應式設計 */
 @media (max-width: 768px) {
+
+    /* 側邊欄 - 預設隱藏，可滑出 */
     .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
+        position: fixed;
+        left: -260px;
+        top: 0;
+        width: 260px;
+        height: 100vh;
+        z-index: 2000;
+        transition: left 0.3s ease;
     }
 
+    .sidebar.open {
+        left: 0;
+    }
+
+    /* 側邊欄遮罩 */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1999;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+    }
+
+    /* 主內容區 */
     .content {
         margin-left: 0;
+        padding: 15px;
+        padding-top: 60px;
     }
 
     .container {
         flex-direction: column;
     }
 
+    /* 漢堡選單按鈕 */
+    .mobile-menu-btn {
+        display: flex !important;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1998;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 15px;
+        border-radius: 8px;
+        font-size: 1.2rem;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    /* 標題調整 */
+    .content-header h1 {
+        font-size: 1.5rem;
+        margin-left: 50px;
+    }
+
+    /* 表格響應式 */
+    .table {
+        font-size: 0.85rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 8px 6px;
+    }
+
+    /* 隱藏部分表格欄位 */
+    .table .hide-mobile {
+        display: none;
+    }
+
+    /* 按鈕組 */
+    .btn-group,
+    .content-header .btn {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+
+    /* 表單行 */
     .form-row {
         flex-direction: column;
         gap: 0;
+    }
+
+    /* 彈窗 */
+    .modal-content {
+        width: 95%;
+        max-width: none;
+        padding: 20px;
+        margin: 10px;
+        max-height: 85vh;
+    }
+
+    /* 歌詞面板 - 手機版移到底部 */
+    .lyrics-panel {
+        position: fixed;
+        right: 0;
+        bottom: 60px;
+        left: 0;
+        top: auto;
+        width: 100%;
+        height: 40vh;
+        max-height: 40vh;
+        border-radius: 15px 15px 0 0;
+        z-index: 1500;
+    }
+
+    .lyrics-panel .lyrics-header {
+        padding: 10px 15px;
+    }
+
+    .lyrics-panel .lyrics-content {
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+
+    /* 音樂播放器 */
+    #musicPlayerBar {
+        padding: 8px 15px;
+    }
+
+    #musicPlayerBar .player-title {
+        font-size: 0.85rem;
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* 兩層選擇彈窗 */
+    .two-layer-modal .modal-content {
+        padding: 15px;
+    }
+
+    .two-layer-lang-btn,
+    .two-layer-sub-btn {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+    }
+
+    /* 卡片網格 */
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* 版本管理彈窗 */
+    #versionsModal .modal-content {
+        width: 95%;
+    }
+}
+
+/* 更小螢幕的額外調整 */
+@media (max-width: 480px) {
+    .content {
+        padding: 10px;
+        padding-top: 55px;
+    }
+
+    .content-header h1 {
+        font-size: 1.3rem;
+    }
+
+    .table {
+        font-size: 0.8rem;
+    }
+
+    .btn-sm {
+        padding: 3px 6px;
+        font-size: 0.7rem;
+    }
+
+    /* 播放器更緊湊 */
+    #musicPlayerBar audio {
+        width: 100px;
+    }
+}
+
+/* 漢堡選單 - 桌面版隱藏 */
+.mobile-menu-btn {
+    display: none;
+}
+
+/* 側邊欄遮罩 - 桌面版隱藏 */
+.sidebar-overlay {
+    display: none;
+}
+
+/* 150% 縮放和中等螢幕優化 (約 1280px 以下，相當於 150% 縮放) */
+@media (max-width: 1280px) {
+    .sidebar {
+        width: 180px;
+    }
+
+    .content {
+        margin-left: 180px;
+        padding: 20px;
+    }
+
+    /* 歌詞面板適應 */
+    .lyrics-panel {
+        width: 280px;
+    }
+
+    .table {
+        font-size: 0.9rem;
+    }
+
+    .btn {
+        padding: 8px 14px;
+        font-size: 0.9rem;
+    }
+
+    /* 彈窗內表單行改為單欄 */
+    .modal-content .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    /* 彈窗寬度調整 */
+    .modal-content {
+        max-width: 450px;
+    }
+}
+
+/* 更高縮放級別 (約 1024px 以下) */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 160px;
+    }
+
+    .content {
+        margin-left: 160px;
+        padding: 15px;
+    }
+
+    .lyrics-panel {
+        width: 250px;
+    }
+
+    .content-header h1 {
+        font-size: 1.4rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 10px 8px;
+    }
+
+    /* 隱藏非必要欄位 */
+    .table .hide-zoom {
+        display: none;
+    }
+
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 0.8rem;
     }
 }

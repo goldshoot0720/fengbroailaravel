@@ -521,8 +521,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             document.getElementById('lyricsContent').textContent = songData.lyrics;
                             document.getElementById('lyricsPanel').style.display = 'block';
                         } else {
-                            // 當前版本沒有歌詞，嘗試查找同歌曲其他版本
-                            findFallbackLyrics(songData.name);
+                            // 當前版本沒有歌詞，嘗試查找同歌曲其他版本（優先同語言）
+                            findFallbackLyrics(songData.name, songData.language);
                         }
                     }
                 })
@@ -530,26 +530,33 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         }
     }
 
-    // 查找回退歌詞（同歌曲其他版本）
-    function findFallbackLyrics(songName) {
+    // 查找回退歌詞（優先同語言類別）
+    function findFallbackLyrics(songName, currentLanguage) {
         fetch(`api.php?action=list&table=${TABLE}`)
             .then(r => r.json())
             .then(res => {
                 if (res.success && res.data) {
-                    // 找到同名歌曲中有歌詞的版本
-                    const lyricsVersion = res.data.find(item => 
-                        item.name === songName && 
-                        item.lyrics && 
+                    // 過濾出同名歌曲的所有版本
+                    const sameSongVersions = res.data.filter(item =>
+                        item.name === songName &&
+                        item.lyrics &&
                         item.lyrics.trim() !== ''
                     );
-                    
-                    if (lyricsVersion) {
-                        document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞 (' + (lyricsVersion.language || '其他版本') + ')';
-                        document.getElementById('lyricsContent').textContent = lyricsVersion.lyrics;
+
+                    // 只查找同語言類別的版本，不跨語言回退
+                    const baseLanguage = getBaseLanguage(currentLanguage);
+                    const sameLangVersion = sameSongVersions.find(item =>
+                        getBaseLanguage(item.language || '') === baseLanguage
+                    );
+
+                    if (sameLangVersion) {
+                        document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞 (' + (sameLangVersion.language || baseLanguage) + ')';
+                        document.getElementById('lyricsContent').textContent = sameLangVersion.lyrics;
                         document.getElementById('lyricsPanel').style.display = 'block';
                     } else {
+                        // 同語言類別沒有歌詞
                         document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞';
-                        document.getElementById('lyricsContent').textContent = '暫無歌詞';
+                        document.getElementById('lyricsContent').textContent = '暫無' + baseLanguage + '歌詞';
                         document.getElementById('lyricsPanel').style.display = 'block';
                     }
                 }
@@ -560,6 +567,16 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 document.getElementById('lyricsContent').textContent = '暫無歌詞';
                 document.getElementById('lyricsPanel').style.display = 'block';
             });
+    }
+
+    // 取得基礎語言類別
+    function getBaseLanguage(lang) {
+        if (!lang) return '其他';
+        const mainLanguages = ['中文', '英語', '日語', '韓語', '粵語'];
+        for (const main of mainLanguages) {
+            if (lang.indexOf(main) === 0) return main;
+        }
+        return '其他';
     }
 
     function playSelected(selectId) {
