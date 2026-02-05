@@ -205,6 +205,8 @@ sort($categories);
 }
 </style>
 
+<?php include 'includes/upload-progress.php'; ?>
+
 <script>
 const TABLE = 'article';
 
@@ -371,27 +373,18 @@ function uploadFile(num) {
     const input = document.getElementById('fileInput' + num);
     if (!input.files || !input.files[0]) return;
 
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-
-    fetch('upload.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
+    uploadFileWithProgress(input.files[0],
+        function(res) {
             document.getElementById('file' + num).value = res.file;
             document.getElementById('file' + num + 'name').value = res.filename;
             document.getElementById('file' + num + 'type').value = res.filetype;
             updateFilePreview(num);
-        } else {
-            alert('上傳失敗: ' + (res.error || ''));
+        },
+        function(error) {
+            alert('上傳失敗: ' + error);
         }
-    })
-    .catch(err => {
-        alert('上傳失敗: ' + err.message);
-    });
+    );
+    input.value = '';
 }
 
 function updateFilePreview(num) {

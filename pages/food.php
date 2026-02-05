@@ -97,6 +97,8 @@ $items = $pdo->query("SELECT * FROM food ORDER BY created_at DESC")->fetchAll();
     </div>
 </div>
 
+<?php include 'includes/upload-progress.php'; ?>
+
 <script>
 const TABLE = 'food';
 
@@ -174,25 +176,16 @@ function uploadPhoto() {
     const input = document.getElementById('photoFile');
     if (!input.files || !input.files[0]) return;
 
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-
-    fetch('upload.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
+    uploadFileWithProgress(input.files[0],
+        function(res) {
             document.getElementById('photo').value = res.file;
             updatePhotoPreview();
-        } else {
-            alert('上傳失敗: ' + (res.error || ''));
+        },
+        function(error) {
+            alert('上傳失敗: ' + error);
         }
-    })
-    .catch(err => {
-        alert('上傳失敗: ' + err.message);
-    });
+    );
+    input.value = '';
 }
 
 function updatePhotoPreview() {

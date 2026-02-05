@@ -32,6 +32,36 @@ $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
 
 $recentSubscriptions = $pdo->query("SELECT * FROM subscription ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")->fetchAll();
+
+// Calculate uploads folder size
+function getFolderSize($dir) {
+    $size = 0;
+    if (is_dir($dir)) {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
+            $size += $file->getSize();
+        }
+    }
+    return $size;
+}
+
+function formatBytes($bytes, $precision = 2) {
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    $bytes /= pow(1024, $pow);
+    return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
+$uploadsDir = __DIR__ . '/../uploads';
+$uploadsFolderSize = getFolderSize($uploadsDir);
+$uploadsFolderSizeFormatted = formatBytes($uploadsFolderSize);
+
+// Count files in uploads
+$uploadsFileCount = 0;
+if (is_dir($uploadsDir)) {
+    $uploadsFileCount = count(glob($uploadsDir . '/*'));
+}
 ?>
 
 <div class="content-header">
@@ -75,6 +105,11 @@ $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")
         <div class="card" style="background: linear-gradient(135deg, #34495e, #2c3e50); color: #fff;">
             <h3>文件</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $documentCount; ?></p>
+        </div>
+        <div class="card" style="background: linear-gradient(135deg, #95a5a6, #7f8c8d); color: #fff;">
+            <h3>儲存空間</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $uploadsFolderSizeFormatted; ?></p>
+            <p>檔案數量: <?php echo $uploadsFileCount; ?></p>
         </div>
     </div>
 

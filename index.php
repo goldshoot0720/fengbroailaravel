@@ -4,9 +4,22 @@ require_once 'includes/functions.php';
 $page = $_GET['page'] ?? 'home';
 
 $allowedPages = [
-    'home', 'dashboard', 'subscription', 'food', 'notes',
-    'favorites', 'images', 'videos', 'music', 'documents',
-    'podcast', 'bank', 'routine', 'settings', 'about'
+    'home',
+    'dashboard',
+    'subscription',
+    'food',
+    'notes',
+    'favorites',
+    'images',
+    'videos',
+    'music',
+    'bgata',
+    'documents',
+    'podcast',
+    'bank',
+    'routine',
+    'settings',
+    'about'
 ];
 
 if (!in_array($page, $allowedPages)) {

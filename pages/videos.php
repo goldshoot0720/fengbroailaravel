@@ -11,27 +11,115 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
 
 <div class="content-body">
     <button class="btn btn-primary" onclick="openModal()">新增影片</button>
-    <?php $csvTable = 'commondocument'; include 'includes/csv_buttons.php'; ?>
+    <div style="display: inline-block; margin-left: 10px;">
+        <a href="export_zip_video.php" class="btn btn-success">
+            <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
+        </a>
+        <button type="button" class="btn" onclick="document.getElementById('importZipFile').click()">
+            <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
+        </button>
+        <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
+    </div>
 
-    <div class="card-grid" style="margin-top: 20px;">
+    <div class="video-list" style="margin-top: 20px;">
         <?php if (empty($items)): ?>
             <div class="card"><p style="text-align: center; color: #999;">暫無影片</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="card">
-                    <?php if ($item['cover']): ?>
-                        <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
-                    <?php endif; ?>
-                    <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                    <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
-                    <div style="margin-top: 15px;">
-                        <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
+                <div class="video-item" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <?php if (!empty($item['cover'])): ?>
+                                <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
+                            <?php else: ?>
+                                <div style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
+                                </div>
+                            <?php endif; ?>
+                            <div>
+                                <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                                <?php if (!empty($item['note'])): ?>
+                                    <p style="margin: 0; color: #666; font-size: 0.85rem;"><?php echo htmlspecialchars($item['note']); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <?php if (!empty($item['file'])): ?>
+                                <button class="btn btn-primary btn-sm" onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
+                                    <i class="fa-solid fa-play"></i> 播放
+                                </button>
+                            <?php endif; ?>
+                            <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+
+    <!-- Video.js CSS -->
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
+    <style>
+        /* Force 16:9 aspect ratio for video player */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 aspect ratio */
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .video-container .video-js {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* Ensure vertical videos are centered with black bars */
+        .video-js .vjs-tech {
+            object-fit: contain !important;
+        }
+        /* Make progress bar easier to click */
+        .video-js .vjs-progress-control {
+            flex: auto;
+        }
+        .video-js .vjs-progress-holder {
+            height: 8px;
+        }
+        .video-js .vjs-progress-holder:hover {
+            height: 12px;
+        }
+        .video-js .vjs-play-progress {
+            background-color: #4CAF50;
+        }
+        .video-js .vjs-load-progress {
+            background: rgba(255,255,255,0.3);
+        }
+        /* Tooltip for time preview */
+        .video-js .vjs-mouse-display {
+            display: block !important;
+        }
+    </style>
+
+    <!-- Video Player Modal -->
+    <div id="videoPlayerModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="width: 90%; max-width: 900px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="videoPlayerTitle" style="color: #fff; margin: 0;"></h3>
+                <button onclick="closeVideoPlayer()" style="background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer;">&times;</button>
+            </div>
+            <div class="video-container">
+                <video id="videoPlayer" class="video-js vjs-big-play-centered" controls preload="auto">
+                    <p class="vjs-no-js">您的瀏覽器不支援影片播放</p>
+                </video>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video.js JS -->
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 </div>
 
 <div id="modal" class="modal">
@@ -78,6 +166,8 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
         </form>
     </div>
 </div>
+
+<?php include 'includes/upload-progress.php'; ?>
 
 <script>
 const TABLE = 'commondocument';
@@ -157,29 +247,20 @@ function uploadVideo() {
     const input = document.getElementById('videoFile');
     if (!input.files || !input.files[0]) return;
 
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-
-    fetch('upload.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
+    uploadFileWithProgress(input.files[0],
+        function(res) {
             document.getElementById('file').value = res.file;
             const nameInput = document.getElementById('name');
             if (nameInput && !nameInput.value) {
                 nameInput.value = res.filename || '';
             }
             updateVideoPreview();
-        } else {
-            alert('上傳失敗: ' + (res.error || ''));
+        },
+        function(error) {
+            alert('上傳失敗: ' + error);
         }
-    })
-    .catch(err => {
-        alert('上傳失敗: ' + err.message);
-    });
+    );
+    input.value = '';
 }
 
 function updateVideoPreview() {
@@ -200,25 +281,16 @@ function uploadCover() {
     const input = document.getElementById('coverFile');
     if (!input.files || !input.files[0]) return;
 
-    const formData = new FormData();
-    formData.append('file', input.files[0]);
-
-    fetch('upload.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
+    uploadFileWithProgress(input.files[0],
+        function(res) {
             document.getElementById('cover').value = res.file;
             updateCoverPreview();
-        } else {
-            alert('上傳失敗: ' + (res.error || ''));
+        },
+        function(error) {
+            alert('上傳失敗: ' + error);
         }
-    })
-    .catch(err => {
-        alert('上傳失敗: ' + err.message);
-    });
+    );
+    input.value = '';
 }
 
 function updateCoverPreview() {
@@ -234,4 +306,165 @@ function updateCoverPreview() {
 
 document.getElementById('cover').addEventListener('change', updateCoverPreview);
 document.getElementById('cover').addEventListener('input', updateCoverPreview);
+
+let vjsPlayer = null;
+
+function initVideoJS() {
+    if (!vjsPlayer) {
+        vjsPlayer = videojs('videoPlayer', {
+            controls: true,
+            autoplay: true,
+            preload: 'auto',
+            fill: true,
+            playbackRates: [0.5, 1, 1.25, 1.5, 2],
+            userActions: {
+                hotkeys: true
+            },
+            controlBar: {
+                progressControl: {
+                    seekBar: true
+                },
+                children: [
+                    'playToggle',
+                    'volumePanel',
+                    'currentTimeDisplay',
+                    'timeDivider',
+                    'durationDisplay',
+                    'progressControl',
+                    'playbackRateMenuButton',
+                    'fullscreenToggle'
+                ]
+            }
+        });
+
+        // Enable keyboard shortcuts for seeking
+        vjsPlayer.on('keydown', function(e) {
+            const currentTime = vjsPlayer.currentTime();
+            const duration = vjsPlayer.duration();
+
+            switch(e.which) {
+                case 37: // Left arrow - back 5 seconds
+                    vjsPlayer.currentTime(Math.max(0, currentTime - 5));
+                    e.preventDefault();
+                    break;
+                case 39: // Right arrow - forward 5 seconds
+                    vjsPlayer.currentTime(Math.min(duration, currentTime + 5));
+                    e.preventDefault();
+                    break;
+                case 74: // J - back 10 seconds
+                    vjsPlayer.currentTime(Math.max(0, currentTime - 10));
+                    e.preventDefault();
+                    break;
+                case 76: // L - forward 10 seconds
+                    vjsPlayer.currentTime(Math.min(duration, currentTime + 10));
+                    e.preventDefault();
+                    break;
+                case 32: // Space - play/pause
+                    if (vjsPlayer.paused()) {
+                        vjsPlayer.play();
+                    } else {
+                        vjsPlayer.pause();
+                    }
+                    e.preventDefault();
+                    break;
+            }
+        });
+    }
+    return vjsPlayer;
+}
+
+function playVideo(id, src, title) {
+    const modal = document.getElementById('videoPlayerModal');
+    const titleEl = document.getElementById('videoPlayerTitle');
+
+    titleEl.textContent = title;
+    modal.style.display = 'flex';
+
+    const player = initVideoJS();
+    player.src({ type: 'video/mp4', src: src });
+    player.play();
+}
+
+function closeVideoPlayer() {
+    const modal = document.getElementById('videoPlayerModal');
+
+    if (vjsPlayer) {
+        vjsPlayer.pause();
+        vjsPlayer.src('');
+    }
+    modal.style.display = 'none';
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeVideoPlayer();
+    }
+});
+
+// Close modal on background click
+document.getElementById('videoPlayerModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeVideoPlayer();
+    }
+});
+
+function importZIP(input) {
+    if (!input.files || !input.files[0]) return;
+
+    if (!confirm('確定要匯入 ZIP 嗎？影片將會新增到資料庫。')) {
+        input.value = '';
+        return;
+    }
+
+    const file = input.files[0];
+    const modal = document.getElementById('uploadProgressModal');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressText = document.getElementById('uploadProgressText');
+    const fileName = document.getElementById('uploadFileName');
+
+    modal.style.display = 'flex';
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    fileName.textContent = file.name;
+
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percent + '%';
+            progressText.textContent = percent + '%';
+            const loaded = formatFileSize(e.loaded);
+            const total = formatFileSize(e.total);
+            fileName.textContent = file.name + ' (' + loaded + ' / ' + total + ')';
+        }
+    });
+
+    xhr.addEventListener('load', function() {
+        modal.style.display = 'none';
+        try {
+            const res = JSON.parse(xhr.responseText);
+            if (res.success) {
+                alert('匯入完成！\n成功匯入: ' + res.imported + ' 部影片');
+                location.reload();
+            } else {
+                alert('匯入失敗: ' + (res.error || '未知錯誤'));
+            }
+        } catch (e) {
+            alert('匯入失敗: 回應格式錯誤');
+        }
+    });
+
+    xhr.addEventListener('error', function() {
+        modal.style.display = 'none';
+        alert('匯入失敗: 網路錯誤');
+    });
+
+    xhr.open('POST', 'import_zip_video.php');
+    xhr.send(formData);
+    input.value = '';
+}
 </script>

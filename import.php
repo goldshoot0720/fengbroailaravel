@@ -1,4 +1,20 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+// Catch all errors and return as JSON
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => "Error: $errstr in $errfile on line $errline"]);
+    exit;
+});
+
+set_exception_handler(function($e) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => $e->getMessage()]);
+    exit;
+});
+
 require_once 'includes/functions.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -37,7 +53,7 @@ if ($bom !== "\xEF\xBB\xBF") {
 }
 
 // 讀取標頭
-$headers = fgetcsv($handle);
+$headers = fgetcsv($handle, 0, ',', '"', '\\');
 if (!$headers) {
     jsonResponse(['error' => 'CSV 格式錯誤'], 400);
 }
@@ -51,7 +67,7 @@ $headers = array_map(function($h) use ($fieldMapping) {
 $imported = 0;
 $errors = [];
 
-while (($row = fgetcsv($handle)) !== false) {
+while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
     if (count($row) !== count($headers)) {
         continue;
     }
