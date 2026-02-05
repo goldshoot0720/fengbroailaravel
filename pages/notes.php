@@ -2,10 +2,33 @@
 $pageTitle = '筆記本';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll();
+$categories = [];
+$hasUncategorized = false;
+foreach ($items as $item) {
+    $category = trim($item['category'] ?? '');
+    if ($category !== '') {
+        $categories[$category] = true;
+    } else {
+        $hasUncategorized = true;
+    }
+}
+$categories = array_keys($categories);
+sort($categories);
 ?>
 
-<div class="content-header">
+<div class="content-header" style="display: flex; align-items: center; justify-content: space-between;">
     <h1>鋒兄筆記</h1>
+    <div>
+        <select id="categoryFilter" class="form-control" onchange="filterNotes()">
+            <option value="__all">全部分類</option>
+            <?php foreach ($categories as $category): ?>
+                <option value="<?php echo htmlspecialchars($category); ?>"><?php echo htmlspecialchars($category); ?></option>
+            <?php endforeach; ?>
+            <?php if ($hasUncategorized): ?>
+                <option value="__uncategorized">未分類筆記</option>
+            <?php endif; ?>
+        </select>
+    </div>
 </div>
 
 <div class="content-body">
@@ -17,10 +40,23 @@ $items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll
             <div class="card"><p style="text-align: center; color: #999;">暫無筆記資料</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="card">
+                <div class="card" data-category="<?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '__uncategorized'); ?>">
                     <h3 class="card-title"><?php echo htmlspecialchars($item['title']); ?></h3>
-                    <p style="color: #666; margin-bottom: 10px;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
-                    <p style="margin-bottom: 15px;"><?php echo nl2br(htmlspecialchars(mb_substr($item['content'] ?? '', 0, 100))); ?>...</p>
+                    <p style="color: #666; margin-bottom: 10px;"><?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '未分類筆記'); ?></p>
+                    <?php
+                    $content = $item['content'] ?? '';
+                    $shortContent = mb_substr($content, 0, 100);
+                    $isLongContent = mb_strlen($content) > 100;
+                    ?>
+                    <p id="contentShort-<?php echo $item['id']; ?>" style="margin-bottom: 15px;"><?php echo nl2br(htmlspecialchars($shortContent)); ?><?php echo $isLongContent ? '...' : ''; ?></p>
+                    <p id="contentFull-<?php echo $item['id']; ?>" style="margin-bottom: 15px; display: none;"><?php echo nl2br(htmlspecialchars($content)); ?></p>
+                    <textarea id="contentRaw-<?php echo $item['id']; ?>" style="display: none;"><?php echo htmlspecialchars($content); ?></textarea>
+                    <div style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <?php if ($isLongContent): ?>
+                            <button id="contentToggle-<?php echo $item['id']; ?>" type="button" class="btn btn-sm" onclick="toggleNoteContent('<?php echo $item['id']; ?>')">完整顯示</button>
+                        <?php endif; ?>
+                        <button type="button" class="btn btn-sm" onclick="copyNoteContent('<?php echo $item['id']; ?>')">複製內容</button>
+                    </div>
                     <?php
                     // 顯示檔案
                     $hasFiles = false;
@@ -89,7 +125,19 @@ $items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll
             <div class="form-row">
                 <div class="form-group" style="flex:1">
                     <label>分類</label>
-                    <input type="text" class="form-control" id="category" name="category">
+                    <input type="text" class="form-control" id="category" name="category" list="categoryOptions" placeholder="可選既有分類或自行輸入">
+                    <datalist id="categoryOptions">
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?php echo htmlspecialchars($category); ?>"></option>
+                        <?php endforeach; ?>
+                    </datalist>
+                    <?php if (!empty($categories)): ?>
+                        <div style="margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap;">
+                            <?php foreach ($categories as $category): ?>
+                                <button type="button" class="btn btn-sm" onclick="setCategory('<?php echo htmlspecialchars($category); ?>')"><?php echo htmlspecialchars($category); ?></button>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group" style="flex:1">
                     <label>參考</label>
@@ -159,6 +207,72 @@ $items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll
 
 <script>
 const TABLE = 'article';
+
+function toggleNoteContent(id) {
+    const shortEl = document.getElementById('contentShort-' + id);
+    const fullEl = document.getElementById('contentFull-' + id);
+    const toggleBtn = document.getElementById('contentToggle-' + id);
+    if (!shortEl || !fullEl || !toggleBtn) return;
+
+    const isShortVisible = shortEl.style.display !== 'none';
+    if (isShortVisible) {
+        shortEl.style.display = 'none';
+        fullEl.style.display = 'block';
+        toggleBtn.textContent = '簡要顯示';
+    } else {
+        shortEl.style.display = 'block';
+        fullEl.style.display = 'none';
+        toggleBtn.textContent = '完整顯示';
+    }
+}
+
+function filterNotes() {
+    const select = document.getElementById('categoryFilter');
+    if (!select) return;
+    const value = select.value;
+    const cards = document.querySelectorAll('.card-grid .card');
+    cards.forEach(card => {
+        const category = card.getAttribute('data-category') || '';
+        if (value === '__all') {
+            card.style.display = '';
+        } else if (value === '__uncategorized') {
+            card.style.display = category === '__uncategorized' ? '' : 'none';
+        } else {
+            card.style.display = category === value ? '' : 'none';
+        }
+    });
+}
+
+function copyNoteContent(id) {
+    const rawEl = document.getElementById('contentRaw-' + id);
+    if (!rawEl) return;
+    const text = rawEl.value || '';
+    if (!text) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+            .then(() => alert('已複製'))
+            .catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    alert('已複製');
+}
+
+function setCategory(value) {
+    const input = document.getElementById('category');
+    if (!input) return;
+    input.value = value;
+}
 
 function openModal() {
     document.getElementById('modal').style.display = 'flex';

@@ -18,8 +18,10 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <div class="card">
-                    <?php if ($item['cover']): ?>
+                    <?php if (!empty($item['cover'])): ?>
                         <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
+                    <?php elseif (!empty($item['file'])): ?>
+                        <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
                     <?php endif; ?>
                     <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
                     <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
@@ -46,11 +48,14 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
             </div>
             <div class="form-group">
                 <label>檔案路徑</label>
-                <input type="text" class="form-control" id="file" name="file">
-            </div>
-            <div class="form-group">
-                <label>封面圖網址</label>
-                <input type="url" class="form-control" id="cover" name="cover">
+                <input type="text" class="form-control" id="file" name="file" placeholder="輸入圖片網址或上傳">
+                <div style="margin-top: 8px;">
+                    <input type="file" id="imageFile" accept="image/*" onchange="uploadImage()" style="display: none;">
+                    <button type="button" class="btn" onclick="document.getElementById('imageFile').click()">
+                        <i class="fa-solid fa-upload"></i> 上傳圖片
+                    </button>
+                </div>
+                <div id="imagePreview" style="margin-top: 10px;"></div>
             </div>
             <div class="form-row">
                 <div class="form-group" style="flex:1">
@@ -64,7 +69,7 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
             </div>
             <div class="form-group">
                 <label>備註</label>
-                <input type="text" class="form-control" id="note" name="note">
+                <textarea class="form-control" id="note" name="note" rows="4"></textarea>
             </div>
             <button type="submit" class="btn btn-primary">儲存</button>
         </form>
@@ -94,10 +99,10 @@ function editItem(id) {
                 document.getElementById('itemId').value = d.id;
                 document.getElementById('name').value = d.name || '';
                 document.getElementById('file').value = d.file || '';
-                document.getElementById('cover').value = d.cover || '';
                 document.getElementById('category').value = d.category || '';
                 document.getElementById('ref').value = d.ref || '';
                 document.getElementById('note').value = d.note || '';
+                updateImagePreview();
                 document.getElementById('modalTitle').textContent = '編輯圖片';
                 document.getElementById('modal').style.display = 'flex';
             }
@@ -124,7 +129,7 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     const data = {
         name: document.getElementById('name').value,
         file: document.getElementById('file').value,
-        cover: document.getElementById('cover').value,
+        cover: document.getElementById('file').value,
         category: document.getElementById('category').value,
         ref: document.getElementById('ref').value,
         note: document.getElementById('note').value
@@ -141,4 +146,47 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         else alert('儲存失敗: ' + (res.error || ''));
     });
 });
+
+function uploadImage() {
+    const input = document.getElementById('imageFile');
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    fetch('upload.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('file').value = res.file;
+            const nameInput = document.getElementById('name');
+            if (nameInput && !nameInput.value) {
+                nameInput.value = res.filename || '';
+            }
+            updateImagePreview();
+        } else {
+            alert('上傳失敗: ' + (res.error || ''));
+        }
+    })
+    .catch(err => {
+        alert('上傳失敗: ' + err.message);
+    });
+}
+
+function updateImagePreview() {
+    const file = document.getElementById('file').value;
+    const preview = document.getElementById('imagePreview');
+
+    if (file) {
+        preview.innerHTML = `<img src="${file}" style="max-width: 150px; max-height: 150px; border-radius: 5px;">`;
+    } else {
+        preview.innerHTML = '';
+    }
+}
+
+document.getElementById('file').addEventListener('change', updateImagePreview);
+document.getElementById('file').addEventListener('input', updateImagePreview);
 </script>

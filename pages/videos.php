@@ -46,11 +46,25 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
             </div>
             <div class="form-group">
                 <label>檔案路徑</label>
-                <input type="text" class="form-control" id="file" name="file">
+                <input type="text" class="form-control" id="file" name="file" placeholder="輸入影片網址或上傳">
+                <div style="margin-top: 8px;">
+                    <input type="file" id="videoFile" accept="video/*" onchange="uploadVideo()" style="display: none;">
+                    <button type="button" class="btn" onclick="document.getElementById('videoFile').click()">
+                        <i class="fa-solid fa-upload"></i> 上傳影片
+                    </button>
+                </div>
+                <div id="videoPreview" style="margin-top: 10px;"></div>
             </div>
             <div class="form-group">
-                <label>封面圖網址</label>
-                <input type="url" class="form-control" id="cover" name="cover">
+                <label>封面圖</label>
+                <input type="text" class="form-control" id="cover" name="cover" placeholder="輸入封面圖網址或上傳">
+                <div style="margin-top: 8px;">
+                    <input type="file" id="coverFile" accept="image/*" onchange="uploadCover()" style="display: none;">
+                    <button type="button" class="btn" onclick="document.getElementById('coverFile').click()">
+                        <i class="fa-solid fa-upload"></i> 上傳封面圖
+                    </button>
+                </div>
+                <div id="coverPreview" style="margin-top: 10px;"></div>
             </div>
             <div class="form-group">
                 <label>參考</label>
@@ -58,7 +72,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
             </div>
             <div class="form-group">
                 <label>備註</label>
-                <input type="text" class="form-control" id="note" name="note">
+                <textarea class="form-control" id="note" name="note" rows="4"></textarea>
             </div>
             <button type="submit" class="btn btn-primary">儲存</button>
         </form>
@@ -73,6 +87,8 @@ function openModal() {
     document.getElementById('modalTitle').textContent = '新增影片';
     document.getElementById('itemForm').reset();
     document.getElementById('itemId').value = '';
+    updateVideoPreview();
+    updateCoverPreview();
 }
 
 function closeModal() {
@@ -93,6 +109,8 @@ function editItem(id) {
                 document.getElementById('note').value = d.note || '';
                 document.getElementById('modalTitle').textContent = '編輯影片';
                 document.getElementById('modal').style.display = 'flex';
+                updateVideoPreview();
+                updateCoverPreview();
             }
         });
 }
@@ -134,4 +152,86 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         else alert('儲存失敗: ' + (res.error || ''));
     });
 });
+
+function uploadVideo() {
+    const input = document.getElementById('videoFile');
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    fetch('upload.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('file').value = res.file;
+            const nameInput = document.getElementById('name');
+            if (nameInput && !nameInput.value) {
+                nameInput.value = res.filename || '';
+            }
+            updateVideoPreview();
+        } else {
+            alert('上傳失敗: ' + (res.error || ''));
+        }
+    })
+    .catch(err => {
+        alert('上傳失敗: ' + err.message);
+    });
+}
+
+function updateVideoPreview() {
+    const file = document.getElementById('file').value;
+    const preview = document.getElementById('videoPreview');
+
+    if (file) {
+        preview.innerHTML = `<video src="${file}" controls style="max-width: 100%; max-height: 200px; border-radius: 5px;"></video>`;
+    } else {
+        preview.innerHTML = '';
+    }
+}
+
+document.getElementById('file').addEventListener('change', updateVideoPreview);
+document.getElementById('file').addEventListener('input', updateVideoPreview);
+
+function uploadCover() {
+    const input = document.getElementById('coverFile');
+    if (!input.files || !input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    fetch('upload.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('cover').value = res.file;
+            updateCoverPreview();
+        } else {
+            alert('上傳失敗: ' + (res.error || ''));
+        }
+    })
+    .catch(err => {
+        alert('上傳失敗: ' + err.message);
+    });
+}
+
+function updateCoverPreview() {
+    const file = document.getElementById('cover').value;
+    const preview = document.getElementById('coverPreview');
+
+    if (file) {
+        preview.innerHTML = `<img src="${file}" style="max-width: 100%; max-height: 150px; border-radius: 5px;">`;
+    } else {
+        preview.innerHTML = '';
+    }
+}
+
+document.getElementById('cover').addEventListener('change', updateCoverPreview);
+document.getElementById('cover').addEventListener('input', updateCoverPreview);
 </script>

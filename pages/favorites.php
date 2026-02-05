@@ -18,15 +18,19 @@ $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fe
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <div class="card">
-                    <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                    <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                    <?php for ($i = 1; $i <= 37; $i++): ?>
                         <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
                         <?php $noteKey = 'note' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
                         <?php if (!empty($item[$siteKey])): ?>
-                            <p style="margin: 5px 0; font-size: 0.9rem;">
-                                <strong><?php echo $item[$noteKey] ?? "項目{$i}"; ?>:</strong>
-                                <?php echo htmlspecialchars($item[$siteKey]); ?>
-                            </p>
+                            <div style="margin: 6px 0; display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;">
+                                <?php if (!empty($item[$noteKey])): ?>
+                                    <span style="background: #eef6ff; color: #2c3e50; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem;">
+                                        <?php echo htmlspecialchars($item[$noteKey]); ?>
+                                    </span>
+                                <?php endif; ?>
+                                <span style="font-size: 0.95rem; word-break: break-all;"><?php echo htmlspecialchars($item[$siteKey]); ?></span>
+                            </div>
                         <?php endif; ?>
                     <?php endfor; ?>
                     <div style="margin-top: 15px;">
