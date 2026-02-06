@@ -39,8 +39,8 @@ $subExpiring3Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1
 $subExpiring7Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate > DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY nextdate ASC")->fetchAll();
 
 // 食品到期提醒 (7天、30天內)
-$foodExpiring7Days = $pdo->query("SELECT * FROM food WHERE expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND expiry_date >= CURDATE() ORDER BY expiry_date ASC")->fetchAll();
-$foodExpiring30Days = $pdo->query("SELECT * FROM food WHERE expiry_date IS NOT NULL AND expiry_date > DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) ORDER BY expiry_date ASC")->fetchAll();
+$foodExpiring7Days = $pdo->query("SELECT * FROM food WHERE todate IS NOT NULL AND todate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND todate >= CURDATE() ORDER BY todate ASC")->fetchAll();
+$foodExpiring30Days = $pdo->query("SELECT * FROM food WHERE todate IS NOT NULL AND todate > DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND todate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) ORDER BY todate ASC")->fetchAll();
 
 $recentSubscriptions = $pdo->query("SELECT * FROM subscription ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")->fetchAll();
@@ -193,7 +193,7 @@ if (is_dir($uploadsDir)) {
                                 <li
                                     style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
                                     <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
-                                    <span style="color: #e74c3c;"><?php echo date('m/d', strtotime($food['expiry_date'])); ?></span>
+                                    <span style="color: #e74c3c;"><?php echo date('m/d', strtotime($food['todate'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -208,7 +208,7 @@ if (is_dir($uploadsDir)) {
                                 <li
                                     style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
                                     <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
-                                    <span style="color: #f39c12;"><?php echo date('m/d', strtotime($food['expiry_date'])); ?></span>
+                                    <span style="color: #f39c12;"><?php echo date('m/d', strtotime($food['todate'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
