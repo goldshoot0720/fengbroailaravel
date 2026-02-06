@@ -2,10 +2,63 @@
 $pageTitle = '常用項目';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fetchAll();
+
+// 收集所有已存在的網站名稱（去重）
+$existingSites = [];
+foreach ($items as $item) {
+    for ($i = 1; $i <= 37; $i++) {
+        $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+        if (!empty($item[$siteKey])) {
+            $siteName = trim($item[$siteKey]);
+            if (!in_array($siteName, $existingSites)) {
+                $existingSites[] = $siteName;
+            }
+        }
+    }
+}
+sort($existingSites);
 ?>
 
-<div class="content-header">
+<?php
+// 收集所有網站名稱及其出現的帳號
+$siteAccounts = [];
+foreach ($items as $item) {
+    for ($i = 1; $i <= 37; $i++) {
+        $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+        if (!empty($item[$siteKey])) {
+            $siteName = trim($item[$siteKey]);
+            if (!isset($siteAccounts[$siteName])) {
+                $siteAccounts[$siteName] = [];
+            }
+            if (!in_array($item['id'], $siteAccounts[$siteName])) {
+                $siteAccounts[$siteName][] = $item['id'];
+            }
+        }
+    }
+}
+// 只保留出現在多個帳號中的網站
+$commonSites = array_filter($siteAccounts, function ($accounts) {
+    return count($accounts) >= 2;
+});
+// 按出現次數排序
+uasort($commonSites, function ($a, $b) {
+    return count($b) - count($a);
+});
+?>
+
+<div class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
     <h1>鋒兄常用</h1>
+    <?php if (!empty($commonSites)): ?>
+    <div class="common-site-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <span style="color: #666; font-size: 0.9rem;"><i class="fas fa-filter"></i> 篩選:</span>
+        <button class="btn btn-sm filter-btn active" onclick="filterBySite('')" data-site="">全部</button>
+        <?php foreach ($commonSites as $siteName => $accountIds): ?>
+            <button class="btn btn-sm filter-btn" onclick="filterBySite('<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>')" data-site="<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>">
+                <?php echo htmlspecialchars($siteName); ?> (<?php echo count($accountIds); ?>)
+            </button>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div class="content-body">
@@ -19,8 +72,17 @@ $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fe
                 <p style="text-align: center; color: #999;">暫無常用網站與備註</p>
             </div>
         <?php else: ?>
-            <?php foreach ($items as $item): ?>
-                <div class="card">
+            <?php foreach ($items as $item):
+                // 收集此帳號的所有網站
+                $itemSites = [];
+                for ($i = 1; $i <= 37; $i++) {
+                    $sk = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+                    if (!empty($item[$sk])) {
+                        $itemSites[] = trim($item[$sk]);
+                    }
+                }
+            ?>
+                <div class="card" data-sites="<?php echo htmlspecialchars(implode('|', $itemSites), ENT_QUOTES); ?>">
                     <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
                     <?php for ($i = 1; $i <= 37; $i++): ?>
                         <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
@@ -41,7 +103,6 @@ $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fe
                         <?php endif; ?>
                     <?php endfor; ?>
                     <div style="margin-top: 15px;">
-                        <button class="btn btn-sm" onclick="viewItem('<?php echo $item['id']; ?>')">查看</button>
                         <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
                     </div>
@@ -78,9 +139,118 @@ $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fe
     </div>
 </div>
 
+<div id="commonSitesModal" class="modal">
+    <div class="modal-content" style="max-width: 700px; max-height: 80vh;">
+        <span class="modal-close" onclick="closeCommonSitesModal()">&times;</span>
+        <h2><i class="fas fa-link"></i> 共同網站分析</h2>
+        <p style="color: #666; margin-bottom: 15px;">以下網站出現在多個帳號中：</p>
+        <div id="commonSitesContent">
+            <?php if (empty($commonSites)): ?>
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <i class="fas fa-search" style="font-size: 48px; margin-bottom: 15px;"></i>
+                    <p>沒有找到共同的網站</p>
+                </div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">網站名稱</th>
+                            <th style="width: 15%;">出現次數</th>
+                            <th style="width: 55%;">相關帳號</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($commonSites as $siteName => $accounts): ?>
+                            <tr>
+                                <td style="font-weight: 600; color: #2c3e50;"><?php echo htmlspecialchars($siteName); ?></td>
+                                <td>
+                                    <span
+                                        style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">
+                                        <?php echo count($accounts); ?>
+                                    </span>
+                                </td>
+                                <td style="font-size: 0.9rem; color: #555;">
+                                    <?php echo htmlspecialchars(implode('、', $accounts)); ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<style>
+.filter-btn {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    color: #555;
+    transition: all 0.2s;
+}
+.filter-btn:hover {
+    background: #e0e0e0;
+}
+.filter-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-color: transparent;
+}
+</style>
+
 <script>
     const TABLE = 'commonaccount';
     let fieldCount = 0;
+    const existingSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
+
+    function showCommonSites() {
+        document.getElementById('commonSitesModal').style.display = 'flex';
+    }
+
+    function closeCommonSitesModal() {
+        document.getElementById('commonSitesModal').style.display = 'none';
+    }
+
+    function filterBySite(siteName) {
+        // 更新按鈕狀態
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.site === siteName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // 篩選卡片
+        document.querySelectorAll('.card-grid .card').forEach(card => {
+            const sites = card.dataset.sites || '';
+            if (!siteName || sites.split('|').includes(siteName)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    function toggleSiteInput(idx) {
+        const select = document.getElementById(`siteSelect${idx}`);
+        const input = document.getElementById(`siteInput${idx}`);
+        const hidden = document.getElementById(`site${idx}`);
+
+        if (select.value === '__custom__') {
+            input.style.display = 'block';
+            input.focus();
+            hidden.value = input.value;
+        } else {
+            input.style.display = 'none';
+            hidden.value = select.value;
+        }
+    }
+
+    function updateSiteValue(idx) {
+        const input = document.getElementById(`siteInput${idx}`);
+        const hidden = document.getElementById(`site${idx}`);
+        hidden.value = input.value;
+    }
 
     function addField(note = '', site = '') {
         fieldCount++;
@@ -90,10 +260,30 @@ $items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fe
         const div = document.createElement('div');
         div.className = 'form-row';
         div.id = `field${idx}`;
+
+        // 判斷是否為已存在的網站
+        const isExisting = existingSites.includes(site);
+        const selectValue = site && isExisting ? site : (site ? '__custom__' : '');
+        const showInput = site && !isExisting;
+
+        let optionsHtml = '<option value="">-- 選擇網站 --</option>';
+        existingSites.forEach(s => {
+            const selected = (s === site) ? 'selected' : '';
+            optionsHtml += `<option value="${s}" ${selected}>${s}</option>`;
+        });
+        optionsHtml += `<option value="__custom__" ${showInput ? 'selected' : ''}>自行輸入...</option>`;
+
         div.innerHTML = `
         <div class="form-group" style="flex:1">
             <label>網站名稱 ${fieldCount}</label>
-            <input type="text" class="form-control" name="site${idx}" value="${site}">
+            <select id="siteSelect${idx}" class="form-control" onchange="toggleSiteInput('${idx}')" style="margin-bottom: 5px;">
+                ${optionsHtml}
+            </select>
+            <input type="text" class="form-control" id="siteInput${idx}" placeholder="輸入網站名稱"
+                   value="${showInput ? site : ''}"
+                   style="display: ${showInput ? 'block' : 'none'};"
+                   oninput="updateSiteValue('${idx}')">
+            <input type="hidden" id="site${idx}" name="site${idx}" value="${site}">
         </div>
         <div class="form-group" style="flex:2">
             <label>備註 ${fieldCount}</label>
