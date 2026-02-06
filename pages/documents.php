@@ -21,18 +21,22 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             <i class="fa-solid fa-exclamation-circle"></i> <?php echo htmlspecialchars($_GET['error']); ?>
         </div>
     <?php endif; ?>
-    <button class="btn btn-primary" onclick="openModal()">新增文件</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增文件"><i class="fas fa-plus"></i></button>
     <a href="export_zip_document.php" class="btn btn-success"><i class="fa-solid fa-download"></i> 匯出 ZIP</a>
     <button class="btn btn-info" onclick="document.getElementById('zipImport').click()"><i
             class="fa-solid fa-upload"></i> 匯入 ZIP</button>
-    <form id="zipImportForm" action="import_zip_document.php" method="POST" enctype="multipart/form-data"
-        style="display:none;">
-        <input type="file" name="zipfile" id="zipImport" accept=".zip" onchange="this.form.submit()">
-    </form>
+    <input type="file" id="zipImport" accept=".zip" style="display:none;"
+        onchange="previewAndImportZIP(this, 'document', 'import_zip_document_ajax.php', '文件')">
 
-    <table class="table" style="margin-top: 20px;">
+    <?php include 'includes/zip-preview.php'; ?>
+    <?php include 'includes/batch-delete.php'; ?>
+
+    <!-- 桌面版表格 -->
+    <table class="table desktop-only" style="margin-top: 20px;">
         <thead>
             <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
+                        onchange="toggleSelectAll(this)"></th>
                 <th>名稱</th>
                 <th>分類</th>
                 <th>參考</th>
@@ -44,11 +48,13 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
         <tbody>
             <?php if (empty($items)): ?>
                 <tr>
-                    <td colspan="6" style="text-align: center; color: #999;">暫無文件</td>
+                    <td colspan="7" style="text-align: center; color: #999;">暫無文件</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
                     <tr>
+                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)"></td>
                         <td><?php echo htmlspecialchars($item['name']); ?></td>
                         <td><?php echo htmlspecialchars($item['category'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($item['ref'] ?? '-'); ?></td>
@@ -61,14 +67,64 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                                     <i class="fa-solid fa-eye"></i> 預覽
                                 </button>
                             <?php endif; ?>
-                            <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
+                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
+                                style="cursor: pointer;"><i class="fas fa-pen"></i></span>
+                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                style="margin-left: 10px; cursor: pointer;">&times;</span>
                         </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>
     </table>
+
+    <!-- 手機版卡片 -->
+    <div class="mobile-only" style="margin-top: 20px;">
+        <?php if (empty($items)): ?>
+            <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無文件</div>
+        <?php else: ?>
+            <?php foreach ($items as $item): ?>
+                <div class="mobile-card" style="border-left: 4px solid #e67e22;">
+                    <div class="mobile-card-actions">
+                        <?php if (!empty($item['file'])): ?>
+                            <button class="btn btn-sm btn-primary"
+                                onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')"
+                                style="padding: 5px 10px;">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        <?php endif; ?>
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
+                                class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
+                    <div class="mobile-card-header">
+                        <div
+                            style="width: 45px; height: 45px; background: linear-gradient(135deg, #e67e22, #d35400); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-file-alt" style="color: #fff; font-size: 1.2rem;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
+                            <?php if (!empty($item['category'])): ?>
+                                <span
+                                    style="font-size: 0.75rem; background: #ffeaa7; color: #d35400; padding: 2px 8px; border-radius: 10px;"><?php echo htmlspecialchars($item['category']); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if (!empty($item['ref'])): ?>
+                        <div style="margin-top: 8px; font-size: 0.85rem; color: #666;">
+                            <i class="fas fa-link" style="color: #999;"></i> <?php echo htmlspecialchars($item['ref']); ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($item['note'])): ?>
+                        <div class="mobile-card-note"><?php echo htmlspecialchars($item['note']); ?></div>
+                    <?php endif; ?>
+                    <div style="margin-top: 8px; font-size: 0.75rem; color: #999;">
+                        <i class="fas fa-clock"></i> <?php echo formatDateTime($item['created_at']); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div id="modal" class="modal">
@@ -121,6 +177,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
 
 <script>
     const TABLE = 'commondocument';
+    initBatchDelete(TABLE);
 
     // 封面圖上傳處理
     document.getElementById('coverUpload').addEventListener('change', function (e) {
@@ -281,14 +338,15 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             // PDF
             previewContent.innerHTML = `<iframe src="${filePath}" style="width:100%;height:70vh;border:none;border-radius:8px;"></iframe>`;
         } else if (['pptx', 'ppt', 'docx', 'doc', 'xlsx', 'xls'].includes(ext)) {
-            // Office 文件 - 使用 Microsoft Office Online Viewer
-            const fullUrl = window.location.origin + '/' + filePath;
-            const viewerUrl = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(fullUrl);
+            // Office 文件 - 本地伺服器無法使用 Office Online Viewer，直接提供下載
+            const iconClass = ext.includes('ppt') ? 'fa-file-powerpoint' : (ext.includes('doc') ? 'fa-file-word' : 'fa-file-excel');
+            const iconColor = ext.includes('ppt') ? '#e67e22' : (ext.includes('doc') ? '#3498db' : '#27ae60');
             previewContent.innerHTML = `
-                <iframe src="${viewerUrl}" style="width:100%;height:70vh;border:none;border-radius:8px;"></iframe>
-                <div style="margin-top:15px;text-align:center;">
-                    <small style="color:#888;">如無法預覽，請確認伺服器為公開可存取，或</small>
-                    <a href="${filePath}" download class="btn btn-sm btn-primary" style="margin-left:10px;">
+                <div style="text-align:center;padding:50px;">
+                    <i class="fa-solid ${iconClass} fa-5x" style="color:${iconColor};margin-bottom:25px;"></i>
+                    <h3 style="margin-bottom:15px;">${title}</h3>
+                    <p style="color:#888;margin-bottom:25px;">Office 文件需要下載後使用本機軟體開啟</p>
+                    <a href="${filePath}" download class="btn btn-primary" style="font-size:1.1rem;padding:12px 30px;">
                         <i class="fa-solid fa-download"></i> 下載檔案
                     </a>
                 </div>

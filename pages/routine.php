@@ -9,13 +9,18 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增例行事項</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增例行事項"><i class="fas fa-plus"></i></button>
     <?php $csvTable = 'routine';
     include 'includes/csv_buttons.php'; ?>
 
-    <table class="table" style="margin-top: 20px;">
+    <?php include 'includes/batch-delete.php'; ?>
+
+    <!-- 桌面版表格 -->
+    <table class="table desktop-only" style="margin-top: 20px;">
         <thead>
             <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
+                        onchange="toggleSelectAll(this)"></th>
                 <th>名稱</th>
                 <th>備註</th>
                 <th>圖片</th>
@@ -29,12 +34,11 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
         <tbody>
             <?php if (empty($items)): ?>
                 <tr>
-                    <td colspan="8" style="text-align: center; color: #999;">暫無例行事項</td>
+                    <td colspan="9" style="text-align: center; color: #999;">暫無例行事項</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
                     <?php
-                    // 計算相距天數
                     $daysDiff = '-';
                     if (!empty($item['lastdate1']) && !empty($item['lastdate2'])) {
                         $date1 = new DateTime($item['lastdate1']);
@@ -44,6 +48,8 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                     }
                     ?>
                     <tr>
+                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)"></td>
                         <td><?php echo htmlspecialchars($item['name']); ?></td>
                         <td><?php echo htmlspecialchars($item['note'] ?? '-'); ?></td>
                         <td>
@@ -63,14 +69,83 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                                 title="日期遞移">
                                 <i class="fa-solid fa-arrow-right"></i>
                             </button>
-                            <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
+                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
+                                style="cursor: pointer;"><i class="fas fa-pen"></i></span>
+                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                style="margin-left: 10px; cursor: pointer;">&times;</span>
                         </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>
     </table>
+
+    <!-- 手機版卡片 -->
+    <div class="mobile-only" style="margin-top: 20px;">
+        <?php if (empty($items)): ?>
+            <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無例行事項</div>
+        <?php else: ?>
+            <?php foreach ($items as $item):
+                $daysDiff = '-';
+                $daysDiffNum = 0;
+                if (!empty($item['lastdate1']) && !empty($item['lastdate2'])) {
+                    $date1 = new DateTime($item['lastdate1']);
+                    $date2 = new DateTime($item['lastdate2']);
+                    $diff = $date1->diff($date2);
+                    $daysDiffNum = $diff->days;
+                    $daysDiff = $daysDiffNum . ' 天';
+                }
+                ?>
+                <div class="mobile-card" style="border-left: 4px solid #9b59b6;">
+                    <div class="mobile-card-actions">
+                        <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')" title="日期遞移"
+                            style="padding: 5px 10px;">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
+                                class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
+                    <div class="mobile-card-header">
+                        <?php if (!empty($item['photo'])): ?>
+                            <img src="<?php echo htmlspecialchars($item['photo']); ?>"
+                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
+                        <?php else: ?>
+                            <div
+                                style="width: 50px; height: 50px; background: linear-gradient(135deg, #9b59b6, #8e44ad); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-redo" style="color: #fff; font-size: 1.2rem;"></i>
+                            </div>
+                        <?php endif; ?>
+                        <div style="flex: 1;">
+                            <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
+                            <?php if (!empty($item['note'])): ?>
+                                <div style="font-size: 0.8rem; color: #888;"><?php echo htmlspecialchars($item['note']); ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div
+                            style="text-align: center; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
+                            <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiffNum ?: '-'; ?></div>
+                            <div style="font-size: 0.7rem;">天</div>
+                        </div>
+                    </div>
+                    <div class="mobile-card-info" style="margin-top: 12px;">
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之一</span>
+                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate1']) ?: '-'; ?></span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之二</span>
+                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate2']) ?: '-'; ?></span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之三</span>
+                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate3']) ?: '-'; ?></span>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div id="modal" class="modal">
@@ -116,6 +191,7 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
 
 <script>
     const TABLE = 'routine';
+    initBatchDelete(TABLE);
 
     function openModal() {
         document.getElementById('modal').style.display = 'flex';

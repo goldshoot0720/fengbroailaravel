@@ -161,6 +161,7 @@ body {
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 2px 10px var(--shadow);
+    position: relative;
 }
 
 .card-title {
@@ -169,6 +170,36 @@ body {
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 2px solid #3498db;
+}
+
+/* 卡片操作按鈕 */
+.card-actions {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.card-edit-btn,
+.card-delete-btn {
+    font-size: 16px;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.card-edit-btn:hover {
+    color: #3498db;
+}
+
+.card-delete-btn {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.card-delete-btn:hover {
+    color: #e74c3c;
 }
 
 /* 表格樣式 */
@@ -354,19 +385,22 @@ textarea.form-control {
 /* 響應式設計 */
 @media (max-width: 768px) {
 
-    /* 側邊欄 - 預設隱藏，可滑出 */
+    /* 側邊欄 - 預設完全隱藏，點擊後疊加顯示 */
     .sidebar {
-        position: fixed;
-        left: -260px;
+        position: fixed !important;
+        left: 0 !important;
         top: 0;
         width: 260px;
         height: 100vh;
         z-index: 2000;
-        transition: left 0.3s ease;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        visibility: hidden;
     }
 
     .sidebar.open {
-        left: 0;
+        transform: translateX(0);
+        visibility: visible;
     }
 
     /* 側邊欄遮罩 */
@@ -385,38 +419,53 @@ textarea.form-control {
         display: block;
     }
 
-    /* 主內容區 */
+    /* 主內容區 - 手機版完全佔滿螢幕，無左側空白 */
     .content {
-        margin-left: 0;
-        padding: 15px;
-        padding-top: 60px;
+        margin-left: 0 !important;
+        padding: 15px !important;
+        padding-top: 70px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1;
     }
 
     .container {
         flex-direction: column;
+        width: 100%;
     }
 
     /* 漢堡選單按鈕 */
     .mobile-menu-btn {
         display: flex !important;
         position: fixed;
-        top: 10px;
-        left: 10px;
-        z-index: 1998;
-        background: var(--primary-color);
+        top: 15px;
+        left: 15px;
+        z-index: 2001;
+        background: linear-gradient(135deg, #667eea, #764ba2);
         color: white;
         border: none;
-        padding: 12px 15px;
-        border-radius: 8px;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
         font-size: 1.2rem;
         cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
 
     /* 標題調整 */
     .content-header h1 {
         font-size: 1.5rem;
-        margin-left: 50px;
+    }
+
+    /* 手機版/桌面版切換 */
+    .mobile-only {
+        display: block !important;
+    }
+    .desktop-only {
+        display: none !important;
     }
 
     /* 表格響應式 */
@@ -432,6 +481,69 @@ textarea.form-control {
     /* 隱藏部分表格欄位 */
     .table .hide-mobile {
         display: none;
+    }
+
+    /* 通用手機版卡片樣式 */
+    .mobile-card {
+        background: var(--card-bg, #fff);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        position: relative;
+    }
+    .mobile-card-actions {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        gap: 12px;
+    }
+    .mobile-card-actions .card-edit-btn,
+    .mobile-card-actions .card-delete-btn {
+        font-size: 18px;
+        padding: 5px;
+    }
+    .mobile-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+        padding-right: 60px;
+    }
+    .mobile-card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--header-color, #2c3e50);
+    }
+    .mobile-card-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: var(--bg-color, #f5f5f5);
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 10px;
+    }
+    .mobile-card-item {
+        flex: 1;
+        min-width: 80px;
+    }
+    .mobile-card-label {
+        display: block;
+        font-size: 0.75rem;
+        color: #999;
+        margin-bottom: 2px;
+    }
+    .mobile-card-value {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--text-color, #333);
+    }
+    .mobile-card-note {
+        font-size: 0.85rem;
+        color: #888;
+        margin-top: 8px;
     }
 
     /* 按鈕組 */
@@ -528,7 +640,7 @@ textarea.form-control {
 @media (max-width: 480px) {
     .content {
         padding: 10px;
-        padding-top: 55px;
+        padding-top: 65px;
     }
 
     .content-header h1 {
@@ -553,6 +665,17 @@ textarea.form-control {
 /* 漢堡選單 - 桌面版隱藏 */
 .mobile-menu-btn {
     display: none;
+}
+
+/* 手機版/桌面版切換 - 預設值 */
+.mobile-only {
+    display: none;
+}
+.desktop-only {
+    display: block;
+}
+table.desktop-only {
+    display: table;
 }
 
 /* 側邊欄遮罩 - 桌面版隱藏 */

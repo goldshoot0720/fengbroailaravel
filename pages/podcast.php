@@ -9,7 +9,7 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增播客</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增播客"><i class="fas fa-plus"></i></button>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_podcast.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -28,6 +28,10 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <div class="card">
+                    <div class="card-actions">
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
                     <?php if ($item['cover']): ?>
                         <img src="<?php echo htmlspecialchars($item['cover']); ?>"
                             style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
@@ -48,11 +52,6 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                                 style="font-size: 0.8rem; color: #888; margin-left: 8px;">00:00</span>
                         </div>
                     <?php endif; ?>
-
-                    <div style="margin-top: 15px;">
-                        <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
-                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>

@@ -62,7 +62,7 @@ uasort($commonSites, function ($a, $b) {
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增常用網站與備註</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增常用網站與備註"><i class="fas fa-plus"></i></button>
     <?php $csvTable = 'commonaccount';
     include 'includes/csv_buttons.php'; ?>
 
@@ -83,6 +83,10 @@ uasort($commonSites, function ($a, $b) {
                 }
             ?>
                 <div class="card" data-sites="<?php echo htmlspecialchars(implode('|', $itemSites), ENT_QUOTES); ?>">
+                    <div class="card-actions">
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
                     <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
                     <?php for ($i = 1; $i <= 37; $i++): ?>
                         <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
@@ -102,10 +106,6 @@ uasort($commonSites, function ($a, $b) {
                             </div>
                         <?php endif; ?>
                     <?php endfor; ?>
-                    <div style="margin-top: 15px;">
-                        <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
-                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>

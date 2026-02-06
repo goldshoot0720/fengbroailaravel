@@ -16,11 +16,19 @@ if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
 }
 
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+// Support both direct upload and tempFile from preview
+$tempFileFromPreview = $_POST['tempFile'] ?? '';
+$zipFile = '';
+$cleanupTempFile = false;
+
+if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath($tempFileFromPreview), realpath('uploads/temp')) === 0) {
+    $zipFile = $tempFileFromPreview;
+    $cleanupTempFile = true;
+} elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+    $zipFile = $_FILES['file']['tmp_name'];
+} else {
     jsonResponse(['error' => '請上傳檔案'], 400);
 }
-
-$zipFile = $_FILES['file']['tmp_name'];
 
 // Create temp directory for extraction
 $tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_' . uniqid();
@@ -101,6 +109,11 @@ $cleanup = function($dir) use (&$cleanup) {
     @rmdir($dir);
 };
 $cleanup($tempDir);
+
+// Cleanup temp ZIP file from preview
+if ($cleanupTempFile && file_exists($zipFile)) {
+    @unlink($zipFile);
+}
 
 jsonResponse([
     'success' => true,

@@ -32,7 +32,7 @@ sort($categories);
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增筆記</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增筆記"><i class="fas fa-plus"></i></button>
     <?php $csvTable = 'article'; include 'includes/csv_buttons.php'; ?>
 
     <div class="card-grid" style="margin-top: 20px;">
@@ -41,6 +41,10 @@ sort($categories);
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <div class="card" data-category="<?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '__uncategorized'); ?>">
+                    <div class="card-actions">
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
                     <h3 class="card-title"><?php echo htmlspecialchars($item['title']); ?></h3>
                     <p style="color: #666; margin-bottom: 10px;"><?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '未分類筆記'); ?></p>
                     <?php
@@ -102,10 +106,6 @@ sort($categories);
                     </div>
                     <?php endif; ?>
                     <p style="font-size: 0.8rem; color: #999;"><?php echo formatDateTime($item['created_at']); ?></p>
-                    <div style="margin-top: 15px;">
-                        <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
-                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>

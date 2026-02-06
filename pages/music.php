@@ -93,7 +93,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增音樂</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增音樂"><i class="fas fa-plus"></i></button>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_music.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -914,8 +914,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <td>
                     ${v.file ? `<button class="btn btn-sm btn-primary" type="button" data-action="play" data-file="${escapeHtml(v.file)}" data-label="${escapeHtml(songName + ' - ' + (v.language || ''))}" data-id="${v.id}"><i class="fa-solid fa-play"></i></button>` : ''}
                     <button class="btn btn-sm" type="button" data-action="lyrics" data-id="${v.id}">歌詞</button>
-                    <button class="btn btn-sm" type="button" data-action="edit" data-id="${v.id}">編輯</button>
-                    <button class="btn btn-sm btn-danger" type="button" data-action="delete" data-id="${v.id}">刪除</button>
+                    <span class="card-edit-btn" style="cursor: pointer;" data-action="edit" data-id="${v.id}"><i class="fas fa-pen"></i></span>
+                    <span class="card-delete-btn" style="margin-left: 10px; cursor: pointer;" data-action="delete" data-id="${v.id}">&times;</span>
                 </td>
             </tr>
         `;

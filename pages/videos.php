@@ -10,7 +10,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()">新增影片</button>
+    <button class="btn btn-primary" onclick="openModal()" title="新增影片"><i class="fas fa-plus"></i></button>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_video.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -26,7 +26,11 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
             <div class="card"><p style="text-align: center; color: #999;">暫無影片</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="video-item" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <div class="video-item" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;">
+                    <div class="card-actions">
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <?php if (!empty($item['cover'])): ?>
@@ -49,8 +53,6 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                                     <i class="fa-solid fa-play"></i> 播放
                                 </button>
                             <?php endif; ?>
-                            <button class="btn btn-sm" onclick="editItem('<?php echo $item['id']; ?>')">編輯</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">刪除</button>
                         </div>
                     </div>
                 </div>
