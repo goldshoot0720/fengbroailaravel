@@ -23,18 +23,31 @@ foreach ($subscriptions as $sub) {
     $subscriptionTotal += round($sub['price'] * $rate);
 }
 $foodCount = $pdo->query("SELECT COUNT(*) FROM food")->fetchColumn();
-$bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
+$noteCount = $pdo->query("SELECT COUNT(*) FROM article")->fetchColumn();
+$favoriteCount = $pdo->query("SELECT COUNT(*) FROM commonaccount")->fetchColumn();
 $imageCount = $pdo->query("SELECT COUNT(*) FROM image")->fetchColumn();
+$videoCount = $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category = 'video'")->fetchColumn();
 $musicCount = $pdo->query("SELECT COUNT(*) FROM music")->fetchColumn();
 $podcastCount = $pdo->query("SELECT COUNT(*) FROM podcast")->fetchColumn();
 $documentCount = $pdo->query("SELECT COUNT(*) FROM commondocument")->fetchColumn();
+$bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
+$bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
+
+// 訂閱到期提醒 (3天、7天內)
+$subExpiring3Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate >= CURDATE() ORDER BY nextdate ASC")->fetchAll();
+$subExpiring7Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate > DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY nextdate ASC")->fetchAll();
+
+// 食品到期提醒 (7天、30天內)
+$foodExpiring7Days = $pdo->query("SELECT * FROM food WHERE expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND expiry_date >= CURDATE() ORDER BY expiry_date ASC")->fetchAll();
+$foodExpiring30Days = $pdo->query("SELECT * FROM food WHERE expiry_date IS NOT NULL AND expiry_date > DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) ORDER BY expiry_date ASC")->fetchAll();
 
 $recentSubscriptions = $pdo->query("SELECT * FROM subscription ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")->fetchAll();
 
 // Calculate uploads folder size
-function getFolderSize($dir) {
+function getFolderSize($dir)
+{
     $size = 0;
     if (is_dir($dir)) {
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
@@ -44,7 +57,8 @@ function getFolderSize($dir) {
     return $size;
 }
 
-function formatBytes($bytes, $precision = 2) {
+function formatBytes($bytes, $precision = 2)
+{
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     $bytes = max($bytes, 0);
     $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
@@ -69,49 +83,141 @@ if (is_dir($uploadsDir)) {
 </div>
 
 <div class="content-body">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-        <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
-            <h3>訂閱服務</h3>
+    <!-- 11個資料表統計 -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 15px;">
+        <a href="index.php?page=subscription" class="card"
+            style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-credit-card"></i> 訂閱</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $subscriptionCount; ?></p>
-            <p>每月支出: <?php echo formatMoney($subscriptionTotal); ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff;">
-            <h3>銀行總額</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($bankTotal); ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;">
-            <h3>食品紀錄</h3>
+            <p style="font-size: 0.85rem;">月支出: <?php echo formatMoney($subscriptionTotal); ?></p>
+        </a>
+        <a href="index.php?page=food" class="card"
+            style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-utensils"></i> 食品</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $foodCount; ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: #fff;">
-            <h3>例行事項</h3>
+        </a>
+        <a href="index.php?page=notes" class="card"
+            style="background: linear-gradient(135deg, #f1c40f, #d4ac0d); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-note-sticky"></i> 筆記</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $noteCount; ?></p>
+        </a>
+        <a href="index.php?page=favorites" class="card"
+            style="background: linear-gradient(135deg, #e67e22, #cf6d17); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-star"></i> 常用</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $favoriteCount; ?></p>
+        </a>
+        <a href="index.php?page=images" class="card"
+            style="background: linear-gradient(135deg, #f39c12, #d68910); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-image"></i> 圖片</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $imageCount; ?></p>
+        </a>
+        <a href="index.php?page=videos" class="card"
+            style="background: linear-gradient(135deg, #c0392b, #a93226); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-video"></i> 影片</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $videoCount; ?></p>
+        </a>
+        <a href="index.php?page=music" class="card"
+            style="background: linear-gradient(135deg, #1abc9c, #16a085); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-music"></i> 音樂</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $musicCount; ?></p>
+        </a>
+        <a href="index.php?page=documents" class="card"
+            style="background: linear-gradient(135deg, #34495e, #2c3e50); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-file-lines"></i> 文件</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $documentCount; ?></p>
+        </a>
+        <a href="index.php?page=podcast" class="card"
+            style="background: linear-gradient(135deg, #8e44ad, #7d3c98); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-podcast"></i> 播客</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $podcastCount; ?></p>
+        </a>
+        <a href="index.php?page=bank" class="card"
+            style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-building-columns"></i> 銀行</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $bankCount; ?></p>
+            <p style="font-size: 0.85rem;">總額: <?php echo formatMoney($bankTotal); ?></p>
+        </a>
+        <a href="index.php?page=routine" class="card"
+            style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: #fff; text-decoration: none;">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> 例行</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $routineCount; ?></p>
+        </a>
+        <div class="card" style="background: linear-gradient(135deg, #95a5a6, #7f8c8d); color: #fff;">
+            <h3><i class="fa-solid fa-hard-drive"></i> 儲存</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $uploadsFolderSizeFormatted; ?></p>
+            <p style="font-size: 0.85rem;">檔案: <?php echo $uploadsFileCount; ?> 個</p>
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
-        <div class="card" style="background: linear-gradient(135deg, #f39c12, #d68910); color: #fff;">
-            <h3>圖片</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $imageCount; ?></p>
+    <!-- 到期提醒區塊 -->
+    <?php if (!empty($subExpiring3Days) || !empty($subExpiring7Days) || !empty($foodExpiring7Days) || !empty($foodExpiring30Days)): ?>
+        <div style="margin-top: 25px;">
+            <h3 style="margin-bottom: 15px;"><i class="fa-solid fa-bell"></i> 到期提醒</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+
+                <?php if (!empty($subExpiring3Days)): ?>
+                    <div class="card" style="border-left: 4px solid #e74c3c; background: rgba(231, 76, 60, 0.1);">
+                        <h4 style="color: #e74c3c;"><i class="fa-solid fa-credit-card"></i> 訂閱即將到期 (3天內)</h4>
+                        <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                            <?php foreach ($subExpiring3Days as $sub): ?>
+                                <li
+                                    style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
+                                    <span><strong><?php echo htmlspecialchars($sub['name']); ?></strong></span>
+                                    <span style="color: #e74c3c;"><?php echo date('m/d', strtotime($sub['nextdate'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($subExpiring7Days)): ?>
+                    <div class="card" style="border-left: 4px solid #f39c12; background: rgba(243, 156, 18, 0.1);">
+                        <h4 style="color: #f39c12;"><i class="fa-solid fa-credit-card"></i> 訂閱即將到期 (7天內)</h4>
+                        <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                            <?php foreach ($subExpiring7Days as $sub): ?>
+                                <li
+                                    style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
+                                    <span><strong><?php echo htmlspecialchars($sub['name']); ?></strong></span>
+                                    <span style="color: #f39c12;"><?php echo date('m/d', strtotime($sub['nextdate'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($foodExpiring7Days)): ?>
+                    <div class="card" style="border-left: 4px solid #e74c3c; background: rgba(231, 76, 60, 0.1);">
+                        <h4 style="color: #e74c3c;"><i class="fa-solid fa-utensils"></i> 食品即將過期 (7天內)</h4>
+                        <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                            <?php foreach ($foodExpiring7Days as $food): ?>
+                                <li
+                                    style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
+                                    <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
+                                    <span style="color: #e74c3c;"><?php echo date('m/d', strtotime($food['expiry_date'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($foodExpiring30Days)): ?>
+                    <div class="card" style="border-left: 4px solid #f39c12; background: rgba(243, 156, 18, 0.1);">
+                        <h4 style="color: #f39c12;"><i class="fa-solid fa-utensils"></i> 食品即將過期 (30天內)</h4>
+                        <ul style="list-style: none; padding: 0; margin-top: 10px;">
+                            <?php foreach ($foodExpiring30Days as $food): ?>
+                                <li
+                                    style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
+                                    <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
+                                    <span style="color: #f39c12;"><?php echo date('m/d', strtotime($food['expiry_date'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+            </div>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #1abc9c, #16a085); color: #fff;">
-            <h3>音樂</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $musicCount; ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #e67e22, #cf6d17); color: #fff;">
-            <h3>播客</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $podcastCount; ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #34495e, #2c3e50); color: #fff;">
-            <h3>文件</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $documentCount; ?></p>
-        </div>
-        <div class="card" style="background: linear-gradient(135deg, #95a5a6, #7f8c8d); color: #fff;">
-            <h3>儲存空間</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $uploadsFolderSizeFormatted; ?></p>
-            <p>檔案數量: <?php echo $uploadsFileCount; ?></p>
-        </div>
-    </div>
+    <?php endif; ?>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">
         <div class="card">
