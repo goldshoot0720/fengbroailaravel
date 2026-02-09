@@ -121,6 +121,13 @@ while (($row = fgetcsv($handle)) !== false) {
         }
     }
 
+    // 轉換 ISO 8601 日期格式為 MySQL DATE 格式 (YYYY-MM-DD)
+    foreach ($data as $key => $value) {
+        if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
+            $data[$key] = substr($value, 0, 10);
+        }
+    }
+
     // 處理布林值
     if (array_key_exists('continue', $data) && $data['continue'] !== null) {
         $data['continue'] = filter_var($data['continue'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
