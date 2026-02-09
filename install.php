@@ -46,7 +46,7 @@ try {
         "article" => "CREATE TABLE IF NOT EXISTS article (
             id VARCHAR(36) PRIMARY KEY,
             title VARCHAR(100) NOT NULL,
-            content VARCHAR(1000),
+            content TEXT,
             category VARCHAR(100),
             ref VARCHAR(100),
             newDate DATETIME,
@@ -174,6 +174,19 @@ try {
 
     $pdo->exec($commonaccountSQL);
     echo "✓ 資料表 commonaccount 建立成功\n";
+
+    // 升級既有欄位
+    $upgrades = [
+        "ALTER TABLE article MODIFY COLUMN content TEXT"
+    ];
+    foreach ($upgrades as $sql) {
+        try {
+            $pdo->exec($sql);
+            echo "✓ 欄位升級: {$sql}\n";
+        } catch (PDOException $e) {
+            echo "- 欄位升級略過: " . $e->getMessage() . "\n";
+        }
+    }
 
     echo "\n=============================\n";
     echo "✓ 所有資料表建立完成！\n";
