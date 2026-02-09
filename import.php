@@ -34,12 +34,15 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 
 $file = $_FILES['file']['tmp_name'];
 
-// Appwrite 相容的欄位名稱對應 (反向)
+// 支援 LaravelMySQL 和 Appwrite 雙格式的欄位名稱對應
 $fieldMapping = [
     '$id' => 'id',
     '$createdAt' => 'created_at',
     '$updatedAt' => 'updated_at'
 ];
+
+// Appwrite 匯出時可能附帶的 metadata 欄位，需忽略
+$ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
 
 $pdo = getConnection();
 
@@ -53,31 +56,59 @@ if ($bom !== "\xEF\xBB\xBF") {
 }
 
 // 讀取標頭
-$headers = fgetcsv($handle, 0, ',', '"', '\\');
+$headers = fgetcsv($handle);
 if (!$headers) {
     jsonResponse(['error' => 'CSV 格式錯誤'], 400);
 }
 
-// 轉換標頭名稱
+// 轉換標頭名稱 (支援 LaravelMySQL 和 Appwrite 雙格式)
 $headers = array_map(function($h) use ($fieldMapping) {
     $h = trim($h);
     return $fieldMapping[$h] ?? $h;
 }, $headers);
 
-$imported = 0;
-$errors = [];
+// 找出需要忽略的欄位索引 (Appwrite metadata)
+$ignoredIndexes = [];
+foreach ($headers as $i => $h) {
+    if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+        $ignoredIndexes[] = $i;
+    }
+}
+// 移除被忽略的欄位
+foreach ($ignoredIndexes as $i) {
+    unset($headers[$i]);
+}
+$headers = array_values($headers);
+$headerCount = count($headers);
 
-while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
-    if (count($row) !== count($headers)) {
+$imported = 0;
+$skipped = 0;
+$errors = [];
+$lineNum = 1;
+
+while (($row = fgetcsv($handle)) !== false) {
+    $lineNum++;
+
+    // 移除被忽略的欄位值
+    foreach ($ignoredIndexes as $i) {
+        unset($row[$i]);
+    }
+    $row = array_values($row);
+
+    if (count($row) !== $headerCount) {
+        $skipped++;
+        $errors[] = "第 {$lineNum} 行: 欄位數不匹配 (預期 {$headerCount}, 實際 " . count($row) . ")";
         continue;
     }
 
     $data = array_combine($headers, $row);
+    $recordName = $data['name'] ?? '未知';
 
     // 處理 ID
     if (empty($data['id'])) {
         $data['id'] = generateUUID();
     }
+    $currentId = $data['id'];
 
     // 移除時間戳欄位，讓資料庫自動處理
     unset($data['created_at']);
@@ -91,19 +122,20 @@ while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
     }
 
     // 處理布林值
-    if (isset($data['continue'])) {
+    if (array_key_exists('continue', $data) && $data['continue'] !== null) {
         $data['continue'] = filter_var($data['continue'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+    } elseif (array_key_exists('continue', $data)) {
+        $data['continue'] = 1; // 預設為 true
     }
 
     // 檢查是否已存在
     $stmt = $pdo->prepare("SELECT id FROM {$table} WHERE id = ?");
-    $stmt->execute([$data['id']]);
+    $stmt->execute([$currentId]);
     $exists = $stmt->fetch();
 
     try {
         if ($exists) {
             // 更新
-            $id = $data['id'];
             unset($data['id']);
             $sets = [];
             foreach (array_keys($data) as $col) {
@@ -112,7 +144,7 @@ while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
             $sql = "UPDATE {$table} SET " . implode(',', $sets) . " WHERE id = ?";
             $stmt = $pdo->prepare($sql);
             $values = array_values($data);
-            $values[] = $id;
+            $values[] = $currentId;
             $stmt->execute($values);
         } else {
             // 新增
@@ -124,7 +156,7 @@ while (($row = fgetcsv($handle, 0, ',', '"', '\\')) !== false) {
         }
         $imported++;
     } catch (PDOException $e) {
-        $errors[] = "ID {$data['id']}: " . $e->getMessage();
+        $errors[] = "{$recordName}: " . $e->getMessage();
     }
 }
 
@@ -133,5 +165,6 @@ fclose($handle);
 jsonResponse([
     'success' => true,
     'imported' => $imported,
+    'skipped' => $skipped,
     'errors' => $errors
 ]);
