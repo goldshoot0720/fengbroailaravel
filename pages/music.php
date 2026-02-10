@@ -921,8 +921,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         `;
         }).join('');
 
-        // 綁定按鈕事件
-        tbody.querySelectorAll('button[data-action]').forEach(btn => {
+        // 綁定按鈕事件（含 span 編輯/刪除按鈕）
+        tbody.querySelectorAll('[data-action]').forEach(btn => {
             btn.onclick = function (e) {
                 e.preventDefault();
                 e.stopPropagation();
