@@ -75,18 +75,29 @@
         isSelectMode = !isSelectMode;
         const body = document.body;
         const btn = document.getElementById('selectModeBtn');
-        
+        const selectAllWrap = document.getElementById('batchSelectAllWrap');
+
         if (isSelectMode) {
             body.classList.add('select-mode');
             btn.classList.add('active');
             btn.innerHTML = '<i class="fas fa-times"></i> 退出選擇';
+            if (selectAllWrap) selectAllWrap.style.display = 'inline-flex';
         } else {
             body.classList.remove('select-mode');
             btn.classList.remove('active');
             btn.innerHTML = '<i class="fas fa-check-square"></i> 全選模式';
+            if (selectAllWrap) selectAllWrap.style.display = 'none';
             // 清除所有選擇
             cancelBatchSelect();
         }
+    }
+
+    function syncSelectAllCheckboxes(allChecked, hasSelection) {
+        document.querySelectorAll('#selectAllCheckbox, #batchSelectAllCb').forEach(cb => {
+            if (!cb) return;
+            cb.checked = allChecked;
+            cb.indeterminate = hasSelection && !allChecked;
+        });
     }
 
     function toggleSelectAll(checkbox) {
@@ -100,6 +111,7 @@
                 batchDeleteIds.delete(id);
             }
         });
+        syncSelectAllCheckboxes(checkbox.checked, checkbox.checked);
         updateBatchDeleteBar();
     }
 
@@ -111,15 +123,9 @@
             batchDeleteIds.delete(id);
         }
 
-        // 更新全選 checkbox 狀態
         const allCheckboxes = document.querySelectorAll('.item-checkbox');
         const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
-        const selectAllCb = document.getElementById('selectAllCheckbox');
-        if (selectAllCb) {
-            selectAllCb.checked = allChecked;
-            selectAllCb.indeterminate = batchDeleteIds.size > 0 && !allChecked;
-        }
-
+        syncSelectAllCheckboxes(allChecked, batchDeleteIds.size > 0);
         updateBatchDeleteBar();
     }
 
@@ -137,7 +143,7 @@
 
     function cancelBatchSelect() {
         batchDeleteIds.clear();
-        document.querySelectorAll('.item-checkbox, #selectAllCheckbox').forEach(cb => {
+        document.querySelectorAll('.item-checkbox, #selectAllCheckbox, #batchSelectAllCb').forEach(cb => {
             cb.checked = false;
             cb.indeterminate = false;
         });
@@ -198,6 +204,10 @@
 <button id="selectModeBtn" class="btn btn-select-mode" onclick="toggleSelectMode()">
     <i class="fas fa-check-square"></i> 全選模式
 </button>
+<label id="batchSelectAllWrap" style="display: none; align-items: center; gap: 6px; cursor: pointer; color: #666; font-weight: 500; font-size: 0.9rem; margin-left: 4px;">
+    <input type="checkbox" id="batchSelectAllCb" onchange="toggleSelectAll(this)" style="width: 16px; height: 16px; accent-color: #e74c3c;">
+    全選
+</label>
 
 <div id="batchDeleteBar" class="batch-delete-bar">
     <div>

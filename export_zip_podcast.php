@@ -13,37 +13,88 @@ if (empty($data)) {
     die('沒有播客可匯出');
 }
 
-// Collect files to export
-$filesToExport = [];
-foreach ($data as $row) {
+// === 1. 產生 Appwrite 格式 CSV ===
+$fieldMapping = [
+    'id' => '$id',
+    'created_at' => '$createdAt',
+    'updated_at' => '$updatedAt'
+];
+
+$columns = array_keys($data[0]);
+$headers = array_map(function ($col) use ($fieldMapping) {
+    return $fieldMapping[$col] ?? $col;
+}, $columns);
+
+$csvTempFile = tempnam(sys_get_temp_dir(), 'podcast_csv_');
+$csvHandle = fopen($csvTempFile, 'w');
+fwrite($csvHandle, "\xEF\xBB\xBF");
+fputcsv($csvHandle, $headers);
+
+$fileIndex = 0;
+$coverIndex = 0;
+$fileMap = [];
+
+foreach ($data as $rowIdx => $row) {
+    $rowFileMap = [];
+
+    // file 欄位 → podcast/ 資料夾
     $filePath = $row['file'] ?? '';
     if ($filePath && file_exists($filePath)) {
-        $filesToExport[] = [
-            'path' => $filePath,
-            'name' => basename($filePath)
+        $fileIndex++;
+        $originalName = basename($filePath);
+        $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $originalName);
+        $zipName = "podcast/{$fileIndex}_{$safeName}";
+        $rowFileMap['file'] = [
+            'zipName' => $zipName,
+            'localPath' => $filePath
         ];
     }
 
+    // cover 欄位 → covers/ 資料夾
     $coverPath = $row['cover'] ?? '';
-    if ($coverPath && file_exists($coverPath) && $coverPath !== $filePath) {
-        $filesToExport[] = [
-            'path' => $coverPath,
-            'name' => 'cover_' . basename($coverPath)
+    if ($coverPath && file_exists($coverPath)) {
+        $coverIndex++;
+        $originalName = basename($coverPath);
+        $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $originalName);
+        $zipName = "covers/{$coverIndex}_{$safeName}";
+        $rowFileMap['cover'] = [
+            'zipName' => $zipName,
+            'localPath' => $coverPath
         ];
     }
+
+    $fileMap[$rowIdx] = $rowFileMap;
+
+    $values = [];
+    foreach ($columns as $col) {
+        $value = $row[$col];
+
+        if (isset($rowFileMap[$col])) {
+            $value = $rowFileMap[$col]['zipName'];
+        }
+
+        if (in_array($col, ['created_at', 'updated_at']) && $value) {
+            $value = date('c', strtotime($value));
+        }
+        $values[] = $value;
+    }
+    fputcsv($csvHandle, $values);
 }
 
-if (empty($filesToExport)) {
-    die('沒有播客檔案可匯出');
-}
+fclose($csvHandle);
 
-// Use streaming ZIP for large files
+// === 2. 建立 ZIP ===
 $zip = new StreamingZip();
-$filename = 'podcast-' . date('Y-m-d') . '.zip';
-$zip->begin($filename);
+$zip->begin('appwrite-podcast.zip');
 
-foreach ($filesToExport as $file) {
-    $zip->addLargeFile($file['path'], $file['name']);
+$zip->addLargeFile($csvTempFile, 'podcast.csv');
+
+foreach ($fileMap as $rowFiles) {
+    foreach ($rowFiles as $info) {
+        $zip->addLargeFile($info['localPath'], $info['zipName']);
+    }
 }
 
 $zip->finish();
+
+@unlink($csvTempFile);

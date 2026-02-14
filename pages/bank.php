@@ -1,7 +1,7 @@
 <?php
 $pageTitle = '銀行管理';
 $pdo = getConnection();
-$items = $pdo->query("SELECT * FROM bank ORDER BY created_at DESC")->fetchAll();
+$items = $pdo->query("SELECT * FROM bank ORDER BY deposit DESC")->fetchAll();
 $totalDeposit = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank")->fetchColumn();
 ?>
@@ -11,6 +11,13 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
 </div>
 
 <div class="content-body">
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行"><i class="fas fa-plus"></i></button>
+        <?php $csvTable = 'bank';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
     <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
         <div class="card" style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff;">
@@ -26,12 +33,6 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo count($items); ?></p>
         </div>
     </div>
-
-    <button class="btn btn-primary" onclick="openModal()" title="新增銀行"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'bank';
-    include 'includes/csv_buttons.php'; ?>
-
-    <?php include 'includes/batch-delete.php'; ?>
 
     <!-- 桌面版表格 -->
     <table class="table desktop-only" style="margin-top: 20px;">
@@ -50,28 +51,110 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
             </tr>
         </thead>
         <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                        <input type="text" class="form-control inline-input" data-field="card" placeholder="卡號">
+                        <input type="text" class="form-control inline-input" data-field="address" placeholder="地址">
+                        <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                        <input type="url" class="form-control inline-input" data-field="activity" placeholder="活動網址">
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="deposit" placeholder="存款">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="withdrawals" placeholder="提款">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="transfer" placeholder="轉帳">
+                    </div>
+                </td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
             <?php if (empty($items)): ?>
                 <tr>
                     <td colspan="9" style="text-align: center; color: #999;">暫無銀行資料</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
-                    <tr>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
+                        data-withdrawals="<?php echo htmlspecialchars($item['withdrawals'] ?? '', ENT_QUOTES); ?>"
+                        data-transfer="<?php echo htmlspecialchars($item['transfer'] ?? '', ENT_QUOTES); ?>"
+                        data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
+                        data-card="<?php echo htmlspecialchars($item['card'] ?? '', ENT_QUOTES); ?>"
+                        data-address="<?php echo htmlspecialchars($item['address'] ?? '', ENT_QUOTES); ?>"
+                        data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
+                        data-activity="<?php echo htmlspecialchars($item['activity'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
-                        <td><?php echo htmlspecialchars($item['name']); ?></td>
-                        <td><?php echo formatMoney($item['deposit']); ?></td>
-                        <td><?php echo formatMoney($item['withdrawals']); ?></td>
-                        <td><?php echo formatMoney($item['transfer']); ?></td>
-                        <td><?php echo htmlspecialchars($item['account'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($item['card'] ?? '-'); ?></td>
-                        <td><?php echo $item['site'] ? '<a href="' . htmlspecialchars($item['site']) . '" target="_blank">連結</a>' : '-'; ?>
+                        <td>
+                            <div class="inline-view">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                                <input type="text" class="form-control inline-input" data-field="card" placeholder="卡號">
+                                <input type="text" class="form-control inline-input" data-field="address" placeholder="地址">
+                                <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                                <input type="url" class="form-control inline-input" data-field="activity" placeholder="活動網址">
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
                         </td>
                         <td>
-                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
-                                style="cursor: pointer;"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                style="margin-left: 10px; cursor: pointer;">&times;</span>
+                            <span class="inline-view"><?php echo formatMoney($item['deposit']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="deposit" placeholder="存款">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatMoney($item['withdrawals']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="withdrawals" placeholder="提款">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatMoney($item['transfer']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="transfer" placeholder="轉帳">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['account'] ?? '-'); ?></span>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['card'] ?? '-'); ?></span>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo $item['site'] ? '<a href="' . htmlspecialchars($item['site']) . '" target="_blank">連結</a>' : '-'; ?></span>
+                        </td>
+                        <td>
+                            <div class="inline-view"></div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -133,92 +216,142 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
     </div>
 </div>
 
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle">新增銀行</h2>
-        <form id="itemForm">
-            <input type="hidden" id="itemId" name="id">
-            <div class="form-group">
-                <label>名稱 *</label>
-                <input type="text" class="form-control" id="name" name="name" required>
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="flex:1">
-                    <label>存款</label>
-                    <input type="number" class="form-control" id="deposit" name="deposit">
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>提款</label>
-                    <input type="number" class="form-control" id="withdrawals" name="withdrawals">
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>轉帳</label>
-                    <input type="number" class="form-control" id="transfer" name="transfer">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>帳號</label>
-                <input type="text" class="form-control" id="account" name="account">
-            </div>
-            <div class="form-group">
-                <label>卡號</label>
-                <input type="text" class="form-control" id="card" name="card">
-            </div>
-            <div class="form-group">
-                <label>地址</label>
-                <input type="text" class="form-control" id="address" name="address">
-            </div>
-            <div class="form-group">
-                <label>網站</label>
-                <input type="url" class="form-control" id="site" name="site">
-            </div>
-            <div class="form-group">
-                <label>活動網址</label>
-                <input type="url" class="form-control" id="activity" name="activity">
-            </div>
-            <button type="submit" class="btn btn-primary">儲存</button>
-        </form>
-    </div>
-</div>
 
 <script>
     const TABLE = 'bank';
     initBatchDelete(TABLE);
 
-    function openModal() {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('modalTitle').textContent = '新增銀行';
-        document.getElementById('itemForm').reset();
-        document.getElementById('itemId').value = '';
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
     }
 
-    function closeModal() {
-        document.getElementById('modal').style.display = 'none';
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            input.value = '';
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
     }
 
-    function editItem(id) {
-        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            deposit: row.querySelector('[data-field="deposit"]').value || 0,
+            withdrawals: row.querySelector('[data-field="withdrawals"]').value || 0,
+            transfer: row.querySelector('[data-field="transfer"]').value || 0,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            card: row.querySelector('[data-field="card"]').value.trim(),
+            address: row.querySelector('[data-field="address"]').value.trim(),
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            activity: row.querySelector('[data-field="activity"]').value.trim()
+        };
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
             .then(r => r.json())
             .then(res => {
-                if (res.success && res.data) {
-                    const d = res.data;
-                    document.getElementById('itemId').value = d.id;
-                    document.getElementById('name').value = d.name || '';
-                    document.getElementById('deposit').value = d.deposit || '';
-                    document.getElementById('withdrawals').value = d.withdrawals || '';
-                    document.getElementById('transfer').value = d.transfer || '';
-                    document.getElementById('account').value = d.account || '';
-                    document.getElementById('card').value = d.card || '';
-                    document.getElementById('address').value = d.address || '';
-                    document.getElementById('site').value = d.site || '';
-                    document.getElementById('activity').value = d.activity || '';
-                    document.getElementById('modalTitle').textContent = '編輯銀行';
-                    document.getElementById('modal').style.display = 'flex';
-                }
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        // Use inline editing for all screen sizes
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const depositInput = row.querySelector('[data-field="deposit"]');
+        if (depositInput) depositInput.value = data.deposit || '';
+        const withdrawalsInput = row.querySelector('[data-field="withdrawals"]');
+        if (withdrawalsInput) withdrawalsInput.value = data.withdrawals || '';
+        const transferInput = row.querySelector('[data-field="transfer"]');
+        if (transferInput) transferInput.value = data.transfer || '';
+        const accountInput = row.querySelector('[data-field="account"]');
+        if (accountInput) accountInput.value = data.account || '';
+        const cardInput = row.querySelector('[data-field="card"]');
+        if (cardInput) cardInput.value = data.card || '';
+        const addressInput = row.querySelector('[data-field="address"]');
+        if (addressInput) addressInput.value = data.address || '';
+        const siteInput = row.querySelector('[data-field="site"]');
+        if (siteInput) siteInput.value = data.site || '';
+        const activityInput = row.querySelector('[data-field="activity"]');
+        if (activityInput) activityInput.value = data.activity || '';
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            deposit: row.querySelector('[data-field="deposit"]').value || 0,
+            withdrawals: row.querySelector('[data-field="withdrawals"]').value || 0,
+            transfer: row.querySelector('[data-field="transfer"]').value || 0,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            card: row.querySelector('[data-field="card"]').value.trim(),
+            address: row.querySelector('[data-field="address"]').value.trim(),
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            activity: row.querySelector('[data-field="activity"]').value.trim()
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
             });
     }
 
+    
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -230,33 +363,4 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
         }
     }
 
-    document.getElementById('itemForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const id = document.getElementById('itemId').value;
-        const action = id ? 'update' : 'create';
-        const url = id ? `api.php?action=${action}&table=${TABLE}&id=${id}` : `api.php?action=${action}&table=${TABLE}`;
-
-        const data = {
-            name: document.getElementById('name').value,
-            deposit: document.getElementById('deposit').value || 0,
-            withdrawals: document.getElementById('withdrawals').value || 0,
-            transfer: document.getElementById('transfer').value || 0,
-            account: document.getElementById('account').value,
-            card: document.getElementById('card').value,
-            address: document.getElementById('address').value,
-            site: document.getElementById('site').value,
-            activity: document.getElementById('activity').value
-        };
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) location.reload();
-                else alert('儲存失敗: ' + (res.error || ''));
-            });
-    });
-</script>
+    </script>

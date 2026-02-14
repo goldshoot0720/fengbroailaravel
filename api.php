@@ -28,14 +28,19 @@ switch ($action) {
         break;
 
     case 'create':
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (!$input) $input = $_POST;
+        $rawInput = file_get_contents('php://input');
+        $input = $rawInput ? json_decode($rawInput, true) : null;
+        if (!$input || !is_array($input)) $input = $_POST;
+
+        if (empty($input)) {
+            jsonResponse(['error' => '未收到資料，請確認表單已填寫'], 400);
+        }
 
         $input['id'] = generateUUID();
         $columns = array_map(function($col) { return "`{$col}`"; }, array_keys($input));
         $placeholders = array_fill(0, count($columns), '?');
 
-        $sql = "INSERT INTO {$table} (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
+        $sql = "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
         $stmt = $pdo->prepare($sql);
 
         try {

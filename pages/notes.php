@@ -16,10 +16,16 @@ $categories = array_keys($categories);
 sort($categories);
 ?>
 
-<div class="content-header" style="display: flex; align-items: center; justify-content: space-between;">
-    <h1>鋒兄筆記</h1>
-    <div>
-        <select id="categoryFilter" class="form-control" onchange="filterNotes()">
+<div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <h1 style="margin: 0;">鋒兄筆記</h1>
+        <span style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+            <?php echo count($items); ?> 篇
+        </span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-filter" style="color: #999; font-size: 0.85rem;"></i>
+        <select id="categoryFilter" class="form-control" onchange="filterNotes()" style="width: auto; min-width: 140px; padding: 8px 12px; font-size: 0.9rem;">
             <option value="__all">全部分類</option>
             <?php foreach ($categories as $category): ?>
                 <option value="<?php echo htmlspecialchars($category); ?>"><?php echo htmlspecialchars($category); ?></option>
@@ -32,47 +38,169 @@ sort($categories);
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增筆記"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'article'; include 'includes/csv_buttons.php'; ?>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    
+    <!-- 操作按鈕區 -->
+    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增筆記">
+            <i class="fas fa-plus"></i> 新增筆記
+        </button>
 
+        <a href="export.php?table=article&format=appwrite" class="btn btn-success">
+            <i class="fa-solid fa-download"></i> 匯出 Appwrite
+        </a>
+        <a href="export.php?table=article&format=laravel" class="btn btn-success">
+            <i class="fa-solid fa-download"></i> 匯出 Laravel
+        </a>
+
+        <!-- ZIP 匯出入 (含檔案) -->
+        <a href="export_zip_article.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 檔案）">
+            <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
+        </a>
+        <button type="button" class="btn" onclick="document.getElementById('zipImportArticle').click()" title="匯入 Appwrite ZIP（含 CSV + 檔案）">
+            <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
+        </button>
+        <input type="file" id="zipImportArticle" accept=".zip" style="display: none;"
+            onchange="previewAndImportZIP(this, 'article', 'import_zip_article.php', '筆記')">
+
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
+    
     <div class="card-grid" style="margin-top: 20px;">
+        <div id="inlineAddCard" class="card inline-add-card">
+            <div class="inline-edit inline-edit-always">
+                <div class="form-group">
+                    <label>標題 *</label>
+                    <input type="text" class="form-control inline-input" data-field="title">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1">
+                        <label>分類</label>
+                        <input type="text" class="form-control inline-input" data-field="category" list="categoryOptions" placeholder="可選既有分類或自行輸入">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label>參考</label>
+                        <input type="text" class="form-control inline-input" data-field="ref">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>內容</label>
+                    <textarea class="form-control inline-input" data-field="content" rows="6"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>連結 1</label>
+                    <input type="url" class="form-control inline-input" data-field="url1">
+                </div>
+                <div class="form-group">
+                    <label>連結 2</label>
+                    <input type="url" class="form-control inline-input" data-field="url2">
+                </div>
+                <div class="form-group">
+                    <label>連結 3</label>
+                    <input type="url" class="form-control inline-input" data-field="url3">
+                </div>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                    <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                </div>
+            </div>
+        </div>
         <?php if (empty($items)): ?>
             <div class="card"><p style="text-align: center; color: #999;">暫無筆記資料</p></div>
         <?php else: ?>
-            <?php foreach ($items as $item): ?>
-                <div class="card" data-category="<?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '__uncategorized'); ?>">
-                    <div class="card-actions">
-                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
-                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+            <?php
+            // 分類色彩對應
+            $categoryColors = [
+                '#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6',
+                '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
+                '#8e44ad', '#d35400', '#27ae60', '#2980b9', '#f1c40f'
+            ];
+            $categoryColorMap = [];
+            $colorIdx = 0;
+            foreach ($categories as $cat) {
+                $categoryColorMap[$cat] = $categoryColors[$colorIdx % count($categoryColors)];
+                $colorIdx++;
+            }
+            ?>
+            <?php foreach ($items as $item):
+                $cat = $item['category'] ?? '';
+                $catColor = $categoryColorMap[$cat] ?? '#95a5a6';
+                $hasRef = !empty($item['ref']);
+                $hasUrls = !empty($item['url1']) || !empty($item['url2']) || !empty($item['url3']);
+            ?>
+                <div class="card note-card" data-category="<?php echo htmlspecialchars(!empty($cat) ? $cat : '__uncategorized'); ?>"
+                    data-id="<?php echo $item['id']; ?>"
+                    data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES); ?>"
+                    data-category-value="<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>"
+                    data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
+                    data-content="<?php echo htmlspecialchars($item['content'] ?? '', ENT_QUOTES); ?>"
+                    data-url1="<?php echo htmlspecialchars($item['url1'] ?? '', ENT_QUOTES); ?>"
+                    data-url2="<?php echo htmlspecialchars($item['url2'] ?? '', ENT_QUOTES); ?>"
+                    data-url3="<?php echo htmlspecialchars($item['url3'] ?? '', ENT_QUOTES); ?>"
+                    style="border-left: 4px solid <?php echo $catColor; ?>;">
+
+                    <!-- 卡片頂部：checkbox + 操作 -->
+                    <div class="card-header">
+                        <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)">
+                        <div class="card-actions">
+                            <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                        </div>
                     </div>
-                    <h3 class="card-title"><?php echo htmlspecialchars($item['title']); ?></h3>
-                    <p style="color: #666; margin-bottom: 10px;"><?php echo htmlspecialchars(!empty($item['category']) ? $item['category'] : '未分類筆記'); ?></p>
+
+                    <!-- 分類標籤 -->
+                    <div class="note-category-badge" style="background: <?php echo $catColor; ?>15; color: <?php echo $catColor; ?>; border: 1px solid <?php echo $catColor; ?>40;">
+                        <i class="fas fa-tag"></i> <?php echo htmlspecialchars(!empty($cat) ? $cat : '未分類'); ?>
+                    </div>
+
+                    <!-- 標題 -->
+                    <h3 class="note-title"><?php echo htmlspecialchars($item['title']); ?></h3>
+
+                    <!-- 參考來源 -->
+                    <?php if ($hasRef): ?>
+                    <div class="note-ref">
+                        <i class="fas fa-bookmark"></i> <?php echo htmlspecialchars($item['ref']); ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- 內容區 -->
                     <?php
                     $content = $item['content'] ?? '';
-                    $shortContent = mb_substr($content, 0, 100);
-                    $isLongContent = mb_strlen($content) > 100;
+                    $shortContent = mb_substr($content, 0, 120);
+                    $isLongContent = mb_strlen($content) > 120;
                     ?>
-                    <p id="contentShort-<?php echo $item['id']; ?>" style="margin-bottom: 15px;"><?php echo nl2br(htmlspecialchars($shortContent)); ?><?php echo $isLongContent ? '...' : ''; ?></p>
-                    <p id="contentFull-<?php echo $item['id']; ?>" style="margin-bottom: 15px; display: none;"><?php echo nl2br(htmlspecialchars($content)); ?></p>
-                    <textarea id="contentRaw-<?php echo $item['id']; ?>" style="display: none;"><?php echo htmlspecialchars($content); ?></textarea>
-                    <div style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <?php if ($isLongContent): ?>
-                            <button id="contentToggle-<?php echo $item['id']; ?>" type="button" class="btn btn-sm" onclick="toggleNoteContent('<?php echo $item['id']; ?>')">完整顯示</button>
-                        <?php endif; ?>
-                        <button type="button" class="btn btn-sm" onclick="copyNoteContent('<?php echo $item['id']; ?>')">複製內容</button>
+                    <?php if ($content): ?>
+                    <div class="note-content">
+                        <div id="contentShort-<?php echo $item['id']; ?>" class="note-text"><?php echo nl2br(htmlspecialchars($shortContent)); ?><?php echo $isLongContent ? '...' : ''; ?></div>
+                        <div id="contentFull-<?php echo $item['id']; ?>" class="note-text" style="display: none;"><?php echo nl2br(htmlspecialchars($content)); ?></div>
+                        <textarea id="contentRaw-<?php echo $item['id']; ?>" style="display: none;"><?php echo htmlspecialchars($content); ?></textarea>
                     </div>
+                    <?php endif; ?>
+
+                    <!-- 連結區 -->
+                    <?php if ($hasUrls): ?>
+                    <div class="note-links">
+                        <?php for ($u = 1; $u <= 3; $u++): ?>
+                            <?php if (!empty($item["url{$u}"])): ?>
+                                <a href="<?php echo htmlspecialchars($item["url{$u}"]); ?>" target="_blank" class="note-link">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    <?php echo htmlspecialchars(parse_url($item["url{$u}"], PHP_URL_HOST) ?: "連結 {$u}"); ?>
+                                </a>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- 附件區 -->
                     <?php
-                    // 顯示檔案
                     $hasFiles = false;
                     for ($i = 1; $i <= 3; $i++) {
-                        if (!empty($item["file{$i}"])) {
-                            $hasFiles = true;
-                            break;
-                        }
+                        if (!empty($item["file{$i}"])) { $hasFiles = true; break; }
                     }
-                    if ($hasFiles):
                     ?>
-                    <div style="margin: 10px 0; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <?php if ($hasFiles): ?>
+                    <div class="note-files">
                         <?php for ($i = 1; $i <= 3; $i++): ?>
                             <?php if (!empty($item["file{$i}"])): ?>
                                 <?php
@@ -80,32 +208,84 @@ sort($categories);
                                 $filename = $item["file{$i}name"] ?? '檔案';
                                 $filepath = $item["file{$i}"];
                                 ?>
-                                <a href="<?php echo htmlspecialchars($filepath); ?>" target="_blank" style="text-decoration: none;">
+                                <a href="<?php echo htmlspecialchars($filepath); ?>" target="_blank" class="note-file-thumb" title="<?php echo htmlspecialchars($filename); ?>">
                                     <?php if (strpos($filetype, 'image/') === 0): ?>
-                                        <img src="<?php echo htmlspecialchars($filepath); ?>" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;">
-                                    <?php elseif (strpos($filetype, 'video/') === 0): ?>
-                                        <div style="width: 60px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
-                                        </div>
-                                    <?php elseif (strpos($filetype, 'audio/') === 0): ?>
-                                        <div style="width: 60px; height: 60px; background: #9b59b6; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fa-solid fa-music" style="color: #fff; font-size: 1.5rem;"></i>
-                                        </div>
-                                    <?php elseif ($filetype === 'application/pdf'): ?>
-                                        <div style="width: 60px; height: 60px; background: #e74c3c; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fa-solid fa-file-pdf" style="color: #fff; font-size: 1.5rem;"></i>
-                                        </div>
+                                        <img src="<?php echo htmlspecialchars($filepath); ?>" alt="<?php echo htmlspecialchars($filename); ?>">
                                     <?php else: ?>
-                                        <div style="width: 60px; height: 60px; background: #3498db; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                            <i class="fa-solid fa-file" style="color: #fff; font-size: 1.5rem;"></i>
+                                        <?php
+                                        $iconClass = 'fa-file';
+                                        $iconBg = '#3498db';
+                                        if (strpos($filetype, 'video/') === 0) { $iconClass = 'fa-video'; $iconBg = '#34495e'; }
+                                        elseif (strpos($filetype, 'audio/') === 0) { $iconClass = 'fa-music'; $iconBg = '#9b59b6'; }
+                                        elseif ($filetype === 'application/pdf') { $iconClass = 'fa-file-pdf'; $iconBg = '#e74c3c'; }
+                                        ?>
+                                        <div class="note-file-icon" style="background: <?php echo $iconBg; ?>;">
+                                            <i class="fa-solid <?php echo $iconClass; ?>"></i>
                                         </div>
                                     <?php endif; ?>
+                                    <span class="note-file-name"><?php echo htmlspecialchars(mb_substr($filename, 0, 12)); ?></span>
                                 </a>
                             <?php endif; ?>
                         <?php endfor; ?>
                     </div>
                     <?php endif; ?>
-                    <p style="font-size: 0.8rem; color: #999;"><?php echo formatDateTime($item['created_at']); ?></p>
+
+                    <!-- 底部：操作 + 時間 -->
+                    <div class="note-footer">
+                        <div class="note-actions-row">
+                            <?php if ($isLongContent): ?>
+                                <button id="contentToggle-<?php echo $item['id']; ?>" type="button" class="note-action-btn" onclick="toggleNoteContent('<?php echo $item['id']; ?>')">
+                                    <i class="fas fa-expand-alt"></i> 展開
+                                </button>
+                            <?php endif; ?>
+                            <?php if ($content): ?>
+                            <button type="button" class="note-action-btn" onclick="copyNoteContent('<?php echo $item['id']; ?>')">
+                                <i class="fas fa-copy"></i> 複製
+                            </button>
+                            <?php endif; ?>
+                        </div>
+                        <div class="note-time">
+                            <i class="far fa-clock"></i> <?php echo formatDateTime($item['created_at']); ?>
+                        </div>
+                    </div>
+
+                    <!-- inline edit (hidden) -->
+                    <div class="inline-edit">
+                        <div class="form-group">
+                            <label>標題 *</label>
+                            <input type="text" class="form-control inline-input" data-field="title">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1">
+                                <label>分類</label>
+                                <input type="text" class="form-control inline-input" data-field="category" list="categoryOptions">
+                            </div>
+                            <div class="form-group" style="flex:1">
+                                <label>參考</label>
+                                <input type="text" class="form-control inline-input" data-field="ref">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>內容</label>
+                            <textarea class="form-control inline-input" data-field="content" rows="6"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>連結 1</label>
+                            <input type="url" class="form-control inline-input" data-field="url1">
+                        </div>
+                        <div class="form-group">
+                            <label>連結 2</label>
+                            <input type="url" class="form-control inline-input" data-field="url2">
+                        </div>
+                        <div class="form-group">
+                            <label>連結 3</label>
+                            <input type="url" class="form-control inline-input" data-field="url3">
+                        </div>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                        </div>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -203,12 +383,256 @@ sort($categories);
     cursor: pointer;
     margin-left: 10px;
 }
+
+/* 操作按鈕區 */
+.action-buttons {
+    background: var(--card-bg);
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+/* ===== 筆記卡片美化 ===== */
+.note-card {
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.note-card > .card-header {
+    padding: 12px 16px 0;
+}
+
+.note-card > .inline-edit {
+    padding: 16px;
+}
+
+/* 分類標籤 */
+.note-category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 8px 16px 0;
+    width: fit-content;
+}
+
+.note-category-badge i {
+    font-size: 0.65rem;
+}
+
+/* 標題 */
+.note-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--header-color);
+    margin: 10px 16px 0;
+    padding: 0;
+    border-bottom: none;
+    line-height: 1.4;
+}
+
+/* 參考來源 */
+.note-ref {
+    font-size: 0.8rem;
+    color: #8e8e93;
+    margin: 4px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.note-ref i {
+    color: #f39c12;
+    font-size: 0.7rem;
+}
+
+/* 內容區 */
+.note-content {
+    margin: 12px 16px 0;
+    padding: 12px;
+    background: var(--bg-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.note-text {
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+/* 連結區 */
+.note-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 10px 16px 0;
+}
+
+.note-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #ebf5fb;
+    color: #2980b9;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    text-decoration: none;
+    transition: background 0.2s;
+    border: 1px solid #bee5eb;
+}
+
+[data-theme="dark"] .note-link {
+    background: #1a3a5c;
+    color: #5dade2;
+    border-color: #2e6da4;
+}
+
+.note-link:hover {
+    background: #d4effc;
+}
+
+.note-link i {
+    font-size: 0.65rem;
+}
+
+/* 附件區 */
+.note-files {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 12px 16px 0;
+}
+
+.note-file-thumb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+
+.note-file-thumb:hover {
+    transform: scale(1.05);
+}
+
+.note-file-thumb img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+}
+
+.note-file-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.note-file-icon i {
+    color: #fff;
+    font-size: 1.3rem;
+}
+
+.note-file-name {
+    font-size: 0.65rem;
+    color: #999;
+    margin-top: 3px;
+    text-align: center;
+    max-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 底部 */
+.note-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding: 10px 16px 14px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 12px;
+}
+
+.note-actions-row {
+    display: flex;
+    gap: 4px;
+}
+
+.note-action-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: #8e8e93;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.note-action-btn:hover {
+    background: var(--bg-color);
+    color: #3498db;
+    border-color: #3498db;
+}
+
+.note-time {
+    font-size: 0.73rem;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 卡片網格 - 筆記專用 */
+.card-grid .note-card {
+    min-height: 180px;
+}
+
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .note-title {
+        font-size: 1rem;
+    }
+
+    .note-footer {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+}
 </style>
 
 <?php include 'includes/upload-progress.php'; ?>
+<?php include 'includes/zip-preview.php'; ?>
 
 <script>
 const TABLE = 'article';
+initBatchDelete(TABLE);
 
 function toggleNoteContent(id) {
     const shortEl = document.getElementById('contentShort-' + id);
@@ -220,11 +644,11 @@ function toggleNoteContent(id) {
     if (isShortVisible) {
         shortEl.style.display = 'none';
         fullEl.style.display = 'block';
-        toggleBtn.textContent = '簡要顯示';
+        toggleBtn.innerHTML = '<i class="fas fa-compress-alt"></i> 收起';
     } else {
         shortEl.style.display = 'block';
         fullEl.style.display = 'none';
-        toggleBtn.textContent = '完整顯示';
+        toggleBtn.innerHTML = '<i class="fas fa-expand-alt"></i> 展開';
     }
 }
 
@@ -274,6 +698,130 @@ function setCategory(value) {
     const input = document.getElementById('category');
     if (!input) return;
     input.value = value;
+}
+
+function handleAdd() {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        openModal();
+    } else {
+        startInlineAdd();
+    }
+}
+
+function startInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'block';
+    card.querySelectorAll('[data-field]').forEach(input => {
+        input.value = '';
+    });
+    const titleInput = card.querySelector('[data-field="title"]');
+    if (titleInput) titleInput.focus();
+}
+
+function cancelInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'none';
+}
+
+function saveInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    const title = card.querySelector('[data-field="title"]').value.trim();
+    if (!title) {
+        alert('請輸入標題');
+        return;
+    }
+    const data = {
+        title,
+        category: card.querySelector('[data-field="category"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        content: card.querySelector('[data-field="content"]').value,
+        url1: card.querySelector('[data-field="url1"]').value.trim(),
+        url2: card.querySelector('[data-field="url2"]').value.trim(),
+        url3: card.querySelector('[data-field="url3"]').value.trim()
+    };
+    fetch(`api.php?action=create&table=${TABLE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
+}
+
+function getCardById(id) {
+    return document.querySelector(`.card[data-id="${id}"]`);
+}
+
+function startInlineEdit(id) {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        editItem(id);
+        return;
+    }
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+    fillInlineInputs(card);
+}
+
+function cancelInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+}
+
+function fillInlineInputs(card) {
+    const data = card.dataset;
+    const titleInput = card.querySelector('[data-field="title"]');
+    if (titleInput) titleInput.value = data.title || '';
+    const categoryInput = card.querySelector('[data-field="category"]');
+    if (categoryInput) categoryInput.value = data.categoryValue || '';
+    const refInput = card.querySelector('[data-field="ref"]');
+    if (refInput) refInput.value = data.ref || '';
+    const contentInput = card.querySelector('[data-field="content"]');
+    if (contentInput) contentInput.value = data.content || '';
+    const url1Input = card.querySelector('[data-field="url1"]');
+    if (url1Input) url1Input.value = data.url1 || '';
+    const url2Input = card.querySelector('[data-field="url2"]');
+    if (url2Input) url2Input.value = data.url2 || '';
+    const url3Input = card.querySelector('[data-field="url3"]');
+    if (url3Input) url3Input.value = data.url3 || '';
+}
+
+function saveInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    const title = card.querySelector('[data-field="title"]').value.trim();
+    if (!title) {
+        alert('請輸入標題');
+        return;
+    }
+    const data = {
+        title,
+        category: card.querySelector('[data-field="category"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        content: card.querySelector('[data-field="content"]').value,
+        url1: card.querySelector('[data-field="url1"]').value.trim(),
+        url2: card.querySelector('[data-field="url2"]').value.trim(),
+        url3: card.querySelector('[data-field="url3"]').value.trim()
+    };
+    fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
 }
 
 function openModal() {

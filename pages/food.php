@@ -1,19 +1,24 @@
 <?php
 $pageTitle = '食品管理';
 $pdo = getConnection();
-$items = $pdo->query("SELECT * FROM food ORDER BY created_at DESC")->fetchAll();
+$items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 1 ELSE 0 END, todate ASC, created_at DESC")->fetchAll();
 ?>
 
-<div class="content-header">
-    <h1>鋒兄食品</h1>
+<div class="content-header" style="display: flex; align-items: center; gap: 12px;">
+    <h1 style="margin: 0;">鋒兄食品</h1>
+    <span style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+        <?php echo count($items); ?> 項
+    </span>
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增食品"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'food';
-    include 'includes/csv_buttons.php'; ?>
-
-    <?php include 'includes/batch-delete.php'; ?>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增食品"><i class="fas fa-plus"></i></button>
+        <?php $csvTable = 'food';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
 
     <!-- 桌面版表格 -->
     <table class="table desktop-only" style="margin-top: 20px;">
@@ -30,34 +35,111 @@ $items = $pdo->query("SELECT * FROM food ORDER BY created_at DESC")->fetchAll();
             </tr>
         </thead>
         <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="食品名稱">
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="amount" placeholder="數量">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="shop" placeholder="商店">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="todate">
+                    </div>
+                </td>
+            </tr>
             <?php if (empty($items)): ?>
                 <tr>
                     <td colspan="7" style="text-align: center; color: #999;">暫無食品資料</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
-                    <tr>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-amount="<?php echo htmlspecialchars($item['amount'] ?? '', ENT_QUOTES); ?>"
+                        data-price="<?php echo htmlspecialchars($item['price'] ?? '', ENT_QUOTES); ?>"
+                        data-shop="<?php echo htmlspecialchars($item['shop'] ?? '', ENT_QUOTES); ?>"
+                        data-todate="<?php echo htmlspecialchars($item['todate'] ?? '', ENT_QUOTES); ?>"
+                        data-photo="<?php echo htmlspecialchars($item['photo'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
-                            <?php if (!empty($item['photo'])): ?>
-                                <img src="<?php echo htmlspecialchars($item['photo']); ?>"
-                                    style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
-                            <?php else: ?>
-                                <span style="color: #999;">-</span>
-                            <?php endif; ?>
+                            <div class="inline-view">
+                                <?php if (!empty($item['photo'])): ?>
+                                    <img src="<?php echo htmlspecialchars($item['photo']); ?>"
+                                        style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                                <?php else: ?>
+                                    <span style="color: #999;">-</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                            </div>
                         </td>
                         <td>
-                            <?php echo htmlspecialchars($item['name']); ?>
-                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
-                                style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            <div class="inline-view">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="食品名稱">
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
                         </td>
-                        <td><?php echo $item['amount'] ?? 0; ?></td>
-                        <td><?php echo formatMoney($item['price']); ?></td>
-                        <td><?php echo htmlspecialchars($item['shop'] ?? '-'); ?></td>
-                        <td><?php echo formatDate($item['todate']); ?></td>
+                        <td>
+                            <span class="inline-view"><?php echo $item['amount'] ?? 0; ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="amount" placeholder="數量">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatMoney($item['price']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['shop'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="text" class="form-control inline-input" data-field="shop" placeholder="商店">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['todate']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="todate">
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -171,6 +253,124 @@ $items = $pdo->query("SELECT * FROM food ORDER BY created_at DESC")->fetchAll();
 <script>
     const TABLE = 'food';
     initBatchDelete(TABLE);
+
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
+    }
+
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            input.value = '';
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
+    }
+
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入食品名稱');
+            return;
+        }
+        const data = {
+            name,
+            amount: row.querySelector('[data-field="amount"]').value || 0,
+            price: row.querySelector('[data-field="price"]').value || 0,
+            shop: row.querySelector('[data-field="shop"]').value.trim(),
+            todate: row.querySelector('[data-field="todate"]').value || null,
+            photo: row.querySelector('[data-field="photo"]').value.trim()
+        };
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const todate = data.todate ? data.todate.split(' ')[0] : '';
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const amountInput = row.querySelector('[data-field="amount"]');
+        if (amountInput) amountInput.value = data.amount || '';
+        const priceInput = row.querySelector('[data-field="price"]');
+        if (priceInput) priceInput.value = data.price || '';
+        const shopInput = row.querySelector('[data-field="shop"]');
+        if (shopInput) shopInput.value = data.shop || '';
+        const todateInput = row.querySelector('[data-field="todate"]');
+        if (todateInput) todateInput.value = todate || '';
+        const photoInput = row.querySelector('[data-field="photo"]');
+        if (photoInput) photoInput.value = data.photo || '';
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入食品名稱');
+            return;
+        }
+        const data = {
+            name,
+            amount: row.querySelector('[data-field="amount"]').value || 0,
+            price: row.querySelector('[data-field="price"]').value || 0,
+            shop: row.querySelector('[data-field="shop"]').value.trim(),
+            todate: row.querySelector('[data-field="todate"]').value || null,
+            photo: row.querySelector('[data-field="photo"]').value.trim()
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
 
     function openModal() {
         document.getElementById('modal').style.display = 'flex';

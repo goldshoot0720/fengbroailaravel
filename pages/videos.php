@@ -10,7 +10,8 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增影片"><i class="fas fa-plus"></i></button>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <button class="btn btn-primary" onclick="handleAdd()" title="新增影片"><i class="fas fa-plus"></i></button>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_video.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -22,37 +23,99 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
     </div>
 
     <div class="video-list" style="margin-top: 20px;">
+        <div id="inlineAddCard" class="video-item inline-add-card" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;">
+            <div class="inline-edit inline-edit-always">
+                <div class="form-group">
+                    <label>名稱 *</label>
+                    <input type="text" class="form-control inline-input" data-field="name">
+                </div>
+                <div class="form-group">
+                    <label>檔案路徑</label>
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址">
+                </div>
+                <div class="form-group">
+                    <label>封面圖</label>
+                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                </div>
+                <div class="form-group">
+                    <label>參考</label>
+                    <input type="text" class="form-control inline-input" data-field="ref">
+                </div>
+                <div class="form-group">
+                    <label>備註</label>
+                    <textarea class="form-control inline-input" data-field="note" rows="4"></textarea>
+                </div>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                    <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                </div>
+            </div>
+        </div>
         <?php if (empty($items)): ?>
             <div class="card"><p style="text-align: center; color: #999;">暫無影片</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="video-item" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;">
-                    <div class="card-actions">
-                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
-                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <?php if (!empty($item['cover'])): ?>
-                                <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
-                            <?php else: ?>
-                                <div style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
+                <div class="video-item" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;"
+                    data-id="<?php echo $item['id']; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
+                    data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>"
+                    data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>">
+                    <div class="inline-view">
+                        <div class="card-actions">
+                            <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <?php if (!empty($item['cover'])): ?>
+                                    <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
+                                <?php else: ?>
+                                    <div style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
+                                    </div>
+                                <?php endif; ?>
+                                <div>
+                                    <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                                    <?php if (!empty($item['note'])): ?>
+                                        <p style="margin: 0; color: #666; font-size: 0.85rem;"><?php echo htmlspecialchars($item['note']); ?></p>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
-                            <div>
-                                <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;"><?php echo htmlspecialchars($item['name']); ?></h3>
-                                <?php if (!empty($item['note'])): ?>
-                                    <p style="margin: 0; color: #666; font-size: 0.85rem;"><?php echo htmlspecialchars($item['note']); ?></p>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <?php if (!empty($item['file'])): ?>
+                                    <button class="btn btn-primary btn-sm" onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
+                                        <i class="fa-solid fa-play"></i> 播放
+                                    </button>
                                 <?php endif; ?>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <?php if (!empty($item['file'])): ?>
-                                <button class="btn btn-primary btn-sm" onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
-                                    <i class="fa-solid fa-play"></i> 播放
-                                </button>
-                            <?php endif; ?>
+                    </div>
+                    <div class="inline-edit">
+                        <div class="form-group">
+                            <label>名稱 *</label>
+                            <input type="text" class="form-control inline-input" data-field="name">
+                        </div>
+                        <div class="form-group">
+                            <label>檔案路徑</label>
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址">
+                        </div>
+                        <div class="form-group">
+                            <label>封面圖</label>
+                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                        </div>
+                        <div class="form-group">
+                            <label>參考</label>
+                            <input type="text" class="form-control inline-input" data-field="ref">
+                        </div>
+                        <div class="form-group">
+                            <label>備註</label>
+                            <textarea class="form-control inline-input" data-field="note" rows="4"></textarea>
+                        </div>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
                         </div>
                     </div>
                 </div>
@@ -173,6 +236,124 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
 
 <script>
 const TABLE = 'commondocument';
+
+function handleAdd() {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        openModal();
+    } else {
+        startInlineAdd();
+    }
+}
+
+function startInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'block';
+    card.querySelectorAll('[data-field]').forEach(input => {
+        input.value = '';
+    });
+    const nameInput = card.querySelector('[data-field="name"]');
+    if (nameInput) nameInput.focus();
+}
+
+function cancelInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'none';
+}
+
+function saveInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    const name = card.querySelector('[data-field="name"]').value.trim();
+    if (!name) {
+        alert('請輸入名稱');
+        return;
+    }
+    const data = {
+        name,
+        file: card.querySelector('[data-field="file"]').value.trim(),
+        cover: card.querySelector('[data-field="cover"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        note: card.querySelector('[data-field="note"]').value.trim(),
+        category: 'video'
+    };
+    fetch(`api.php?action=create&table=${TABLE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
+}
+
+function getCardById(id) {
+    return document.querySelector(`.video-item[data-id="${id}"]`);
+}
+
+function startInlineEdit(id) {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        editItem(id);
+        return;
+    }
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+    fillInlineInputs(card);
+}
+
+function cancelInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+}
+
+function fillInlineInputs(card) {
+    const data = card.dataset;
+    const nameInput = card.querySelector('[data-field="name"]');
+    if (nameInput) nameInput.value = data.name || '';
+    const fileInput = card.querySelector('[data-field="file"]');
+    if (fileInput) fileInput.value = data.file || '';
+    const coverInput = card.querySelector('[data-field="cover"]');
+    if (coverInput) coverInput.value = data.cover || '';
+    const refInput = card.querySelector('[data-field="ref"]');
+    if (refInput) refInput.value = data.ref || '';
+    const noteInput = card.querySelector('[data-field="note"]');
+    if (noteInput) noteInput.value = data.note || '';
+}
+
+function saveInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    const name = card.querySelector('[data-field="name"]').value.trim();
+    if (!name) {
+        alert('請輸入名稱');
+        return;
+    }
+    const data = {
+        name,
+        file: card.querySelector('[data-field="file"]').value.trim(),
+        cover: card.querySelector('[data-field="cover"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        note: card.querySelector('[data-field="note"]').value.trim(),
+        category: 'video'
+    };
+    fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
+}
 
 function openModal() {
     document.getElementById('modal').style.display = 'flex';

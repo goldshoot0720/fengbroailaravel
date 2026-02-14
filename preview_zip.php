@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $type = $_POST['type'] ?? '';
-$allowedTypes = ['image', 'music', 'document', 'video', 'podcast'];
+$allowedTypes = ['image', 'music', 'document', 'video', 'podcast', 'article'];
 
 if (!in_array($type, $allowedTypes)) {
     outputJson(['success' => false, 'error' => '無效的類型']);
@@ -62,7 +62,8 @@ $validExtensions = [
     'music' => ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'],
     'document' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv'],
     'video' => ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 'm4v'],
-    'podcast' => ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma', 'mp4', 'webm', 'mkv', 'avi', 'mov']
+    'podcast' => ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma', 'mp4', 'webm', 'mkv', 'avi', 'mov'],
+    'article' => ['csv', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'mp3', 'wav', 'mp4', 'webm', 'mov', 'zip', 'rar']
 ];
 
 $exts = $validExtensions[$type] ?? [];

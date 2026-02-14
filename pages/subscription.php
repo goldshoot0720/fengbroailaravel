@@ -26,18 +26,28 @@ function convertToTWD($price, $currency, $rates)
 }
 ?>
 
-<div class="content-header">
-    <h1>鋒兄訂閱</h1>
+<div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <h1 style="margin: 0;">鋒兄訂閱</h1>
+        <span style="background: linear-gradient(135deg, #e67e22, #f39c12); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+            <?php echo count($items); ?> 項
+        </span>
+    </div>
+    <div class="subscription-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">全部</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">續訂</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('0')" data-continue="0">不續</button>
+    </div>
 </div>
 
 <div class="content-body">
-    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-        <button class="btn btn-primary" onclick="openModal()" title="新增訂閱"><i class="fas fa-plus"></i></button>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增訂閱"><i class="fas fa-plus"></i></button>
         <?php $csvTable = 'subscription';
         include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
     </div>
-
-    <?php include 'includes/batch-delete.php'; ?>
 
     <!-- 桌面版表格 -->
     <table class="table desktop-only" style="margin-top: 20px;">
@@ -52,42 +62,127 @@ function convertToTWD($price, $currency, $rates)
             </tr>
         </thead>
         <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="服務名稱">
+                        <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                        <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                        <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                        <select class="form-control inline-input" data-field="currency">
+                            <option value="TWD">TWD 新台幣</option>
+                            <option value="USD">USD 美元</option>
+                            <option value="EUR">EUR 歐元</option>
+                            <option value="JPY">JPY 日圓</option>
+                            <option value="CNY">CNY 人民幣</option>
+                            <option value="HKD">HKD 港幣</option>
+                        </select>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="nextdate">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" data-field="continue" checked> 續訂
+                        </label>
+                    </div>
+                </td>
+            </tr>
             <?php if (empty($items)): ?>
                 <tr>
                     <td colspan="5" style="text-align: center; color: #999;">暫無訂閱資料</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
-                    <tr>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
+                        data-price="<?php echo htmlspecialchars($item['price'] ?? '', ENT_QUOTES); ?>"
+                        data-currency="<?php echo htmlspecialchars($item['currency'] ?? 'TWD', ENT_QUOTES); ?>"
+                        data-nextdate="<?php echo htmlspecialchars($item['nextdate'] ?? '', ENT_QUOTES); ?>"
+                        data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
+                        data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                        data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
-                            <?php if ($item['site']): ?>
-                                <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
-                                <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=16"
-                                    style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;">
-                                <a href="<?php echo htmlspecialchars($item['site']); ?>"
-                                    target="_blank"><?php echo htmlspecialchars($item['name']); ?></a>
-                            <?php else: ?>
-                                <?php echo htmlspecialchars($item['name']); ?>
-                            <?php endif; ?>
-                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
-                                style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                style="margin-left: 6px; cursor: pointer;">&times;</span>
-                            <?php if (!empty($item['account'])): ?>
-                                <br><span
-                                    style="font-size: 0.85rem; color: #666;"><?php echo htmlspecialchars($item['account']); ?></span>
-                            <?php endif; ?>
-                            <?php if (!empty($item['note'])): ?>
-                                <br><span
-                                    style="font-size: 0.8rem; color: #999;"><?php echo htmlspecialchars($item['note']); ?></span>
-                            <?php endif; ?>
+                            <div class="inline-view">
+                                <?php if ($item['site']): ?>
+                                    <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                                    <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=16"
+                                        style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;">
+                                    <a href="<?php echo htmlspecialchars($item['site']); ?>"
+                                        target="_blank"><?php echo htmlspecialchars($item['name']); ?></a>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars($item['name']); ?>
+                                <?php endif; ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                                <?php if (!empty($item['account'])): ?>
+                                    <br><span
+                                        style="font-size: 0.85rem; color: #666;"><?php echo htmlspecialchars($item['account']); ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($item['note'])): ?>
+                                    <br><span
+                                        style="font-size: 0.8rem; color: #999;"><?php echo htmlspecialchars($item['note']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="服務名稱">
+                                <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                                <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                                <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
                         </td>
-                        <td><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></td>
-                        <td><?php echo formatDate($item['nextdate']); ?></td>
-                        <td><span
-                                class="badge <?php echo $item['continue'] ? 'badge-success' : 'badge-danger'; ?>"><?php echo $item['continue'] ? '✓ 續訂' : '✗ 不續'; ?></span>
+                        <td>
+                            <span class="inline-view"><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                                <select class="form-control inline-input" data-field="currency">
+                                    <option value="TWD">TWD 新台幣</option>
+                                    <option value="USD">USD 美元</option>
+                                    <option value="EUR">EUR 歐元</option>
+                                    <option value="JPY">JPY 日圓</option>
+                                    <option value="CNY">CNY 人民幣</option>
+                                    <option value="HKD">HKD 港幣</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['nextdate']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="nextdate">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view">
+                                <span class="badge <?php echo $item['continue'] ? 'badge-success' : 'badge-danger'; ?>"><?php echo $item['continue'] ? '✓ 續訂' : '✗ 不續'; ?></span>
+                            </span>
+                            <div class="inline-edit inline-edit-row">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" data-field="continue"> 續訂
+                                </label>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -101,7 +196,7 @@ function convertToTWD($price, $currency, $rates)
             <div class="sub-card" style="text-align: center; color: #999; padding: 40px;">暫無訂閱資料</div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>">
+                <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>" data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
                     <div class="sub-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -251,6 +346,43 @@ function convertToTWD($price, $currency, $rates)
 
     .suggestion-item:hover {
         background: var(--table-header-bg, #f8f9fa);
+    }
+
+    .filter-btn.active {
+        background: #3498db;
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .inline-add-row {
+        display: none;
+    }
+
+    .inline-edit.inline-edit-always {
+        display: block;
+    }
+
+    .inline-edit {
+        display: none;
+    }
+
+    .inline-edit .form-control {
+        margin-top: 6px;
+    }
+
+    .inline-edit-row {
+        margin-top: 6px;
+    }
+
+    .inline-actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .inline-actions .btn {
+        padding: 4px 10px;
+        font-size: 0.85rem;
     }
 
     /* 手機版/桌面版切換 */
@@ -477,6 +609,84 @@ function convertToTWD($price, $currency, $rates)
         container.style.display = hasVisible ? 'block' : 'none';
     }
 
+    function filterByContinue(value) {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.continue === value);
+        });
+
+        document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(row => {
+            const match = !value || row.dataset.continue === value;
+            row.style.display = match ? '' : 'none';
+        });
+
+        document.querySelectorAll('.mobile-cards .sub-card').forEach(card => {
+            const match = !value || card.dataset.continue === value;
+            card.style.display = match ? '' : 'none';
+        });
+    }
+
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
+    }
+
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = true;
+            } else {
+                input.value = '';
+            }
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
+    }
+
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入服務名稱');
+            return;
+        }
+
+        const data = {
+            name,
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            price: row.querySelector('[data-field="price"]').value || 0,
+            currency: row.querySelector('[data-field="currency"]').value || 'TWD',
+            nextdate: row.querySelector('[data-field="nextdate"]').value || null,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
+        };
+
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
     // 點擊其他地方關閉所有下拉選單
     document.addEventListener('click', function (e) {
         if (!e.target.closest('#name') && !e.target.closest('#nameSuggestions')) {
@@ -489,6 +699,80 @@ function convertToTWD($price, $currency, $rates)
             document.getElementById('accountSuggestions').style.display = 'none';
         }
     });
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nextdate = data.nextdate ? data.nextdate.split(' ')[0] : '';
+        const continueValue = data.continue == 1;
+
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const siteInput = row.querySelector('[data-field="site"]');
+        if (siteInput) siteInput.value = data.site || '';
+        const accountInput = row.querySelector('[data-field="account"]');
+        if (accountInput) accountInput.value = data.account || '';
+        const noteInput = row.querySelector('[data-field="note"]');
+        if (noteInput) noteInput.value = data.note || '';
+        const priceInput = row.querySelector('[data-field="price"]');
+        if (priceInput) priceInput.value = data.price || '';
+        const currencySelect = row.querySelector('[data-field="currency"]');
+        if (currencySelect) currencySelect.value = data.currency || 'TWD';
+        const nextdateInput = row.querySelector('[data-field="nextdate"]');
+        if (nextdateInput) nextdateInput.value = nextdate || '';
+        const continueCheckbox = row.querySelector('[data-field="continue"]');
+        if (continueCheckbox) continueCheckbox.checked = continueValue;
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入服務名稱');
+            return;
+        }
+
+        const data = {
+            name,
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            price: row.querySelector('[data-field="price"]').value || 0,
+            currency: row.querySelector('[data-field="currency"]').value || 'TWD',
+            nextdate: row.querySelector('[data-field="nextdate"]').value || null,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
+        };
+
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
 
     function openModal() {
         document.getElementById('modal').style.display = 'flex';

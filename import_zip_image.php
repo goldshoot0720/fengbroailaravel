@@ -9,59 +9,44 @@ header('Content-Type: application/json; charset=utf-8');
 require_once 'includes/functions.php';
 require_once 'includes/PureZip.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(['error' => '請使用 POST 方法'], 400);
-}
-
-// Support both direct upload and tempFile from preview
-$tempFileFromPreview = $_POST['tempFile'] ?? '';
-$zipFile = '';
+// 支援從 preview 傳入 tempFile 或直接上傳
+$tempFile = $_POST['tempFile'] ?? '';
 $cleanupTempFile = false;
 
-if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath($tempFileFromPreview), realpath('uploads/temp')) === 0) {
-    $zipFile = $tempFileFromPreview;
+if ($tempFile && file_exists($tempFile)) {
+    $zipFile = $tempFile;
     $cleanupTempFile = true;
 } elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
     $zipFile = $_FILES['file']['tmp_name'];
 } else {
-    jsonResponse(['error' => '請上傳檔案'], 400);
+    echo json_encode(['success' => false, 'error' => '請上傳 ZIP 檔案']);
+    exit;
 }
 
-// Create temp directory for extraction
-$tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_music_' . uniqid();
-if (!is_dir($tempDir)) {
-    mkdir($tempDir, 0755, true);
+// 解壓 ZIP
+$extractDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_image_' . uniqid();
+if (!is_dir($extractDir)) {
+    mkdir($extractDir, 0755, true);
 }
 
-// Extract ZIP using pure PHP
 $zip = new PureZipExtract();
 if (!$zip->open($zipFile)) {
-    cleanupDir($tempDir);
     if ($cleanupTempFile) @unlink($zipFile);
-    jsonResponse(['error' => '無法開啟 ZIP 檔案'], 400);
+    echo json_encode(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
+    exit;
 }
 
-$zip->extractTo($tempDir);
-
-// Copy files to uploads directory
-$uploadDir = 'uploads';
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0755, true);
-}
-
-$pdo = getConnection();
-$imported = 0;
-$errors = [];
+$zip->extractTo($extractDir);
 
 // 尋找 CSV 檔案
 $csvFile = null;
 $searchPaths = [
-    $tempDir . DIRECTORY_SEPARATOR . 'music.csv',
+    $extractDir . DIRECTORY_SEPARATOR . 'image.csv',
 ];
-foreach (glob($tempDir . DIRECTORY_SEPARATOR . '*.csv') as $f) {
+foreach (glob($extractDir . DIRECTORY_SEPARATOR . '*.csv') as $f) {
     $searchPaths[] = $f;
 }
-foreach (glob($tempDir . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.csv') as $f) {
+foreach (glob($extractDir . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.csv') as $f) {
     $searchPaths[] = $f;
 }
 
@@ -72,11 +57,21 @@ foreach ($searchPaths as $path) {
     }
 }
 
-// 判斷模式：有 CSV = Appwrite 結構，無 CSV = 純音樂 ZIP
+// 判斷模式：有 CSV = Appwrite 結構，無 CSV = 純圖片 ZIP
 $hasCsv = ($csvFile !== null);
 
+$uploadDir = 'uploads';
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
+
+$pdo = getConnection();
+$imported = 0;
+$errors = [];
+$imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+
 if ($hasCsv) {
-    // ===== Appwrite 格式：CSV + music/ + covers/ 資料夾 =====
+    // ===== Appwrite 格式：CSV + images/ 資料夾 =====
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
@@ -93,9 +88,10 @@ if ($hasCsv) {
     $headers = fgetcsv($handle);
     if (!$headers) {
         fclose($handle);
-        cleanupDir($tempDir);
+        cleanupDir($extractDir);
         if ($cleanupTempFile) @unlink($zipFile);
-        jsonResponse(['error' => 'CSV 格式錯誤'], 400);
+        echo json_encode(['success' => false, 'error' => 'CSV 格式錯誤']);
+        exit;
     }
 
     $headers = array_map(function ($h) use ($fieldMapping) {
@@ -141,20 +137,19 @@ if ($hasCsv) {
         unset($data['created_at']);
         unset($data['updated_at']);
 
-        // 處理檔案欄位 (music/ 和 covers/ 資料夾)
+        // 處理檔案欄位
         foreach ($fileFields as $fileField) {
             if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
 
-            $zipPath = $data[$fileField]; // e.g. "music/1_songname_zh.mp3" or "covers/1_thumb.png"
+            $zipPath = $data[$fileField]; // e.g. "images/1_photo.png"
 
             $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
             if (!file_exists($sourcePath)) {
-                $sourcePath = $tempDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+                $sourcePath = $extractDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
             }
 
             if (file_exists($sourcePath)) {
                 $baseName = basename($zipPath);
-                // 移除流水號前綴 (e.g. "1_songname_zh.mp3" -> "songname_zh.mp3")
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
                 if (empty($originalName)) $originalName = $baseName;
 
@@ -169,25 +164,15 @@ if ($hasCsv) {
                     $errors[] = "第 {$lineNum} 行: 無法複製檔案 {$baseName}";
                 }
             } else {
-                // 如果是相對路徑但檔案不存在，清空
-                if (strpos($zipPath, 'music/') === 0 || strpos($zipPath, 'covers/') === 0) {
+                if (strpos($zipPath, 'images/') === 0) {
                     $data[$fileField] = '';
                 }
             }
         }
 
-        // 處理歌詞欄位 (lyrics/ 資料夾 -> 讀取文字內容)
-        if (isset($data['lyrics']) && !empty($data['lyrics']) && strpos($data['lyrics'], 'lyrics/') === 0) {
-            $lyricsZipPath = $data['lyrics'];
-            $lyricsSourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
-            if (!file_exists($lyricsSourcePath)) {
-                $lyricsSourcePath = $tempDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
-            }
-            if (file_exists($lyricsSourcePath)) {
-                $data['lyrics'] = file_get_contents($lyricsSourcePath);
-            } else {
-                $data['lyrics'] = '';
-            }
+        // cover 和 file 相同時同步
+        if (isset($data['cover']) && isset($data['file']) && empty($data['cover'])) {
+            $data['cover'] = $data['file'];
         }
 
         // 處理空值
@@ -204,7 +189,7 @@ if ($hasCsv) {
             }
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM music WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT id FROM image WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
 
@@ -215,7 +200,7 @@ if ($hasCsv) {
                 foreach (array_keys($data) as $col) {
                     $sets[] = "`{$col}` = ?";
                 }
-                $sql = "UPDATE music SET " . implode(',', $sets) . " WHERE id = ?";
+                $sql = "UPDATE image SET " . implode(',', $sets) . " WHERE id = ?";
                 $stmt = $pdo->prepare($sql);
                 $values = array_values($data);
                 $values[] = $currentId;
@@ -223,7 +208,7 @@ if ($hasCsv) {
             } else {
                 $columns = array_map(function ($c) { return "`{$c}`"; }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
-                $sql = "INSERT INTO music (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
+                $sql = "INSERT INTO image (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute(array_values($data));
             }
@@ -236,35 +221,26 @@ if ($hasCsv) {
     fclose($handle);
 
 } else {
-    // ===== 舊格式：純音樂 ZIP（無 CSV） =====
-    $musicExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'];
-    $files = glob($tempDir . DIRECTORY_SEPARATOR . '*');
+    // ===== 舊格式：純圖片 ZIP（無 CSV） =====
+    $files = glob($extractDir . DIRECTORY_SEPARATOR . '*');
 
     foreach ($files as $file) {
         if (!is_file($file)) continue;
 
         $fileName = basename($file);
-
-        // Skip cover files
-        if (strpos($fileName, 'cover_') === 0) continue;
+        if (strpos($fileName, '.') === 0) continue;
 
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $imageExtensions)) continue;
 
-        // Skip non-music files
-        if (!in_array($ext, $musicExtensions)) continue;
-
-        // Copy to uploads
         $destPath = $uploadDir . '/' . $fileName;
-
-        // Handle duplicate filenames
         if (file_exists($destPath)) {
             $info = pathinfo($fileName);
-            $base = $info['filename'];
             $counter = 1;
-            while (file_exists($uploadDir . '/' . $base . '_' . $counter . '.' . $ext)) {
+            while (file_exists($uploadDir . '/' . $info['filename'] . '_' . $counter . '.' . $ext)) {
                 $counter++;
             }
-            $fileName = $base . '_' . $counter . '.' . $ext;
+            $fileName = $info['filename'] . '_' . $counter . '.' . $ext;
             $destPath = $uploadDir . '/' . $fileName;
         }
 
@@ -273,15 +249,12 @@ if ($hasCsv) {
             continue;
         }
 
-        // Create database record
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $filePath = 'uploads/' . $fileName;
 
         try {
-            $id = generateUUID();
-            $sql = "INSERT INTO music (id, name, file) VALUES (?, ?, ?)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$id, $name, $filePath]);
+            $stmt = $pdo->prepare("INSERT INTO image (id, name, file, cover) VALUES (?, ?, ?, ?)");
+            $stmt->execute([generateUUID(), $name, $filePath, $filePath]);
             $imported++;
         } catch (PDOException $e) {
             $errors[] = "$fileName: " . $e->getMessage();
@@ -290,7 +263,7 @@ if ($hasCsv) {
 }
 
 // 清理
-cleanupDir($tempDir);
+cleanupDir($extractDir);
 if ($cleanupTempFile) @unlink($zipFile);
 
 echo json_encode([

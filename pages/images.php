@@ -4,40 +4,125 @@ $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll();
 ?>
 
-<div class="content-header">
-    <h1>鋒兄圖片</h1>
+<div class="content-header" style="display: flex; align-items: center; gap: 12px;">
+    <h1 style="margin: 0;">鋒兄圖片</h1>
+    <span style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+        <?php echo count($items); ?> 張
+    </span>
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增圖片"><i class="fas fa-plus"></i></button>
-    <div style="display: inline-block; margin-left: 10px;">
-        <a href="export_zip.php?table=image" class="btn btn-success">
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增圖片"><i class="fas fa-plus"></i> 新增圖片</button>
+
+        <a href="export.php?table=image&format=appwrite" class="btn btn-success">
+            <i class="fa-solid fa-download"></i> 匯出 Appwrite
+        </a>
+        <a href="export.php?table=image&format=laravel" class="btn btn-success">
+            <i class="fa-solid fa-download"></i> 匯出 Laravel
+        </a>
+
+        <a href="export_zip_image.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 圖片）">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>
-        <button type="button" class="btn" onclick="document.getElementById('importZipFile').click()">
+        <button type="button" class="btn" onclick="document.getElementById('zipImportImage').click()" title="匯入 Appwrite ZIP（含 CSV + 圖片）">
             <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
         </button>
-        <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
+        <input type="file" id="zipImportImage" accept=".zip" style="display: none;"
+            onchange="previewAndImportZIP(this, 'image', 'import_zip_image.php', '圖片')">
+
+        <?php include 'includes/batch-delete.php'; ?>
     </div>
 
     <div class="card-grid" style="margin-top: 20px;">
+        <div id="inlineAddCard" class="card inline-add-card">
+            <div class="inline-edit inline-edit-always">
+                <div class="form-group">
+                    <label>名稱 *</label>
+                    <input type="text" class="form-control inline-input" data-field="name">
+                </div>
+                <div class="form-group">
+                    <label>檔案路徑</label>
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1">
+                        <label>分類</label>
+                        <input type="text" class="form-control inline-input" data-field="category">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label>參考</label>
+                        <input type="text" class="form-control inline-input" data-field="ref">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>備註</label>
+                    <textarea class="form-control inline-input" data-field="note" rows="4"></textarea>
+                </div>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                    <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                </div>
+            </div>
+        </div>
         <?php if (empty($items)): ?>
             <div class="card"><p style="text-align: center; color: #999;">暫無圖片</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="card">
-                    <div class="card-actions">
-                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
-                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                <div class="card"
+                    data-id="<?php echo $item['id']; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
+                    data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
+                    data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>">
+                    <div class="inline-view">
+                        <div class="card-header">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                    onchange="toggleSelectItem(this)">
+                            <div class="card-actions">
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                            </div>
+                        </div>
+                        <?php if (!empty($item['cover'])): ?>
+                            <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
+                        <?php elseif (!empty($item['file'])): ?>
+                            <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
+                        <?php endif; ?>
+                        <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
+                        <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
+                        <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
                     </div>
-                    <?php if (!empty($item['cover'])): ?>
-                        <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
-                    <?php elseif (!empty($item['file'])): ?>
-                        <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
-                    <?php endif; ?>
-                    <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                    <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
-                    <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
+                    <div class="inline-edit">
+                        <div class="form-group">
+                            <label>名稱 *</label>
+                            <input type="text" class="form-control inline-input" data-field="name">
+                        </div>
+                        <div class="form-group">
+                            <label>檔案路徑</label>
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1">
+                                <label>分類</label>
+                                <input type="text" class="form-control inline-input" data-field="category">
+                            </div>
+                            <div class="form-group" style="flex:1">
+                                <label>參考</label>
+                                <input type="text" class="form-control inline-input" data-field="ref">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>備註</label>
+                            <textarea class="form-control inline-input" data-field="note" rows="4"></textarea>
+                        </div>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                        </div>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -85,9 +170,129 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
 </div>
 
 <?php include 'includes/upload-progress.php'; ?>
+<?php include 'includes/zip-preview.php'; ?>
 
 <script>
 const TABLE = 'image';
+initBatchDelete(TABLE);
+
+function handleAdd() {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        openModal();
+    } else {
+        startInlineAdd();
+    }
+}
+
+function startInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'block';
+    card.querySelectorAll('[data-field]').forEach(input => {
+        input.value = '';
+    });
+    const nameInput = card.querySelector('[data-field="name"]');
+    if (nameInput) nameInput.focus();
+}
+
+function cancelInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    card.style.display = 'none';
+}
+
+function saveInlineAdd() {
+    const card = document.getElementById('inlineAddCard');
+    if (!card) return;
+    const name = card.querySelector('[data-field="name"]').value.trim();
+    if (!name) {
+        alert('請輸入名稱');
+        return;
+    }
+    const data = {
+        name,
+        file: card.querySelector('[data-field="file"]').value.trim(),
+        cover: card.querySelector('[data-field="file"]').value.trim(),
+        category: card.querySelector('[data-field="category"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        note: card.querySelector('[data-field="note"]').value.trim()
+    };
+    fetch(`api.php?action=create&table=${TABLE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
+}
+
+function getCardById(id) {
+    return document.querySelector(`.card[data-id="${id}"]`);
+}
+
+function startInlineEdit(id) {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+        editItem(id);
+        return;
+    }
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+    fillInlineInputs(card);
+}
+
+function cancelInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    card.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+    card.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+}
+
+function fillInlineInputs(card) {
+    const data = card.dataset;
+    const nameInput = card.querySelector('[data-field="name"]');
+    if (nameInput) nameInput.value = data.name || '';
+    const fileInput = card.querySelector('[data-field="file"]');
+    if (fileInput) fileInput.value = data.file || '';
+    const categoryInput = card.querySelector('[data-field="category"]');
+    if (categoryInput) categoryInput.value = data.category || '';
+    const refInput = card.querySelector('[data-field="ref"]');
+    if (refInput) refInput.value = data.ref || '';
+    const noteInput = card.querySelector('[data-field="note"]');
+    if (noteInput) noteInput.value = data.note || '';
+}
+
+function saveInlineEdit(id) {
+    const card = getCardById(id);
+    if (!card) return;
+    const name = card.querySelector('[data-field="name"]').value.trim();
+    if (!name) {
+        alert('請輸入名稱');
+        return;
+    }
+    const data = {
+        name,
+        file: card.querySelector('[data-field="file"]').value.trim(),
+        cover: card.querySelector('[data-field="file"]').value.trim(),
+        category: card.querySelector('[data-field="category"]').value.trim(),
+        ref: card.querySelector('[data-field="ref"]').value.trim(),
+        note: card.querySelector('[data-field="note"]').value.trim()
+    };
+    fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) location.reload();
+            else alert('儲存失敗: ' + (res.error || ''));
+        });
+}
 
 function openModal() {
     document.getElementById('modal').style.display = 'flex';
@@ -191,63 +396,4 @@ function updateImagePreview() {
 document.getElementById('file').addEventListener('change', updateImagePreview);
 document.getElementById('file').addEventListener('input', updateImagePreview);
 
-function importZIP(input) {
-    if (!input.files || !input.files[0]) return;
-
-    if (!confirm('確定要匯入 ZIP 嗎？圖片將會新增到資料庫。')) {
-        input.value = '';
-        return;
-    }
-
-    const file = input.files[0];
-    const modal = document.getElementById('uploadProgressModal');
-    const progressBar = document.getElementById('uploadProgressBar');
-    const progressText = document.getElementById('uploadProgressText');
-    const fileName = document.getElementById('uploadFileName');
-
-    modal.style.display = 'flex';
-    progressBar.style.width = '0%';
-    progressText.textContent = '0%';
-    fileName.textContent = file.name;
-
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append('table', 'image');
-    formData.append('file', file);
-
-    xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-            const percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + '%';
-            progressText.textContent = percent + '%';
-            const loaded = formatFileSize(e.loaded);
-            const total = formatFileSize(e.total);
-            fileName.textContent = file.name + ' (' + loaded + ' / ' + total + ')';
-        }
-    });
-
-    xhr.addEventListener('load', function() {
-        modal.style.display = 'none';
-        try {
-            const res = JSON.parse(xhr.responseText);
-            if (res.success) {
-                alert('匯入完成！\n成功匯入: ' + res.imported + ' 張圖片');
-                location.reload();
-            } else {
-                alert('匯入失敗: ' + (res.error || '未知錯誤'));
-            }
-        } catch (e) {
-            alert('匯入失敗: 回應格式錯誤');
-        }
-    });
-
-    xhr.addEventListener('error', function() {
-        modal.style.display = 'none';
-        alert('匯入失敗: 網路錯誤');
-    });
-
-    xhr.open('POST', 'import_zip.php');
-    xhr.send(formData);
-    input.value = '';
-}
 </script>

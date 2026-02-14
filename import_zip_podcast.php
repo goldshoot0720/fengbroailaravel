@@ -1,43 +1,66 @@
 <?php
-ini_set('memory_limit', '256M');
+ini_set('memory_limit', '512M');
 set_time_limit(0);
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+header('Content-Type: application/json; charset=utf-8');
 
 require_once 'includes/functions.php';
 require_once 'includes/PureZip.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(['error' => '請使用 POST 方法'], 400);
-}
-
-// Support both direct upload and tempFile from preview
-$tempFileFromPreview = $_POST['tempFile'] ?? '';
-$zipFile = '';
+// 支援從 preview 傳入 tempFile 或直接上傳
+$tempFile = $_POST['tempFile'] ?? '';
 $cleanupTempFile = false;
 
-if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath($tempFileFromPreview), realpath('uploads/temp')) === 0) {
-    $zipFile = $tempFileFromPreview;
+if ($tempFile && file_exists($tempFile)) {
+    $zipFile = $tempFile;
     $cleanupTempFile = true;
 } elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
     $zipFile = $_FILES['file']['tmp_name'];
 } else {
-    jsonResponse(['error' => '請上傳檔案'], 400);
+    echo json_encode(['success' => false, 'error' => '請上傳 ZIP 檔案']);
+    exit;
 }
 
-// Create temp directory for extraction
-$tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_podcast_' . uniqid();
-mkdir($tempDir);
+// 解壓 ZIP
+$extractDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_podcast_' . uniqid();
+if (!is_dir($extractDir)) {
+    mkdir($extractDir, 0755, true);
+}
 
-// Extract ZIP using pure PHP
 $zip = new PureZipExtract();
 if (!$zip->open($zipFile)) {
-    rmdir($tempDir);
-    jsonResponse(['error' => '無法開啟 ZIP 檔案'], 400);
+    if ($cleanupTempFile) @unlink($zipFile);
+    echo json_encode(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
+    exit;
 }
 
-$zip->extractTo($tempDir);
+$zip->extractTo($extractDir);
 
-// Copy podcast files to uploads directory
-$uploadDir = 'uploads/';
+// 尋找 CSV 檔案
+$csvFile = null;
+$searchPaths = [
+    $extractDir . DIRECTORY_SEPARATOR . 'podcast.csv',
+];
+foreach (glob($extractDir . DIRECTORY_SEPARATOR . '*.csv') as $f) {
+    $searchPaths[] = $f;
+}
+foreach (glob($extractDir . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.csv') as $f) {
+    $searchPaths[] = $f;
+}
+
+foreach ($searchPaths as $path) {
+    if (file_exists($path)) {
+        $csvFile = $path;
+        break;
+    }
+}
+
+// 判斷模式：有 CSV = Appwrite 結構，無 CSV = 純檔案 ZIP
+$hasCsv = ($csvFile !== null);
+
+$uploadDir = 'uploads';
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0755, true);
 }
@@ -45,73 +68,219 @@ if (!is_dir($uploadDir)) {
 $pdo = getConnection();
 $imported = 0;
 $errors = [];
-
-// Get all podcast files from ZIP (audio and video)
 $podcastExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma', 'mp4', 'webm', 'mkv', 'avi', 'mov'];
-$files = glob($tempDir . DIRECTORY_SEPARATOR . '*');
 
-foreach ($files as $file) {
-    if (!is_file($file))
-        continue;
+if ($hasCsv) {
+    // ===== Appwrite 格式：CSV + podcast/ + covers/ 資料夾 =====
+    $fieldMapping = [
+        '$id' => 'id',
+        '$createdAt' => 'created_at',
+        '$updatedAt' => 'updated_at'
+    ];
+    $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
 
-    $fileName = basename($file);
+    $handle = fopen($csvFile, 'r');
+    $bom = fread($handle, 3);
+    if ($bom !== "\xEF\xBB\xBF") {
+        rewind($handle);
+    }
 
-    // Skip cover files
-    if (strpos($fileName, 'cover_') === 0)
-        continue;
+    $headers = fgetcsv($handle);
+    if (!$headers) {
+        fclose($handle);
+        cleanupDir($extractDir);
+        if ($cleanupTempFile) @unlink($zipFile);
+        echo json_encode(['success' => false, 'error' => 'CSV 格式錯誤']);
+        exit;
+    }
 
-    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    $headers = array_map(function ($h) use ($fieldMapping) {
+        $h = trim($h);
+        return $fieldMapping[$h] ?? $h;
+    }, $headers);
 
-    // Skip non-podcast files
-    if (!in_array($ext, $podcastExtensions))
-        continue;
-
-    // Copy to uploads
-    $destPath = $uploadDir . $fileName;
-
-    // Handle duplicate filenames
-    if (file_exists($destPath)) {
-        $info = pathinfo($fileName);
-        $base = $info['filename'];
-        $counter = 1;
-        while (file_exists($uploadDir . $base . '_' . $counter . '.' . $ext)) {
-            $counter++;
+    $ignoredIndexes = [];
+    foreach ($headers as $i => $h) {
+        if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+            $ignoredIndexes[] = $i;
         }
-        $fileName = $base . '_' . $counter . '.' . $ext;
-        $destPath = $uploadDir . $fileName;
+    }
+    foreach ($ignoredIndexes as $i) {
+        unset($headers[$i]);
+    }
+    $headers = array_values($headers);
+    $headerCount = count($headers);
+
+    $lineNum = 1;
+    $fileFields = ['file', 'cover'];
+
+    while (($row = fgetcsv($handle)) !== false) {
+        $lineNum++;
+
+        foreach ($ignoredIndexes as $i) {
+            unset($row[$i]);
+        }
+        $row = array_values($row);
+
+        if (count($row) !== $headerCount) {
+            $errors[] = "第 {$lineNum} 行: 欄位數不匹配";
+            continue;
+        }
+
+        $data = array_combine($headers, $row);
+
+        if (empty($data['id'])) {
+            $data['id'] = generateUUID();
+        }
+        $currentId = $data['id'];
+
+        unset($data['created_at']);
+        unset($data['updated_at']);
+
+        // 處理檔案欄位 (file → podcast/ 資料夾, cover → covers/ 資料夾)
+        foreach ($fileFields as $fileField) {
+            if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
+
+            $zipPath = $data[$fileField]; // e.g. "podcast/1_episode.mp3" or "covers/1_cover.png"
+
+            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            if (!file_exists($sourcePath)) {
+                $sourcePath = $extractDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            }
+
+            if (file_exists($sourcePath)) {
+                $baseName = basename($zipPath);
+                $originalName = preg_replace('/^\d+_/', '', $baseName);
+                if (empty($originalName)) $originalName = $baseName;
+
+                $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+                $newName = generateUUID() . ($ext ? '.' . $ext : '');
+                $targetPath = $uploadDir . '/' . $newName;
+
+                if (copy($sourcePath, $targetPath)) {
+                    $data[$fileField] = $targetPath;
+                } else {
+                    $data[$fileField] = '';
+                    $errors[] = "第 {$lineNum} 行: 無法複製檔案 {$baseName}";
+                }
+            } else {
+                if (strpos($zipPath, 'podcast/') === 0 || strpos($zipPath, 'covers/') === 0) {
+                    $data[$fileField] = '';
+                }
+            }
+        }
+
+        // 處理空值
+        foreach ($data as $key => $value) {
+            if ($value === '' || $value === 'null') {
+                $data[$key] = null;
+            }
+        }
+
+        // 轉換 ISO 8601 日期
+        foreach ($data as $key => $value) {
+            if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
+                $data[$key] = substr($value, 0, 10);
+            }
+        }
+
+        $stmt = $pdo->prepare("SELECT id FROM podcast WHERE id = ?");
+        $stmt->execute([$currentId]);
+        $exists = $stmt->fetch();
+
+        try {
+            if ($exists) {
+                unset($data['id']);
+                $sets = [];
+                foreach (array_keys($data) as $col) {
+                    $sets[] = "`{$col}` = ?";
+                }
+                $sql = "UPDATE podcast SET " . implode(',', $sets) . " WHERE id = ?";
+                $stmt = $pdo->prepare($sql);
+                $values = array_values($data);
+                $values[] = $currentId;
+                $stmt->execute($values);
+            } else {
+                $columns = array_map(function ($c) { return "`{$c}`"; }, array_keys($data));
+                $placeholders = array_fill(0, count($data), '?');
+                $sql = "INSERT INTO podcast (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute(array_values($data));
+            }
+            $imported++;
+        } catch (PDOException $e) {
+            $errors[] = "第 {$lineNum} 行: " . $e->getMessage();
+        }
     }
 
-    if (!copy($file, $destPath)) {
-        $errors[] = "無法複製: $fileName";
-        continue;
-    }
+    fclose($handle);
 
-    // Create database record
-    $name = pathinfo($fileName, PATHINFO_FILENAME);
-    $filePath = 'uploads/' . $fileName;
+} else {
+    // ===== 舊格式：純播客檔案 ZIP（無 CSV） =====
+    $files = glob($extractDir . DIRECTORY_SEPARATOR . '*');
 
-    try {
-        $id = generateUUID();
-        $sql = "INSERT INTO podcast (id, name, file) VALUES (?, ?, ?)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$id, $name, $filePath]);
-        $imported++;
-    } catch (PDOException $e) {
-        $errors[] = "$fileName: " . $e->getMessage();
+    foreach ($files as $file) {
+        if (!is_file($file)) continue;
+
+        $fileName = basename($file);
+        if (strpos($fileName, '.') === 0) continue;
+        if (strpos($fileName, 'cover_') === 0) continue;
+
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $podcastExtensions)) continue;
+
+        $destPath = $uploadDir . '/' . $fileName;
+        if (file_exists($destPath)) {
+            $info = pathinfo($fileName);
+            $counter = 1;
+            while (file_exists($uploadDir . '/' . $info['filename'] . '_' . $counter . '.' . $ext)) {
+                $counter++;
+            }
+            $fileName = $info['filename'] . '_' . $counter . '.' . $ext;
+            $destPath = $uploadDir . '/' . $fileName;
+        }
+
+        if (!copy($file, $destPath)) {
+            $errors[] = "無法複製: $fileName";
+            continue;
+        }
+
+        $name = pathinfo($fileName, PATHINFO_FILENAME);
+        $filePath = 'uploads/' . $fileName;
+
+        try {
+            $stmt = $pdo->prepare("INSERT INTO podcast (id, name, file) VALUES (?, ?, ?)");
+            $stmt->execute([generateUUID(), $name, $filePath]);
+            $imported++;
+        } catch (PDOException $e) {
+            $errors[] = "$fileName: " . $e->getMessage();
+        }
     }
 }
 
-// Cleanup temp directory
-$cleanup = function ($dir) use (&$cleanup) {
-    foreach (glob($dir . DIRECTORY_SEPARATOR . '*') as $file) {
-        is_dir($file) ? $cleanup($file) : unlink($file);
-    }
-    @rmdir($dir);
-};
-$cleanup($tempDir);
+// 清理
+cleanupDir($extractDir);
+if ($cleanupTempFile) @unlink($zipFile);
 
-jsonResponse([
+echo json_encode([
     'success' => true,
     'imported' => $imported,
     'errors' => $errors
 ]);
+
+function cleanupDir($dir)
+{
+    if (!is_dir($dir)) return;
+    $items = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($items as $item) {
+        if ($item->isDir()) {
+            @rmdir($item->getRealPath());
+        } else {
+            @unlink($item->getRealPath());
+        }
+    }
+    @rmdir($dir);
+}

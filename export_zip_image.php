@@ -6,11 +6,11 @@ require_once 'includes/functions.php';
 require_once 'includes/PureZip.php';
 
 $pdo = getConnection();
-$stmt = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDER BY created_at DESC");
+$stmt = $pdo->query("SELECT * FROM image ORDER BY created_at DESC");
 $data = $stmt->fetchAll();
 
 if (empty($data)) {
-    die('沒有影片可匯出');
+    die('沒有圖片可匯出');
 }
 
 // === 1. 產生 Appwrite 格式 CSV 到暫存檔 ===
@@ -25,38 +25,37 @@ $headers = array_map(function ($col) use ($fieldMapping) {
     return $fieldMapping[$col] ?? $col;
 }, $columns);
 
-$csvTempFile = tempnam(sys_get_temp_dir(), 'video_csv_');
+$csvTempFile = tempnam(sys_get_temp_dir(), 'image_csv_');
 $csvHandle = fopen($csvTempFile, 'w');
 fwrite($csvHandle, "\xEF\xBB\xBF");
 fputcsv($csvHandle, $headers);
 
-$videoIndex = 0;
-$coverIndex = 0;
+$fileIndex = 0;
 $fileMap = [];
 
 foreach ($data as $rowIdx => $row) {
     $rowFileMap = [];
 
-    // file 欄位 -> videos/ 資料夾
+    // file 欄位
     $filePath = $row['file'] ?? '';
     if ($filePath && file_exists($filePath)) {
-        $videoIndex++;
+        $fileIndex++;
         $originalName = basename($filePath);
         $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $originalName);
-        $zipName = "videos/{$videoIndex}_{$safeName}";
+        $zipName = "images/{$fileIndex}_{$safeName}";
         $rowFileMap['file'] = [
             'zipName' => $zipName,
             'localPath' => $filePath
         ];
     }
 
-    // cover 欄位 -> covers/ 資料夾
+    // cover 欄位（如果和 file 不同）
     $coverPath = $row['cover'] ?? '';
     if ($coverPath && file_exists($coverPath) && $coverPath !== $filePath) {
-        $coverIndex++;
+        $fileIndex++;
         $originalName = basename($coverPath);
         $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $originalName);
-        $zipName = "covers/{$coverIndex}_{$safeName}";
+        $zipName = "images/{$fileIndex}_{$safeName}";
         $rowFileMap['cover'] = [
             'zipName' => $zipName,
             'localPath' => $coverPath
@@ -71,6 +70,9 @@ foreach ($data as $rowIdx => $row) {
 
         if (isset($rowFileMap[$col])) {
             $value = $rowFileMap[$col]['zipName'];
+        } elseif ($col === 'cover' && isset($rowFileMap['file'])) {
+            // cover 和 file 相同時，也指向同一個 ZIP 路徑
+            $value = $rowFileMap['file']['zipName'];
         }
 
         if (in_array($col, ['created_at', 'updated_at']) && $value) {
@@ -85,9 +87,9 @@ fclose($csvHandle);
 
 // === 2. 建立 ZIP ===
 $zip = new StreamingZip();
-$zip->begin('appwrite-video.zip');
+$zip->begin('appwrite-image.zip');
 
-$zip->addLargeFile($csvTempFile, 'video.csv');
+$zip->addLargeFile($csvTempFile, 'image.csv');
 
 foreach ($fileMap as $rowFiles) {
     foreach ($rowFiles as $info) {

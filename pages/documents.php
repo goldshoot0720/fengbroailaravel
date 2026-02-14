@@ -9,6 +9,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
 </div>
 
 <div class="content-body">
+    <?php include 'includes/inline-edit-hint.php'; ?>
     <?php if (isset($_GET['success'])): ?>
         <div class="alert alert-success"
             style="background:#28a745;color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:15px;">
@@ -21,7 +22,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             <i class="fa-solid fa-exclamation-circle"></i> <?php echo htmlspecialchars($_GET['error']); ?>
         </div>
     <?php endif; ?>
-    <button class="btn btn-primary" onclick="openModal()" title="新增文件"><i class="fas fa-plus"></i></button>
+    <button class="btn btn-primary" onclick="handleAdd()" title="新增文件"><i class="fas fa-plus"></i></button>
     <a href="export_zip_document.php" class="btn btn-success"><i class="fa-solid fa-download"></i> 匯出 ZIP</a>
     <button class="btn btn-info" onclick="document.getElementById('zipImport').click()"><i
             class="fa-solid fa-upload"></i> 匯入 ZIP</button>
@@ -46,31 +47,98 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             </tr>
         </thead>
         <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑">
+                        <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                    </div>
+                </td>
+                <td>-</td>
+                <td></td>
+            </tr>
             <?php if (empty($items)): ?>
                 <tr>
                     <td colspan="7" style="text-align: center; color: #999;">暫無文件</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
-                    <tr>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
+                        data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
+                        data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                        data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
+                        data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
-                        <td><?php echo htmlspecialchars($item['name']); ?></td>
-                        <td><?php echo htmlspecialchars($item['category'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($item['ref'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars($item['note'] ?? '-'); ?></td>
+                        <td>
+                            <div class="inline-view">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑">
+                                <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['category'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['ref'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                            </div>
+                        </td>
                         <td><?php echo formatDateTime($item['created_at']); ?></td>
                         <td>
-                            <?php if (!empty($item['file'])): ?>
-                                <button class="btn btn-sm btn-primary"
-                                    onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
-                                    <i class="fa-solid fa-eye"></i> 預覽
-                                </button>
-                            <?php endif; ?>
-                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
-                                style="cursor: pointer;"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                style="margin-left: 10px; cursor: pointer;">&times;</span>
+                            <div class="inline-view">
+                                <?php if (!empty($item['file'])): ?>
+                                    <button class="btn btn-sm btn-primary"
+                                        onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
+                                        <i class="fa-solid fa-eye"></i> 預覽
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -127,51 +195,6 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     </div>
 </div>
 
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle">新增文件</h2>
-        <form id="itemForm">
-            <input type="hidden" id="itemId" name="id">
-            <div class="form-group">
-                <label>名稱 *</label>
-                <input type="text" class="form-control" id="name" name="name" required>
-            </div>
-            <div class="form-group">
-                <label>上傳檔案</label>
-                <input type="file" class="form-control" id="fileUpload" name="fileUpload">
-                <small style="color:#666;">或手動輸入路徑：</small>
-                <input type="text" class="form-control" id="file" name="file" style="margin-top:5px;">
-            </div>
-            <div class="form-group">
-                <label>封面圖</label>
-                <input type="file" class="form-control" id="coverUpload" name="coverUpload" accept="image/*">
-                <div id="coverPreview" style="margin-top:10px;display:none;">
-                    <img id="coverPreviewImg" src="" alt="封面預覽"
-                        style="max-width:200px;max-height:150px;border-radius:8px;border:1px solid #444;">
-                </div>
-                <small style="color:#666;">或手動輸入網址：</small>
-                <input type="text" class="form-control" id="cover" name="cover" style="margin-top:5px;"
-                    placeholder="上傳圖片或輸入網址">
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="flex:1">
-                    <label>分類</label>
-                    <input type="text" class="form-control" id="category" name="category">
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>參考</label>
-                    <input type="text" class="form-control" id="ref" name="ref">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>備註</label>
-                <input type="text" class="form-control" id="note" name="note">
-            </div>
-            <button type="submit" class="btn btn-primary">儲存</button>
-        </form>
-    </div>
-</div>
 
 <?php include 'includes/upload-progress.php'; ?>
 
@@ -179,108 +202,126 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     const TABLE = 'commondocument';
     initBatchDelete(TABLE);
 
-    // 封面圖上傳處理
-    document.getElementById('coverUpload').addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-            // 顯示本地預覽
-            const reader = new FileReader();
-            reader.onload = function (re) {
-                document.getElementById('coverPreviewImg').src = re.target.result;
-                document.getElementById('coverPreview').style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-
-            // 使用共用上傳進度元件
-            uploadFileWithProgress(file,
-                function (res) {
-                    document.getElementById('cover').value = res.file;
-                },
-                function (error) {
-                    alert('封面圖上傳失敗: ' + error);
-                }
-            );
-        }
-    });
-
-    // 上傳檔案處理
-    document.getElementById('fileUpload').addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-            // 取得檔案名稱（去除副檔名）
-            const fileName = file.name;
-            const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-
-            // 只有在名稱欄位為空時才自動填入
-            const nameInput = document.getElementById('name');
-            if (!nameInput.value.trim()) {
-                nameInput.value = nameWithoutExt;
-            }
-
-            // 使用共用上傳進度元件
-            uploadFileWithProgress(file,
-                function (res) {
-                    document.getElementById('file').value = res.file;
-                },
-                function (error) {
-                    alert('檔案上傳失敗: ' + error);
-                }
-            );
-        }
-    });
-
-    // 監聯網址輸入變化來更新預覽
-    document.getElementById('cover').addEventListener('input', function (e) {
-        const url = e.target.value.trim();
-        if (url) {
-            document.getElementById('coverPreviewImg').src = url;
-            document.getElementById('coverPreview').style.display = 'block';
-        } else {
-            document.getElementById('coverPreview').style.display = 'none';
-        }
-    });
-
-    function openModal() {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('modalTitle').textContent = '新增文件';
-        document.getElementById('itemForm').reset();
-        document.getElementById('itemId').value = '';
-        document.getElementById('coverPreview').style.display = 'none';
-        document.getElementById('coverPreviewImg').src = '';
+    
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
     }
 
-    function closeModal() {
-        document.getElementById('modal').style.display = 'none';
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            input.value = '';
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
     }
 
-    function editItem(id) {
-        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            file: row.querySelector('[data-field="file"]').value.trim(),
+            cover: row.querySelector('[data-field="cover"]').value.trim(),
+            category: row.querySelector('[data-field="category"]').value.trim(),
+            ref: row.querySelector('[data-field="ref"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim()
+        };
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
             .then(r => r.json())
             .then(res => {
-                if (res.success && res.data) {
-                    const d = res.data;
-                    document.getElementById('itemId').value = d.id;
-                    document.getElementById('name').value = d.name || '';
-                    document.getElementById('file').value = d.file || '';
-                    document.getElementById('cover').value = d.cover || '';
-                    document.getElementById('category').value = d.category || '';
-                    document.getElementById('ref').value = d.ref || '';
-                    document.getElementById('note').value = d.note || '';
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
 
-                    // 顯示現有封面圖預覽
-                    if (d.cover) {
-                        document.getElementById('coverPreviewImg').src = d.cover;
-                        document.getElementById('coverPreview').style.display = 'block';
-                    } else {
-                        document.getElementById('coverPreview').style.display = 'none';
-                    }
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
 
-                    document.getElementById('modalTitle').textContent = '編輯文件';
-                    document.getElementById('modal').style.display = 'flex';
-                }
+    function startInlineEdit(id) {
+        // Use inline editing for all screen sizes
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const fileInput = row.querySelector('[data-field="file"]');
+        if (fileInput) fileInput.value = data.file || '';
+        const coverInput = row.querySelector('[data-field="cover"]');
+        if (coverInput) coverInput.value = data.cover || '';
+        const categoryInput = row.querySelector('[data-field="category"]');
+        if (categoryInput) categoryInput.value = data.category || '';
+        const refInput = row.querySelector('[data-field="ref"]');
+        if (refInput) refInput.value = data.ref || '';
+        const noteInput = row.querySelector('[data-field="note"]');
+        if (noteInput) noteInput.value = data.note || '';
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            file: row.querySelector('[data-field="file"]').value.trim(),
+            cover: row.querySelector('[data-field="cover"]').value.trim(),
+            category: row.querySelector('[data-field="category"]').value.trim(),
+            ref: row.querySelector('[data-field="ref"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim()
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
             });
     }
 
+    
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -292,33 +333,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
         }
     }
 
-    document.getElementById('itemForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const id = document.getElementById('itemId').value;
-        const action = id ? 'update' : 'create';
-        const url = id ? `api.php?action=${action}&table=${TABLE}&id=${id}` : `api.php?action=${action}&table=${TABLE}`;
-
-        const data = {
-            name: document.getElementById('name').value,
-            file: document.getElementById('file').value,
-            cover: document.getElementById('cover').value,
-            category: document.getElementById('category').value,
-            ref: document.getElementById('ref').value,
-            note: document.getElementById('note').value
-        };
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) location.reload();
-                else alert('儲存失敗: ' + (res.error || ''));
-            });
-    });
-
+    
     // 文件預覽功能
     function previewDocument(id, filePath, title) {
         const ext = filePath.split('.').pop().toLowerCase();

@@ -9,11 +9,13 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增例行事項"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'routine';
-    include 'includes/csv_buttons.php'; ?>
-
-    <?php include 'includes/batch-delete.php'; ?>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增例行事項"><i class="fas fa-plus"></i></button>
+        <?php $csvTable = 'routine';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
 
     <!-- 桌面版表格 -->
     <table class="table desktop-only" style="margin-top: 20px;">
@@ -32,6 +34,46 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
             </tr>
         </thead>
         <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="url" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate1">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate2">
+                    </div>
+                </td>
+                <td>-</td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate3">
+                    </div>
+                </td>
+                <td></td>
+            </tr>
             <?php if (empty($items)): ?>
                 <tr>
                     <td colspan="9" style="text-align: center; color: #999;">暫無例行事項</td>
@@ -47,32 +89,78 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                         $daysDiff = $diff->days . ' 天';
                     }
                     ?>
-                    <tr>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                        data-link="<?php echo htmlspecialchars($item['link'] ?? '', ENT_QUOTES); ?>"
+                        data-photo="<?php echo htmlspecialchars($item['photo'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate1="<?php echo htmlspecialchars($item['lastdate1'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate2="<?php echo htmlspecialchars($item['lastdate2'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate3="<?php echo htmlspecialchars($item['lastdate3'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
-                        <td><?php echo htmlspecialchars($item['name']); ?></td>
-                        <td><?php echo htmlspecialchars($item['note'] ?? '-'); ?></td>
                         <td>
-                            <?php if (!empty($item['photo'])): ?>
-                                <img src="<?php echo htmlspecialchars($item['photo']); ?>"
-                                    style="max-width:60px;max-height:40px;border-radius:4px;">
-                            <?php else: ?>
-                                -
-                            <?php endif; ?>
+                            <div class="inline-view">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
                         </td>
-                        <td><?php echo formatDate($item['lastdate1']); ?></td>
-                        <td><?php echo formatDate($item['lastdate2']); ?></td>
-                        <td style="font-weight:600;color:#3498db;"><?php echo $daysDiff; ?></td>
-                        <td><?php echo formatDate($item['lastdate3']); ?></td>
                         <td>
-                            <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')"
-                                title="日期遞移">
-                                <i class="fa-solid fa-arrow-right"></i>
-                            </button>
-                            <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"
-                                style="cursor: pointer;"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                style="margin-left: 10px; cursor: pointer;">&times;</span>
+                            <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-view">
+                                <?php if (!empty($item['photo'])): ?>
+                                    <img src="<?php echo htmlspecialchars($item['photo']); ?>"
+                                        style="max-width:60px;max-height:40px;border-radius:4px;">
+                                <?php else: ?>
+                                    -
+                                <?php endif; ?>
+                            </div>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="url" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['lastdate1']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate1">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['lastdate2']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate2">
+                            </div>
+                        </td>
+                        <td style="font-weight:600;color:#3498db;"><?php echo $daysDiff; ?></td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['lastdate3']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate3">
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-view">
+                                <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')"
+                                    title="日期遞移">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -148,115 +236,134 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
     </div>
 </div>
 
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <span class="modal-close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle">新增例行事項</h2>
-        <form id="itemForm">
-            <input type="hidden" id="itemId" name="id">
-            <div class="form-group">
-                <label>名稱 *</label>
-                <input type="text" class="form-control" id="name" name="name" required>
-            </div>
-            <div class="form-group">
-                <label>備註</label>
-                <input type="text" class="form-control" id="note" name="note">
-            </div>
-            <div class="form-group">
-                <label>連結</label>
-                <input type="url" class="form-control" id="link" name="link">
-            </div>
-            <div class="form-group">
-                <label>圖片網址</label>
-                <input type="url" class="form-control" id="photo" name="photo">
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="flex:1">
-                    <label>最近例行之一</label>
-                    <input type="date" class="form-control" id="lastdate1" name="lastdate1">
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>最近例行之二</label>
-                    <input type="date" class="form-control" id="lastdate2" name="lastdate2">
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>最近例行之三</label>
-                    <input type="date" class="form-control" id="lastdate3" name="lastdate3">
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary">儲存</button>
-        </form>
-    </div>
-</div>
 
 <script>
     const TABLE = 'routine';
     initBatchDelete(TABLE);
 
-    function openModal() {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('modalTitle').textContent = '新增例行事項';
-        document.getElementById('itemForm').reset();
-        document.getElementById('itemId').value = '';
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
     }
 
-    function closeModal() {
-        document.getElementById('modal').style.display = 'none';
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            input.value = '';
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
     }
 
-    function shiftDates(id) {
-        const confirmMsg = `確定要執行日期遞移嗎？
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
 
-最近例行之一 → 最近例行之二
-最近例行之二 → 最近例行之三
-最近例行之一 → 清空`;
-
-        if (!confirm(confirmMsg)) return;
-
-        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            link: row.querySelector('[data-field="link"]').value.trim(),
+            photo: row.querySelector('[data-field="photo"]').value.trim(),
+            lastdate1: row.querySelector('[data-field="lastdate1"]').value || null,
+            lastdate2: row.querySelector('[data-field="lastdate2"]').value || null,
+            lastdate3: row.querySelector('[data-field="lastdate3"]').value || null
+        };
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
             .then(r => r.json())
             .then(res => {
-                if (res.success && res.data) {
-                    const d = res.data;
-                    const data = {
-                        lastdate3: d.lastdate2,
-                        lastdate2: d.lastdate1,
-                        lastdate1: null
-                    };
-                    fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    })
-                        .then(r => r.json())
-                        .then(res => {
-                            if (res.success) location.reload();
-                            else alert('更新失敗');
-                        });
-                }
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        // Use inline editing for all screen sizes
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const noteInput = row.querySelector('[data-field="note"]');
+        if (noteInput) noteInput.value = data.note || '';
+        const linkInput = row.querySelector('[data-field="link"]');
+        if (linkInput) linkInput.value = data.link || '';
+        const photoInput = row.querySelector('[data-field="photo"]');
+        if (photoInput) photoInput.value = data.photo || '';
+        const lastdate1Input = row.querySelector('[data-field="lastdate1"]');
+        if (lastdate1Input) lastdate1Input.value = data.lastdate1 ? data.lastdate1.split(' ')[0] : '';
+        const lastdate2Input = row.querySelector('[data-field="lastdate2"]');
+        if (lastdate2Input) lastdate2Input.value = data.lastdate2 ? data.lastdate2.split(' ')[0] : '';
+        const lastdate3Input = row.querySelector('[data-field="lastdate3"]');
+        if (lastdate3Input) lastdate3Input.value = data.lastdate3 ? data.lastdate3.split(' ')[0] : '';
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            link: row.querySelector('[data-field="link"]').value.trim(),
+            photo: row.querySelector('[data-field="photo"]').value.trim(),
+            lastdate1: row.querySelector('[data-field="lastdate1"]').value || null,
+            lastdate2: row.querySelector('[data-field="lastdate2"]').value || null,
+            lastdate3: row.querySelector('[data-field="lastdate3"]').value || null
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
             });
     }
 
-    function editItem(id) {
-        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
-            .then(r => r.json())
-            .then(res => {
-                if (res.success && res.data) {
-                    const d = res.data;
-                    document.getElementById('itemId').value = d.id;
-                    document.getElementById('name').value = d.name || '';
-                    document.getElementById('note').value = d.note || '';
-                    document.getElementById('link').value = d.link || '';
-                    document.getElementById('photo').value = d.photo || '';
-                    document.getElementById('lastdate1').value = d.lastdate1 ? d.lastdate1.slice(0, 10) : '';
-                    document.getElementById('lastdate2').value = d.lastdate2 ? d.lastdate2.slice(0, 10) : '';
-                    document.getElementById('lastdate3').value = d.lastdate3 ? d.lastdate3.slice(0, 10) : '';
-                    document.getElementById('modalTitle').textContent = '編輯例行事項';
-                    document.getElementById('modal').style.display = 'flex';
-                }
-            });
-    }
-
+    
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -268,31 +375,4 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
         }
     }
 
-    document.getElementById('itemForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const id = document.getElementById('itemId').value;
-        const action = id ? 'update' : 'create';
-        const url = id ? `api.php?action=${action}&table=${TABLE}&id=${id}` : `api.php?action=${action}&table=${TABLE}`;
-
-        const data = {
-            name: document.getElementById('name').value,
-            note: document.getElementById('note').value,
-            link: document.getElementById('link').value,
-            photo: document.getElementById('photo').value,
-            lastdate1: document.getElementById('lastdate1').value || null,
-            lastdate2: document.getElementById('lastdate2').value || null,
-            lastdate3: document.getElementById('lastdate3').value || null
-        };
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-            .then(r => r.json())
-            .then(res => {
-                if (res.success) location.reload();
-                else alert('儲存失敗: ' + (res.error || ''));
-            });
-    });
-</script>
+    </script>

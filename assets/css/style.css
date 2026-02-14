@@ -226,6 +226,75 @@ body {
     background-color: var(--table-header-bg);
 }
 
+.inline-add-row {
+    display: none;
+}
+
+.inline-add-card {
+    display: none;
+}
+
+.inline-edit.inline-edit-always {
+    display: block;
+}
+
+.inline-edit {
+    display: none;
+}
+
+.inline-edit .form-control {
+    margin-top: 6px;
+}
+
+.inline-edit-row {
+    margin-top: 6px;
+}
+
+.inline-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.inline-actions .btn {
+    padding: 4px 10px;
+    font-size: 0.85rem;
+}
+
+/* 操作按鈕列：+ 匯出 Appwrite 匯出 Laravel 匯入 CSV 全選模式 */
+.action-buttons-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px 0;
+}
+
+.action-buttons-bar .btn,
+.action-buttons-bar .csv-buttons .btn,
+.action-buttons-bar .csv-buttons a {
+    flex-shrink: 0;
+}
+
+.action-buttons-bar #selectModeBtn {
+    flex-shrink: 0;
+}
+
+.modal.inline-mode {
+    position: static;
+    background: transparent;
+    width: auto;
+    height: auto;
+    display: block;
+}
+
+.modal.inline-mode .modal-content {
+    max-width: none;
+    width: 100%;
+    box-shadow: none;
+}
+
 /* 按鈕樣式 */
 .btn {
     display: inline-block;

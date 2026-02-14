@@ -62,11 +62,29 @@ uasort($commonSites, function ($a, $b) {
 </div>
 
 <div class="content-body">
-    <button class="btn btn-primary" onclick="openModal()" title="新增常用網站與備註"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'commonaccount';
-    include 'includes/csv_buttons.php'; ?>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增常用網站與備註"><i class="fas fa-plus"></i> 新增</button>
+        <?php $csvTable = 'commonaccount';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
 
     <div class="card-grid" style="margin-top: 20px;">
+        <div id="inlineAddCard" class="card inline-add-card" data-sites="">
+            <div class="inline-edit inline-edit-always">
+                <div class="form-group">
+                    <label>帳號名稱 *</label>
+                    <input type="text" class="form-control inline-input" id="inlineAddName" placeholder="帳號名稱">
+                </div>
+                <div id="fieldsContainerAdd"></div>
+                <button type="button" class="btn" onclick="addFieldTo('fieldsContainerAdd')" style="margin-bottom: 15px;">+ 新增欄位</button>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                    <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                </div>
+            </div>
+        </div>
         <?php if (empty($items)): ?>
             <div class="card">
                 <p style="text-align: center; color: #999;">暫無常用網站與備註</p>
@@ -82,30 +100,49 @@ uasort($commonSites, function ($a, $b) {
                     }
                 }
             ?>
-                <div class="card" data-sites="<?php echo htmlspecialchars(implode('|', $itemSites), ENT_QUOTES); ?>">
-                    <div class="card-actions">
-                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
-                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
-                    </div>
-                    <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
-                    <?php for ($i = 1; $i <= 37; $i++): ?>
-                        <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
-                        <?php $noteKey = 'note' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
-                        <?php if (!empty($item[$siteKey]) || !empty($item[$noteKey])): ?>
-                            <div style="margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee;">
-                                <?php if (!empty($item[$siteKey])): ?>
-                                    <div style="font-weight: 600; color: #2c3e50; margin-bottom: 4px;">
-                                        <?php echo htmlspecialchars($item[$siteKey]); ?>
-                                    </div>
-                                <?php endif; ?>
-                                <?php if (!empty($item[$noteKey])): ?>
-                                    <div style="font-size: 0.85rem; color: #666; word-break: break-word;">
-                                        <?php echo htmlspecialchars($item[$noteKey]); ?>
-                                    </div>
-                                <?php endif; ?>
+                <div class="card" data-id="<?php echo $item['id']; ?>"
+                    data-sites="<?php echo htmlspecialchars(implode('|', $itemSites), ENT_QUOTES); ?>">
+                    <div class="inline-view">
+                        <div class="card-header">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                    onchange="toggleSelectItem(this)">
+                            <div class="card-actions">
+                                <span class="card-edit-btn" onclick="handleEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                             </div>
-                        <?php endif; ?>
-                    <?php endfor; ?>
+                        </div>
+                        <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                        <?php for ($i = 1; $i <= 37; $i++): ?>
+                            <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
+                            <?php $noteKey = 'note' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
+                            <?php if (!empty($item[$siteKey]) || !empty($item[$noteKey])): ?>
+                                <div style="margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                    <?php if (!empty($item[$siteKey])): ?>
+                                        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 4px;">
+                                            <?php echo htmlspecialchars($item[$siteKey]); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($item[$noteKey])): ?>
+                                        <div style="font-size: 0.85rem; color: #666; word-break: break-word;">
+                                            <?php echo htmlspecialchars($item[$noteKey]); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="inline-edit">
+                        <div class="form-group">
+                            <label>帳號名稱 *</label>
+                            <input type="text" class="form-control inline-input" data-field="name" placeholder="帳號名稱">
+                        </div>
+                        <div class="fields-container-edit" data-id="<?php echo $item['id']; ?>"></div>
+                        <button type="button" class="btn" onclick="addFieldToEdit('<?php echo $item['id']; ?>')" style="margin-bottom: 10px;">+ 新增欄位</button>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                        </div>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -200,8 +237,229 @@ uasort($commonSites, function ($a, $b) {
 
 <script>
     const TABLE = 'commonaccount';
+    initBatchDelete(TABLE);
     let fieldCount = 0;
+    let fieldCountAdd = 0;
     const existingSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
+
+    function handleAdd() {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            openModal();
+        } else {
+            startInlineAdd();
+        }
+    }
+
+    function handleEdit(id) {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            editItem(id);
+        } else {
+            startInlineEdit(id);
+        }
+    }
+
+    function startInlineAdd() {
+        const card = document.getElementById('inlineAddCard');
+        if (!card) return;
+        card.style.display = 'block';
+        document.getElementById('inlineAddName').value = '';
+        const container = document.getElementById('fieldsContainerAdd');
+        container.innerHTML = '';
+        fieldCountAdd = 0;
+        addFieldTo('fieldsContainerAdd');
+        addFieldTo('fieldsContainerAdd');
+        addFieldTo('fieldsContainerAdd');
+        document.getElementById('inlineAddName').focus();
+    }
+
+    function cancelInlineAdd() {
+        const card = document.getElementById('inlineAddCard');
+        if (!card) return;
+        card.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const name = document.getElementById('inlineAddName').value.trim();
+        if (!name) {
+            alert('請輸入帳號名稱');
+            return;
+        }
+        const data = { name };
+        const container = document.getElementById('fieldsContainerAdd');
+        if (container) {
+            container.querySelectorAll('[data-field-row]').forEach((row, i) => {
+                const idx = String(i + 1).padStart(2, '0');
+                const siteInput = row.querySelector('[name="site' + idx + '"]');
+                const noteInput = row.querySelector('[name="note' + idx + '"]');
+                if (siteInput) data['site' + idx] = siteInput.value.trim();
+                if (noteInput) data['note' + idx] = noteInput.value.trim();
+            });
+        }
+        for (let i = 1; i <= 37; i++) {
+            const idx = String(i).padStart(2, '0');
+            if (!data['site' + idx]) data['site' + idx] = '';
+            if (!data['note' + idx]) data['note' + idx] = '';
+        }
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+
+    function addFieldTo(containerId, site = '', note = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const count = container.querySelectorAll('[data-field-row]').length + 1;
+        if (count > 37) return;
+        const idx = String(count).padStart(2, '0');
+        const isExisting = existingSites.includes(site);
+        const showInput = site && !isExisting;
+        let optionsHtml = '<option value="">-- 選擇網站 --</option>';
+        existingSites.forEach(s => {
+            optionsHtml += `<option value="${s}" ${s === site ? 'selected' : ''}>${s}</option>`;
+        });
+        optionsHtml += `<option value="__custom__" ${showInput ? 'selected' : ''}>自行輸入...</option>`;
+
+        const div = document.createElement('div');
+        div.className = 'form-row';
+        div.dataset.fieldRow = '1';
+        div.innerHTML = `
+            <div class="form-group" style="flex:1">
+                <label>網站名稱 ${count}</label>
+                <select class="form-control site-select" data-idx="${idx}" onchange="toggleSiteInputInline('${containerId}','${idx}')" style="margin-bottom: 5px;">
+                    ${optionsHtml}
+                </select>
+                <input type="text" class="form-control site-input" data-idx="${idx}" placeholder="輸入網站名稱" value="${showInput ? site : ''}"
+                    style="display: ${showInput ? 'block' : 'none'};" oninput="updateSiteValueInline('${containerId}','${idx}')">
+                <input type="hidden" name="site${idx}" value="${site || ''}">
+            </div>
+            <div class="form-group" style="flex:2">
+                <label>備註 ${count}</label>
+                <textarea class="form-control" name="note${idx}" rows="2">${note || ''}</textarea>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+
+    function toggleSiteInputInline(containerId, idx) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const select = container.querySelector(`.site-select[data-idx="${idx}"]`);
+        const row = select?.closest('[data-field-row]');
+        if (!row) return;
+        const input = row.querySelector('.site-input');
+        const hidden = row.querySelector(`input[name="site${idx}"]`);
+        if (select.value === '__custom__') {
+            input.style.display = 'block';
+            input.focus();
+            if (hidden) hidden.value = input.value;
+        } else {
+            input.style.display = 'none';
+            if (hidden) hidden.value = select.value;
+        }
+    }
+
+    function updateSiteValueInline(containerId, idx) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const input = container.querySelector(`.site-input[data-idx="${idx}"]`);
+        const row = input?.closest('[data-field-row]');
+        if (!row) return;
+        const hidden = row.querySelector(`input[name="site${idx}"]`);
+        if (hidden) hidden.value = input.value;
+    }
+
+    function addFieldToEdit(id) {
+        const containerId = 'fieldsEdit' + id;
+        let container = document.getElementById(containerId);
+        if (!container) {
+            const card = getCardById(id);
+            container = card?.querySelector('.fields-container-edit');
+            if (container) container.id = containerId;
+        }
+        addFieldTo(containerId, '', '');
+    }
+
+    function getCardById(id) {
+        return document.querySelector(`.card[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    card.querySelector('.inline-view').style.display = 'none';
+                    card.querySelector('.inline-edit').style.display = 'block';
+                    card.querySelector('[data-field="name"]').value = d.name || '';
+                    const container = card.querySelector('.fields-container-edit');
+                    container.innerHTML = '';
+                    container.id = 'fieldsEdit' + id;
+                    for (let i = 1; i <= 37; i++) {
+                        const idx = String(i).padStart(2, '0');
+                        if (d['site' + idx] || d['note' + idx]) {
+                            addFieldTo('fieldsEdit' + id, d['site' + idx] || '', d['note' + idx] || '');
+                        }
+                    }
+                    if (container.querySelectorAll('[data-field-row]').length === 0) {
+                        addFieldTo('fieldsEdit' + id, '', '');
+                        addFieldTo('fieldsEdit' + id, '', '');
+                    }
+                }
+            });
+    }
+
+    function cancelInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        card.querySelector('.inline-view').style.display = '';
+        card.querySelector('.inline-edit').style.display = 'none';
+    }
+
+    function saveInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        const name = card.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入帳號名稱');
+            return;
+        }
+        const data = { name };
+        const container = card.querySelector('.fields-container-edit');
+        if (container) {
+            container.querySelectorAll('[data-field-row]').forEach((row, i) => {
+                const idx = String(i + 1).padStart(2, '0');
+                const siteInput = row.querySelector(`input[name="site${idx}"]`);
+                const noteInput = row.querySelector(`textarea[name="note${idx}"]`);
+                if (siteInput) data['site' + idx] = siteInput.value.trim();
+                if (noteInput) data['note' + idx] = noteInput.value.trim();
+            });
+        }
+        for (let i = 1; i <= 37; i++) {
+            const idx = String(i).padStart(2, '0');
+            if (!data['site' + idx]) data['site' + idx] = '';
+            if (!data['note' + idx]) data['note' + idx] = '';
+        }
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
 
     function showCommonSites() {
         document.getElementById('commonSitesModal').style.display = 'flex';
@@ -220,8 +478,9 @@ uasort($commonSites, function ($a, $b) {
             }
         });
 
-        // 篩選卡片
+        // 篩選卡片（新增卡不受篩選影響）
         document.querySelectorAll('.card-grid .card').forEach(card => {
+            if (card.id === 'inlineAddCard') return;
             const sites = card.dataset.sites || '';
             if (!siteName || sites.split('|').includes(siteName)) {
                 card.style.display = '';
@@ -306,7 +565,9 @@ uasort($commonSites, function ($a, $b) {
     }
 
     function closeModal() {
-        document.getElementById('modal').style.display = 'none';
+        const modal = document.getElementById('modal');
+        modal.classList.remove('inline-mode');
+        modal.style.display = 'none';
     }
 
     function closeViewModal() {
