@@ -11,15 +11,15 @@
     "theme_color": "#3498db",
     "icons": [
         {
-            "src": "pwa-icon.php?size=192",
+            "src": "/favicon.ico",
             "sizes": "192x192",
-            "type": "image/png",
+            "type": "image/x-icon",
             "purpose": "any maskable"
         },
         {
-            "src": "pwa-icon.php?size=512",
+            "src": "/favicon.ico",
             "sizes": "512x512",
-            "type": "image/png",
+            "type": "image/x-icon",
             "purpose": "any maskable"
         }
     ]
