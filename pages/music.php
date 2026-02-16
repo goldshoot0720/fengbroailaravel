@@ -96,6 +96,15 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     <?php include 'includes/inline-edit-hint.php'; ?>
     <button class="btn btn-primary" onclick="handleAdd()" title="新增音樂"><i class="fas fa-plus"></i></button>
     <?php $csvTable = 'music'; include 'includes/csv_buttons.php'; ?>
+    <div style="display: inline-block; margin-left: 10px;">
+        <a href="export_zip_music.php" class="btn btn-success">
+            <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
+        </a>
+        <button type="button" class="btn" onclick="document.getElementById('importZipFile').click()">
+            <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
+        </button>
+        <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
+    </div>
 
     <div class="card-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
@@ -336,4 +345,66 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         }
     }
 
-                </script>
+    function importZIP(input) {
+        if (!input.files || !input.files[0]) return;
+
+        if (!confirm('確定要匯入 ZIP 嗎？音樂將會新增到資料庫。')) {
+            input.value = '';
+            return;
+        }
+
+        const file = input.files[0];
+        const modal = document.getElementById('uploadProgressModal');
+        const progressBar = document.getElementById('uploadProgressBar');
+        const progressText = document.getElementById('uploadProgressText');
+        const fileName = document.getElementById('uploadFileName');
+
+        modal.style.display = 'flex';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        fileName.textContent = file.name;
+
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('file', file);
+
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.textContent = percent + '%';
+                const loaded = formatFileSize(e.loaded);
+                const total = formatFileSize(e.total);
+                fileName.textContent = file.name + ' (' + loaded + ' / ' + total + ')';
+            }
+        });
+
+        xhr.addEventListener('load', function() {
+            modal.style.display = 'none';
+            try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    let msg = '匯入完成！\n成功匯入: ' + res.imported + ' 首音樂';
+                    if (res.errors && res.errors.length > 0) {
+                        msg += '\n\n錯誤明細:\n' + res.errors.join('\n');
+                    }
+                    alert(msg);
+                    location.reload();
+                } else {
+                    alert('匯入失敗: ' + (res.error || '未知錯誤'));
+                }
+            } catch (e) {
+                alert('匯入失敗: 回應格式錯誤');
+            }
+        });
+
+        xhr.addEventListener('error', function() {
+            modal.style.display = 'none';
+            alert('匯入失敗: 網路錯誤');
+        });
+
+        xhr.open('POST', 'import_zip_music.php');
+        xhr.send(formData);
+        input.value = '';
+    }
+</script>

@@ -13,18 +13,20 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增播客"><i class="fas fa-plus"></i></button>
-        <a href="export_csv.php?table=podcast&format=appwrite" class="btn btn-outline">
+        <a href="export.php?table=podcast&format=appwrite" class="btn btn-outline">
             <i class="fa-solid fa-file-csv"></i> 匯出 Appwrite
         </a>
-        <a href="export_csv.php?table=podcast&format=laravel" class="btn btn-outline">
+        <a href="export.php?table=podcast&format=laravel" class="btn btn-outline">
             <i class="fa-solid fa-file-csv"></i> 匯出 Laravel
         </a>
         <a href="export_zip_podcast.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>
-        <button type="button" class="btn" onclick="previewAndImportZIP('podcast', 'import_zip_podcast.php')">
+        <button type="button" class="btn" onclick="document.getElementById('zipImportPodcast').click()" title="匯入 Appwrite ZIP（含 CSV + 播客 + 封面）">
             <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
         </button>
+        <input type="file" id="zipImportPodcast" accept=".zip" style="display: none;"
+            onchange="previewAndImportZIP(this, 'podcast', 'import_zip_podcast.php', '播客')">
     </div>
 
     <?php include 'includes/batch-delete.php'; ?>

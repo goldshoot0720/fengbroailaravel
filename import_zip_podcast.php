@@ -69,9 +69,13 @@ $pdo = getConnection();
 $imported = 0;
 $errors = [];
 $podcastExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma', 'mp4', 'webm', 'mkv', 'avi', 'mov'];
+$debugInfo = ['mode' => 'unknown', 'csvFound' => false];
 
 if ($hasCsv) {
     // ===== Appwrite 格式：CSV + podcast/ + covers/ 資料夾 =====
+    $debugInfo['mode'] = 'appwrite';
+    $debugInfo['csvFound'] = true;
+    $debugInfo['csvFile'] = basename($csvFile);
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
@@ -94,6 +98,8 @@ if ($hasCsv) {
         exit;
     }
 
+    $debugInfo['rawHeaders'] = $headers;
+
     $headers = array_map(function ($h) use ($fieldMapping) {
         $h = trim($h);
         return $fieldMapping[$h] ?? $h;
@@ -111,11 +117,17 @@ if ($hasCsv) {
     $headers = array_values($headers);
     $headerCount = count($headers);
 
+    $debugInfo['mappedHeaders'] = $headers;
+    $debugInfo['headerCount'] = $headerCount;
+    $debugInfo['ignoredCount'] = count($ignoredIndexes);
+
     $lineNum = 1;
     $fileFields = ['file', 'cover'];
+    $rowsProcessed = 0;
 
     while (($row = fgetcsv($handle)) !== false) {
         $lineNum++;
+        $rowsProcessed++;
 
         foreach ($ignoredIndexes as $i) {
             unset($row[$i]);
@@ -123,7 +135,7 @@ if ($hasCsv) {
         $row = array_values($row);
 
         if (count($row) !== $headerCount) {
-            $errors[] = "第 {$lineNum} 行: 欄位數不匹配";
+            $errors[] = "第 {$lineNum} 行: 欄位數不匹配 (期望 {$headerCount}, 實際 " . count($row) . ")";
             continue;
         }
 
@@ -142,6 +154,9 @@ if ($hasCsv) {
             if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
 
             $zipPath = $data[$fileField]; // e.g. "podcast/1_episode.mp3" or "covers/1_cover.png"
+
+            // 跳過 URL 類型的路徑（不需要從 ZIP 複製）
+            if (preg_match('#^https?://#', $zipPath)) continue;
 
             $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
             if (!file_exists($sourcePath)) {
@@ -213,9 +228,11 @@ if ($hasCsv) {
         }
     }
 
+    $debugInfo['rowsProcessed'] = $rowsProcessed;
     fclose($handle);
 
 } else {
+    $debugInfo['mode'] = 'legacy';
     // ===== 舊格式：純播客檔案 ZIP（無 CSV） =====
     $files = glob($extractDir . DIRECTORY_SEPARATOR . '*');
 
@@ -265,7 +282,8 @@ if ($cleanupTempFile) @unlink($zipFile);
 echo json_encode([
     'success' => true,
     'imported' => $imported,
-    'errors' => $errors
+    'errors' => $errors,
+    'debug' => $debugInfo
 ]);
 
 function cleanupDir($dir)

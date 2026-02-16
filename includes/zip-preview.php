@@ -185,11 +185,29 @@ function confirmZipImport() {
         try {
             const res = JSON.parse(xhr.responseText);
             if (res.success) {
+                let debugHtml = '';
+                if (res.imported === 0 && res.debug) {
+                    debugHtml = '<div style="text-align:left;margin-top:15px;padding:10px;background:#2d2d2d;border-radius:8px;font-size:0.8rem;color:#aaa;">' +
+                        '<strong>除錯資訊:</strong><br>' +
+                        '模式: ' + (res.debug.mode || 'unknown') + '<br>' +
+                        'CSV: ' + (res.debug.csvFound ? '找到 (' + (res.debug.csvFile || '') + ')' : '未找到') + '<br>' +
+                        (res.debug.headerCount ? '欄位數: ' + res.debug.headerCount + '<br>' : '') +
+                        (res.debug.rowsProcessed !== undefined ? '處理行數: ' + res.debug.rowsProcessed + '<br>' : '') +
+                        (res.debug.mappedHeaders ? '欄位: ' + res.debug.mappedHeaders.join(', ') + '<br>' : '') +
+                        '</div>';
+                }
+                let errorHtml = '';
+                if (res.errors && res.errors.length > 0) {
+                    errorHtml = '<p style="color:#e67e22;font-size:0.85rem;">' + res.errors.length + ' 個錯誤</p>' +
+                        '<div style="text-align:left;max-height:150px;overflow-y:auto;margin-top:10px;padding:8px;background:#2d2d2d;border-radius:8px;font-size:0.8rem;color:#e67e22;">' +
+                        res.errors.map(function(e) { return '• ' + e; }).join('<br>') +
+                        '</div>';
+                }
                 body.innerHTML = '<div style="text-align:center;padding:30px;color:#27ae60;">' +
                     '<i class="fa-solid fa-check-circle fa-3x"></i><br><br>' +
                     '<h3>匯入完成！</h3>' +
                     '<p>成功匯入 <strong>' + res.imported + '</strong> 個' + _zipPreviewLabel + '</p>' +
-                    (res.errors && res.errors.length > 0 ? '<p style="color:#e67e22;font-size:0.85rem;">' + res.errors.length + ' 個錯誤</p>' : '') +
+                    errorHtml + debugHtml +
                     '</div>';
                 setTimeout(function() { location.reload(); }, 1500);
             } else {
