@@ -92,6 +92,10 @@ function convertToTWD($price, $currency, $rates)
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
                         <input type="date" class="form-control inline-input" data-field="nextdate">
+                        <div class="date-shift-btns">
+                            <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), -30)">-30天</button>
+                            <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), 30)">+30天</button>
+                        </div>
                     </div>
                 </td>
                 <td>
@@ -172,6 +176,10 @@ function convertToTWD($price, $currency, $rates)
                             <span class="inline-view"><?php echo formatDate($item['nextdate']); ?></span>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="nextdate">
+                                <div class="date-shift-btns">
+                                    <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), -30)">-30天</button>
+                                    <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), 30)">+30天</button>
+                                </div>
                             </div>
                         </td>
                         <td>
@@ -297,6 +305,10 @@ function convertToTWD($price, $currency, $rates)
             <div class="form-group">
                 <label>下次付款日</label>
                 <input type="date" class="form-control" id="nextdate" name="nextdate">
+                <div class="date-shift-btns">
+                    <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(document.getElementById('nextdate'), -30)">-30天</button>
+                    <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(document.getElementById('nextdate'), 30)">+30天</button>
+                </div>
             </div>
             <div class="form-group" style="position: relative;">
                 <label>帳號</label>
@@ -533,9 +545,47 @@ function convertToTWD($price, $currency, $rates)
         padding: 8px 0;
         border-top: 1px dashed #eee;
     }
+
+    .date-shift-btns {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .btn-date-shift {
+        flex: 1;
+        padding: 4px 0;
+        font-size: 0.82rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: opacity 0.15s;
+    }
+
+    .btn-date-shift:hover { opacity: 0.85; }
+
+    .btn-date-shift.btn-minus {
+        background: #e74c3c;
+        color: #fff;
+    }
+
+    .btn-date-shift.btn-plus {
+        background: #27ae60;
+        color: #fff;
+    }
 </style>
 
 <script>
+    // +30天 / -30天 日期位移
+    function shiftDate(input, days) {
+        if (!input) return;
+        var val = input.value;
+        var d = val ? new Date(val) : new Date();
+        d.setDate(d.getDate() + days);
+        input.value = d.toISOString().slice(0, 10);
+    }
+
     const TABLE = 'subscription';
     initBatchDelete(TABLE);
     const allNames = <?php echo json_encode($existingNames, JSON_UNESCAPED_UNICODE); ?>;
