@@ -2,10 +2,29 @@
     <script src="assets/js/main.js"></script>
     <script src="assets/js/inline-edit.js"></script>
 
-    <!-- 註冊 Service Worker (PWA 手機通知必要) -->
+    <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
     <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(function(){});
+        navigator.serviceWorker.register('sw.js').then(function(reg) {
+            // ── Periodic Background Sync：定期背景執行（Chrome Android 80+）────
+            // 即使 App 關閉，手機也會定期喚醒 Service Worker
+            if ('periodicSync' in reg) {
+                // 請求 background-periodic-sync 權限後才能註冊
+                navigator.permissions.query({ name: 'periodic-background-sync' }).then(function(status) {
+                    if (status.state === 'granted') {
+                        // 每 12 小時（最小間隔，由瀏覽器決定實際頻率）
+                        reg.periodicSync.register('fengxiong-heartbeat', {
+                            minInterval: 12 * 60 * 60 * 1000
+                        }).catch(function() {});
+                    }
+                }).catch(function() {});
+            }
+
+            // ── Background Sync：網路恢復時自動同步 ──────────────────────────
+            if ('sync' in reg) {
+                reg.sync.register('fengxiong-sync').catch(function() {});
+            }
+        }).catch(function(){});
     }
     </script>
 

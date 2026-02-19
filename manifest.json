@@ -1,6 +1,6 @@
 {
     "id": "fengxiong-ai",
-    "name": "鋒兄AI",
+    "name": "鋒兄AI Laravel MySQL",
     "short_name": "鋒兄AI",
     "description": "鋒兄AI Laravel+Mysql 個人管理系統",
     "start_url": "index.php?page=dashboard",
@@ -9,6 +9,10 @@
     "orientation": "any",
     "background_color": "#2c3e50",
     "theme_color": "#3498db",
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    },
+    "handle_links": "preferred",
     "icons": [
         {
             "src": "/icon-16x16.png",
