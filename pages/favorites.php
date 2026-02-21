@@ -38,7 +38,7 @@ foreach ($items as $item) {
 }
 // 只保留出現在多個帳號中的網站
 $commonSites = array_filter($siteAccounts, function ($accounts) {
-    return count($accounts) >= 2;
+    return count($accounts) >= 1;
 });
 // 按出現次數排序
 uasort($commonSites, function ($a, $b) {
