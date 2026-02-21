@@ -51,7 +51,7 @@ uasort($commonSites, function ($a, $b) {
     <?php if (!empty($commonSites)): ?>
     <div class="common-site-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
         <span style="color: #666; font-size: 0.9rem;"><i class="fas fa-filter"></i> 篩選:</span>
-        <button class="btn btn-sm filter-btn active" onclick="filterBySite('')" data-site="">全部</button>
+        <button class="btn btn-sm filter-btn active" onclick="filterBySite('')" data-site="">全部 (<?php echo count($items); ?>)</button>
         <?php foreach ($commonSites as $siteName => $accountIds): ?>
             <button class="btn btn-sm filter-btn" onclick="filterBySite('<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>')" data-site="<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>">
                 <?php echo htmlspecialchars($siteName); ?> (<?php echo count($accountIds); ?>)
