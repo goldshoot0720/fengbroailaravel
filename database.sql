@@ -286,13 +286,13 @@ CREATE TABLE IF NOT EXISTS article (
     url3 VARCHAR(500),
     file1 VARCHAR(150),
     file1name VARCHAR(100),
-    file1type VARCHAR(20),
+    file1type VARCHAR(100),
     file2 VARCHAR(150),
     file2name VARCHAR(100),
-    file2type VARCHAR(20),
+    file2type VARCHAR(100),
     file3 VARCHAR(150),
     file3name VARCHAR(100),
-    file3type VARCHAR(20),
+    file3type VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

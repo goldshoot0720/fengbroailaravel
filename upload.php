@@ -5,14 +5,19 @@ ini_set('upload_max_filesize', '200M');
 ini_set('post_max_size', '200M');
 set_time_limit(0);
 
-function parseSizeToBytes($value) {
+function parseSizeToBytes($value)
+{
     $value = trim((string) $value);
-    if ($value === '') return 0;
+    if ($value === '')
+        return 0;
     $unit = strtolower(substr($value, -1));
     $number = (float) $value;
-    if ($unit === 'g') return (int) round($number * 1024 * 1024 * 1024);
-    if ($unit === 'm') return (int) round($number * 1024 * 1024);
-    if ($unit === 'k') return (int) round($number * 1024);
+    if ($unit === 'g')
+        return (int) round($number * 1024 * 1024 * 1024);
+    if ($unit === 'm')
+        return (int) round($number * 1024 * 1024);
+    if ($unit === 'k')
+        return (int) round($number * 1024);
     return (int) round($number);
 }
 
@@ -75,17 +80,22 @@ if ($uploadMaxBytes > 0 && $fileSize > $uploadMaxBytes) {
     jsonResponse(['error' => "檔案太大，超過伺服器限制 upload_max_filesize={$uploadMax}"], 400);
 }
 
-// 生成唯一檔名
-$ext = pathinfo($originalName, PATHINFO_EXTENSION);
-$newName = generateUUID() . '.' . $ext;
-$filePath = $uploadDir . $newName;
+// 生成唯一檔名，按副檔名分資料夾
+$ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+$subDir = $ext ? $ext : 'other';
+$uploadSubDir = $uploadDir . $subDir . '/';
+if (!is_dir($uploadSubDir)) {
+    mkdir($uploadSubDir, 0755, true);
+}
+$newName = generateUUID() . ($ext ? '.' . $ext : '');
+$filePath = $uploadSubDir . $newName;
 
 if (move_uploaded_file($file['tmp_name'], $filePath)) {
     jsonResponse([
         'success' => true,
         'file' => $filePath,
         'filename' => $originalName,
-        'filetype' => $fileType
+        'filetype' => $ext ? '.' . $ext : ''
     ]);
 } else {
     jsonResponse(['error' => '檔案上傳失敗'], 500);

@@ -2,6 +2,8 @@
 $pageTitle = '文件管理';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR category IS NULL ORDER BY created_at DESC")->fetchAll();
+$categories = array_values(array_unique(array_filter(array_column($items, 'category'))));
+sort($categories);
 ?>
 
 <div class="content-header">
@@ -32,6 +34,40 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     <?php include 'includes/zip-preview.php'; ?>
     <?php include 'includes/batch-delete.php'; ?>
 
+    <!-- 分類篩選 -->
+    <?php if (!empty($categories)): ?>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.85rem;color:#888;"><i class="fas fa-filter"></i> 分類：</span>
+            <button class="btn btn-sm category-filter-btn active" data-cat=""
+                onclick="filterByCategory(this, '')">全部</button>
+            <?php foreach ($categories as $cat): ?>
+                <button class="btn btn-sm category-filter-btn" data-cat="<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>"
+                    onclick="filterByCategory(this, '<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>') "><?php echo htmlspecialchars($cat); ?></button>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+    <style>
+        .category-filter-btn {
+            background: #f0f0f0;
+            color: #555;
+            border: none;
+            border-radius: 20px;
+            padding: 4px 14px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .category-filter-btn.active {
+            background: #3498db;
+            color: #fff;
+        }
+
+        .category-filter-btn:hover:not(.active) {
+            background: #d0e8f8;
+            color: #2c3e50;
+        }
+    </style>
+
     <!-- 桌面版表格 -->
     <table class="table desktop-only" style="margin-top: 20px;">
         <thead>
@@ -41,7 +77,6 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                 <th>名稱</th>
                 <th>分類</th>
                 <th>參考</th>
-                <th>備註</th>
                 <th>建立時間</th>
                 <th>操作</th>
             </tr>
@@ -49,41 +84,31 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
         <tbody>
             <tr id="inlineAddRow" class="inline-add-row">
                 <td></td>
-                <td>
+                <td colspan="5">
                     <div class="inline-edit inline-edit-always">
                         <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
+                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="3"
+                            style="resize:vertical;"></textarea>
                         <div style="display:flex;gap:6px;align-items:center;">
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑" style="flex:1;">
-                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i class="fas fa-upload"></i></button>
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑"
+                                style="flex:1;">
+                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i
+                                    class="fas fa-upload"></i></button>
                         </div>
                         <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
+                        <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
                         <div class="inline-actions">
                             <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
                             <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
                         </div>
                     </div>
                 </td>
-                <td>
-                    <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
-                    </div>
-                </td>
-                <td>
-                    <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
-                    </div>
-                </td>
-                <td>
-                    <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
-                    </div>
-                </td>
-                <td>-</td>
-                <td></td>
             </tr>
             <?php if (empty($items)): ?>
                 <tr>
-                    <td colspan="7" style="text-align: center; color: #999;">暫無文件</td>
+                    <td colspan="6" style="text-align: center; color: #999;">暫無文件</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
@@ -94,10 +119,12 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                         data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
                         data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
                         data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>">
-                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
-                                onchange="toggleSelectItem(this)"></td>
+                        <td rowspan="<?php echo !empty($item['note']) ? 2 : 1; ?>">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)">
+                        </td>
                         <td>
-                            <div class="inline-view">
+                            <div class="inline-view" style="display:flex;align-items:center;gap:6px;">
                                 <?php echo htmlspecialchars($item['name']); ?>
                                 <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
                                     style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
@@ -106,36 +133,29 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                             </div>
                             <div class="inline-edit">
                                 <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
+                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="3"
+                                    style="resize:vertical;"></textarea>
                                 <div style="display:flex;gap:6px;align-items:center;">
-                                    <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑" style="flex:1;">
-                                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i class="fas fa-upload"></i></button>
+                                    <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑"
+                                        style="flex:1;">
+                                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                        onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i
+                                            class="fas fa-upload"></i></button>
                                 </div>
                                 <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
+                                <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
                                 <div class="inline-actions">
-                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
-                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn"
+                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
                                 </div>
                             </div>
                         </td>
-                        <td>
-                            <span class="inline-view"><?php echo htmlspecialchars($item['category'] ?? '-'); ?></span>
-                            <div class="inline-edit inline-edit-row">
-                                <input type="text" class="form-control inline-input" data-field="category" placeholder="分類">
-                            </div>
-                        </td>
-                        <td>
-                            <span class="inline-view"><?php echo htmlspecialchars($item['ref'] ?? '-'); ?></span>
-                            <div class="inline-edit inline-edit-row">
-                                <input type="text" class="form-control inline-input" data-field="ref" placeholder="參考">
-                            </div>
-                        </td>
-                        <td>
-                            <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
-                            <div class="inline-edit inline-edit-row">
-                                <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
-                            </div>
-                        </td>
-                        <td><?php echo formatDateTime($item['created_at']); ?></td>
+                        <td class="inline-view"><?php echo htmlspecialchars($item['category'] ?? ''); ?></td>
+                        <td class="inline-view"><?php echo htmlspecialchars($item['ref'] ?? ''); ?></td>
+                        <td class="inline-view"><?php echo formatDateTime($item['created_at']); ?></td>
                         <td>
                             <div class="inline-view">
                                 <?php if (!empty($item['file'])): ?>
@@ -143,13 +163,26 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                                         onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
                                         <i class="fa-solid fa-eye"></i> 預覽
                                     </button>
-                                    <a href="<?php echo htmlspecialchars($item['file']); ?>" download class="btn btn-sm btn-success">
+                                    <a href="<?php echo htmlspecialchars($item['file']); ?>" download="<?php
+                                       $ext = pathinfo($item['file'], PATHINFO_EXTENSION);
+                                       echo htmlspecialchars($item['name'] . ($ext ? '.' . $ext : ''), ENT_QUOTES);
+                                       ?>" class="btn btn-sm btn-success">
                                         <i class="fa-solid fa-download"></i> 下載
                                     </a>
                                 <?php endif; ?>
                             </div>
                         </td>
                     </tr>
+                    <?php if (!empty($item['note'])): ?>
+                        <tr data-note-row="<?php echo $item['id']; ?>">
+                            <td colspan="5" style="padding-top:2px;padding-bottom:8px;border-top:none;">
+                                <div style="font-size:0.85rem;color:#666;white-space:pre-line;padding-left:4px;">
+                                    <i class="fas fa-sticky-note" style="color:#aaa;font-size:0.75rem;"></i>
+                                    <?php echo nl2br(htmlspecialchars($item['note'])); ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>
@@ -161,7 +194,8 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無文件</div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="mobile-card" style="border-left: 4px solid #e67e22;">
+                <div class="mobile-card" data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
+                    style="border-left: 4px solid #e67e22;">
                     <div class="mobile-card-actions">
                         <?php if (!empty($item['file'])): ?>
                             <button class="btn btn-sm btn-primary"
@@ -169,7 +203,10 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                                 style="padding: 5px 10px;">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
-                            <a href="<?php echo htmlspecialchars($item['file']); ?>" download class="btn btn-sm btn-success" style="padding: 5px 10px;">
+                            <a href="<?php echo htmlspecialchars($item['file']); ?>" download="<?php
+                               $ext = pathinfo($item['file'], PATHINFO_EXTENSION);
+                               echo htmlspecialchars($item['name'] . ($ext ? '.' . $ext : ''), ENT_QUOTES);
+                               ?>" class="btn btn-sm btn-success" style="padding: 5px 10px;">
                                 <i class="fa-solid fa-download"></i>
                             </a>
                         <?php endif; ?>
@@ -196,7 +233,9 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                         </div>
                     <?php endif; ?>
                     <?php if (!empty($item['note'])): ?>
-                        <div class="mobile-card-note"><?php echo htmlspecialchars($item['note']); ?></div>
+                        <div class="mobile-card-note" style="white-space:pre-line;">
+                            <?php echo nl2br(htmlspecialchars($item['note'])); ?>
+                        </div>
                     <?php endif; ?>
                     <div style="margin-top: 8px; font-size: 0.75rem; color: #999;">
                         <i class="fas fa-clock"></i> <?php echo formatDateTime($item['created_at']); ?>
@@ -214,7 +253,22 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     const TABLE = 'commondocument';
     initBatchDelete(TABLE);
 
-    
+    function filterByCategory(btn, cat) {
+        document.querySelectorAll('.category-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // 桌面版：篩選 tr（跳過新增列與 thead）
+        document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(tr => {
+            const rowCat = tr.dataset.category || '';
+            tr.style.display = (!cat || rowCat === cat) ? '' : 'none';
+        });
+        // 手機版：篩選 mobile-card
+        document.querySelectorAll('.mobile-only .mobile-card[data-category]').forEach(card => {
+            const cardCat = card.dataset.category || '';
+            card.style.display = (!cat || cardCat === cat) ? '' : 'none';
+        });
+    }
+
+
     function handleAdd() {
         // Use inline editing for all screen sizes
         startInlineAdd();
@@ -274,11 +328,14 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     }
 
     function startInlineEdit(id) {
-        // Use inline editing for all screen sizes
         const row = getRowById(id);
         if (!row) return;
+        // 隱藏同一 tr 錄 inline-view 元素（含名稱 div 及分類/參考/時間 td）
         row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
         row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        // 隱藏備註列
+        const noteRow = document.querySelector(`tr[data-note-row="${id}"]`);
+        if (noteRow) noteRow.style.display = 'none';
         fillInlineInputs(row);
     }
 
@@ -287,6 +344,9 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
         if (!row) return;
         row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
         row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+        // 還原備註列
+        const noteRow = document.querySelector(`tr[data-note-row="${id}"]`);
+        if (noteRow) noteRow.style.display = '';
     }
 
     function fillInlineInputs(row) {
@@ -333,7 +393,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
             });
     }
 
-    
+
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -345,33 +405,33 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
         }
     }
 
-    
+
     // 文件上傳功能
-    (function() {
+    (function () {
         const _uploadInput = document.createElement('input');
         _uploadInput.type = 'file';
         _uploadInput.style.display = 'none';
         document.body.appendChild(_uploadInput);
         let _uploadTargetInput = null;
 
-        _uploadInput.addEventListener('change', function() {
+        _uploadInput.addEventListener('change', function () {
             const file = this.files[0];
             if (!file) return;
             uploadFileWithProgress(file,
-                function(res) {
+                function (res) {
                     if (_uploadTargetInput) {
                         _uploadTargetInput.value = res.file;
                         _uploadTargetInput = null;
                     }
                 },
-                function(err) {
+                function (err) {
                     alert('上傳失敗: ' + err);
                 }
             );
             this.value = '';
         });
 
-        window.triggerFileUpload = function(targetInput) {
+        window.triggerFileUpload = function (targetInput) {
             _uploadTargetInput = targetInput;
             _uploadInput.click();
         };
