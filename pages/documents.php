@@ -52,7 +52,10 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                 <td>
                     <div class="inline-edit inline-edit-always">
                         <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
-                        <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑" style="flex:1;">
+                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i class="fas fa-upload"></i></button>
+                        </div>
                         <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
                         <div class="inline-actions">
                             <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
@@ -103,7 +106,10 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                             </div>
                             <div class="inline-edit">
                                 <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
-                                <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑">
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input type="text" class="form-control inline-input" data-field="file" placeholder="檔案路徑" style="flex:1;">
+                                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="triggerFileUpload(this.closest('div').querySelector('[data-field=file]'))"><i class="fas fa-upload"></i></button>
+                                </div>
                                 <input type="text" class="form-control inline-input" data-field="cover" placeholder="封面圖網址">
                                 <div class="inline-actions">
                                     <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
@@ -137,6 +143,9 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                                         onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
                                         <i class="fa-solid fa-eye"></i> 預覽
                                     </button>
+                                    <a href="<?php echo htmlspecialchars($item['file']); ?>" download class="btn btn-sm btn-success">
+                                        <i class="fa-solid fa-download"></i> 下載
+                                    </a>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -160,6 +169,9 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
                                 style="padding: 5px 10px;">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
+                            <a href="<?php echo htmlspecialchars($item['file']); ?>" download class="btn btn-sm btn-success" style="padding: 5px 10px;">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
                         <?php endif; ?>
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -334,14 +346,49 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     }
 
     
+    // 文件上傳功能
+    (function() {
+        const _uploadInput = document.createElement('input');
+        _uploadInput.type = 'file';
+        _uploadInput.style.display = 'none';
+        document.body.appendChild(_uploadInput);
+        let _uploadTargetInput = null;
+
+        _uploadInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            uploadFileWithProgress(file,
+                function(res) {
+                    if (_uploadTargetInput) {
+                        _uploadTargetInput.value = res.file;
+                        _uploadTargetInput = null;
+                    }
+                },
+                function(err) {
+                    alert('上傳失敗: ' + err);
+                }
+            );
+            this.value = '';
+        });
+
+        window.triggerFileUpload = function(targetInput) {
+            _uploadTargetInput = targetInput;
+            _uploadInput.click();
+        };
+    })();
+
     // 文件預覽功能
     function previewDocument(id, filePath, title) {
         const ext = filePath.split('.').pop().toLowerCase();
         const previewModal = document.getElementById('previewModal');
         const previewTitle = document.getElementById('previewTitle');
         const previewContent = document.getElementById('previewContent');
+        const downloadBtn = document.getElementById('previewDownloadBtn');
 
         previewTitle.textContent = title;
+        downloadBtn.href = filePath;
+        downloadBtn.download = filePath.split('/').pop();
+        downloadBtn.style.display = '';
         previewContent.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>載入中...</div>';
         previewModal.style.display = 'flex';
 
@@ -406,6 +453,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
     function closePreviewModal() {
         document.getElementById('previewModal').style.display = 'none';
         document.getElementById('previewContent').innerHTML = '';
+        document.getElementById('previewDownloadBtn').style.display = 'none';
     }
 
     function escapeHtml(text) {
@@ -441,7 +489,12 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR 
 <div id="previewModal" class="modal" onclick="if(event.target===this)closePreviewModal()">
     <div class="modal-content" style="max-width:900px;width:95%;">
         <span class="modal-close" onclick="closePreviewModal()">&times;</span>
-        <h2 id="previewTitle">文件預覽</h2>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h2 id="previewTitle" style="margin:0;flex:1;">文件預覽</h2>
+            <a id="previewDownloadBtn" href="#" download class="btn btn-success" style="display:none;">
+                <i class="fa-solid fa-download"></i> 下載
+            </a>
+        </div>
         <div id="previewContent" style="margin-top:20px;"></div>
     </div>
 </div>

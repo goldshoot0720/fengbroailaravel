@@ -208,23 +208,28 @@ sort($categories);
                                 $filename = $item["file{$i}name"] ?? '檔案';
                                 $filepath = $item["file{$i}"];
                                 ?>
-                                <a href="<?php echo htmlspecialchars($filepath); ?>" target="_blank" class="note-file-thumb" title="<?php echo htmlspecialchars($filename); ?>">
-                                    <?php if (strpos($filetype, 'image/') === 0): ?>
-                                        <img src="<?php echo htmlspecialchars($filepath); ?>" alt="<?php echo htmlspecialchars($filename); ?>">
-                                    <?php else: ?>
-                                        <?php
-                                        $iconClass = 'fa-file';
-                                        $iconBg = '#3498db';
-                                        if (strpos($filetype, 'video/') === 0) { $iconClass = 'fa-video'; $iconBg = '#34495e'; }
-                                        elseif (strpos($filetype, 'audio/') === 0) { $iconClass = 'fa-music'; $iconBg = '#9b59b6'; }
-                                        elseif ($filetype === 'application/pdf') { $iconClass = 'fa-file-pdf'; $iconBg = '#e74c3c'; }
-                                        ?>
-                                        <div class="note-file-icon" style="background: <?php echo $iconBg; ?>;">
-                                            <i class="fa-solid <?php echo $iconClass; ?>"></i>
-                                        </div>
-                                    <?php endif; ?>
-                                    <span class="note-file-name"><?php echo htmlspecialchars(mb_substr($filename, 0, 12)); ?></span>
-                                </a>
+                                <div class="note-file-item">
+                                    <a href="<?php echo htmlspecialchars($filepath); ?>" target="_blank" class="note-file-thumb" title="<?php echo htmlspecialchars($filename); ?>">
+                                        <?php if (strpos($filetype, 'image/') === 0): ?>
+                                            <img src="<?php echo htmlspecialchars($filepath); ?>" alt="<?php echo htmlspecialchars($filename); ?>">
+                                        <?php else: ?>
+                                            <?php
+                                            $iconClass = 'fa-file';
+                                            $iconBg = '#3498db';
+                                            if (strpos($filetype, 'video/') === 0) { $iconClass = 'fa-video'; $iconBg = '#34495e'; }
+                                            elseif (strpos($filetype, 'audio/') === 0) { $iconClass = 'fa-music'; $iconBg = '#9b59b6'; }
+                                            elseif ($filetype === 'application/pdf') { $iconClass = 'fa-file-pdf'; $iconBg = '#e74c3c'; }
+                                            ?>
+                                            <div class="note-file-icon" style="background: <?php echo $iconBg; ?>;">
+                                                <i class="fa-solid <?php echo $iconClass; ?>"></i>
+                                            </div>
+                                        <?php endif; ?>
+                                        <span class="note-file-name"><?php echo htmlspecialchars(mb_substr($filename, 0, 12)); ?></span>
+                                    </a>
+                                    <a href="<?php echo htmlspecialchars($filepath); ?>" download="<?php echo htmlspecialchars($filename); ?>" class="note-file-download" title="下載 <?php echo htmlspecialchars($filename); ?>">
+                                        <i class="fa-solid fa-download"></i>
+                                    </a>
+                                </div>
                             <?php endif; ?>
                         <?php endfor; ?>
                     </div>
@@ -514,6 +519,13 @@ sort($categories);
     margin: 12px 16px 0;
 }
 
+.note-file-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
 .note-file-thumb {
     display: flex;
     flex-direction: column;
@@ -524,6 +536,32 @@ sort($categories);
 
 .note-file-thumb:hover {
     transform: scale(1.05);
+}
+
+.note-file-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    color: #3498db;
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #bee5eb;
+    background: #ebf5fb;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.note-file-download:hover {
+    background: #d4effc;
+}
+
+[data-theme="dark"] .note-file-download {
+    background: #1a3a5c;
+    color: #5dade2;
+    border-color: #2e6da4;
 }
 
 .note-file-thumb img {
@@ -957,7 +995,7 @@ function updateFilePreview(num) {
             previewHtml = `<div style="margin-bottom: 5px;"><i class="fa-solid fa-file" style="font-size: 2rem; color: #3498db;"></i></div>`;
         }
 
-        previewHtml += `<a href="${file}" target="_blank">${filename}</a> <span class="remove-file" onclick="removeFile(${num})">✕ 移除</span>`;
+        previewHtml += `<a href="${file}" target="_blank">${filename}</a> <a href="${file}" download="${filename}" style="color:#27ae60;margin-left:8px;"><i class="fa-solid fa-download"></i> 下載</a> <span class="remove-file" onclick="removeFile(${num})">✕ 移除</span>`;
         preview.innerHTML = previewHtml;
     } else {
         preview.innerHTML = '';
