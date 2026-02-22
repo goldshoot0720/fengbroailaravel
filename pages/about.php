@@ -28,6 +28,16 @@
                 <th>目前環境</th>
                 <td><?php echo strtoupper($GLOBALS['ENV']); ?></td>
             </tr>
+            <tr>
+                <th>程式碼行數</th>
+                <td>
+                    <strong>12,686</strong> 行
+                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
+                        (.php: 10,712 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 726 &nbsp;|&nbsp; .sql: 280)
+                    </span>
+                    <br><small style="color:#aaa;">統計日期：2026-02-22</small>
+                </td>
+            </tr>
         </table>
     </div>
 
