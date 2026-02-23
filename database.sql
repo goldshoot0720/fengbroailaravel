@@ -297,6 +297,21 @@ CREATE TABLE IF NOT EXISTS article (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Web Push 訂閱資料表
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    endpoint TEXT NOT NULL,
+    auth VARCHAR(255) NOT NULL,
+    p256dh VARCHAR(500) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_endpoint (endpoint(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- VAPID 金鑰儲存於 settings 表，user_id = NULL
+-- 由 push_send.php?action=init_vapid 自動插入：
+--   setting_key = 'vapid_public_key'  → base64url 公鑰
+--   setting_key = 'vapid_private_key' → EC 私鑰 PEM
+
 -- 插入預設使用者
 INSERT INTO users (username, email, password) VALUES
 ('admin', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');

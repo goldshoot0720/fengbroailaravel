@@ -199,5 +199,64 @@
     @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
     </style>
     <?php endif; ?>
+
+    <?php
+    // 讀取 VAPID 公鑰供 JS 使用（使用已建立的 $notifPdo 連線）
+    $vapidPublicKey = '';
+    try {
+        $r = $notifPdo->query("SELECT setting_value FROM settings WHERE setting_key='vapid_public_key' AND user_id IS NULL LIMIT 1");
+        $vapidPublicKey = $r ? ($r->fetchColumn() ?: '') : '';
+    } catch (Throwable $e) {}
+    ?>
+    <?php if ($vapidPublicKey): ?>
+    <script>
+    (function() {
+        function urlBase64ToUint8Array(base64String) {
+            var padding = '='.repeat((4 - base64String.length % 4) % 4);
+            var base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            var rawData = window.atob(base64);
+            var output  = new Uint8Array(rawData.length);
+            for (var i = 0; i < rawData.length; i++) {
+                output[i] = rawData.charCodeAt(i);
+            }
+            return output;
+        }
+
+        async function registerPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            if (Notification.permission !== 'granted') return;
+
+            try {
+                var reg = await navigator.serviceWorker.ready;
+                var sub = await reg.pushManager.getSubscription();
+                if (sub) return; // 已訂閱，不重複
+
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array('<?= htmlspecialchars($vapidPublicKey, ENT_QUOTES) ?>')
+                });
+
+                await fetch('push_subscribe.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sub)
+                });
+            } catch (e) {
+                // 訂閱失敗（使用者未授權或瀏覽器不支援）靜默略過
+            }
+        }
+
+        // 等待通知權限授予後再訂閱
+        if (Notification.permission === 'granted') {
+            registerPush();
+        } else if (Notification.permission !== 'denied') {
+            // 權限待確認：監聽通知權限變更
+            Notification.requestPermission().then(function(p) {
+                if (p === 'granted') registerPush();
+            });
+        }
+    })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>

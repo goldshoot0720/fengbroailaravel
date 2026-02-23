@@ -54,6 +54,9 @@ uasort($commonSites, function ($a, $b) {
         <button class="btn btn-sm filter-btn active" onclick="filterBySite('')" data-site="">全部 (<?php echo count($items); ?>)</button>
         <?php foreach ($commonSites as $siteName => $accountIds): ?>
             <button class="btn btn-sm filter-btn" onclick="filterBySite('<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>')" data-site="<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>">
+                <img src="https://www.google.com/s2/favicons?domain=<?php echo urlencode($siteName); ?>&sz=16"
+                    style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
+                    onerror="this.style.display='none'">
                 <?php echo htmlspecialchars($siteName); ?> (<?php echo count($accountIds); ?>)
             </button>
         <?php endforeach; ?>
@@ -119,6 +122,9 @@ uasort($commonSites, function ($a, $b) {
                                 <div style="margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee;">
                                     <?php if (!empty($item[$siteKey])): ?>
                                         <div style="font-weight: 600; color: #2c3e50; margin-bottom: 4px;">
+                                            <img src="https://www.google.com/s2/favicons?domain=<?php echo urlencode($item[$siteKey]); ?>&sz=16"
+                                                style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"
+                                                onerror="this.style.display='none'">
                                             <?php echo htmlspecialchars($item[$siteKey]); ?>
                                         </div>
                                     <?php endif; ?>

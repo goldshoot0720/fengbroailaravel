@@ -107,6 +107,11 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
                             <div class="inline-view">
+                                <?php if ($item['site']): ?>
+                                    <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                                    <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=16"
+                                        style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;">
+                                <?php endif; ?>
                                 <?php echo htmlspecialchars($item['name']); ?>
                                 <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
                                     style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
@@ -175,7 +180,13 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                     </div>
                     <div class="mobile-card-header">
-                        <i class="fas fa-university" style="font-size: 1.5rem; color: #3498db;"></i>
+                        <?php if ($item['site']): ?>
+                            <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                            <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=32"
+                                style="width: 32px; height: 32px; border-radius: 6px;">
+                        <?php else: ?>
+                            <i class="fas fa-university" style="font-size: 1.5rem; color: #3498db;"></i>
+                        <?php endif; ?>
                         <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
                     </div>
                     <?php if ($item['site']): ?>

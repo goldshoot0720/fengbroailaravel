@@ -220,9 +220,12 @@ sort($categories);
                         <div class="note-links">
                             <?php for ($u = 1; $u <= 3; $u++): ?>
                                 <?php if (!empty($item["url{$u}"])): ?>
+                                    <?php $linkDomain = parse_url($item["url{$u}"], PHP_URL_HOST); ?>
                                     <a href="<?php echo htmlspecialchars($item["url{$u}"]); ?>" target="_blank" class="note-link">
-                                        <i class="fas fa-external-link-alt"></i>
-                                        <?php echo htmlspecialchars(parse_url($item["url{$u}"], PHP_URL_HOST) ?: "連結 {$u}"); ?>
+                                        <img src="https://www.google.com/s2/favicons?domain=<?php echo $linkDomain; ?>&sz=16"
+                                            style="width: 16px; height: 16px; vertical-align: middle;"
+                                            onerror="this.style.display='none'">
+                                        <?php echo htmlspecialchars($linkDomain ?: "連結 {$u}"); ?>
                                     </a>
                                 <?php endif; ?>
                             <?php endfor; ?>
