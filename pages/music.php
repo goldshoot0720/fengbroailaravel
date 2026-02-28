@@ -556,7 +556,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 無法播放：${reason}</span><br><small style="font-size:0.75rem;opacity:0.8;">${src.split('/').pop()}</small>`;
         };
 
-        player.play().catch(function  (err) {
+        player.play().catch(function (err) {
             titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 播放失敗：${err.message}</span>`;
         });
 
@@ -668,7 +668,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 
 <!-- 兩層分類播放器彈窗 -->
-<div id="twoLayerModal" class="modal" onclick="if(event.target===this)closeTwoLayerModal()">
+<div id="twoLayerModal" class="modal" onclick="if(event.target && event.target===this)closeTwoLayerModal()">
     <div class="modal-content"
         style="max-width:500px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:20px;">
         <span class="modal-close" onclick="closeTwoLayerModal()" style="color:#fff;">&times;</span>
