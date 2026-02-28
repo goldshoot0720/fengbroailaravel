@@ -234,9 +234,86 @@ function saveInlineAdd() {
     })
         .then(r => r.json())
         .then(res => {
-            if (res.success) location.reload();
-            else alert('儲存失敗: ' + (res.error || ''));
+            if (res.success) {
+                addCardToGrid(res.id, data);
+                cancelInlineAdd();
+            } else alert('儲存失敗: ' + (res.error || ''));
         });
+}
+
+function addCardToGrid(id, data) {
+    function esc(s) {
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(s || ''));
+        return d.innerHTML;
+    }
+    const imgHtml = data.file
+        ? `<img src="${esc(data.file)}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">`
+        : '';
+    const newCard = document.createElement('div');
+    newCard.className = 'card';
+    newCard.dataset.id = id;
+    newCard.dataset.name = data.name || '';
+    newCard.dataset.file = data.file || '';
+    newCard.dataset.category = data.category || '';
+    newCard.dataset.ref = data.ref || '';
+    newCard.dataset.note = data.note || '';
+    newCard.innerHTML = `
+        <div class="inline-view">
+            <div class="card-header">
+                <input type="checkbox" class="select-checkbox item-checkbox" data-id="${id}" onchange="toggleSelectItem(this)">
+                <div class="card-actions">
+                    <span class="card-edit-btn" onclick="startInlineEdit('${id}')"><i class="fas fa-pen"></i></span>
+                    <span class="card-delete-btn" onclick="deleteItem('${id}')">&times;</span>
+                </div>
+            </div>
+            ${imgHtml}
+            <h3 class="card-title">${esc(data.name)}</h3>
+            <p style="color: #666; font-size: 0.9rem;">${esc(data.category || '未分類')}</p>
+            <p style="font-size: 0.85rem; color: #999;">${esc(data.note || '')}</p>
+        </div>
+        <div class="inline-edit" style="display: none;">
+            <div class="form-group">
+                <label>名稱 *</label>
+                <input type="text" class="form-control inline-input" data-field="name">
+            </div>
+            <div class="form-group">
+                <label>檔案路徑</label>
+                <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址" oninput="updateInlineImagePreview(this)">
+                <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                    <input type="file" class="inline-image-file" accept="image/*" style="display: none;" onchange="uploadInlineImage(this)">
+                    <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳</button>
+                    <div class="inline-image-preview"></div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <label>分類</label>
+                    <input type="text" class="form-control inline-input" data-field="category">
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label>參考</label>
+                    <input type="text" class="form-control inline-input" data-field="ref">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>備註</label>
+                <textarea class="form-control inline-input" data-field="note" rows="4"></textarea>
+            </div>
+            <div class="inline-actions">
+                <button type="button" class="btn btn-primary" onclick="saveInlineEdit('${id}')">儲存</button>
+                <button type="button" class="btn" onclick="cancelInlineEdit('${id}')">取消</button>
+            </div>
+        </div>`;
+    const grid = document.querySelector('.card-grid');
+    // 移除「暫無圖片」空狀態
+    const emptyCard = grid.querySelector('.card:not(#inlineAddCard)');
+    if (emptyCard && emptyCard.querySelector('p[style*="text-align"]')) emptyCard.remove();
+    const addCard = document.getElementById('inlineAddCard');
+    addCard ? addCard.insertAdjacentElement('afterend', newCard) : grid.appendChild(newCard);
+    // 更新張數徽章
+    const badge = document.querySelector('.content-header span');
+    if (badge) badge.textContent = grid.querySelectorAll('.card[data-id]').length + ' 張';
 }
 
 function getCardById(id) {

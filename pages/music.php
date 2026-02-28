@@ -466,7 +466,10 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 .then(r => r.json())
                 .then(res => {
                     if (res.success) {
-                        location.reload();
+                        // 加 _t 參數繞過 Service Worker 快取
+                        const url = new URL(location.href);
+                        url.searchParams.set('_t', Date.now());
+                        location.replace(url.toString());
                     } else {
                         alert('刪除失敗: ' + (res.error || ''));
                     }

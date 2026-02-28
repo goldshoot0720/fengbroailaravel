@@ -359,7 +359,10 @@ if (typeof saveInlineAdd === 'undefined') {
             .then(res => {
                 hideInlineLoading(element);
                 if (res.success) {
-                    location.reload();
+                    // 加 _t 參數繞過 Service Worker 快取，確保拿到最新資料
+                    const url = new URL(location.href);
+                    url.searchParams.set('_t', Date.now());
+                    location.replace(url.toString());
                 } else {
                     alert('儲存失敗: ' + (res.error || '未知錯誤'));
                 }
@@ -525,7 +528,10 @@ if (typeof saveInlineEdit === 'undefined') {
             .then(res => {
                 hideInlineLoading(card);
                 if (res.success) {
-                    location.reload();
+                    // 加 _t 參數繞過 Service Worker 快取，確保拿到最新資料
+                    const url = new URL(location.href);
+                    url.searchParams.set('_t', Date.now());
+                    location.replace(url.toString());
                 } else {
                     alert('儲存失敗: ' + (res.error || '未知錯誤'));
                 }
