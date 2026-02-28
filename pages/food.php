@@ -39,7 +39,12 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                 <td></td>
                 <td>
                     <div class="inline-edit inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                        <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址" oninput="updateInlinePhotoPreview(this)">
+                        <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                            <input type="file" class="inline-photo-file" accept="image/*" style="display: none;" onchange="uploadInlinePhoto(this)">
+                            <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳</button>
+                            <div class="inline-photo-preview"></div>
+                        </div>
                     </div>
                 </td>
                 <td>
@@ -97,7 +102,12 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                                 <?php endif; ?>
                             </div>
                             <div class="inline-edit">
-                                <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                                <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址" oninput="updateInlinePhotoPreview(this)">
+                                <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                    <input type="file" class="inline-photo-file" accept="image/*" style="display: none;" onchange="uploadInlinePhoto(this)">
+                                    <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳</button>
+                                    <div class="inline-photo-preview"></div>
+                                </div>
                             </div>
                         </td>
                         <td>
@@ -341,7 +351,10 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
         const todateInput = row.querySelector('[data-field="todate"]');
         if (todateInput) todateInput.value = todate || '';
         const photoInput = row.querySelector('[data-field="photo"]');
-        if (photoInput) photoInput.value = data.photo || '';
+        if (photoInput) {
+            photoInput.value = data.photo || '';
+            updateInlinePhotoPreview(photoInput);
+        }
     }
 
     function saveInlineEdit(id) {
@@ -441,6 +454,30 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     });
+
+    function uploadInlinePhoto(fileInput) {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const photoInput = fileInput.closest('.inline-edit').querySelector('[data-field="photo"]');
+        uploadFileWithProgress(fileInput.files[0],
+            function (res) {
+                photoInput.value = res.file;
+                updateInlinePhotoPreview(photoInput);
+            },
+            function (error) {
+                alert('上傳失敗: ' + error);
+            }
+        );
+        fileInput.value = '';
+    }
+
+    function updateInlinePhotoPreview(input) {
+        const preview = input.closest('.inline-edit').querySelector('.inline-photo-preview');
+        if (!preview) return;
+        const url = input.value.trim();
+        preview.innerHTML = url
+            ? `<img src="${url}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 4px;">`
+            : '';
+    }
 
     function uploadPhoto() {
         const input = document.getElementById('photoFile');
