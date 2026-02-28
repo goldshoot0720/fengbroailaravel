@@ -44,7 +44,12 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                 </div>
                 <div class="form-group">
                     <label>檔案路徑</label>
-                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址">
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址" oninput="updateInlineImagePreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-image-file" accept="image/*" style="display: none;" onchange="uploadInlineImage(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳</button>
+                        <div class="inline-image-preview"></div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group" style="flex:1">
@@ -102,7 +107,12 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                         </div>
                         <div class="form-group">
                             <label>檔案路徑</label>
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入圖片網址" oninput="updateInlineImagePreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-image-file" accept="image/*" style="display: none;" onchange="uploadInlineImage(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳</button>
+                                <div class="inline-image-preview"></div>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="flex:1">
@@ -257,7 +267,10 @@ function fillInlineInputs(card) {
     const nameInput = card.querySelector('[data-field="name"]');
     if (nameInput) nameInput.value = data.name || '';
     const fileInput = card.querySelector('[data-field="file"]');
-    if (fileInput) fileInput.value = data.file || '';
+    if (fileInput) {
+        fileInput.value = data.file || '';
+        updateInlineImagePreview(fileInput);
+    }
     const categoryInput = card.querySelector('[data-field="category"]');
     if (categoryInput) categoryInput.value = data.category || '';
     const refInput = card.querySelector('[data-field="ref"]');
@@ -361,6 +374,36 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         else alert('儲存失敗: ' + (res.error || ''));
     });
 });
+
+function uploadInlineImage(fileInput) {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    const file = fileInput.files[0];
+    const formGroup = fileInput.closest('.form-group');
+    const urlInput = formGroup.querySelector('[data-field="file"]');
+    uploadFileWithProgress(file,
+        function (res) {
+            urlInput.value = res.file;
+            updateInlineImagePreview(urlInput);
+            // 自動填入名稱（僅新增卡片且名稱空白時）
+            const card = fileInput.closest('.inline-edit, .inline-add-card');
+            if (card) {
+                const nameInput = card.querySelector('[data-field="name"]');
+                if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
+            }
+        },
+        function (error) { alert('上傳失敗: ' + error); }
+    );
+    fileInput.value = '';
+}
+
+function updateInlineImagePreview(input) {
+    const preview = input.closest('.form-group').querySelector('.inline-image-preview');
+    if (!preview) return;
+    const url = input.value.trim();
+    preview.innerHTML = url
+        ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+        : '';
+}
 
 function uploadImage() {
     const input = document.getElementById('imageFile');
