@@ -246,7 +246,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <?php if (!empty($group['languageGroups'])): ?>
                                 <?php $playerId = 'player_' . md5($group['name']); ?>
                                 <button class="btn btn-sm btn-primary"
-                                    onclick="openTwoLayerPlayer('<?php echo $playerId; ?>', <?php echo htmlspecialchars(json_encode($group['languageGroups'], JSON_UNESCAPED_UNICODE)); ?>, '<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($group['cover'] ?? '', ENT_QUOTES); ?>')">
+                                    onclick="openTwoLayerPlayer('<?php echo $playerId; ?>', <?php echo htmlspecialchars(json_encode($group['languageGroups'], JSON_UNESCAPED_UNICODE)); ?>, '<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($group['cover'] ?? '', ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($group['lyrics'] ?? '', JSON_UNESCAPED_UNICODE)); ?>)">
                                     <i class="fa-solid fa-play"></i> 播放
                                 </button>
                             <?php endif; ?>
@@ -556,7 +556,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 無法播放：${reason}</span><br><small style="font-size:0.75rem;opacity:0.8;">${src.split('/').pop()}</small>`;
         };
 
-        player.play().catch(function(err) {
+        player.play().catch(function  (err) {
             titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 播放失敗：${err.message}</span>`;
         });
 
@@ -564,12 +564,19 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             fetch(`api.php?action=get&table=${TABLE}&id=${musicId}`)
                 .then(r => r.json())
                 .then(res => {
-                    if (res.success && res.data && res.data.lyrics && res.data.lyrics.trim()) {
-                        document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
-                        document.getElementById('lyricsContent').textContent = res.data.lyrics;
-                        document.getElementById('lyricsPanel').style.display = 'block';
+                    if (res.success && res.data) {
+                        const lyrics = (res.data.lyrics || '').trim();
+                        if (lyrics) {
+                            document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
+                            document.getElementById('lyricsContent').textContent = lyrics;
+                            document.getElementById('lyricsPanel').style.display = 'block';
+                        } else {
+                            document.getElementById('lyricsPanel').style.display = 'none';
+                        }
                     }
                 });
+        } else {
+            document.getElementById('lyricsPanel').style.display = 'none';
         }
     }
 
@@ -585,7 +592,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     let twoLayerCurrentFile = null;
     let twoLayerCurrentId = null;
 
-    function openTwoLayerPlayer(playerId, languageGroups, songName, cover) {
+    function openTwoLayerPlayer(playerId, languageGroups, songName, cover, lyrics) {
         twoLayerData = languageGroups;
         document.getElementById('twoLayerTitle').textContent = songName;
         const coverEl = document.getElementById('twoLayerCover');
@@ -596,6 +603,15 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             `<button type="button" class="two-layer-lang-btn ${i === 0 ? 'active' : ''}" data-lang="${lang}" onclick="selectTwoLayerLang('${lang}')">${getLangIcon(lang)} ${lang}</button>`
         ).join('');
         if (langs.length > 0) selectTwoLayerLang(langs[0]);
+        // 立即顯示歌詞
+        const lyricsStr = (lyrics || '').trim();
+        if (lyricsStr) {
+            document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞';
+            document.getElementById('lyricsContent').textContent = lyricsStr;
+            document.getElementById('lyricsPanel').style.display = 'block';
+        } else {
+            document.getElementById('lyricsPanel').style.display = 'none';
+        }
         document.getElementById('twoLayerModal').style.display = 'flex';
     }
 
@@ -647,28 +663,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             style="color:#fff; font-weight:bold; min-width:150px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
         </div>
         <audio id="musicPlayer" controls style="flex:1; height:40px;">您的瀏覽器不支援音樂播放</audio>
-        <div style="display:flex;align-items:center;gap:8px;">
-            <i class="fas fa-volume-down" style="color:#fff;font-size:0.9rem;"></i>
-            <input type="range" id="musicVolumeSlider" min="0" max="1" step="0.05" value="1"
-                style="width:80px;accent-color:#fff;cursor:pointer;" oninput="setMusicVolume(this.value)">
-            <i class="fas fa-volume-up" style="color:#fff;font-size:0.9rem;"></i>
-        </div>
     </div>
 </div>
-<script>
-    // 音量控制
-    (function () {
-        const vol = parseFloat(localStorage.getItem('musicVolume') ?? '1.0');
-        const slider = document.getElementById('musicVolumeSlider');
-        if (slider) slider.value = vol;
-    })();
-    function setMusicVolume(v) {
-        v = parseFloat(v);
-        const player = document.getElementById('musicPlayer');
-        if (player) player.volume = v;
-        localStorage.setItem('musicVolume', v);
-    }
-</script>
+
 
 <!-- 兩層分類播放器彈窗 -->
 <div id="twoLayerModal" class="modal" onclick="if(event.target===this)closeTwoLayerModal()">
