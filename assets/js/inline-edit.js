@@ -108,7 +108,7 @@ function handleInlineClickOutside(e) {
  */
 function addInlineValidationListeners() {
     document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('inline-input')) {
+        if (e.target && e.target.classList && e.target.classList.contains('inline-input')) {
             validateInlineInput(e.target);
         }
     });

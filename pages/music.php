@@ -164,8 +164,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             onchange="uploadInlineMusicCover(this)">
                         <button type="button" class="btn" onclick="this.previousElementSibling.click()"
                             style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
-                        <div class="inline-music-cover-preview"></div>
                     </div>
+                    <div class="inline-music-cover-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>參考</label>
@@ -321,8 +321,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                     onchange="uploadInlineMusicCover(this)">
                                 <button type="button" class="btn" onclick="this.previousElementSibling.click()"
                                     style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
-                                <div class="inline-music-cover-preview"></div>
                             </div>
+                            <div class="inline-music-cover-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>參考</label>
@@ -398,7 +398,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         if (!preview) return;
         const url = input.value.trim();
         preview.innerHTML = url
-            ? `<audio src="${url}" controls style="width: 100%; margin-top: 4px;"></audio>`
+            ? `<audio src="${url}" controls preload="none" style="width: 100%; margin-top: 4px;"></audio>`
             : '';
     }
 
@@ -421,7 +421,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         if (!preview) return;
         const url = input.value.trim();
         preview.innerHTML = url
-            ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+            ? `<img src="${url}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">`
             : '';
     }
 
