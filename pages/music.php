@@ -492,4 +492,132 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         xhr.send(formData);
         input.value = '';
     }
+
+    // ========== 底部播放列 ==========
+    function playMusic(src, title, musicId) {
+        const bar = document.getElementById('musicPlayerBar');
+        const player = document.getElementById('musicPlayer');
+        document.getElementById('musicPlayerTitle').textContent = title;
+        player.src = src;
+        bar.style.display = 'block';
+        player.play();
+        if (musicId) {
+            fetch(`api.php?action=get&table=${TABLE}&id=${musicId}`)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.data && res.data.lyrics && res.data.lyrics.trim()) {
+                        document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
+                        document.getElementById('lyricsContent').textContent = res.data.lyrics;
+                        document.getElementById('lyricsPanel').style.display = 'block';
+                    }
+                });
+        }
+    }
+
+    function closeMusicPlayer() {
+        const player = document.getElementById('musicPlayer');
+        player.pause();
+        player.src = '';
+        document.getElementById('musicPlayerBar').style.display = 'none';
+    }
+
+    // ========== 兩層分類播放器 ==========
+    let twoLayerData = null;
+    let twoLayerCurrentFile = null;
+    let twoLayerCurrentId = null;
+
+    function openTwoLayerPlayer(playerId, languageGroups, songName, cover) {
+        twoLayerData = languageGroups;
+        document.getElementById('twoLayerTitle').textContent = songName;
+        const coverEl = document.getElementById('twoLayerCover');
+        if (cover) { coverEl.src = cover; coverEl.style.display = 'block'; }
+        else { coverEl.style.display = 'none'; }
+        const langs = Object.keys(languageGroups);
+        document.getElementById('twoLayerLangBtns').innerHTML = langs.map((lang, i) =>
+            `<button type="button" class="two-layer-lang-btn ${i === 0 ? 'active' : ''}" data-lang="${lang}" onclick="selectTwoLayerLang('${lang}')">${getLangIcon(lang)} ${lang}</button>`
+        ).join('');
+        if (langs.length > 0) selectTwoLayerLang(langs[0]);
+        document.getElementById('twoLayerModal').style.display = 'flex';
+    }
+
+    function getLangIcon(lang) {
+        const icons = { '中文': '🇨🇳', '英語': '🇺🇸', '日語': '🇯🇵', '韓語': '🇰🇷', '粵語': '🇭🇰', '其他': '🌐' };
+        return icons[lang] || '🎵';
+    }
+
+    function selectTwoLayerLang(lang) {
+        document.querySelectorAll('.two-layer-lang-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.lang === lang));
+        const songs = twoLayerData[lang] || [];
+        const container = document.getElementById('twoLayerSubBtns');
+        if (!songs.length) { container.innerHTML = '<span style="color:#999;">此語言暫無版本</span>'; return; }
+        container.innerHTML = songs.map((song, i) =>
+            `<button type="button" class="two-layer-sub-btn ${i === 0 ? 'active' : ''}" data-file="${song.file}" onclick="selectTwoLayerTrack('${song.file}','${song.label}','${song.id}')">${song.label}</button>`
+        ).join('');
+        if (songs[0] && songs[0].file) selectTwoLayerTrack(songs[0].file, songs[0].label, songs[0].id);
+    }
+
+    function selectTwoLayerTrack(file, label, id) {
+        twoLayerCurrentFile = file; twoLayerCurrentId = id;
+        document.getElementById('twoLayerTrackName').textContent = label;
+        document.querySelectorAll('.two-layer-sub-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.file === file));
+    }
+
+    function playTwoLayerTrack() {
+        if (!twoLayerCurrentFile) { alert('請選擇版本'); return; }
+        const title = document.getElementById('twoLayerTitle').textContent + ' - ' + document.getElementById('twoLayerTrackName').textContent;
+        closeTwoLayerModal();
+        playMusic(twoLayerCurrentFile, title, twoLayerCurrentId);
+    }
+
+    function closeTwoLayerModal() {
+        document.getElementById('twoLayerModal').style.display = 'none';
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeLyricsModal(); closeTwoLayerModal(); }
+    });
 </script>
+
+<!-- 底部播放列 -->
+<div id="musicPlayerBar" style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:15px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
+    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:15px;">
+        <button onclick="closeMusicPlayer()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem;">&times;</button>
+        <div id="musicPlayerTitle" style="color:#fff; font-weight:bold; min-width:150px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+        <audio id="musicPlayer" controls style="flex:1; height:40px;">您的瀏覽器不支援音樂播放</audio>
+    </div>
+</div>
+
+<!-- 兩層分類播放器彈窗 -->
+<div id="twoLayerModal" class="modal" onclick="if(event.target===this)closeTwoLayerModal()">
+    <div class="modal-content" style="max-width:500px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:20px;">
+        <span class="modal-close" onclick="closeTwoLayerModal()" style="color:#fff;">&times;</span>
+        <div style="text-align:center; margin-bottom:20px;">
+            <img id="twoLayerCover" src="" alt="" style="width:120px; height:120px; object-fit:cover; border-radius:15px; margin-bottom:15px; box-shadow:0 8px 25px rgba(0,0,0,0.3); display:none;">
+            <h2 id="twoLayerTitle" style="margin:0; font-size:1.4rem;"></h2>
+        </div>
+        <div style="margin-bottom:20px;">
+            <div style="font-size:0.85rem; opacity:0.8; margin-bottom:10px;">選擇語言：</div>
+            <div id="twoLayerLangBtns" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;"></div>
+        </div>
+        <div style="background:rgba(255,255,255,0.15); border-radius:12px; padding:15px; margin-bottom:20px;">
+            <div style="font-size:0.85rem; opacity:0.8; margin-bottom:10px;">選擇版本：</div>
+            <div id="twoLayerSubBtns" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.2); border-radius:15px; padding:15px;">
+            <div style="flex:1;">
+                <div style="font-size:0.85rem; opacity:0.8;">已選版本：</div>
+                <div id="twoLayerTrackName" style="font-weight:600; font-size:1.1rem;">請選擇</div>
+            </div>
+            <button onclick="playTwoLayerTrack()" style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#764ba2; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i class="fas fa-play"></i></button>
+        </div>
+    </div>
+</div>
+
+<style>
+.two-layer-lang-btn { padding:10px 18px; border-radius:25px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:#fff; font-weight:600; cursor:pointer; transition:all 0.3s; }
+.two-layer-lang-btn:hover { background:rgba(255,255,255,0.2); }
+.two-layer-lang-btn.active { background:#fff; color:#764ba2; border-color:#fff; }
+.two-layer-sub-btn { padding:8px 16px; border-radius:20px; border:1px solid rgba(255,255,255,0.4); background:transparent; color:#fff; cursor:pointer; transition:all 0.3s; }
+.two-layer-sub-btn:hover { background:rgba(255,255,255,0.2); }
+.two-layer-sub-btn.active { background:rgba(255,255,255,0.3); border-color:#fff; font-weight:600; }
+</style>

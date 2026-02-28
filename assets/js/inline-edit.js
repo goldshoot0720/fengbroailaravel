@@ -114,7 +114,7 @@ function addInlineValidationListeners() {
     });
     
     document.addEventListener('blur', function(e) {
-        if (e.target.classList.contains('inline-input')) {
+        if (e.target && e.target.classList && e.target.classList.contains('inline-input')) {
             validateInlineInput(e.target);
         }
     }, true);
