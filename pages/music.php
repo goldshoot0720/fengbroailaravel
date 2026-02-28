@@ -131,6 +131,11 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                 <option value="<?php echo htmlspecialchars($lang); ?>">
                             <?php endforeach; ?>
                         </datalist>
+                        <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
+                            <?php foreach ($defaultLanguages as $lang): ?>
+                                <button type="button" class="btn" onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')" style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -267,6 +272,11 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <div class="form-group" style="flex:1">
                                 <label>語言</label>
                                 <input type="text" class="form-control inline-input" data-field="language" list="languageOptions" placeholder="選擇或輸入語言">
+                                <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <?php foreach ($defaultLanguages as $lang): ?>
+                                        <button type="button" class="btn" onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')" style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -328,6 +338,11 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <script>
     const TABLE = 'music';
+
+    function setInlineLanguage(btn, lang) {
+        const input = btn.closest('.form-group').querySelector('[data-field="language"]');
+        if (input) input.value = lang;
+    }
 
     function uploadInlineAudio(fileInput) {
         if (!fileInput.files || !fileInput.files[0]) return;
