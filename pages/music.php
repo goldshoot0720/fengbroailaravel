@@ -135,11 +135,21 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 </div>
                 <div class="form-group">
                     <label>檔案路徑</label>
-                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址">
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址" oninput="updateInlineAudioPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;" onchange="uploadInlineAudio(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
+                    </div>
+                    <div class="inline-audio-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>封面圖</label>
-                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineMusicCoverPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineMusicCover(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                        <div class="inline-music-cover-preview"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>參考</label>
@@ -261,11 +271,21 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         </div>
                         <div class="form-group">
                             <label>檔案路徑</label>
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址" oninput="updateInlineAudioPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;" onchange="uploadInlineAudio(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
+                            </div>
+                            <div class="inline-audio-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>封面圖</label>
-                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineMusicCoverPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineMusicCover(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                                <div class="inline-music-cover-preview"></div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>參考</label>
@@ -308,6 +328,71 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <script>
     const TABLE = 'music';
+
+    function uploadInlineAudio(fileInput) {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const file = fileInput.files[0];
+        const formGroup = fileInput.closest('.form-group');
+        const urlInput = formGroup.querySelector('[data-field="file"]');
+        uploadFileWithProgress(file,
+            function (res) {
+                urlInput.value = res.file;
+                updateInlineAudioPreview(urlInput);
+                const card = fileInput.closest('.inline-edit, .inline-edit-always');
+                if (card) {
+                    const nameInput = card.querySelector('[data-field="name"]');
+                    if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
+                }
+            },
+            function (error) { alert('上傳失敗: ' + error); }
+        );
+        fileInput.value = '';
+    }
+
+    function updateInlineAudioPreview(input) {
+        const preview = input.closest('.form-group').querySelector('.inline-audio-preview');
+        if (!preview) return;
+        const url = input.value.trim();
+        preview.innerHTML = url
+            ? `<audio src="${url}" controls style="width: 100%; margin-top: 4px;"></audio>`
+            : '';
+    }
+
+    function uploadInlineMusicCover(fileInput) {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const formGroup = fileInput.closest('.form-group');
+        const urlInput = formGroup.querySelector('[data-field="cover"]');
+        uploadFileWithProgress(fileInput.files[0],
+            function (res) {
+                urlInput.value = res.file;
+                updateInlineMusicCoverPreview(urlInput);
+            },
+            function (error) { alert('上傳失敗: ' + error); }
+        );
+        fileInput.value = '';
+    }
+
+    function updateInlineMusicCoverPreview(input) {
+        const preview = input.closest('.form-group').querySelector('.inline-music-cover-preview');
+        if (!preview) return;
+        const url = input.value.trim();
+        preview.innerHTML = url
+            ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+            : '';
+    }
+
+    function fillInlineInputs(card) {
+        const data = card.dataset;
+        card.querySelectorAll('[data-field]').forEach(input => {
+            const field = input.dataset.field;
+            input.value = data[field] || data[field + 'Value'] || '';
+            input.classList.remove('error', 'success');
+        });
+        const fileInput = card.querySelector('[data-field="file"]');
+        if (fileInput) updateInlineAudioPreview(fileInput);
+        const coverInput = card.querySelector('[data-field="cover"]');
+        if (coverInput) updateInlineMusicCoverPreview(coverInput);
+    }
 
     function closeLyricsModal() {
         document.getElementById('lyricsPanel').style.display = 'none';
