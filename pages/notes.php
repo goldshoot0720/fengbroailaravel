@@ -106,6 +106,18 @@ sort($categories);
                     <label>連結 3</label>
                     <input type="url" class="form-control inline-input" data-field="url3">
                 </div>
+                <?php for ($fi = 1; $fi <= 3; $fi++): ?>
+                <div class="form-group">
+                    <label>附件 <?php echo $fi; ?></label>
+                    <div id="inlineFile<?php echo $fi; ?>Preview-add" style="margin-bottom:4px;font-size:0.85rem;color:#666;"></div>
+                    <input type="file" class="form-control"
+                        id="inlineFileInput<?php echo $fi; ?>-add"
+                        onchange="inlineUploadFile(<?php echo $fi; ?>, 'add')">
+                    <input type="hidden" id="inlineFile<?php echo $fi; ?>Val-add">
+                    <input type="hidden" id="inlineFile<?php echo $fi; ?>Name-add">
+                    <input type="hidden" id="inlineFile<?php echo $fi; ?>Type-add">
+                </div>
+                <?php endfor; ?>
                 <div class="inline-actions">
                     <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
                     <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
@@ -840,6 +852,11 @@ sort($categories);
         const card = document.getElementById('inlineAddCard');
         if (!card) return;
         card.style.display = 'none';
+        for (let fi = 1; fi <= 3; fi++) {
+            clearInlineFile(fi, 'add');
+            const fileInput = document.getElementById(`inlineFileInput${fi}-add`);
+            if (fileInput) fileInput.value = '';
+        }
     }
 
     function saveInlineAdd() {
@@ -857,7 +874,16 @@ sort($categories);
             content: card.querySelector('[data-field="content"]').value,
             url1: card.querySelector('[data-field="url1"]').value.trim(),
             url2: card.querySelector('[data-field="url2"]').value.trim(),
-            url3: card.querySelector('[data-field="url3"]').value.trim()
+            url3: card.querySelector('[data-field="url3"]').value.trim(),
+            file1: document.getElementById('inlineFile1Val-add').value || '',
+            file1name: document.getElementById('inlineFile1Name-add').value || '',
+            file1type: document.getElementById('inlineFile1Type-add').value || '',
+            file2: document.getElementById('inlineFile2Val-add').value || '',
+            file2name: document.getElementById('inlineFile2Name-add').value || '',
+            file2type: document.getElementById('inlineFile2Type-add').value || '',
+            file3: document.getElementById('inlineFile3Val-add').value || '',
+            file3name: document.getElementById('inlineFile3Name-add').value || '',
+            file3type: document.getElementById('inlineFile3Type-add').value || ''
         };
         fetch(`api.php?action=create&table=${TABLE}`, {
             method: 'POST',
