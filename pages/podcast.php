@@ -40,11 +40,21 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                 </div>
                 <div class="form-group">
                     <label>檔案路徑</label>
-                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入播客網址">
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入播客網址" oninput="updateInlinePodcastPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-podcast-file" accept="audio/*" style="display: none;" onchange="uploadInlinePodcast(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳播客</button>
+                    </div>
+                    <div class="inline-podcast-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>封面圖</label>
-                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlinePodcastCoverPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlinePodcastCover(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                        <div class="inline-podcast-cover-preview"></div>
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group" style="flex:1">
@@ -114,11 +124,21 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                         </div>
                         <div class="form-group">
                             <label>檔案路徑</label>
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入播客網址">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入播客網址" oninput="updateInlinePodcastPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-podcast-file" accept="audio/*" style="display: none;" onchange="uploadInlinePodcast(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳播客</button>
+                            </div>
+                            <div class="inline-podcast-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>封面圖</label>
-                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlinePodcastCoverPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlinePodcastCover(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                                <div class="inline-podcast-cover-preview"></div>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="flex:1">
@@ -228,15 +248,67 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         const nameInput = card.querySelector('[data-field="name"]');
         if (nameInput) nameInput.value = data.name || '';
         const fileInput = card.querySelector('[data-field="file"]');
-        if (fileInput) fileInput.value = data.file || '';
+        if (fileInput) { fileInput.value = data.file || ''; updateInlinePodcastPreview(fileInput); }
         const coverInput = card.querySelector('[data-field="cover"]');
-        if (coverInput) coverInput.value = data.cover || '';
+        if (coverInput) { coverInput.value = data.cover || ''; updateInlinePodcastCoverPreview(coverInput); }
         const categoryInput = card.querySelector('[data-field="category"]');
         if (categoryInput) categoryInput.value = data.category || '';
         const refInput = card.querySelector('[data-field="ref"]');
         if (refInput) refInput.value = data.ref || '';
         const noteInput = card.querySelector('[data-field="note"]');
         if (noteInput) noteInput.value = data.note || '';
+    }
+
+    function uploadInlinePodcast(fileInput) {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const file = fileInput.files[0];
+        const formGroup = fileInput.closest('.form-group');
+        const urlInput = formGroup.querySelector('[data-field="file"]');
+        uploadFileWithProgress(file,
+            function (res) {
+                urlInput.value = res.file;
+                updateInlinePodcastPreview(urlInput);
+                const card = fileInput.closest('.inline-edit, .inline-edit-always');
+                if (card) {
+                    const nameInput = card.querySelector('[data-field="name"]');
+                    if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
+                }
+            },
+            function (error) { alert('上傳失敗: ' + error); }
+        );
+        fileInput.value = '';
+    }
+
+    function updateInlinePodcastPreview(input) {
+        const preview = input.closest('.form-group').querySelector('.inline-podcast-preview');
+        if (!preview) return;
+        const url = input.value.trim();
+        preview.innerHTML = url
+            ? `<audio src="${url}" controls style="width: 100%; margin-top: 4px;"></audio>`
+            : '';
+    }
+
+    function uploadInlinePodcastCover(fileInput) {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const formGroup = fileInput.closest('.form-group');
+        const urlInput = formGroup.querySelector('[data-field="cover"]');
+        uploadFileWithProgress(fileInput.files[0],
+            function (res) {
+                urlInput.value = res.file;
+                updateInlinePodcastCoverPreview(urlInput);
+            },
+            function (error) { alert('上傳失敗: ' + error); }
+        );
+        fileInput.value = '';
+    }
+
+    function updateInlinePodcastCoverPreview(input) {
+        const preview = input.closest('.form-group').querySelector('.inline-podcast-cover-preview');
+        if (!preview) return;
+        const url = input.value.trim();
+        preview.innerHTML = url
+            ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+            : '';
     }
 
     function saveInlineEdit(id) {
