@@ -31,11 +31,21 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                 </div>
                 <div class="form-group">
                     <label>檔案路徑</label>
-                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址">
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址" oninput="updateInlineVideoPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-video-file" accept="video/*" style="display: none;" onchange="uploadInlineVideo(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳影片</button>
+                    </div>
+                    <div class="inline-video-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>封面圖</label>
-                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineCoverPreview(this)">
+                    <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                        <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineCover(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                        <div class="inline-cover-preview"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>參考</label>
@@ -99,11 +109,21 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                         </div>
                         <div class="form-group">
                             <label>檔案路徑</label>
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入影片網址" oninput="updateInlineVideoPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-video-file" accept="video/*" style="display: none;" onchange="uploadInlineVideo(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳影片</button>
+                            </div>
+                            <div class="inline-video-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>封面圖</label>
-                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址">
+                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineCoverPreview(this)">
+                            <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
+                                <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineCover(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                                <div class="inline-cover-preview"></div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>參考</label>
@@ -318,9 +338,15 @@ function fillInlineInputs(card) {
     const nameInput = card.querySelector('[data-field="name"]');
     if (nameInput) nameInput.value = data.name || '';
     const fileInput = card.querySelector('[data-field="file"]');
-    if (fileInput) fileInput.value = data.file || '';
+    if (fileInput) {
+        fileInput.value = data.file || '';
+        updateInlineVideoPreview(fileInput);
+    }
     const coverInput = card.querySelector('[data-field="cover"]');
-    if (coverInput) coverInput.value = data.cover || '';
+    if (coverInput) {
+        coverInput.value = data.cover || '';
+        updateInlineCoverPreview(coverInput);
+    }
     const refInput = card.querySelector('[data-field="ref"]');
     if (refInput) refInput.value = data.ref || '';
     const noteInput = card.querySelector('[data-field="note"]');
@@ -425,6 +451,58 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         else alert('儲存失敗: ' + (res.error || ''));
     });
 });
+
+function uploadInlineVideo(fileInput) {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    const file = fileInput.files[0];
+    const formGroup = fileInput.closest('.form-group');
+    const urlInput = formGroup.querySelector('[data-field="file"]');
+    uploadFileWithProgress(file,
+        function (res) {
+            urlInput.value = res.file;
+            updateInlineVideoPreview(urlInput);
+            const card = fileInput.closest('.inline-edit, .inline-add-card');
+            if (card) {
+                const nameInput = card.querySelector('[data-field="name"]');
+                if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
+            }
+        },
+        function (error) { alert('上傳失敗: ' + error); }
+    );
+    fileInput.value = '';
+}
+
+function updateInlineVideoPreview(input) {
+    const preview = input.closest('.form-group').querySelector('.inline-video-preview');
+    if (!preview) return;
+    const url = input.value.trim();
+    preview.innerHTML = url
+        ? `<video src="${url}" controls style="max-width: 100%; max-height: 160px; border-radius: 5px;"></video>`
+        : '';
+}
+
+function uploadInlineCover(fileInput) {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    const formGroup = fileInput.closest('.form-group');
+    const urlInput = formGroup.querySelector('[data-field="cover"]');
+    uploadFileWithProgress(fileInput.files[0],
+        function (res) {
+            urlInput.value = res.file;
+            updateInlineCoverPreview(urlInput);
+        },
+        function (error) { alert('上傳失敗: ' + error); }
+    );
+    fileInput.value = '';
+}
+
+function updateInlineCoverPreview(input) {
+    const preview = input.closest('.form-group').querySelector('.inline-cover-preview');
+    if (!preview) return;
+    const url = input.value.trim();
+    preview.innerHTML = url
+        ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+        : '';
+}
 
 function uploadVideo() {
     const input = document.getElementById('videoFile');
