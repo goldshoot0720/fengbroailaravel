@@ -44,8 +44,8 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                     <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                         <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineCover(this)">
                         <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
-                        <div class="inline-cover-preview"></div>
                     </div>
+                    <div class="inline-cover-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>參考</label>
@@ -82,7 +82,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                                 <?php if (!empty($item['cover'])): ?>
                                     <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
                                 <?php else: ?>
-                                    <div style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                                    <div class="video-thumb-placeholder" style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
                                     </div>
                                 <?php endif; ?>
@@ -122,8 +122,8 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                                 <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineCover(this)">
                                 <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
-                                <div class="inline-cover-preview"></div>
                             </div>
+                            <div class="inline-cover-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>參考</label>
@@ -500,9 +500,45 @@ function updateInlineCoverPreview(input) {
     if (!preview) return;
     const url = input.value.trim();
     preview.innerHTML = url
-        ? `<img src="${url}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">`
+        ? `<img src="${url}" style="width: 120px; height: 90px; object-fit: cover; border-radius: 5px;">`
         : '';
 }
+
+// 擷取影片第 N 秒畫面，回傳 base64 dataURL
+function captureVideoFrame(src, seekSec, callback) {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.preload = 'metadata';
+    let done = false;
+    video.addEventListener('loadeddata', function() {
+        video.currentTime = seekSec;
+    });
+    video.addEventListener('seeked', function() {
+        if (done) return;
+        done = true;
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 120;
+        canvas.getContext('2d').drawImage(video, 0, 0, 160, 120);
+        callback(canvas.toDataURL('image/jpeg', 0.85));
+        video.src = '';
+    });
+    video.addEventListener('error', function() {});
+    video.src = src;
+}
+
+// 頁面載入：為沒有封面的影片自動擷取第 1 秒畫面
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.video-item').forEach(function(item) {
+        if (item.dataset.cover || !item.dataset.file) return;
+        const placeholder = item.querySelector('.video-thumb-placeholder');
+        if (!placeholder) return;
+        captureVideoFrame(item.dataset.file, 1, function(dataUrl) {
+            placeholder.innerHTML = `<img src="${dataUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:5px;">`;
+        });
+    });
+});
 
 function uploadVideo() {
     const input = document.getElementById('videoFile');
