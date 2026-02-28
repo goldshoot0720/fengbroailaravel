@@ -48,12 +48,18 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
                     </div>
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="url" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
+                                style="flex:1;">
+                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
+                                    class="fas fa-upload"></i></button>
+                        </div>
                     </div>
                 </td>
                 <td>
@@ -111,15 +117,17 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                                 <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
                                 <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
                                 <div class="inline-actions">
-                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
-                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn"
+                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
                                 </div>
                             </div>
                         </td>
                         <td>
                             <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
                             <div class="inline-edit inline-edit-row">
-                                <input type="text" class="form-control inline-input" data-field="note" placeholder="備註">
+                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
                             </div>
                         </td>
                         <td>
@@ -132,7 +140,13 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                                 <?php endif; ?>
                             </div>
                             <div class="inline-edit inline-edit-row">
-                                <input type="url" class="form-control inline-input" data-field="photo" placeholder="圖片網址">
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
+                                        style="flex:1;">
+                                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                        onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
+                                            class="fas fa-upload"></i></button>
+                                </div>
                             </div>
                         </td>
                         <td>
@@ -236,6 +250,7 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
     </div>
 </div>
 
+<?php include 'includes/upload-progress.php'; ?>
 
 <script>
     const TABLE = 'routine';
@@ -363,7 +378,7 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
             });
     }
 
-    
+
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -375,4 +390,129 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
         }
     }
 
-    </script>
+    // 圖片上傳功能
+    (function () {
+        const _uploadInput = document.createElement('input');
+        _uploadInput.type = 'file';
+        _uploadInput.accept = 'image/*';
+        _uploadInput.style.display = 'none';
+        document.body.appendChild(_uploadInput);
+        let _uploadTargetInput = null;
+
+        _uploadInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            uploadFileWithProgress(file,
+                function (res) {
+                    if (_uploadTargetInput) {
+                        _uploadTargetInput.value = res.file;
+                        _uploadTargetInput = null;
+                    }
+                },
+                function (err) {
+                    alert('上傳失敗: ' + err);
+                }
+            );
+            this.value = '';
+        });
+
+        window.triggerPhotoUpload = function (targetInput) {
+            _uploadTargetInput = targetInput;
+            _uploadInput.click();
+        };
+    })();
+
+    // 手機版編輯 Modal
+    function editItem(id) {
+        const srcEl = document.querySelector(`tr[data-id="${id}"]`);
+        const d = srcEl ? srcEl.dataset : {};
+        document.getElementById('routineMobileId').value = id;
+        document.getElementById('routineMobileName').value = d.name || '';
+        document.getElementById('routineMobileNote').value = d.note || '';
+        document.getElementById('routineMobileLink').value = d.link || '';
+        document.getElementById('routineMobilePhoto').value = d.photo || '';
+        document.getElementById('routineMobileDate1').value = d.lastdate1 ? d.lastdate1.split(' ')[0] : '';
+        document.getElementById('routineMobileDate2').value = d.lastdate2 ? d.lastdate2.split(' ')[0] : '';
+        document.getElementById('routineMobileDate3').value = d.lastdate3 ? d.lastdate3.split(' ')[0] : '';
+        document.getElementById('routineMobileModal').style.display = 'flex';
+    }
+
+    function closeRoutineMobileModal() {
+        document.getElementById('routineMobileModal').style.display = 'none';
+    }
+
+    function saveRoutineMobile() {
+        const id = document.getElementById('routineMobileId').value;
+        const name = document.getElementById('routineMobileName').value.trim();
+        if (!name) { alert('請輸入名稱'); return; }
+        const data = {
+            name,
+            note: document.getElementById('routineMobileNote').value.trim(),
+            link: document.getElementById('routineMobileLink').value.trim(),
+            photo: document.getElementById('routineMobilePhoto').value.trim(),
+            lastdate1: document.getElementById('routineMobileDate1').value || null,
+            lastdate2: document.getElementById('routineMobileDate2').value || null,
+            lastdate3: document.getElementById('routineMobileDate3').value || null
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+</script>
+
+<!-- 手機版編輯 Modal -->
+<div id="routineMobileModal" class="modal" onclick="if(event.target===this)closeRoutineMobileModal()"
+    style="display:none;">
+    <div class="modal-content" style="max-width:500px;width:95%;">
+        <span class="modal-close" onclick="closeRoutineMobileModal()">&times;</span>
+        <h2 style="margin:0 0 20px 0;"><i class="fas fa-edit"></i> 編輯例行事項</h2>
+        <input type="hidden" id="routineMobileId">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">名稱 *</label>
+                <input type="text" id="routineMobileName" class="form-control" placeholder="名稱">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">備註</label>
+                <textarea id="routineMobileNote" class="form-control" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">連結</label>
+                <input type="url" id="routineMobileLink" class="form-control" placeholder="連結">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">圖片</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="text" id="routineMobilePhoto" class="form-control" placeholder="圖片網址" style="flex:1;">
+                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                        onclick="triggerPhotoUpload(document.getElementById('routineMobilePhoto'))"><i
+                            class="fas fa-upload"></i></button>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之一</label>
+                <input type="date" id="routineMobileDate1" class="form-control">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之二</label>
+                <input type="date" id="routineMobileDate2" class="form-control">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之三</label>
+                <input type="date" id="routineMobileDate3" class="form-control">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" class="btn" onclick="closeRoutineMobileModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveRoutineMobile()"><i class="fas fa-save"></i>
+                    儲存</button>
+            </div>
+        </div>
+    </div>
+</div>

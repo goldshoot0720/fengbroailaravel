@@ -194,7 +194,13 @@ sort($categories);
             <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無文件</div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="mobile-card" data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
+                <div class="mobile-card" data-id="<?php echo $item['id']; ?>"
+                    data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                    data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
+                    data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>"
                     style="border-left: 4px solid #e67e22;">
                     <div class="mobile-card-actions">
                         <?php if (!empty($item['file'])): ?>
@@ -405,6 +411,56 @@ sort($categories);
         }
     }
 
+    // 手機版編輯 - 開啟 Modal
+    function editItem(id) {
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        const data = row ? row.dataset : null;
+        if (!data) {
+            // 從 mobile-card 取得資料
+            const card = document.querySelector(`.mobile-card[data-id="${id}"]`);
+            if (!card) { alert('找不到資料'); return; }
+        }
+        // 優先從 tr[data-id] 取，若無就從 mobile-card[data-id]
+        const srcEl = document.querySelector(`[data-id="${id}"]`);
+        const d = srcEl ? srcEl.dataset : {};
+        document.getElementById('mobileEditId').value = id;
+        document.getElementById('mobileEditName').value = d.name || '';
+        document.getElementById('mobileEditCategory').value = d.category || '';
+        document.getElementById('mobileEditRef').value = d.ref || '';
+        document.getElementById('mobileEditNote').value = d.note || '';
+        document.getElementById('mobileEditFile').value = d.file || '';
+        document.getElementById('mobileEditCover').value = d.cover || '';
+        document.getElementById('mobileEditModal').style.display = 'flex';
+    }
+
+    function closeMobileEditModal() {
+        document.getElementById('mobileEditModal').style.display = 'none';
+    }
+
+    function saveMobileEdit() {
+        const id = document.getElementById('mobileEditId').value;
+        const name = document.getElementById('mobileEditName').value.trim();
+        if (!name) { alert('請輸入名稱'); return; }
+        const data = {
+            name,
+            category: document.getElementById('mobileEditCategory').value.trim(),
+            ref: document.getElementById('mobileEditRef').value.trim(),
+            note: document.getElementById('mobileEditNote').value.trim(),
+            file: document.getElementById('mobileEditFile').value.trim(),
+            cover: document.getElementById('mobileEditCover').value.trim()
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+
 
     // 文件上傳功能
     (function () {
@@ -421,6 +477,15 @@ sort($categories);
                 function (res) {
                     if (_uploadTargetInput) {
                         _uploadTargetInput.value = res.file;
+                        // 自動填入名稱（原始檔名去掉副檔名）
+                        const baseName = (res.filename || file.name).replace(/\.[^/.]+$/, '');
+                        const container = _uploadTargetInput.closest('.inline-edit, .modal-content');
+                        if (container) {
+                            const nameInput = container.querySelector('[data-field="name"], #mobileEditName');
+                            if (nameInput && !nameInput.value.trim()) {
+                                nameInput.value = baseName;
+                            }
+                        }
                         _uploadTargetInput = null;
                     }
                 },
@@ -436,6 +501,12 @@ sort($categories);
             _uploadInput.click();
         };
     })();
+
+    // 手機版 Modal 上傳
+    window.triggerMobileFileUpload = function () {
+        const targetInput = document.getElementById('mobileEditFile');
+        window.triggerFileUpload(targetInput);
+    };
 
     // 文件預覽功能
     function previewDocument(id, filePath, title) {
@@ -556,5 +627,52 @@ sort($categories);
             </a>
         </div>
         <div id="previewContent" style="margin-top:20px;"></div>
+    </div>
+</div>
+
+<!-- 手機版編輯 Modal -->
+<div id="mobileEditModal" class="modal" onclick="if(event.target===this)closeMobileEditModal()" style="display:none;">
+    <div class="modal-content" style="max-width:500px;width:95%;">
+        <span class="modal-close" onclick="closeMobileEditModal()">&times;</span>
+        <h2 style="margin:0 0 20px 0;"><i class="fas fa-edit"></i> 編輯文件</h2>
+        <input type="hidden" id="mobileEditId">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">名稱 *</label>
+                <input type="text" id="mobileEditName" class="form-control" placeholder="名稱">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">分類</label>
+                <input type="text" id="mobileEditCategory" class="form-control" placeholder="分類">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">參考</label>
+                <input type="text" id="mobileEditRef" class="form-control" placeholder="參考">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">備註</label>
+                <textarea id="mobileEditNote" class="form-control" placeholder="備註" rows="3"
+                    style="resize:vertical;"></textarea>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">檔案</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="text" id="mobileEditFile" class="form-control" placeholder="檔案路徑" style="flex:1;">
+                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                        onclick="triggerMobileFileUpload()">
+                        <i class="fas fa-upload"></i>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">封面圖網址</label>
+                <input type="text" id="mobileEditCover" class="form-control" placeholder="封面圖網址">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" class="btn" onclick="closeMobileEditModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveMobileEdit()"><i class="fas fa-save"></i>
+                    儲存</button>
+            </div>
+        </div>
     </div>
 </div>

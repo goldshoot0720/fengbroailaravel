@@ -95,7 +95,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <button class="btn btn-primary" onclick="handleAdd()" title="新增音樂"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'music'; include 'includes/csv_buttons.php'; ?>
+    <?php $csvTable = 'music';
+    include 'includes/csv_buttons.php'; ?>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_music.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -116,43 +117,53 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div class="form-row">
                     <div class="form-group" style="flex:1">
                         <label>分類</label>
-                        <input type="text" class="form-control inline-input" data-field="category" list="categoryOptions" placeholder="選擇或輸入分類">
+                        <input type="text" class="form-control inline-input" data-field="category"
+                            list="categoryOptions" placeholder="選擇或輸入分類">
                         <datalist id="categoryOptions">
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo htmlspecialchars($cat); ?>">
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
                         </datalist>
                     </div>
                     <div class="form-group" style="flex:1">
                         <label>語言</label>
-                        <input type="text" class="form-control inline-input" data-field="language" list="languageOptions" placeholder="選擇或輸入語言">
+                        <input type="text" class="form-control inline-input" data-field="language"
+                            list="languageOptions" placeholder="選擇或輸入語言">
                         <datalist id="languageOptions">
                             <?php foreach ($allLanguages as $lang): ?>
                                 <option value="<?php echo htmlspecialchars($lang); ?>">
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
                         </datalist>
                         <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
                             <?php foreach ($defaultLanguages as $lang): ?>
-                                <button type="button" class="btn" onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')" style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
+                                <button type="button" class="btn"
+                                    onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')"
+                                    style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>檔案路徑</label>
-                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址" oninput="updateInlineAudioPreview(this)">
+                    <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址"
+                        oninput="updateInlineAudioPreview(this)">
                     <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
-                        <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;" onchange="uploadInlineAudio(this)">
-                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
+                        <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;"
+                            onchange="uploadInlineAudio(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()"
+                            style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
                     </div>
                     <div class="inline-audio-preview" style="margin-top: 6px;"></div>
                 </div>
                 <div class="form-group">
                     <label>封面圖</label>
-                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineMusicCoverPreview(this)">
+                    <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址"
+                        oninput="updateInlineMusicCoverPreview(this)">
                     <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
-                        <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineMusicCover(this)">
-                        <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                        <input type="file" class="inline-cover-file" accept="image/*" style="display: none;"
+                            onchange="uploadInlineMusicCover(this)">
+                        <button type="button" class="btn" onclick="this.previousElementSibling.click()"
+                            style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
                         <div class="inline-music-cover-preview"></div>
                     </div>
                 </div>
@@ -191,7 +202,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     data-ref="<?php echo htmlspecialchars($group['ref'] ?? '', ENT_QUOTES); ?>"
                     data-note="<?php echo htmlspecialchars($group['note'] ?? '', ENT_QUOTES); ?>"
                     data-lyrics="<?php echo htmlspecialchars($group['lyrics'] ?? '', ENT_QUOTES); ?>">
-                    
+
                     <div class="inline-view">
                         <?php if (!empty($group['cover'])): ?>
                             <div style="text-align: center; margin-bottom: 15px;">
@@ -199,19 +210,21 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                     style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                             </div>
                         <?php endif; ?>
-                        
+
                         <h3 style="margin: 0 0 10px 0; color: #333;">
                             <?php echo htmlspecialchars($group['name']); ?>
                             <?php if (count($group['items']) > 1): ?>
-                                <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 8px;">
+                                <span
+                                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 8px;">
                                     <?php echo count($group['items']); ?> 版本
                                 </span>
                             <?php endif; ?>
                         </h3>
-                        
+
                         <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
                             <?php if (!empty($group['category'])): ?>
-                                <span style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">
+                                <span
+                                    style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">
                                     <?php echo htmlspecialchars($group['category']); ?>
                                 </span>
                             <?php endif; ?>
@@ -221,13 +234,14 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                 </span>
                             <?php endif; ?>
                         </div>
-                        
+
                         <?php if (!empty($group['note'])): ?>
                             <p style="color: #666; font-size: 0.9rem; margin: 10px 0; line-height: 1.4;">
-                                <?php echo nl2br(htmlspecialchars(mb_substr($group['note'], 0, 100))); ?><?php echo mb_strlen($group['note']) > 100 ? '...' : ''; ?>
+                                <?php echo nl2br(htmlspecialchars(mb_substr($group['note'], 0, 100))); ?>
+                                <?php echo mb_strlen($group['note']) > 100 ? '...' : ''; ?>
                             </p>
                         <?php endif; ?>
-                        
+
                         <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
                             <?php if (!empty($group['languageGroups'])): ?>
                                 <?php $playerId = 'player_' . md5($group['name']); ?>
@@ -236,29 +250,32 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                     <i class="fa-solid fa-play"></i> 播放
                                 </button>
                             <?php endif; ?>
-                            
+
                             <?php if (!empty($group['lyrics'])): ?>
                                 <button class="btn btn-sm btn-info" onclick="viewLyrics('<?php echo $group['items'][0]['id']; ?>')">
                                     <i class="fa-solid fa-file-lines"></i> 歌詞
                                 </button>
                             <?php endif; ?>
-                            
+
                             <?php if (!empty($group['ref'])): ?>
-                                <a href="<?php echo htmlspecialchars($group['ref']); ?>" target="_blank" class="btn btn-sm btn-secondary">
+                                <a href="<?php echo htmlspecialchars($group['ref']); ?>" target="_blank"
+                                    class="btn btn-sm btn-secondary">
                                     <i class="fa-solid fa-external-link-alt"></i> 參考
                                 </a>
                             <?php endif; ?>
-                            
-                            <button class="btn btn-sm btn-warning" onclick="startInlineEdit('<?php echo $group['items'][0]['id']; ?>')">
+
+                            <button class="btn btn-sm btn-warning"
+                                onclick="startInlineEdit('<?php echo $group['items'][0]['id']; ?>')">
                                 <i class="fa-solid fa-edit"></i> 編輯
                             </button>
-                            
-                            <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $group['items'][0]['id']; ?>')">
+
+                            <button class="btn btn-sm btn-danger"
+                                onclick="deleteItem('<?php echo $group['items'][0]['id']; ?>')">
                                 <i class="fa-solid fa-trash"></i> 刪除
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="inline-edit">
                         <div class="form-group">
                             <label>名稱 *</label>
@@ -267,33 +284,43 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         <div class="form-row">
                             <div class="form-group" style="flex:1">
                                 <label>分類</label>
-                                <input type="text" class="form-control inline-input" data-field="category" list="categoryOptions" placeholder="選擇或輸入分類">
+                                <input type="text" class="form-control inline-input" data-field="category"
+                                    list="categoryOptions" placeholder="選擇或輸入分類">
                             </div>
                             <div class="form-group" style="flex:1">
                                 <label>語言</label>
-                                <input type="text" class="form-control inline-input" data-field="language" list="languageOptions" placeholder="選擇或輸入語言">
+                                <input type="text" class="form-control inline-input" data-field="language"
+                                    list="languageOptions" placeholder="選擇或輸入語言">
                                 <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
                                     <?php foreach ($defaultLanguages as $lang): ?>
-                                        <button type="button" class="btn" onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')" style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
+                                        <button type="button" class="btn"
+                                            onclick="setInlineLanguage(this, '<?php echo htmlspecialchars($lang); ?>')"
+                                            style="padding: 2px 8px; font-size: 0.72rem;"><?php echo htmlspecialchars($lang); ?></button>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>檔案路徑</label>
-                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址" oninput="updateInlineAudioPreview(this)">
+                            <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址"
+                                oninput="updateInlineAudioPreview(this)">
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
-                                <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;" onchange="uploadInlineAudio(this)">
-                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
+                                <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;"
+                                    onchange="uploadInlineAudio(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()"
+                                    style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳音樂</button>
                             </div>
                             <div class="inline-audio-preview" style="margin-top: 6px;"></div>
                         </div>
                         <div class="form-group">
                             <label>封面圖</label>
-                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址" oninput="updateInlineMusicCoverPreview(this)">
+                            <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址"
+                                oninput="updateInlineMusicCoverPreview(this)">
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
-                                <input type="file" class="inline-cover-file" accept="image/*" style="display: none;" onchange="uploadInlineMusicCover(this)">
-                                <button type="button" class="btn" onclick="this.previousElementSibling.click()" style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
+                                <input type="file" class="inline-cover-file" accept="image/*" style="display: none;"
+                                    onchange="uploadInlineMusicCover(this)">
+                                <button type="button" class="btn" onclick="this.previousElementSibling.click()"
+                                    style="padding: 2px 10px; font-size: 0.75rem;"><i class="fas fa-upload"></i> 上傳封面</button>
                                 <div class="inline-music-cover-preview"></div>
                             </div>
                         </div>
@@ -310,8 +337,10 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <textarea class="form-control inline-input" data-field="lyrics" rows="4"></textarea>
                         </div>
                         <div class="inline-actions">
-                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $group['items'][0]['id']; ?>')">儲存</button>
-                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $group['items'][0]['id']; ?>')">取消</button>
+                            <button type="button" class="btn btn-primary"
+                                onclick="saveInlineEdit('<?php echo $group['items'][0]['id']; ?>')">儲存</button>
+                            <button type="button" class="btn"
+                                onclick="cancelInlineEdit('<?php echo $group['items'][0]['id']; ?>')">取消</button>
                         </div>
                     </div>
                 </div>
@@ -468,7 +497,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         const formData = new FormData();
         formData.append('file', file);
 
-        xhr.upload.addEventListener('progress', function(e) {
+        xhr.upload.addEventListener('progress', function (e) {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
                 progressBar.style.width = percent + '%';
@@ -479,7 +508,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             }
         });
 
-        xhr.addEventListener('load', function() {
+        xhr.addEventListener('load', function () {
             modal.style.display = 'none';
             try {
                 const res = JSON.parse(xhr.responseText);
@@ -498,7 +527,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             }
         });
 
-        xhr.addEventListener('error', function() {
+        xhr.addEventListener('error', function () {
             modal.style.display = 'none';
             alert('匯入失敗: 網路錯誤');
         });
@@ -512,10 +541,25 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     function playMusic(src, title, musicId) {
         const bar = document.getElementById('musicPlayerBar');
         const player = document.getElementById('musicPlayer');
-        document.getElementById('musicPlayerTitle').textContent = title;
+        const titleEl = document.getElementById('musicPlayerTitle');
+        titleEl.textContent = title;
+        titleEl.style.color = '#fff';
         player.src = src;
+        player.volume = parseFloat(localStorage.getItem('musicVolume') ?? '1.0');
         bar.style.display = 'block';
-        player.play();
+
+        // 錯誤處理
+        player.onerror = function () {
+            const code = player.error ? player.error.code : '?';
+            const msgs = { 1: '已中止', 2: '網路錯誤', 3: '解碼失敗（格式不支援？）', 4: '找不到檔案或格式不支援' };
+            const reason = msgs[code] || '未知錯誤';
+            titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 無法播放：${reason}</span><br><small style="font-size:0.75rem;opacity:0.8;">${src.split('/').pop()}</small>`;
+        };
+
+        player.play().catch(function(err) {
+            titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 播放失敗：${err.message}</span>`;
+        });
+
         if (musicId) {
             fetch(`api.php?action=get&table=${TABLE}&id=${musicId}`)
                 .then(r => r.json())
@@ -594,20 +638,46 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 </script>
 
 <!-- 底部播放列 -->
-<div id="musicPlayerBar" style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:15px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
+<div id="musicPlayerBar"
+    style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:15px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
     <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:15px;">
-        <button onclick="closeMusicPlayer()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem;">&times;</button>
-        <div id="musicPlayerTitle" style="color:#fff; font-weight:bold; min-width:150px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+        <button onclick="closeMusicPlayer()"
+            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem;">&times;</button>
+        <div id="musicPlayerTitle"
+            style="color:#fff; font-weight:bold; min-width:150px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        </div>
         <audio id="musicPlayer" controls style="flex:1; height:40px;">您的瀏覽器不支援音樂播放</audio>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-volume-down" style="color:#fff;font-size:0.9rem;"></i>
+            <input type="range" id="musicVolumeSlider" min="0" max="1" step="0.05" value="1"
+                style="width:80px;accent-color:#fff;cursor:pointer;" oninput="setMusicVolume(this.value)">
+            <i class="fas fa-volume-up" style="color:#fff;font-size:0.9rem;"></i>
+        </div>
     </div>
 </div>
+<script>
+    // 音量控制
+    (function () {
+        const vol = parseFloat(localStorage.getItem('musicVolume') ?? '1.0');
+        const slider = document.getElementById('musicVolumeSlider');
+        if (slider) slider.value = vol;
+    })();
+    function setMusicVolume(v) {
+        v = parseFloat(v);
+        const player = document.getElementById('musicPlayer');
+        if (player) player.volume = v;
+        localStorage.setItem('musicVolume', v);
+    }
+</script>
 
 <!-- 兩層分類播放器彈窗 -->
 <div id="twoLayerModal" class="modal" onclick="if(event.target===this)closeTwoLayerModal()">
-    <div class="modal-content" style="max-width:500px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:20px;">
+    <div class="modal-content"
+        style="max-width:500px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:20px;">
         <span class="modal-close" onclick="closeTwoLayerModal()" style="color:#fff;">&times;</span>
         <div style="text-align:center; margin-bottom:20px;">
-            <img id="twoLayerCover" src="" alt="" style="width:120px; height:120px; object-fit:cover; border-radius:15px; margin-bottom:15px; box-shadow:0 8px 25px rgba(0,0,0,0.3); display:none;">
+            <img id="twoLayerCover" src="" alt=""
+                style="width:120px; height:120px; object-fit:cover; border-radius:15px; margin-bottom:15px; box-shadow:0 8px 25px rgba(0,0,0,0.3); display:none;">
             <h2 id="twoLayerTitle" style="margin:0; font-size:1.4rem;"></h2>
         </div>
         <div style="margin-bottom:20px;">
@@ -618,21 +688,58 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             <div style="font-size:0.85rem; opacity:0.8; margin-bottom:10px;">選擇版本：</div>
             <div id="twoLayerSubBtns" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
         </div>
-        <div style="display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.2); border-radius:15px; padding:15px;">
+        <div
+            style="display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.2); border-radius:15px; padding:15px;">
             <div style="flex:1;">
                 <div style="font-size:0.85rem; opacity:0.8;">已選版本：</div>
                 <div id="twoLayerTrackName" style="font-weight:600; font-size:1.1rem;">請選擇</div>
             </div>
-            <button onclick="playTwoLayerTrack()" style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#764ba2; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i class="fas fa-play"></i></button>
+            <button onclick="playTwoLayerTrack()"
+                style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#764ba2; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                    class="fas fa-play"></i></button>
         </div>
     </div>
 </div>
 
 <style>
-.two-layer-lang-btn { padding:10px 18px; border-radius:25px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:#fff; font-weight:600; cursor:pointer; transition:all 0.3s; }
-.two-layer-lang-btn:hover { background:rgba(255,255,255,0.2); }
-.two-layer-lang-btn.active { background:#fff; color:#764ba2; border-color:#fff; }
-.two-layer-sub-btn { padding:8px 16px; border-radius:20px; border:1px solid rgba(255,255,255,0.4); background:transparent; color:#fff; cursor:pointer; transition:all 0.3s; }
-.two-layer-sub-btn:hover { background:rgba(255,255,255,0.2); }
-.two-layer-sub-btn.active { background:rgba(255,255,255,0.3); border-color:#fff; font-weight:600; }
+    .two-layer-lang-btn {
+        padding: 10px 18px;
+        border-radius: 25px;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        background: transparent;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .two-layer-lang-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .two-layer-lang-btn.active {
+        background: #fff;
+        color: #764ba2;
+        border-color: #fff;
+    }
+
+    .two-layer-sub-btn {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .two-layer-sub-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .two-layer-sub-btn.active {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: #fff;
+        font-weight: 600;
+    }
 </style>
