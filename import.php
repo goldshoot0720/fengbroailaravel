@@ -3,13 +3,13 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 // Catch all errors and return as JSON
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     header('Content-Type: application/json');
     echo json_encode(['error' => "Error: $errstr in $errfile on line $errline"]);
     exit;
 });
 
-set_exception_handler(function($e) {
+set_exception_handler(function ($e) {
     header('Content-Type: application/json');
     echo json_encode(['error' => $e->getMessage()]);
     exit;
@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $table = $_POST['table'] ?? '';
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'commondocument', 'bank', 'routine'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -62,7 +62,7 @@ if (!$headers) {
 }
 
 // 轉換標頭名稱 (支援 LaravelMySQL 和 Appwrite 雙格式)
-$headers = array_map(function($h) use ($fieldMapping) {
+$headers = array_map(function ($h) use ($fieldMapping) {
     $h = trim($h);
     return $fieldMapping[$h] ?? $h;
 }, $headers);
@@ -155,7 +155,8 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
             $stmt->execute($values);
         } else {
             // 新增
-            $columns = array_map(function($c) { return "`{$c}`"; }, array_keys($data));
+            $columns = array_map(function ($c) {
+                return "`{$c}`"; }, array_keys($data));
             $placeholders = array_fill(0, count($data), '?');
             $sql = "INSERT INTO {$table} (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
             $stmt = $pdo->prepare($sql);

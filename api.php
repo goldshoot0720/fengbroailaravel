@@ -7,7 +7,7 @@ $action = $_GET['action'] ?? '';
 $table = $_GET['table'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
-$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'bank', 'routine', 'commondocument', 'commonaccount', 'article'];
+$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -30,14 +30,16 @@ switch ($action) {
     case 'create':
         $rawInput = file_get_contents('php://input');
         $input = $rawInput ? json_decode($rawInput, true) : null;
-        if (!$input || !is_array($input)) $input = $_POST;
+        if (!$input || !is_array($input))
+            $input = $_POST;
 
         if (empty($input)) {
             jsonResponse(['error' => '未收到資料，請確認表單已填寫'], 400);
         }
 
         $input['id'] = generateUUID();
-        $columns = array_map(function($col) { return "`{$col}`"; }, array_keys($input));
+        $columns = array_map(function ($col) {
+            return "`{$col}`"; }, array_keys($input));
         $placeholders = array_fill(0, count($columns), '?');
 
         $sql = "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
@@ -54,7 +56,8 @@ switch ($action) {
     case 'update':
         $id = $_GET['id'] ?? '';
         $input = json_decode(file_get_contents('php://input'), true);
-        if (!$input) $input = $_POST;
+        if (!$input)
+            $input = $_POST;
 
         unset($input['id']);
         unset($input['created_at']);
