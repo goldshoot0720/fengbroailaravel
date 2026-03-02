@@ -106,6 +106,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         </button>
         <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
     </div>
+    <?php include 'includes/batch-delete.php'; ?>
 
     <div class="card-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
@@ -204,6 +205,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     data-lyrics="<?php echo htmlspecialchars($group['lyrics'] ?? '', ENT_QUOTES); ?>">
 
                     <div class="inline-view">
+                        <div class="card-header">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $group['items'][0]['id']; ?>" onchange="toggleSelectItem(this)">
+                        </div>
                         <?php if (!empty($group['cover'])): ?>
                             <div style="text-align: center; margin-bottom: 15px;">
                                 <img src="<?php echo htmlspecialchars($group['cover']); ?>"
@@ -367,6 +371,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <script>
     const TABLE = 'music';
+    initBatchDelete(TABLE);
 
     function setInlineLanguage(btn, lang) {
         const input = btn.closest('.form-group').querySelector('[data-field="language"]');

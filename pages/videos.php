@@ -21,6 +21,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
         </button>
         <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
     </div>
+    <?php include 'includes/batch-delete.php'; ?>
 
     <div class="video-list" style="margin-top: 20px;">
         <div id="inlineAddCard" class="video-item inline-add-card" style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;">
@@ -73,9 +74,12 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
                     data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
                     data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>">
                     <div class="inline-view">
-                        <div class="card-actions">
-                            <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
-                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                        <div class="card-header">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>" onchange="toggleSelectItem(this)">
+                            <div class="card-actions">
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                            </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 15px;">
@@ -256,6 +260,7 @@ $items = $pdo->query("SELECT * FROM commondocument WHERE category = 'video' ORDE
 
 <script>
 const TABLE = 'commondocument';
+initBatchDelete(TABLE);
 
 function handleAdd() {
     if (window.matchMedia('(max-width: 768px)').matches) {
