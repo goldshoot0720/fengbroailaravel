@@ -55,13 +55,13 @@ try {
             url3 VARCHAR(500),
             file1 VARCHAR(150),
             file1name VARCHAR(100),
-            file1type VARCHAR(20),
+            file1type VARCHAR(100),
             file2 VARCHAR(150),
             file2name VARCHAR(100),
-            file2type VARCHAR(20),
+            file2type VARCHAR(100),
             file3 VARCHAR(150),
             file3name VARCHAR(100),
-            file3type VARCHAR(20),
+            file3type VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -147,7 +147,16 @@ try {
             cover VARCHAR(150),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+
+        "push_subscriptions" => "CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            endpoint TEXT NOT NULL,
+            auth VARCHAR(255) NOT NULL,
+            p256dh VARCHAR(500) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_endpoint (endpoint(191))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
     foreach ($tables as $name => $sql) {
@@ -176,9 +185,13 @@ try {
     $pdo->exec($commonaccountSQL);
     echo "✓ 資料表 commonaccount 建立成功\n";
 
-    // 升級既有欄位
+    // 升級既有欄位（舊資料庫補欄位）
     $upgrades = [
-        "ALTER TABLE article MODIFY COLUMN content TEXT"
+        "ALTER TABLE article MODIFY COLUMN content TEXT",
+        "ALTER TABLE article MODIFY COLUMN file1type VARCHAR(100)",
+        "ALTER TABLE article MODIFY COLUMN file2type VARCHAR(100)",
+        "ALTER TABLE article MODIFY COLUMN file3type VARCHAR(100)",
+        "ALTER TABLE image ADD COLUMN filetype VARCHAR(50) AFTER file",
     ];
     foreach ($upgrades as $sql) {
         try {
