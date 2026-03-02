@@ -1,28 +1,28 @@
 <?php
 /**
- * 資料庫配置
- * 自動偵測環境：網域為 laravel.tpe12thmayor2025to2038.com 時使用遠端配置
+ * 資料庫配置範例
+ * 複製此檔案為 database.php 並填入真實憑證
  */
 
 // 自動偵測環境
 $host = $_SERVER['HTTP_HOST'] ?? '';
-$isRemote = (strpos($host, 'laravel.tpe12thmayor2025to2038.com') !== false);
+$isRemote = (strpos($host, 'your-domain.com') !== false);
 $GLOBALS['ENV'] = $isRemote ? 'remote' : 'local';
 $ENV = $GLOBALS['ENV'];
 
 $dbConfig = [
     'local' => [
         'host'    => '127.0.0.1',
-        'name'    => 'feng_laravel',
+        'name'    => 'your_local_db_name',
         'user'    => 'root',
         'pass'    => '',
         'charset' => 'utf8mb4'
     ],
     'remote' => [
         'host'    => 'localhost',
-        'name'    => 'feng_laravel',
-        'user'    => 'feng_laravel',
-        'pass'    => 'ym0Tagood129',
+        'name'    => 'your_remote_db_name',
+        'user'    => 'your_remote_db_user',
+        'pass'    => 'your_remote_db_password',
         'charset' => 'utf8mb4'
     ]
 ];
