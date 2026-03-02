@@ -107,7 +107,7 @@ if ($hasCsv) {
         rewind($handle);
     }
 
-    $headers = fgetcsv($handle);
+    $headers = fgetcsv($handle, 0, ',', '"', '');
     if (!$headers) {
         fclose($handle);
         cleanupDir($extractDir);
@@ -135,7 +135,7 @@ if ($hasCsv) {
     $lineNum = 1;
     $fileFields = ['file', 'cover'];
 
-    while (($row = fgetcsv($handle)) !== false) {
+    while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         $lineNum++;
 
         foreach ($ignoredIndexes as $i) {
@@ -160,7 +160,8 @@ if ($hasCsv) {
 
         // 處理檔案欄位
         foreach ($fileFields as $fileField) {
-            if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
+            if (!isset($data[$fileField]) || empty($data[$fileField]))
+                continue;
 
             $zipPath = $data[$fileField];
 
@@ -172,7 +173,8 @@ if ($hasCsv) {
             if (file_exists($sourcePath)) {
                 $baseName = basename($zipPath);
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
-                if (empty($originalName)) $originalName = $baseName;
+                if (empty($originalName))
+                    $originalName = $baseName;
 
                 $ext = pathinfo($originalName, PATHINFO_EXTENSION);
                 $newName = generateUUID() . ($ext ? '.' . $ext : '');
@@ -222,7 +224,8 @@ if ($hasCsv) {
                 $values[] = $currentId;
                 $stmt->execute($values);
             } else {
-                $columns = array_map(function ($c) { return "`{$c}`"; }, array_keys($data));
+                $columns = array_map(function ($c) {
+                    return "`{$c}`"; }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO commondocument (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
@@ -239,16 +242,21 @@ if ($hasCsv) {
 } else {
     // ===== 舊格式：純文件 ZIP（無 CSV） =====
     foreach ($extractedFiles as $fileName) {
-        if (substr($fileName, -1) === '/') continue;
+        if (substr($fileName, -1) === '/')
+            continue;
 
         $sourcePath = $extractDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $fileName);
-        if (!file_exists($sourcePath)) continue;
+        if (!file_exists($sourcePath))
+            continue;
 
         $baseName = basename($fileName);
 
-        if (strpos($baseName, 'cover_') === 0) continue;
-        if (strpos($baseName, '.') === 0) continue;
-        if (strpos($fileName, '__MACOSX') !== false) continue;
+        if (strpos($baseName, 'cover_') === 0)
+            continue;
+        if (strpos($baseName, '.') === 0)
+            continue;
+        if (strpos($fileName, '__MACOSX') !== false)
+            continue;
 
         $targetPath = $uploadDir . '/' . $baseName;
 
@@ -286,7 +294,8 @@ if ($importedCount > 0) {
 
 function cleanupDir($dir)
 {
-    if (!is_dir($dir)) return;
+    if (!is_dir($dir))
+        return;
     $items = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST

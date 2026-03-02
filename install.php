@@ -28,7 +28,7 @@ try {
             `continue` BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "food" => "CREATE TABLE IF NOT EXISTS food (
             id VARCHAR(36) PRIMARY KEY,
@@ -41,7 +41,7 @@ try {
             photohash VARCHAR(256),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "article" => "CREATE TABLE IF NOT EXISTS article (
             id VARCHAR(36) PRIMARY KEY,
@@ -64,12 +64,13 @@ try {
             file3type VARCHAR(20),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "image" => "CREATE TABLE IF NOT EXISTS image (
             id VARCHAR(36) PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
             file VARCHAR(150),
+            filetype VARCHAR(50),
             note VARCHAR(100),
             ref VARCHAR(100),
             category VARCHAR(100),
@@ -77,7 +78,7 @@ try {
             cover VARCHAR(150),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "music" => "CREATE TABLE IF NOT EXISTS music (
             id VARCHAR(36) PRIMARY KEY,
@@ -92,7 +93,7 @@ try {
             cover VARCHAR(150),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "podcast" => "CREATE TABLE IF NOT EXISTS podcast (
             id VARCHAR(36) PRIMARY KEY,
@@ -105,7 +106,7 @@ try {
             cover VARCHAR(150),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "bank" => "CREATE TABLE IF NOT EXISTS bank (
             id VARCHAR(36) PRIMARY KEY,
@@ -120,7 +121,7 @@ try {
             account VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "routine" => "CREATE TABLE IF NOT EXISTS routine (
             id VARCHAR(36) PRIMARY KEY,
@@ -133,7 +134,7 @@ try {
             photo VARCHAR(500),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )",
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
         "commondocument" => "CREATE TABLE IF NOT EXISTS commondocument (
             id VARCHAR(36) PRIMARY KEY,
@@ -146,7 +147,7 @@ try {
             cover VARCHAR(150),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )"
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     ];
 
     foreach ($tables as $name => $sql) {
@@ -170,7 +171,7 @@ try {
     $commonaccountSQL .= "photohash VARCHAR(256),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )";
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
 
     $pdo->exec($commonaccountSQL);
     echo "✓ 資料表 commonaccount 建立成功\n";

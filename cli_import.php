@@ -24,8 +24,8 @@ if ($bom !== "\xEF\xBB\xBF") {
 }
 
 // 讀取並轉換標頭
-$headers = fgetcsv($handle);
-$headers = array_map(function($h) use ($fieldMapping) {
+$headers = fgetcsv($handle, 0, ',', '"', '');
+$headers = array_map(function ($h) use ($fieldMapping) {
     $h = trim($h);
     return $fieldMapping[$h] ?? $h;
 }, $headers);
@@ -53,7 +53,7 @@ $skipped = 0;
 $errors = [];
 $lineNum = 1;
 
-while (($row = fgetcsv($handle)) !== false) {
+while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     $lineNum++;
 
     foreach ($ignoredIndexes as $i) {
@@ -70,12 +70,14 @@ while (($row = fgetcsv($handle)) !== false) {
     $data = array_combine($headers, $row);
     $recordName = $data['name'] ?? '未知';
 
-    if (empty($data['id'])) $data['id'] = generateUUID();
+    if (empty($data['id']))
+        $data['id'] = generateUUID();
     $currentId = $data['id'];
     unset($data['created_at'], $data['updated_at']);
 
     foreach ($data as $key => $value) {
-        if ($value === '' || $value === 'null') $data[$key] = null;
+        if ($value === '' || $value === 'null')
+            $data[$key] = null;
     }
 
     // 轉換 ISO 8601 日期格式為 MySQL DATE 格式 (YYYY-MM-DD)
@@ -99,7 +101,8 @@ while (($row = fgetcsv($handle)) !== false) {
         if ($exists) {
             unset($data['id']);
             $sets = [];
-            foreach (array_keys($data) as $col) $sets[] = "`{$col}` = ?";
+            foreach (array_keys($data) as $col)
+                $sets[] = "`{$col}` = ?";
             $sql = "UPDATE {$table} SET " . implode(',', $sets) . " WHERE id = ?";
             $stmt = $pdo->prepare($sql);
             $values = array_values($data);
@@ -107,7 +110,8 @@ while (($row = fgetcsv($handle)) !== false) {
             $stmt->execute($values);
             echo "UPDATE: {$recordName}\n";
         } else {
-            $columns = array_map(function($c) { return "`{$c}`"; }, array_keys($data));
+            $columns = array_map(function ($c) {
+                return "`{$c}`"; }, array_keys($data));
             $placeholders = array_fill(0, count($data), '?');
             $sql = "INSERT INTO {$table} (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
             $stmt = $pdo->prepare($sql);
@@ -124,5 +128,7 @@ while (($row = fgetcsv($handle)) !== false) {
 fclose($handle);
 echo "\n=============================\n";
 echo "匯入完成: {$imported} 筆\n";
-if ($skipped) echo "跳過: {$skipped} 筆\n";
-if ($errors) echo "錯誤: " . count($errors) . " 筆\n";
+if ($skipped)
+    echo "跳過: {$skipped} 筆\n";
+if ($errors)
+    echo "錯誤: " . count($errors) . " 筆\n";

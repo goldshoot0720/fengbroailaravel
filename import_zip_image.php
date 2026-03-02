@@ -31,7 +31,8 @@ if (!is_dir($extractDir)) {
 
 $zip = new PureZipExtract();
 if (!$zip->open($zipFile)) {
-    if ($cleanupTempFile) @unlink($zipFile);
+    if ($cleanupTempFile)
+        @unlink($zipFile);
     echo json_encode(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
     exit;
 }
@@ -90,11 +91,12 @@ if ($hasCsv) {
         rewind($handle);
     }
 
-    $headers = fgetcsv($handle);
+    $headers = fgetcsv($handle, 0, ',', '"', '');
     if (!$headers) {
         fclose($handle);
         cleanupDir($extractDir);
-        if ($cleanupTempFile) @unlink($zipFile);
+        if ($cleanupTempFile)
+            @unlink($zipFile);
         echo json_encode(['success' => false, 'error' => 'CSV 格式錯誤']);
         exit;
     }
@@ -127,7 +129,7 @@ if ($hasCsv) {
     $fileFields = ['file', 'cover'];
     $rowsProcessed = 0;
 
-    while (($row = fgetcsv($handle)) !== false) {
+    while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         $lineNum++;
         $rowsProcessed++;
 
@@ -153,12 +155,14 @@ if ($hasCsv) {
 
         // 處理檔案欄位
         foreach ($fileFields as $fileField) {
-            if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
+            if (!isset($data[$fileField]) || empty($data[$fileField]))
+                continue;
 
             $zipPath = $data[$fileField]; // e.g. "images/1_photo.png"
 
             // 跳過 URL 類型的路徑（不需要從 ZIP 複製）
-            if (preg_match('#^https?://#', $zipPath)) continue;
+            if (preg_match('#^https?://#', $zipPath))
+                continue;
 
             $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
             if (!file_exists($sourcePath)) {
@@ -168,7 +172,8 @@ if ($hasCsv) {
             if (file_exists($sourcePath)) {
                 $baseName = basename($zipPath);
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
-                if (empty($originalName)) $originalName = $baseName;
+                if (empty($originalName))
+                    $originalName = $baseName;
 
                 $ext = pathinfo($originalName, PATHINFO_EXTENSION);
                 $newName = generateUUID() . ($ext ? '.' . $ext : '');
@@ -223,7 +228,8 @@ if ($hasCsv) {
                 $values[] = $currentId;
                 $stmt->execute($values);
             } else {
-                $columns = array_map(function ($c) { return "`{$c}`"; }, array_keys($data));
+                $columns = array_map(function ($c) {
+                    return "`{$c}`"; }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO image (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
@@ -244,13 +250,16 @@ if ($hasCsv) {
     $files = glob($extractDir . DIRECTORY_SEPARATOR . '*');
 
     foreach ($files as $file) {
-        if (!is_file($file)) continue;
+        if (!is_file($file))
+            continue;
 
         $fileName = basename($file);
-        if (strpos($fileName, '.') === 0) continue;
+        if (strpos($fileName, '.') === 0)
+            continue;
 
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        if (!in_array($ext, $imageExtensions)) continue;
+        if (!in_array($ext, $imageExtensions))
+            continue;
 
         $destPath = $uploadDir . '/' . $fileName;
         if (file_exists($destPath)) {
@@ -283,7 +292,8 @@ if ($hasCsv) {
 
 // 清理
 cleanupDir($extractDir);
-if ($cleanupTempFile) @unlink($zipFile);
+if ($cleanupTempFile)
+    @unlink($zipFile);
 
 echo json_encode([
     'success' => true,
@@ -294,7 +304,8 @@ echo json_encode([
 
 function cleanupDir($dir)
 {
-    if (!is_dir($dir)) return;
+    if (!is_dir($dir))
+        return;
     $items = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST

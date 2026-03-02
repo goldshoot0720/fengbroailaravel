@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS image (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     file VARCHAR(150),
+    filetype VARCHAR(50),
     note VARCHAR(100),
     ref VARCHAR(100),
     category VARCHAR(100),

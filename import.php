@@ -56,7 +56,7 @@ if ($bom !== "\xEF\xBB\xBF") {
 }
 
 // 讀取標頭
-$headers = fgetcsv($handle);
+$headers = fgetcsv($handle, 0, ',', '"', '');
 if (!$headers) {
     jsonResponse(['error' => 'CSV 格式錯誤'], 400);
 }
@@ -86,7 +86,7 @@ $skipped = 0;
 $errors = [];
 $lineNum = 1;
 
-while (($row = fgetcsv($handle)) !== false) {
+while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     $lineNum++;
 
     // 移除被忽略的欄位值

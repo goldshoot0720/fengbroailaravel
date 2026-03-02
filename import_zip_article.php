@@ -31,7 +31,8 @@ if (!is_dir($extractDir)) {
 
 $zip = new PureZipExtract();
 if (!$zip->open($zipFile)) {
-    if ($cleanupTempFile) @unlink($zipFile);
+    if ($cleanupTempFile)
+        @unlink($zipFile);
     echo json_encode(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
     exit;
 }
@@ -61,7 +62,8 @@ foreach ($searchPaths as $path) {
 
 if (!$csvFile) {
     cleanupDir($extractDir);
-    if ($cleanupTempFile) @unlink($zipFile);
+    if ($cleanupTempFile)
+        @unlink($zipFile);
     echo json_encode(['success' => false, 'error' => 'ZIP 中找不到 CSV 檔案']);
     exit;
 }
@@ -94,11 +96,12 @@ if ($bom !== "\xEF\xBB\xBF") {
     rewind($handle);
 }
 
-$headers = fgetcsv($handle);
+$headers = fgetcsv($handle, 0, ',', '"', '');
 if (!$headers) {
     fclose($handle);
     cleanupDir($extractDir);
-    if ($cleanupTempFile) @unlink($zipFile);
+    if ($cleanupTempFile)
+        @unlink($zipFile);
     echo json_encode(['success' => false, 'error' => 'CSV 格式錯誤']);
     exit;
 }
@@ -130,7 +133,7 @@ $lineNum = 1;
 // 檔案欄位 (file1, file2, file3)
 $fileFields = ['file1', 'file2', 'file3'];
 
-while (($row = fgetcsv($handle)) !== false) {
+while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     $lineNum++;
 
     foreach ($ignoredIndexes as $i) {
@@ -157,7 +160,8 @@ while (($row = fgetcsv($handle)) !== false) {
 
     // 處理檔案欄位：把 ZIP 內路徑的檔案複製到 uploads/
     foreach ($fileFields as $fileField) {
-        if (!isset($data[$fileField]) || empty($data[$fileField])) continue;
+        if (!isset($data[$fileField]) || empty($data[$fileField]))
+            continue;
 
         $zipPath = $data[$fileField]; // e.g. "files/1_filename.jpg"
 
@@ -238,7 +242,8 @@ while (($row = fgetcsv($handle)) !== false) {
             $values[] = $currentId;
             $stmt->execute($values);
         } else {
-            $columns = array_map(function ($c) { return "`{$c}`"; }, array_keys($data));
+            $columns = array_map(function ($c) {
+                return "`{$c}`"; }, array_keys($data));
             $placeholders = array_fill(0, count($data), '?');
             $sql = "INSERT INTO article (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
             $stmt = $pdo->prepare($sql);
@@ -254,7 +259,8 @@ fclose($handle);
 
 // 清理
 cleanupDir($extractDir);
-if ($cleanupTempFile) @unlink($zipFile);
+if ($cleanupTempFile)
+    @unlink($zipFile);
 
 echo json_encode([
     'success' => true,
@@ -264,7 +270,8 @@ echo json_encode([
 
 function cleanupDir($dir)
 {
-    if (!is_dir($dir)) return;
+    if (!is_dir($dir))
+        return;
     $items = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST
