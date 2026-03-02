@@ -222,7 +222,8 @@ if ($hasCsv) {
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`"; }, array_keys($data));
+                    return "`{$c}`";
+                }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO podcast (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
@@ -274,10 +275,11 @@ if ($hasCsv) {
 
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $filePath = 'uploads/' . $fileName;
+        $filetype = $ext; // derive filetype from extension
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO podcast (id, name, file) VALUES (?, ?, ?)");
-            $stmt->execute([generateUUID(), $name, $filePath]);
+            $stmt = $pdo->prepare("INSERT INTO podcast (id, name, file, filetype) VALUES (?, ?, ?, ?)");
+            $stmt->execute([generateUUID(), $name, $filePath, $filetype]);
             $imported++;
         } catch (PDOException $e) {
             $errors[] = "$fileName: " . $e->getMessage();

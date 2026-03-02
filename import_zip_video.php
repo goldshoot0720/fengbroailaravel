@@ -197,7 +197,7 @@ if ($hasCsv) {
             }
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM commondocument WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT id FROM video WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
 
@@ -208,16 +208,17 @@ if ($hasCsv) {
                 foreach (array_keys($data) as $col) {
                     $sets[] = "`{$col}` = ?";
                 }
-                $sql = "UPDATE commondocument SET " . implode(',', $sets) . " WHERE id = ?";
+                $sql = "UPDATE video SET " . implode(',', $sets) . " WHERE id = ?";
                 $stmt = $pdo->prepare($sql);
                 $values = array_values($data);
                 $values[] = $currentId;
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`"; }, array_keys($data));
+                    return "`{$c}`";
+                }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
-                $sql = "INSERT INTO commondocument (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
+                $sql = "INSERT INTO video (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute(array_values($data));
             }
@@ -273,12 +274,13 @@ if ($hasCsv) {
         // Create database record
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $filePath = 'uploads/' . $fileName;
+        $filetype = $ext; // derive filetype from extension
 
         try {
             $id = generateUUID();
-            $sql = "INSERT INTO commondocument (id, name, file, category) VALUES (?, ?, ?, 'video')";
+            $sql = "INSERT INTO video (id, name, file, filetype, category) VALUES (?, ?, ?, ?, 'video')";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$id, $name, $filePath]);
+            $stmt->execute([$id, $name, $filePath, $filetype]);
             $imported++;
         } catch (PDOException $e) {
             $errors[] = "$fileName: " . $e->getMessage();

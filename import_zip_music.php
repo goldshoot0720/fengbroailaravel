@@ -226,7 +226,8 @@ if ($hasCsv) {
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`"; }, array_keys($data));
+                    return "`{$c}`";
+                }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO music (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
@@ -284,12 +285,13 @@ if ($hasCsv) {
         // Create database record
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $filePath = 'uploads/' . $fileName;
+        $filetype = $ext; // derive filetype from extension
 
         try {
             $id = generateUUID();
-            $sql = "INSERT INTO music (id, name, file) VALUES (?, ?, ?)";
+            $sql = "INSERT INTO music (id, name, file, filetype) VALUES (?, ?, ?, ?)";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$id, $name, $filePath]);
+            $stmt->execute([$id, $name, $filePath, $filetype]);
             $imported++;
         } catch (PDOException $e) {
             $errors[] = "$fileName: " . $e->getMessage();

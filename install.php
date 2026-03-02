@@ -84,6 +84,7 @@ try {
             id VARCHAR(36) PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
             file VARCHAR(150),
+            filetype VARCHAR(50),
             lyrics TEXT,
             note VARCHAR(100),
             ref VARCHAR(100),
@@ -99,11 +100,26 @@ try {
             id VARCHAR(36) PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
             file VARCHAR(150),
+            filetype VARCHAR(50),
             note VARCHAR(20),
             ref VARCHAR(100),
             category VARCHAR(100),
             hash VARCHAR(300),
             cover VARCHAR(150),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+
+        "video" => "CREATE TABLE IF NOT EXISTS video (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            file VARCHAR(500),
+            filetype VARCHAR(20),
+            note VARCHAR(500),
+            ref VARCHAR(300),
+            category VARCHAR(100),
+            hash VARCHAR(300),
+            cover VARCHAR(500),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -192,6 +208,8 @@ try {
         "ALTER TABLE article MODIFY COLUMN file2type VARCHAR(100)",
         "ALTER TABLE article MODIFY COLUMN file3type VARCHAR(100)",
         "ALTER TABLE image ADD COLUMN filetype VARCHAR(50) AFTER file",
+        "ALTER TABLE music ADD COLUMN filetype VARCHAR(50) AFTER file",
+        "ALTER TABLE podcast ADD COLUMN filetype VARCHAR(50) AFTER file",
     ];
     foreach ($upgrades as $sql) {
         try {
