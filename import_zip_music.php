@@ -24,6 +24,35 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     outputJson(['error' => '請使用 POST 方法']);
 }
 
+// 偵測 post_max_size 超限（PHP 超限時會清空 $_POST/$_FILES）
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $contentLength = intval($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $postMaxSize = (int) ini_get('post_max_size');
+    // 將 ini 值（如 200M）換算成 bytes
+    $val = trim(ini_get('post_max_size'));
+    $unit = strtolower(substr($val, -1));
+    $num = intval($val);
+    if ($unit === 'g')
+        $postMaxBytes = $num * 1024 * 1024 * 1024;
+    elseif ($unit === 'm')
+        $postMaxBytes = $num * 1024 * 1024;
+    elseif ($unit === 'k')
+        $postMaxBytes = $num * 1024;
+    else
+        $postMaxBytes = $num;
+
+    if ($contentLength > 0 && $postMaxBytes > 0 && $contentLength > $postMaxBytes) {
+        outputJson([
+            'error' => '檔案太大，超過伺服器 post_max_size 限制（' . ini_get('post_max_size') . '）。上傳大小：' . round($contentLength / 1024 / 1024, 1) . ' MB',
+            'debug' => [
+                'content_length_mb' => round($contentLength / 1024 / 1024, 2),
+                'post_max_size' => ini_get('post_max_size'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+            ]
+        ]);
+    }
+}
+
 // Support both direct upload and tempFile from preview
 $tempFileFromPreview = $_POST['tempFile'] ?? '';
 $zipFile = '';
