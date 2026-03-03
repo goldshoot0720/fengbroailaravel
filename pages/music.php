@@ -110,6 +110,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     <div class="card-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
+                <!-- 防止瀏覽器自動填入：隱藏假帳密欄位 -->
+                <input type="text" style="display:none" autocomplete="username" tabindex="-1" aria-hidden="true">
+                <input type="password" style="display:none" autocomplete="new-password" tabindex="-1" aria-hidden="true">
                 <div class="form-group">
                     <label>名稱 *</label>
                     <input type="text" class="form-control inline-input" data-field="name" autocomplete="off" required>
@@ -518,19 +521,6 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         if (!input.files || !input.files[0]) return;
 
         const file = input.files[0];
-        const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
-
-        // 超過 100MB 先給提示
-        let confirmMsg = '確定要匯入 ZIP 嗎？音樂將會新增到資料庫。';
-        if (file.size > 100 * 1024 * 1024) {
-            confirmMsg = `檔案大小 ${fileSizeMB} MB，超過 100MB。\n` +
-                `若伺服器 upload_max_filesize 設定較小可能會失敗。\n\n確定要繼續匯入嗎？`;
-        }
-
-        if (!confirm(confirmMsg)) {
-            input.value = '';
-            return;
-        }
 
         const modal = document.getElementById('uploadProgressModal');
         const progressBar = document.getElementById('uploadProgressBar');

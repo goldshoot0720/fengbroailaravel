@@ -31,11 +31,11 @@
             <tr>
                 <th>程式碼行數</th>
                 <td>
-                    <strong>13,610</strong> 行
+                    <strong>14,581</strong> 行
                     <span style="color:#888;font-size:0.85rem;margin-left:8px;">
-                        (.php: 11,625 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 726 &nbsp;|&nbsp; .sql: 291)
+                        (.php: 12,929 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 684)
                     </span>
-                    <br><small style="color:#aaa;">統計日期：2026-02-24</small>
+                    <br><small style="color:#aaa;">統計日期：2026-03-03</small>
                 </td>
             </tr>
         </table>

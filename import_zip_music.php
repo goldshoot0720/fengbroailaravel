@@ -1,16 +1,23 @@
 <?php
+ob_start();
 ini_set('memory_limit', '512M');
 set_time_limit(0);
-error_reporting(E_ALL);
+error_reporting(0);
 ini_set('display_errors', 0);
 
-header('Content-Type: application/json; charset=utf-8');
+function outputJson($data)
+{
+    ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 require_once 'includes/functions.php';
 require_once 'includes/PureZip.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonResponse(['error' => '請使用 POST 方法'], 400);
+    outputJson(['error' => '請使用 POST 方法']);
 }
 
 // Support both direct upload and tempFile from preview
@@ -35,10 +42,10 @@ if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath
             UPLOAD_ERR_CANT_WRITE => '伺服器無法寫入檔案',
         ];
         $msg = $errMessages[$uploadErr] ?? "上傳失敗（錯誤碼: {$uploadErr}）";
-        jsonResponse(['error' => $msg], 400);
+        outputJson(['error' => $msg]);
     }
 } else {
-    jsonResponse(['error' => '請上傳 ZIP 檔案'], 400);
+    outputJson(['error' => '請上傳 ZIP 檔案']);
 }
 
 // Create temp directory for extraction
@@ -53,7 +60,7 @@ if (!$zip->open($zipFile)) {
     cleanupDir($tempDir);
     if ($cleanupTempFile)
         @unlink($zipFile);
-    jsonResponse(['error' => '無法開啟 ZIP 檔案'], 400);
+    outputJson(['error' => '無法開啟 ZIP 檔案']);
 }
 
 $zip->extractTo($tempDir);
@@ -117,7 +124,7 @@ if ($hasCsv) {
         cleanupDir($tempDir);
         if ($cleanupTempFile)
             @unlink($zipFile);
-        jsonResponse(['error' => 'CSV 格式錯誤'], 400);
+        outputJson(['error' => 'CSV 格式錯誤']);
     }
 
     // 把 Appwrite 欄位名稱轉換成 DB 欄位名稱
@@ -326,7 +333,7 @@ cleanupDir($tempDir);
 if ($cleanupTempFile)
     @unlink($zipFile);
 
-echo json_encode([
+outputJson([
     'success' => true,
     'imported' => $imported,
     'errors' => $errors
