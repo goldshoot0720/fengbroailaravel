@@ -267,8 +267,8 @@ if ($hasCsv) {
         }
         $currentId = $data['id'];
 
-        unset($data['created_at']);
-        unset($data['updated_at']);
+        // Appwrite 時間戳保留（不再删除，讓 DB 保留原始記錄時間）
+        // created_at / updated_at 在後面的 ISO 轉換時會處理
 
         // 處理檔案欄位 (music/ 和 covers/ 資料夾)
         foreach ($fileFields as $fileField) {
@@ -379,10 +379,11 @@ if ($hasCsv) {
             }
         }
 
-        // 轉換 ISO 8601 日期
+        // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
+        // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
         foreach ($data as $key => $value) {
-            if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
-                $data[$key] = substr($value, 0, 10);
+            if ($value !== null && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
+                $data[$key] = $m[1] . ' ' . $m[2]; // e.g. 2024-01-15 08:30:00
             }
         }
 
