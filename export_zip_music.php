@@ -121,7 +121,7 @@ fclose($csvHandle);
 
 // === 2. 建立 ZIP ===
 $zip = new StreamingZip();
-$zip->begin('appwrite-music.zip');
+$zip->begin('laravel-music.zip');
 
 $zip->addLargeFile($csvTempFile, 'music.csv');
 
