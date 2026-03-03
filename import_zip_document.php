@@ -97,7 +97,8 @@ if ($hasCsv) {
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
-        '$updatedAt' => 'updated_at'
+        '$updatedAt' => 'updated_at',
+        '#filetype' => 'filetype',   // Appwrite 特殊欄位前綴
     ];
 
     // 動態取得資料表欄位，自動相容 Appwrite 匯出（不論 CSV 有哪些額外欄位都會被忽略）
@@ -164,8 +165,8 @@ if ($hasCsv) {
         }
         $currentId = $data['id'];
 
-        unset($data['created_at']);
-        unset($data['updated_at']);
+        // Appwrite 時間戳保留（不再删除，讓 DB 保留原始記錄時間）
+        // created_at / updated_at 在後面的 ISO 轉換時會處理
 
         // 處理檔案欄位
         foreach ($fileFields as $fileField) {
@@ -174,13 +175,40 @@ if ($hasCsv) {
 
             $zipPath = $data[$fileField];
 
-            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
-            if (!file_exists($sourcePath)) {
-                $sourcePath = $extractDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            // URL 保留原樣不做本地複製
+            if (preg_match('#^https?://#i', $zipPath)) {
+                continue;
             }
 
-            if (file_exists($sourcePath)) {
-                $baseName = basename($zipPath);
+            $zipPathNorm = str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+
+            // 候選路徑（優先：csv 同目錄，次要：extractDir 根）
+            $candidatePaths = [
+                dirname($csvFile) . DIRECTORY_SEPARATOR . $zipPathNorm,
+                $extractDir . DIRECTORY_SEPARATOR . $zipPathNorm,
+            ];
+
+            // fallback：在對應子目錄用 basename 搜尋
+            $subDir = strtok($zipPath, '/');
+            $baseName = basename($zipPath);
+            if ($subDir && $baseName) {
+                foreach (glob($extractDir . DIRECTORY_SEPARATOR . $subDir . DIRECTORY_SEPARATOR . '*') as $cand) {
+                    if (basename($cand) === $baseName) {
+                        $candidatePaths[] = $cand;
+                        break;
+                    }
+                }
+            }
+
+            $sourcePath = null;
+            foreach ($candidatePaths as $cand) {
+                if (file_exists($cand)) {
+                    $sourcePath = $cand;
+                    break;
+                }
+            }
+
+            if ($sourcePath !== null) {
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
                 if (empty($originalName))
                     $originalName = $baseName;
@@ -209,10 +237,11 @@ if ($hasCsv) {
             }
         }
 
-        // 轉換 ISO 8601 日期
+        // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
+        // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
         foreach ($data as $key => $value) {
-            if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
-                $data[$key] = substr($value, 0, 10);
+            if ($value !== null && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
+                $data[$key] = $m[1] . ' ' . $m[2];
             }
         }
 
