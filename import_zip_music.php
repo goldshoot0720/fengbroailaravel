@@ -91,13 +91,19 @@ foreach ($searchPaths as $path) {
 $hasCsv = ($csvFile !== null);
 
 if ($hasCsv) {
-    // ===== Appwrite 格式：CSV + music/ + covers/ 資料夾 =====
+    // ===== Appwrite 格式：CSV + music/ + covers/ + lyrics/ 資料夾 =====
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
         '$updatedAt' => 'updated_at'
     ];
-    $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
+
+    // 動態取得資料表欄位，自動相容 Appwrite 匯出（不論 CSV 有哪些額外欄位都會被忽略）
+    $dbColumns = [];
+    $colStmt = $pdo->query("SHOW COLUMNS FROM music");
+    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+        $dbColumns[] = $col['Field'];
+    }
 
     $handle = fopen($csvFile, 'r');
     $bom = fread($handle, 3);
@@ -114,14 +120,16 @@ if ($hasCsv) {
         jsonResponse(['error' => 'CSV 格式錯誤'], 400);
     }
 
+    // 把 Appwrite 欄位名稱轉換成 DB 欄位名稱
     $headers = array_map(function ($h) use ($fieldMapping) {
         $h = trim($h);
         return $fieldMapping[$h] ?? $h;
     }, $headers);
 
+    // 只保留資料庫中實際存在的欄位，其餘全部忽略
     $ignoredIndexes = [];
     foreach ($headers as $i => $h) {
-        if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+        if (!in_array($h, $dbColumns)) {
             $ignoredIndexes[] = $i;
         }
     }

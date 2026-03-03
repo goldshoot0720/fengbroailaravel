@@ -206,7 +206,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     <div class="inline-view">
                         <div class="card-header">
                             <input type="checkbox" class="select-checkbox item-checkbox"
-                                data-id="<?php echo $group['items'][0]['id']; ?>" onchange="toggleSelectItem(this)">
+                                data-id="<?php echo $group['items'][0]['id']; ?>"
+                                data-all-ids="<?php echo htmlspecialchars(implode(',', array_column($group['items'], 'id')), ENT_QUOTES); ?>"
+                                onchange="toggleSelectItem(this)">
                         </div>
                         <?php if (!empty($group['cover'])): ?>
                             <div style="text-align: center; margin-bottom: 15px;">
@@ -372,6 +374,36 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 <script>
     const TABLE = 'music';
     initBatchDelete(TABLE);
+
+    // 覆寫：勾選音樂時，把同名所有版本 ID 都納入批量刪除
+    function toggleSelectItem(checkbox) {
+        const allIds = (checkbox.dataset.allIds || checkbox.dataset.id).split(',').filter(Boolean);
+        if (checkbox.checked) {
+            allIds.forEach(id => batchDeleteIds.add(id));
+        } else {
+            allIds.forEach(id => batchDeleteIds.delete(id));
+        }
+        const allCheckboxes = document.querySelectorAll('.item-checkbox');
+        const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+        syncSelectAllCheckboxes(allChecked, batchDeleteIds.size > 0);
+        updateBatchDeleteBar();
+    }
+
+    // 覆寫：全選時也把所有版本 ID 都加入
+    function toggleSelectAll(checkbox) {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = checkbox.checked;
+            const allIds = (cb.dataset.allIds || cb.dataset.id).split(',').filter(Boolean);
+            if (checkbox.checked) {
+                allIds.forEach(id => batchDeleteIds.add(id));
+            } else {
+                allIds.forEach(id => batchDeleteIds.delete(id));
+            }
+        });
+        syncSelectAllCheckboxes(checkbox.checked, checkbox.checked);
+        updateBatchDeleteBar();
+    }
 
     function setInlineLanguage(btn, lang) {
         const input = btn.closest('.form-group').querySelector('[data-field="language"]');
