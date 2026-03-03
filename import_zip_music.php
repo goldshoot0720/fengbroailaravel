@@ -303,8 +303,33 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
-            $data['id'] = generateUUID();
+        $idFromCsv = $data['id'] ?? '';
+        $hashVal = $data['hash'] ?? '';
+
+        // 無 id 時：用 hash 或 name+language 找現有記錄，避免重複匯入
+        if (empty($idFromCsv)) {
+            $existingId = null;
+
+            // 優先以 hash 查詢（如果 hash 欄位有值且不像臨時 ID）
+            if (!empty($hashVal) && strlen($hashVal) > 20 && !str_starts_with($hashVal, 'zip_import_')) {
+                $chk = $pdo->prepare("SELECT id FROM music WHERE hash = ? LIMIT 1");
+                $chk->execute([$hashVal]);
+                $existingId = $chk->fetchColumn();
+            }
+
+            // 再以 name + language 查詢
+            if (!$existingId) {
+                $nameVal = $data['name'] ?? '';
+                $langVal = $data['language'] ?? '';
+                if ($nameVal && $langVal) {
+                    $chk = $pdo->prepare("SELECT id FROM music WHERE name = ? AND language = ? LIMIT 1");
+                    $chk->execute([$nameVal, $langVal]);
+                    $existingId = $chk->fetchColumn();
+                }
+            }
+
+            $data['id'] = $existingId ?: generateUUID();
+            $debugLog("Row {$lineNum}: id from CSV empty, resolved id=" . $data['id'] . ($existingId ? ' (existing)' : ' (new)'));
         }
         $currentId = $data['id'];
 
