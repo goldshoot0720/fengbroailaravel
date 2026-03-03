@@ -21,10 +21,24 @@ $cleanupTempFile = false;
 if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath($tempFileFromPreview), realpath('uploads/temp')) === 0) {
     $zipFile = $tempFileFromPreview;
     $cleanupTempFile = true;
-} elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
-    $zipFile = $_FILES['file']['tmp_name'];
+} elseif (isset($_FILES['file'])) {
+    $uploadErr = $_FILES['file']['error'];
+    if ($uploadErr === UPLOAD_ERR_OK) {
+        $zipFile = $_FILES['file']['tmp_name'];
+    } else {
+        $errMessages = [
+            UPLOAD_ERR_INI_SIZE => '檔案太大，超過伺服器上傳限制（upload_max_filesize）',
+            UPLOAD_ERR_FORM_SIZE => '檔案太大，超過表單限制',
+            UPLOAD_ERR_PARTIAL => '檔案只上傳部分，請重試',
+            UPLOAD_ERR_NO_FILE => '未選擇檔案',
+            UPLOAD_ERR_NO_TMP_DIR => '伺服器暫存目錄不存在',
+            UPLOAD_ERR_CANT_WRITE => '伺服器無法寫入檔案',
+        ];
+        $msg = $errMessages[$uploadErr] ?? "上傳失敗（錯誤碼: {$uploadErr}）";
+        jsonResponse(['error' => $msg], 400);
+    }
 } else {
-    jsonResponse(['error' => '請上傳檔案'], 400);
+    jsonResponse(['error' => '請上傳 ZIP 檔案'], 400);
 }
 
 // Create temp directory for extraction

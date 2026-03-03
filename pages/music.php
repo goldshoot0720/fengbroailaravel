@@ -95,8 +95,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <button class="btn btn-primary" onclick="handleAdd()" title="新增音樂"><i class="fas fa-plus"></i></button>
-    <?php $csvTable = 'music';
-    include 'includes/csv_buttons.php'; ?>
+
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_music.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -113,13 +112,13 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             <div class="inline-edit inline-edit-always">
                 <div class="form-group">
                     <label>名稱 *</label>
-                    <input type="text" class="form-control inline-input" data-field="name" required>
+                    <input type="text" class="form-control inline-input" data-field="name" autocomplete="off" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group" style="flex:1">
                         <label>分類</label>
                         <input type="text" class="form-control inline-input" data-field="category"
-                            list="categoryOptions" placeholder="選擇或輸入分類">
+                            list="categoryOptions" placeholder="選擇或輸入分類" autocomplete="off">
                         <datalist id="categoryOptions">
                             <?php foreach ($categories as $cat): ?>
                                 <option value="<?php echo htmlspecialchars($cat); ?>">
@@ -129,7 +128,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     <div class="form-group" style="flex:1">
                         <label>語言</label>
                         <input type="text" class="form-control inline-input" data-field="language"
-                            list="languageOptions" placeholder="選擇或輸入語言">
+                            list="languageOptions" placeholder="選擇或輸入語言" autocomplete="off">
                         <datalist id="languageOptions">
                             <?php foreach ($allLanguages as $lang): ?>
                                 <option value="<?php echo htmlspecialchars($lang); ?>">
@@ -147,7 +146,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div class="form-group">
                     <label>檔案路徑</label>
                     <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址"
-                        oninput="updateInlineAudioPreview(this)">
+                        autocomplete="off" oninput="updateInlineAudioPreview(this)">
                     <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                         <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;"
                             onchange="uploadInlineAudio(this)">
@@ -159,7 +158,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div class="form-group">
                     <label>封面圖</label>
                     <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址"
-                        oninput="updateInlineMusicCoverPreview(this)">
+                        autocomplete="off" oninput="updateInlineMusicCoverPreview(this)">
                     <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                         <input type="file" class="inline-cover-file" accept="image/*" style="display: none;"
                             onchange="uploadInlineMusicCover(this)">
@@ -170,7 +169,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 </div>
                 <div class="form-group">
                     <label>參考</label>
-                    <input type="text" class="form-control inline-input" data-field="ref">
+                    <input type="text" class="form-control inline-input" data-field="ref" autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label>備註</label>
@@ -206,7 +205,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
                     <div class="inline-view">
                         <div class="card-header">
-                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $group['items'][0]['id']; ?>" onchange="toggleSelectItem(this)">
+                            <input type="checkbox" class="select-checkbox item-checkbox"
+                                data-id="<?php echo $group['items'][0]['id']; ?>" onchange="toggleSelectItem(this)">
                         </div>
                         <?php if (!empty($group['cover'])): ?>
                             <div style="text-align: center; margin-bottom: 15px;">
@@ -283,18 +283,18 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     <div class="inline-edit">
                         <div class="form-group">
                             <label>名稱 *</label>
-                            <input type="text" class="form-control inline-input" data-field="name" required>
+                            <input type="text" class="form-control inline-input" data-field="name" autocomplete="off" required>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="flex:1">
                                 <label>分類</label>
                                 <input type="text" class="form-control inline-input" data-field="category"
-                                    list="categoryOptions" placeholder="選擇或輸入分類">
+                                    list="categoryOptions" placeholder="選擇或輸入分類" autocomplete="off">
                             </div>
                             <div class="form-group" style="flex:1">
                                 <label>語言</label>
                                 <input type="text" class="form-control inline-input" data-field="language"
-                                    list="languageOptions" placeholder="選擇或輸入語言">
+                                    list="languageOptions" placeholder="選擇或輸入語言" autocomplete="off">
                                 <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
                                     <?php foreach ($defaultLanguages as $lang): ?>
                                         <button type="button" class="btn"
@@ -307,7 +307,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         <div class="form-group">
                             <label>檔案路徑</label>
                             <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址"
-                                oninput="updateInlineAudioPreview(this)">
+                                autocomplete="off" oninput="updateInlineAudioPreview(this)">
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                                 <input type="file" class="inline-audio-file" accept="audio/*" style="display: none;"
                                     onchange="uploadInlineAudio(this)">
@@ -319,7 +319,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         <div class="form-group">
                             <label>封面圖</label>
                             <input type="text" class="form-control inline-input" data-field="cover" placeholder="輸入封面圖網址"
-                                oninput="updateInlineMusicCoverPreview(this)">
+                                autocomplete="off" oninput="updateInlineMusicCoverPreview(this)">
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
                                 <input type="file" class="inline-cover-file" accept="image/*" style="display: none;"
                                     onchange="uploadInlineMusicCover(this)">
@@ -330,7 +330,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         </div>
                         <div class="form-group">
                             <label>參考</label>
-                            <input type="text" class="form-control inline-input" data-field="ref">
+                            <input type="text" class="form-control inline-input" data-field="ref" autocomplete="off">
                         </div>
                         <div class="form-group">
                             <label>備註</label>
@@ -485,12 +485,21 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     function importZIP(input) {
         if (!input.files || !input.files[0]) return;
 
-        if (!confirm('確定要匯入 ZIP 嗎？音樂將會新增到資料庫。')) {
+        const file = input.files[0];
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+
+        // 超過 100MB 先給提示
+        let confirmMsg = '確定要匯入 ZIP 嗎？音樂將會新增到資料庫。';
+        if (file.size > 100 * 1024 * 1024) {
+            confirmMsg = `檔案大小 ${fileSizeMB} MB，超過 100MB。\n` +
+                `若伺服器 upload_max_filesize 設定較小可能會失敗。\n\n確定要繼續匯入嗎？`;
+        }
+
+        if (!confirm(confirmMsg)) {
             input.value = '';
             return;
         }
 
-        const file = input.files[0];
         const modal = document.getElementById('uploadProgressModal');
         const progressBar = document.getElementById('uploadProgressBar');
         const progressText = document.getElementById('uploadProgressText');
@@ -531,7 +540,12 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     alert('匯入失敗: ' + (res.error || '未知錯誤'));
                 }
             } catch (e) {
-                alert('匯入失敗: 回應格式錯誤');
+                // 若無法解析 JSON，通常是伺服器因為檔案太大直接回傳 HTML 錯誤頁
+                if (xhr.status === 0 || xhr.status >= 500) {
+                    alert('匯入失敗: 伺服器錯誤，可能是檔案太大超過伺服器限制 (upload_max_filesize)');
+                } else {
+                    alert('匯入失敗: 回應格式錯誤');
+                }
             }
         });
 

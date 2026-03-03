@@ -83,7 +83,13 @@ if ($hasCsv) {
         '$createdAt' => 'created_at',
         '$updatedAt' => 'updated_at'
     ];
-    $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
+
+    // 動態取得資料表欄位，自動相容 Appwrite 匯出（不論 CSV 有哪些額外欄位都會被忽略）
+    $dbColumns = [];
+    $colStmt = $pdo->query("SHOW COLUMNS FROM commondocument");
+    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+        $dbColumns[] = $col['Field'];
+    }
 
     $handle = fopen($csvFile, 'r');
     $bom = fread($handle, 3);
@@ -100,14 +106,16 @@ if ($hasCsv) {
         jsonResponse(['error' => 'CSV 格式錯誤'], 400);
     }
 
+    // 把 Appwrite 欄位名稱轉換成 DB 欄位名稱
     $headers = array_map(function ($h) use ($fieldMapping) {
         $h = trim($h);
         return $fieldMapping[$h] ?? $h;
     }, $headers);
 
+    // 只保留資料庫中實際存在的欄位，其餘全部忽略
     $ignoredIndexes = [];
     foreach ($headers as $i => $h) {
-        if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+        if (!in_array($h, $dbColumns)) {
             $ignoredIndexes[] = $i;
         }
     }
@@ -212,7 +220,8 @@ if ($hasCsv) {
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`"; }, array_keys($data));
+                    return "`{$c}`";
+                }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO commondocument (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);

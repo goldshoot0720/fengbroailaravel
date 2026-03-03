@@ -156,6 +156,7 @@ try {
             id VARCHAR(36) PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
             file VARCHAR(150),
+            filetype VARCHAR(50),
             note VARCHAR(100),
             ref VARCHAR(100),
             category VARCHAR(100),
@@ -210,6 +211,7 @@ try {
         "ALTER TABLE image ADD COLUMN filetype VARCHAR(50) AFTER file",
         "ALTER TABLE music ADD COLUMN filetype VARCHAR(50) AFTER file",
         "ALTER TABLE podcast ADD COLUMN filetype VARCHAR(50) AFTER file",
+        "ALTER TABLE commondocument ADD COLUMN filetype VARCHAR(50) AFTER file",
     ];
     foreach ($upgrades as $sql) {
         try {
