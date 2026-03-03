@@ -85,7 +85,7 @@ fclose($csvHandle);
 
 // === 2. 建立 ZIP ===
 $zip = new StreamingZip();
-$zip->begin('appwrite-podcast.zip');
+$zip->begin('laravel-podcast.zip');
 
 $zip->addLargeFile($csvTempFile, 'podcast.csv');
 

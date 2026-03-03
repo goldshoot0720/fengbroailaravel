@@ -80,10 +80,10 @@ fclose($csvHandle);
 
 // === 2. 建立 ZIP (CSV + files/) ===
 $zip = new StreamingZip();
-$zip->begin('appwrite-article.zip');
+$zip->begin('laravel-article.zip');
 
 // 加入 CSV
-$zip->addLargeFile($csvTempFile, 'appwrite-article.csv');
+$zip->addLargeFile($csvTempFile, 'laravel-article.csv');
 
 // 加入所有檔案到 files/ 目錄
 foreach ($fileMap as $rowIdx => $rowFiles) {
