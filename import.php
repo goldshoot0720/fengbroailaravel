@@ -34,12 +34,13 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 
 $file = $_FILES['file']['tmp_name'];
 
-// 支援 LaravelMySQL 和 Appwrite 雙格式的欄位名稱對應
+// Appwrite 欄位名稱對應
 $fieldMapping = [
     '$id' => 'id',
     '$createdAt' => 'created_at',
-    '$updatedAt' => 'updated_at'
+    '$updatedAt' => 'updated_at',
 ];
+// Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
 
 // Appwrite 匯出時可能附帶的 metadata 欄位，需忽略
 $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
@@ -64,13 +65,30 @@ if (!$headers) {
 // 轉換標頭名稱 (支援 LaravelMySQL 和 Appwrite 雙格式)
 $headers = array_map(function ($h) use ($fieldMapping) {
     $h = trim($h);
-    return $fieldMapping[$h] ?? $h;
+    if (isset($fieldMapping[$h]))
+        return $fieldMapping[$h];
+    // Appwrite # 前綴欄位（如 #filetype -> filetype）
+    if (str_starts_with($h, '#'))
+        return substr($h, 1);
+    return $h;
 }, $headers);
 
-// 找出需要忽略的欄位索引 (Appwrite metadata)
-$ignoredIndexes = [];
+// 動態取得資料表欄位，只保留 DB 中存在的欄位
+$dbColumns = [];
+try {
+    $colStmt = $pdo->query("SHOW COLUMNS FROM {$table}");
+    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+        $dbColumns[] = $col['Field'];
+    }
+} catch (PDOException $e) {
+    jsonResponse(['error' => 'DB 錯誤: ' . $e->getMessage()], 500);
+}
+
 foreach ($headers as $i => $h) {
     if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+        $ignoredIndexes[] = $i;
+    } elseif (!in_array($h, $dbColumns)) {
+        // DB 中不存在的欄位一律忽略
         $ignoredIndexes[] = $i;
     }
 }
@@ -110,9 +128,8 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     }
     $currentId = $data['id'];
 
-    // 移除時間戳欄位，讓資料庫自動處理
-    unset($data['created_at']);
-    unset($data['updated_at']);
+    // Appwrite 時間戳保留（不再 unset，讓 DB 保留原始記錄時間）
+    // created_at / updated_at 在後面 ISO 轉換時會被處理
 
     // 處理空值
     foreach ($data as $key => $value) {
@@ -121,10 +138,11 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         }
     }
 
-    // 轉換 ISO 8601 日期格式為 MySQL DATE 格式 (YYYY-MM-DD)
+    // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
+    // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
     foreach ($data as $key => $value) {
-        if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
-            $data[$key] = substr($value, 0, 10);
+        if ($value !== null && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
+            $data[$key] = $m[1] . ' ' . $m[2];
         }
     }
 
@@ -156,7 +174,8 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         } else {
             // 新增
             $columns = array_map(function ($c) {
-                return "`{$c}`"; }, array_keys($data));
+                return "`{$c}`";
+            }, array_keys($data));
             $placeholders = array_fill(0, count($data), '?');
             $sql = "INSERT INTO {$table} (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
             $stmt = $pdo->prepare($sql);

@@ -80,7 +80,8 @@ if ($hasCsv) {
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
-        '$updatedAt' => 'updated_at'
+        '$updatedAt' => 'updated_at',
+        '#filetype' => 'filetype',
     ];
     $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
 
@@ -104,12 +105,25 @@ if ($hasCsv) {
 
     $headers = array_map(function ($h) use ($fieldMapping) {
         $h = trim($h);
-        return $fieldMapping[$h] ?? $h;
+        if (isset($fieldMapping[$h]))
+            return $fieldMapping[$h];
+        if (str_starts_with($h, '#'))
+            return substr($h, 1);
+        return $h;
     }, $headers);
+
+    $dbColumns = [];
+    $colStmt = $pdo->query("SHOW COLUMNS FROM podcast");
+    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+        $dbColumns[] = $col['Field'];
+    }
 
     $ignoredIndexes = [];
     foreach ($headers as $i => $h) {
-        if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+        if (
+            in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))
+            || !in_array($h, $dbColumns)
+        ) {
             $ignoredIndexes[] = $i;
         }
     }
@@ -148,8 +162,7 @@ if ($hasCsv) {
         }
         $currentId = $data['id'];
 
-        unset($data['created_at']);
-        unset($data['updated_at']);
+        // Appwrite 時間戳保留
 
         // 處理檔案欄位 (file → podcast/ 資料夾, cover → covers/ 資料夾)
         foreach ($fileFields as $fileField) {
@@ -162,12 +175,30 @@ if ($hasCsv) {
             if (preg_match('#^https?://#', $zipPath))
                 continue;
 
-            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
-            if (!file_exists($sourcePath)) {
-                $sourcePath = $extractDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            $zipPathNorm = str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            $candidatePaths = [
+                dirname($csvFile) . DIRECTORY_SEPARATOR . $zipPathNorm,
+                $extractDir . DIRECTORY_SEPARATOR . $zipPathNorm,
+            ];
+            $subDir = strtok($zipPath, '/');
+            $baseName = basename($zipPath);
+            if ($subDir && $baseName) {
+                foreach (glob($extractDir . DIRECTORY_SEPARATOR . $subDir . DIRECTORY_SEPARATOR . '*') as $cand) {
+                    if (basename($cand) === $baseName) {
+                        $candidatePaths[] = $cand;
+                        break;
+                    }
+                }
+            }
+            $sourcePath = null;
+            foreach ($candidatePaths as $cand) {
+                if (file_exists($cand)) {
+                    $sourcePath = $cand;
+                    break;
+                }
             }
 
-            if (file_exists($sourcePath)) {
+            if ($sourcePath !== null) {
                 $baseName = basename($zipPath);
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
                 if (empty($originalName))
@@ -197,10 +228,10 @@ if ($hasCsv) {
             }
         }
 
-        // 轉換 ISO 8601 日期
+        // 轉換 ISO 8601 日期 -> MySQL DATETIME
         foreach ($data as $key => $value) {
-            if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
-                $data[$key] = substr($value, 0, 10);
+            if ($value !== null && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
+                $data[$key] = $m[1] . ' ' . $m[2];
             }
         }
 
