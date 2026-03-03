@@ -98,7 +98,19 @@ if ($tempFileFromPreview) {
         outputJson(['error' => $msg, 'debug' => $debug]);
     }
 } else {
-    outputJson(['error' => '請上傳 ZIP 檔案 (no file received)', 'debug' => $debug]);
+    $serverInfo = [
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'max_execution_time' => ini_get('max_execution_time'),
+        'memory_limit' => ini_get('memory_limit'),
+        'CONTENT_LENGTH' => $_SERVER['CONTENT_LENGTH'] ?? 'N/A',
+        'CONTENT_LENGTH_MB' => isset($_SERVER['CONTENT_LENGTH']) ? round($_SERVER['CONTENT_LENGTH'] / 1024 / 1024, 2) . 'MB' : 'N/A',
+        'PHP_version' => PHP_VERSION,
+        'POST_keys' => array_keys($_POST),
+        'FILES_keys' => array_keys($_FILES),
+    ];
+    $debug[] = 'Server info: ' . json_encode($serverInfo);
+    outputJson(['error' => '請上傳 ZIP 檔案 (no file received) - 可能原因：檔案超過 post_max_size(' . ini_get('post_max_size') . ') 或 upload_max_filesize(' . ini_get('upload_max_filesize') . ')', 'debug' => $debug, 'server' => $serverInfo]);
 }
 
 if (empty($zipFile) || !file_exists($zipFile)) {

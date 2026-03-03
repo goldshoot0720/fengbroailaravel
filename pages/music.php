@@ -112,7 +112,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             <div class="inline-edit inline-edit-always">
                 <!-- 防止瀏覽器自動填入：隱藏假帳密欄位 -->
                 <input type="text" style="display:none" autocomplete="username" tabindex="-1" aria-hidden="true">
-                <input type="password" style="display:none" autocomplete="new-password" tabindex="-1" aria-hidden="true">
+                <input type="password" style="display:none" autocomplete="new-password" tabindex="-1"
+                    aria-hidden="true">
                 <div class="form-group">
                     <label>名稱 *</label>
                     <input type="text" class="form-control inline-input" data-field="name" autocomplete="off" required>
@@ -559,14 +560,25 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     alert(msg);
                     location.reload();
                 } else {
-                    alert('匯入失敗: ' + (res.error || '未知錯誤'));
+                    let msg = '匯入失敗: ' + (res.error || '未知錯誤');
+                    if (res.server) {
+                        msg += '\n\n--- 伺服器設定 ---';
+                        msg += '\npost_max_size: ' + res.server.post_max_size;
+                        msg += '\nupload_max_filesize: ' + res.server.upload_max_filesize;
+                        msg += '\nmemory_limit: ' + res.server.memory_limit;
+                        msg += '\nCONTENT_LENGTH: ' + res.server.CONTENT_LENGTH_MB;
+                    }
+                    if (res.debug && res.debug.length > 0) {
+                        msg += '\n\n--- Debug ---\n' + res.debug.slice(-5).join('\n');
+                    }
+                    alert(msg);
                 }
             } catch (e) {
                 // 若無法解析 JSON，通常是伺服器因為檔案太大直接回傳 HTML 錯誤頁
                 if (xhr.status === 0 || xhr.status >= 500) {
                     alert('匯入失敗: 伺服器錯誤，可能是檔案太大超過伺服器限制 (upload_max_filesize)');
                 } else {
-                    alert('匯入失敗: 回應格式錯誤');
+                    alert('匯入失敗: 回應格式錯誤\n\n原始回應(前500字):\n' + xhr.responseText.substring(0, 500));
                 }
             }
         });
