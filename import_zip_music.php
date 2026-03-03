@@ -183,7 +183,10 @@ if ($hasCsv) {
     $fieldMapping = [
         '$id' => 'id',
         '$createdAt' => 'created_at',
-        '$updatedAt' => 'updated_at'
+        '$updatedAt' => 'updated_at',
+        '#filetype' => 'filetype',   // Appwrite 特殊欄位前綴
+        '#category' => 'category',
+        '#language' => 'language',
     ];
 
     // 動態取得 DB 欄位
@@ -274,15 +277,42 @@ if ($hasCsv) {
 
             $zipPath = $data[$fileField];
 
-            // Normalize path separators
-            $zipPathNorm = str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
-            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . $zipPathNorm;
-            if (!file_exists($sourcePath)) {
-                $sourcePath = $tempDir . DIRECTORY_SEPARATOR . $zipPathNorm;
+            // 如果是 HTTP URL，保留原始 URL 不做本地複製
+            if (preg_match('#^https?://#i', $zipPath)) {
+                $debugLog("Row {$lineNum} {$fileField}: keeping URL as-is: " . substr($zipPath, 0, 80));
+                continue;
             }
 
-            if (file_exists($sourcePath)) {
-                $baseName = basename($zipPath);
+            // Normalize path separators
+            $zipPathNorm = str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+
+            // 嘗試多個路徑（優先：csvFile 同目錄，次要：tempDir 根）
+            $candidatePaths = [
+                dirname($csvFile) . DIRECTORY_SEPARATOR . $zipPathNorm,
+                $tempDir . DIRECTORY_SEPARATOR . $zipPathNorm,
+            ];
+
+            // fallback：在對應子目錄中用 basename 搜尋
+            $subDir = strtok($zipPath, '/'); // 'music' 或 'covers'
+            $baseName = basename($zipPath);
+            if ($subDir && $baseName) {
+                foreach (glob($tempDir . DIRECTORY_SEPARATOR . $subDir . DIRECTORY_SEPARATOR . '*') as $candidate) {
+                    if (basename($candidate) === $baseName) {
+                        $candidatePaths[] = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            $sourcePath = null;
+            foreach ($candidatePaths as $candidate) {
+                if (file_exists($candidate)) {
+                    $sourcePath = $candidate;
+                    break;
+                }
+            }
+
+            if ($sourcePath !== null) {
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
                 if (empty($originalName))
                     $originalName = $baseName;
@@ -293,12 +323,14 @@ if ($hasCsv) {
 
                 if (copy($sourcePath, $targetPath)) {
                     $data[$fileField] = $targetPath;
+                    $debugLog("Row {$lineNum} {$fileField}: copied to {$targetPath}");
                 } else {
                     $data[$fileField] = '';
                     $errors[] = "第 {$lineNum} 行: 無法複製檔案 {$baseName}";
                 }
             } else {
                 if (strpos($zipPath, 'music/') === 0 || strpos($zipPath, 'covers/') === 0) {
+                    $debugLog("Row {$lineNum} {$fileField}: file not found: {$zipPath}");
                     $errors[] = "第 {$lineNum} 行: 檔案不存在 {$zipPath}";
                     $data[$fileField] = '';
                 }
@@ -308,14 +340,34 @@ if ($hasCsv) {
         // 處理歌詞欄位 (lyrics/ 資料夾 -> 讀取文字內容)
         if (isset($data['lyrics']) && !empty($data['lyrics']) && strpos($data['lyrics'], 'lyrics/') === 0) {
             $lyricsZipPath = $data['lyrics'];
+            $lyricsBaseName = basename($lyricsZipPath);
             $lyricsNorm = str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
-            $lyricsSourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . $lyricsNorm;
-            if (!file_exists($lyricsSourcePath)) {
-                $lyricsSourcePath = $tempDir . DIRECTORY_SEPARATOR . $lyricsNorm;
+
+            $lyricsCandidates = [
+                dirname($csvFile) . DIRECTORY_SEPARATOR . $lyricsNorm,
+                $tempDir . DIRECTORY_SEPARATOR . $lyricsNorm,
+            ];
+            // fallback：在 lyrics/ 子目錄用 basename 搜尋
+            foreach (glob($tempDir . DIRECTORY_SEPARATOR . 'lyrics' . DIRECTORY_SEPARATOR . '*') as $candidate) {
+                if (basename($candidate) === $lyricsBaseName) {
+                    $lyricsCandidates[] = $candidate;
+                    break;
+                }
             }
-            if (file_exists($lyricsSourcePath)) {
+
+            $lyricsSourcePath = null;
+            foreach ($lyricsCandidates as $candidate) {
+                if (file_exists($candidate)) {
+                    $lyricsSourcePath = $candidate;
+                    break;
+                }
+            }
+
+            if ($lyricsSourcePath !== null) {
                 $data['lyrics'] = file_get_contents($lyricsSourcePath);
+                $debugLog("Row {$lineNum} lyrics: loaded from {$lyricsSourcePath}");
             } else {
+                $debugLog("Row {$lineNum} lyrics: file not found: {$lyricsZipPath}");
                 $data['lyrics'] = '';
             }
         }
@@ -352,7 +404,8 @@ if ($hasCsv) {
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`"; }, array_keys($data));
+                    return "`{$c}`";
+                }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO music (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);

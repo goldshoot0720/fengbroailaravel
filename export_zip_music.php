@@ -38,37 +38,46 @@ $fileMap = [];
 foreach ($data as $rowIdx => $row) {
     $rowFileMap = [];
 
-    // file 欄位 -> music/ 資料夾，命名：流水號_音樂名稱_語言.mp3
+    // file 欄位 -> music/ 資料夾，命名：流水號(零位補齊)_音樂名稱_語言.mp3
     $filePath = $row['file'] ?? '';
-    if ($filePath && file_exists($filePath)) {
+    // 判斷是否為本地檔案（非 URL）
+    $isLocalFile = $filePath && !preg_match('#^https?://#i', $filePath) && file_exists($filePath);
+    if ($isLocalFile) {
         $musicIndex++;
         $name = $row['name'] ?? '';
         $language = $row['language'] ?? '';
         $ext = pathinfo(basename($filePath), PATHINFO_EXTENSION) ?: 'mp3';
         $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $name);
         $safeLang = preg_replace('/[\/\\\\:*?"<>|]/', '_', $language);
-        $zipFileName = $safeLang ? "{$musicIndex}_{$safeName}_{$safeLang}.{$ext}" : "{$musicIndex}_{$safeName}.{$ext}";
+        $zipFileName = $safeLang ? sprintf('%03d', $musicIndex) . "_{$safeName}_{$safeLang}.{$ext}" : sprintf('%03d', $musicIndex) . "_{$safeName}.{$ext}";
         $zipName = "music/{$zipFileName}";
         $rowFileMap['file'] = [
             'zipName' => $zipName,
             'localPath' => $filePath
         ];
+    } elseif ($filePath && preg_match('#^https?://#i', $filePath)) {
+        // URL 就直接保留在 CSV，不加入 ZIP
+        // （不設定 rowFileMap['file']，所以 CSV 欄位會保留原始 URL）
     }
 
     // cover 欄位 -> covers/ 資料夾
     $coverPath = $row['cover'] ?? '';
-    if ($coverPath && file_exists($coverPath) && $coverPath !== $filePath) {
+    $isLocalCover = $coverPath && !preg_match('#^https?://#i', $coverPath) && file_exists($coverPath) && $coverPath !== $filePath;
+    if ($isLocalCover) {
         $coverIndex++;
         $originalName = basename($coverPath);
         $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $originalName);
-        $zipName = "covers/{$coverIndex}_{$safeName}";
+        $ext = pathinfo($safeName, PATHINFO_EXTENSION) ?: 'png';
+        $nameWithoutExt = pathinfo($safeName, PATHINFO_FILENAME);
+        $zipName = 'covers/' . sprintf('%03d', $coverIndex) . "_{$nameWithoutExt}.{$ext}";
         $rowFileMap['cover'] = [
             'zipName' => $zipName,
             'localPath' => $coverPath
         ];
     }
+    // URL 就直接保留在 CSV
 
-    // lyrics 欄位 -> lyrics/ 資料夾，命名：流水號_音樂名稱_語言.txt
+    // lyrics 欄位 -> lyrics/ 資料夾，命名：流水號(零位補齊)_音樂名稱_語言.txt
     $lyrics = $row['lyrics'] ?? '';
     if (!empty($lyrics)) {
         $lyricsIndex++;
@@ -76,7 +85,7 @@ foreach ($data as $rowIdx => $row) {
         $language = $row['language'] ?? '';
         $safeName = preg_replace('/[\/\\\\:*?"<>|]/', '_', $name);
         $safeLang = preg_replace('/[\/\\\\:*?"<>|]/', '_', $language);
-        $zipFileName = $safeLang ? "{$lyricsIndex}_{$safeName}_{$safeLang}.txt" : "{$lyricsIndex}_{$safeName}.txt";
+        $zipFileName = $safeLang ? sprintf('%03d', $lyricsIndex) . "_{$safeName}_{$safeLang}.txt" : sprintf('%03d', $lyricsIndex) . "_{$safeName}.txt";
         $zipName = "lyrics/{$zipFileName}";
 
         // 寫入歌詞到暫存檔
