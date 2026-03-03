@@ -7,7 +7,9 @@ sort($categories);
 ?>
 
 <div class="content-header">
-    <h1>鋒兄文件</h1>
+    <h1>鋒兄文件 <span
+            style="font-size:0.55em;background:#e67e22;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
 </div>
 
 <div class="content-body">

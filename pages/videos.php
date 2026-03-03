@@ -6,7 +6,9 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 ?>
 
 <div class="content-header">
-    <h1>鋒兄影片</h1>
+    <h1>鋒兄影片 <span
+            style="font-size:0.55em;background:#e74c3c;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
 </div>
 
 <div class="content-body">

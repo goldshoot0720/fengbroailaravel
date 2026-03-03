@@ -7,7 +7,9 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
 ?>
 
 <div class="content-header">
-    <h1>鋒兄銀行</h1>
+    <h1>鋒兄銀行 <span
+            style="font-size:0.55em;background:#27ae60;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
 </div>
 
 <div class="content-body">
@@ -74,7 +76,8 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
-                        <input type="number" class="form-control inline-input" data-field="withdrawals" placeholder="提款">
+                        <input type="number" class="form-control inline-input" data-field="withdrawals"
+                            placeholder="提款">
                     </div>
                 </td>
                 <td>
@@ -126,8 +129,10 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                                 <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
                                 <input type="url" class="form-control inline-input" data-field="activity" placeholder="活動網址">
                                 <div class="inline-actions">
-                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
-                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn"
+                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
                                 </div>
                             </div>
                         </td>
@@ -140,7 +145,8 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                         <td>
                             <span class="inline-view"><?php echo formatMoney($item['withdrawals']); ?></span>
                             <div class="inline-edit inline-edit-row">
-                                <input type="number" class="form-control inline-input" data-field="withdrawals" placeholder="提款">
+                                <input type="number" class="form-control inline-input" data-field="withdrawals"
+                                    placeholder="提款">
                             </div>
                         </td>
                         <td>
@@ -156,7 +162,8 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                             <span class="inline-view"><?php echo htmlspecialchars($item['card'] ?? '-'); ?></span>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo $item['site'] ? '<a href="' . htmlspecialchars($item['site']) . '" target="_blank">連結</a>' : '-'; ?></span>
+                            <span
+                                class="inline-view"><?php echo $item['site'] ? '<a href="' . htmlspecialchars($item['site']) . '" target="_blank">連結</a>' : '-'; ?></span>
                         </td>
                         <td>
                             <div class="inline-view"></div>
@@ -362,7 +369,7 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
             });
     }
 
-    
+
     function deleteItem(id) {
         if (confirm('確定要刪除嗎？')) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
@@ -374,4 +381,4 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
         }
     }
 
-    </script>
+</script>

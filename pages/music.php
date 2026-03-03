@@ -89,7 +89,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 ?>
 
 <div class="content-header">
-    <h1>鋒兄音樂</h1>
+    <h1>鋒兄音樂 <span
+            style="font-size:0.55em;background:#3498db;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
 </div>
 
 <div class="content-body">

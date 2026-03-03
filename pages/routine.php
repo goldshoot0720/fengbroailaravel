@@ -5,7 +5,9 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
 ?>
 
 <div class="content-header">
-    <h1>鋒兄例行</h1>
+    <h1>鋒兄例行 <span
+            style="font-size:0.55em;background:#9b59b6;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
 </div>
 
 <div class="content-body">
@@ -48,7 +50,8 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
-                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
+                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
+                            style="resize:vertical;"></textarea>
                     </div>
                 </td>
                 <td>
@@ -127,7 +130,8 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                         <td>
                             <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
                             <div class="inline-edit inline-edit-row">
-                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
+                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
+                                    style="resize:vertical;"></textarea>
                             </div>
                         </td>
                         <td>
@@ -481,7 +485,8 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
             </div>
             <div>
                 <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">備註</label>
-                <textarea id="routineMobileNote" class="form-control" placeholder="備註" rows="5" style="resize:vertical;"></textarea>
+                <textarea id="routineMobileNote" class="form-control" placeholder="備註" rows="5"
+                    style="resize:vertical;"></textarea>
             </div>
             <div>
                 <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">連結</label>
