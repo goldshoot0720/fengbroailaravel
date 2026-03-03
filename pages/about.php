@@ -31,9 +31,9 @@
             <tr>
                 <th>程式碼行數</th>
                 <td>
-                    <strong>15,146</strong> 行
+                    <strong>15,428</strong> 行
                     <span style="color:#888;font-size:0.85rem;margin-left:8px;">
-                        (70 個檔案：.php: 13,494 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 684)
+                        (71 個檔案：.php: 13,776 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 684)
                     </span>
                     <br><small style="color:#aaa;">統計日期：2026-03-03</small>
                 </td>
