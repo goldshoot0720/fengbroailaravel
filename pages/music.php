@@ -199,6 +199,16 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             </div>
         <?php else: ?>
             <?php foreach ($groupedItems as $groupKey => $group): ?>
+                <?php
+                    // 準備各版本的 JSON 供 JS 切換用
+                    $itemsJson = array_map(function($it) {
+                        return [
+                            'id'       => $it['id'],
+                            'language' => $it['language'] ?? '',
+                            'file'     => $it['file'] ?? '',
+                        ];
+                    }, $group['items']);
+                ?>
                 <div class="card" data-id="<?php echo $group['items'][0]['id']; ?>"
                     data-name="<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>"
                     data-category="<?php echo htmlspecialchars($group['category'] ?? '', ENT_QUOTES); ?>"
@@ -207,7 +217,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     data-cover="<?php echo htmlspecialchars($group['cover'] ?? '', ENT_QUOTES); ?>"
                     data-ref="<?php echo htmlspecialchars($group['ref'] ?? '', ENT_QUOTES); ?>"
                     data-note="<?php echo htmlspecialchars($group['note'] ?? '', ENT_QUOTES); ?>"
-                    data-lyrics="<?php echo htmlspecialchars($group['lyrics'] ?? '', ENT_QUOTES); ?>">
+                    data-lyrics="<?php echo htmlspecialchars($group['lyrics'] ?? '', ENT_QUOTES); ?>"
+                    data-editing-id="<?php echo $group['items'][0]['id']; ?>"
+                    data-items="<?php echo htmlspecialchars(json_encode($itemsJson, JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>">
 
                     <div class="inline-view">
                         <div class="card-header">
@@ -289,6 +301,25 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     </div>
 
                     <div class="inline-edit">
+                        <!-- 多語言版本切換 tabs（≥2版本才顯示） -->
+                        <?php if (count($group['items']) > 1): ?>
+                        <div class="music-version-tabs" style="margin-bottom: 14px;">
+                            <div style="font-size:0.8rem; color:#888; margin-bottom:6px;">選擇要編輯的版本：</div>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <?php foreach ($group['items'] as $vi => $vItem): ?>
+                                <button type="button" class="music-edit-tab <?php echo $vi === 0 ? 'active' : ''; ?>"
+                                    data-vid="<?php echo $vItem['id']; ?>"
+                                    data-vlang="<?php echo htmlspecialchars($vItem['language'] ?? '其他', ENT_QUOTES); ?>"
+                                    data-vfile="<?php echo htmlspecialchars($vItem['file'] ?? '', ENT_QUOTES); ?>"
+                                    onclick="switchMusicEditVersion(this)">
+                                    <?php echo htmlspecialchars($vItem['language'] ?: '其他'); ?>
+                                </button>
+                                <?php endforeach; ?>
+                            </div>
+                            <div style="font-size:0.78rem; color:#aaa; margin-top:6px;">* 語言、檔案路徑為各版本獨立欄位；名稱、封面、參考、備註、歌詞為共用欄位（會同步更新所有版本）</div>
+                        </div>
+                        <?php endif; ?>
+
                         <div class="form-group">
                             <label>名稱 *</label>
                             <input type="text" class="form-control inline-input" data-field="name" autocomplete="off" required>
@@ -300,7 +331,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                     list="categoryOptions" placeholder="選擇或輸入分類" autocomplete="off">
                             </div>
                             <div class="form-group" style="flex:1">
-                                <label>語言</label>
+                                <label>語言 <span style="font-size:0.78rem;color:#aaa;">（此版本）</span></label>
                                 <input type="text" class="form-control inline-input" data-field="language"
                                     list="languageOptions" placeholder="選擇或輸入語言" autocomplete="off">
                                 <div style="margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap;">
@@ -313,7 +344,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>檔案路徑</label>
+                            <label>檔案路徑 <span style="font-size:0.78rem;color:#aaa;">（此版本）</span></label>
                             <input type="text" class="form-control inline-input" data-field="file" placeholder="輸入音樂網址"
                                 autocomplete="off" oninput="updateInlineAudioPreview(this)">
                             <div style="margin-top: 4px; display: flex; gap: 6px; align-items: center;">
@@ -349,10 +380,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <textarea class="form-control inline-input" data-field="lyrics" rows="4"></textarea>
                         </div>
                         <div class="inline-actions">
-                            <button type="button" class="btn btn-primary"
-                                onclick="saveInlineEdit('<?php echo $group['items'][0]['id']; ?>')">儲存</button>
-                            <button type="button" class="btn"
-                                onclick="cancelInlineEdit('<?php echo $group['items'][0]['id']; ?>')">取消</button>
+                            <button type="button" class="btn btn-primary" onclick="saveMusicVersionEdit(this)">儲存</button>
+                            <button type="button" class="btn" onclick="cancelMusicVersionEdit(this)">取消</button>
                         </div>
                     </div>
                 </div>
@@ -363,7 +392,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <!-- Lyrics Panel -->
 <div id="lyricsPanel"
-    style="display: none; position: fixed; top: 0; right: 0; width: 350px; height: 100%; background: #fff; box-shadow: -2px 0 10px rgba(0,0,0,0.2); z-index: 9998; overflow-y: auto;">
+    style="display: none; position: fixed; bottom: 72px; right: 0; width: 350px; max-height: calc(100vh - 80px); background: #fff; box-shadow: -2px 0 10px rgba(0,0,0,0.2); z-index: 9998; overflow-y: auto; border-radius: 12px 0 0 0; transition: all 0.3s ease;">
     <div style="padding: 20px;">
         <div
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
@@ -470,19 +499,129 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
     function fillInlineInputs(card) {
         const data = card.dataset;
+        // 先填入卡片 dataset 的預設值（共用欄位）
         card.querySelectorAll('[data-field]').forEach(input => {
             const field = input.dataset.field;
             input.value = data[field] || data[field + 'Value'] || '';
             input.classList.remove('error', 'success');
         });
+        // 若有多語言 tabs，以第一個 tab 的版本資料覆蓋 language/file
+        const firstTab = card.querySelector('.music-edit-tab.active') || card.querySelector('.music-edit-tab');
+        if (firstTab) {
+            const langInput = card.querySelector('[data-field="language"]');
+            const fileInput = card.querySelector('[data-field="file"]');
+            if (langInput) langInput.value = firstTab.dataset.vlang || '';
+            if (fileInput) { fileInput.value = firstTab.dataset.vfile || ''; }
+            card.dataset.editingId = firstTab.dataset.vid;
+        } else {
+            card.dataset.editingId = data.id;
+        }
         const fileInput = card.querySelector('[data-field="file"]');
         if (fileInput) updateInlineAudioPreview(fileInput);
         const coverInput = card.querySelector('[data-field="cover"]');
         if (coverInput) updateInlineMusicCoverPreview(coverInput);
     }
 
+    // 切換版本 tab
+    function switchMusicEditVersion(tabBtn) {
+        const card = tabBtn.closest('.card');
+        card.querySelectorAll('.music-edit-tab').forEach(t => t.classList.remove('active'));
+        tabBtn.classList.add('active');
+        // 更新 editingId
+        card.dataset.editingId = tabBtn.dataset.vid;
+        // 只覆蓋 language / file（版本獨立欄位）
+        const langInput = card.querySelector('[data-field="language"]');
+        const fileInput = card.querySelector('[data-field="file"]');
+        if (langInput) langInput.value = tabBtn.dataset.vlang || '';
+        if (fileInput) {
+            fileInput.value = tabBtn.dataset.vfile || '';
+            updateInlineAudioPreview(fileInput);
+        }
+    }
+
+    // 儲存目前版本（先更新此版本的 language/file，再同步共用欄位到所有同名版本）
+    function saveMusicVersionEdit(btn) {
+        const card = btn.closest('.card');
+        const editingId = card.dataset.editingId || card.dataset.id;
+        const allItems = card.dataset.items ? JSON.parse(card.dataset.items) : [{ id: editingId }];
+
+        // 讀取表單值
+        const getVal = field => {
+            const el = card.querySelector(`[data-field="${field}"]`);
+            return el ? el.value : '';
+        };
+
+        // 版本獨立欄位：language + file
+        const versionData = {
+            language: getVal('language'),
+            file: getVal('file'),
+        };
+
+        // 共用欄位：name / category / cover / ref / note / lyrics
+        const sharedData = {
+            name: getVal('name'),
+            category: getVal('category'),
+            cover: getVal('cover'),
+            ref: getVal('ref'),
+            note: getVal('note'),
+            lyrics: getVal('lyrics'),
+        };
+
+        if (!sharedData.name) { alert('名稱不能為空'); return; }
+
+        // 建立全部更新請求
+        const requests = allItems.map(item => {
+            const payload = { ...sharedData };
+            if (item.id === editingId) {
+                // 目前版本：版本獨立欄位一起儲存
+                payload.language = versionData.language;
+                payload.file = versionData.file;
+            }
+            return fetch(`api.php?action=update&table=${TABLE}&id=${item.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+        });
+
+        Promise.all(requests).then(results => {
+            const failed = results.filter(r => !r.success);
+            if (failed.length) {
+                alert('部分儲存失敗: ' + JSON.stringify(failed));
+            } else {
+                const url = new URL(location.href);
+                url.searchParams.set('_t', Date.now());
+                location.replace(url.toString());
+            }
+        }).catch(err => alert('儲存失敗: ' + err.message));
+    }
+
+    // 取消編輯
+    function cancelMusicVersionEdit(btn) {
+        const card = btn.closest('.card');
+        cancelInlineEdit(card.dataset.id);
+    }
+
     function closeLyricsModal() {
         document.getElementById('lyricsPanel').style.display = 'none';
+        const btn = document.getElementById('lyricsToggleBtn');
+        if (btn) { btn.style.background = 'rgba(255,255,255,0.2)'; btn.title = '顯示歌詞'; }
+    }
+
+    let _currentLyrics = '';
+
+    function toggleLyricsPanel() {
+        const panel = document.getElementById('lyricsPanel');
+        const btn = document.getElementById('lyricsToggleBtn');
+        const isHidden = panel.style.display === 'none' || panel.style.display === '';
+        if (isHidden) {
+            if (!_currentLyrics) { alert('目前歌曲沒有歌詞'); return; }
+            panel.style.display = 'block';
+            if (btn) { btn.style.background = 'rgba(255,255,255,0.45)'; btn.title = '隱藏歌詞'; }
+        } else {
+            panel.style.display = 'none';
+            if (btn) { btn.style.background = 'rgba(255,255,255,0.2)'; btn.title = '顯示歌詞'; }
+        }
     }
 
     function viewLyrics(id) {
@@ -615,17 +754,23 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 .then(res => {
                     if (res.success && res.data) {
                         const lyrics = (res.data.lyrics || '').trim();
+                        _currentLyrics = lyrics;
+                        const btn = document.getElementById('lyricsToggleBtn');
                         if (lyrics) {
                             document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
                             document.getElementById('lyricsContent').textContent = lyrics;
-                            document.getElementById('lyricsPanel').style.display = 'block';
+                            if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
                         } else {
                             document.getElementById('lyricsPanel').style.display = 'none';
+                            if (btn) { btn.style.opacity = '0.4'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.2)'; }
                         }
                     }
                 });
         } else {
+            _currentLyrics = '';
             document.getElementById('lyricsPanel').style.display = 'none';
+            const btn = document.getElementById('lyricsToggleBtn');
+            if (btn) { btn.style.opacity = '0.4'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.2)'; }
         }
     }
 
@@ -652,15 +797,14 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             `<button type="button" class="two-layer-lang-btn ${i === 0 ? 'active' : ''}" data-lang="${lang}" onclick="selectTwoLayerLang('${lang}')">${getLangIcon(lang)} ${lang}</button>`
         ).join('');
         if (langs.length > 0) selectTwoLayerLang(langs[0]);
-        // 立即顯示歌詞
+        // 預載歌詞（不自動顯示，由播放列按鈕控制）
         const lyricsStr = (lyrics || '').trim();
+        _currentLyrics = lyricsStr;
         if (lyricsStr) {
             document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞';
             document.getElementById('lyricsContent').textContent = lyricsStr;
-            document.getElementById('lyricsPanel').style.display = 'block';
-        } else {
-            document.getElementById('lyricsPanel').style.display = 'none';
         }
+        document.getElementById('lyricsPanel').style.display = 'none';
         document.getElementById('twoLayerModal').style.display = 'flex';
     }
 
@@ -704,14 +848,19 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <!-- 底部播放列 -->
 <div id="musicPlayerBar"
-    style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:15px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
-    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:15px;">
+    style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:12px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
+    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:12px;">
         <button onclick="closeMusicPlayer()"
-            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem;">&times;</button>
+            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem; flex-shrink:0;">&times;</button>
         <div id="musicPlayerTitle"
-            style="color:#fff; font-weight:bold; min-width:150px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            style="color:#fff; font-weight:bold; min-width:120px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0;">
         </div>
-        <audio id="musicPlayer" controls style="flex:1; height:40px;">您的瀏覽器不支援音樂播放</audio>
+        <audio id="musicPlayer" controls style="flex:1; height:40px; min-width:0;">您的瀏覽器不支援音樂播放</audio>
+        <button id="lyricsToggleBtn" onclick="toggleLyricsPanel()" title="顯示歌詞"
+            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.1rem; flex-shrink:0; opacity:0.4; transition:all 0.2s;"
+            disabled>
+            <i class="fa-solid fa-file-lines"></i>
+        </button>
     </div>
 </div>
 
@@ -787,5 +936,34 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         background: rgba(255, 255, 255, 0.3);
         border-color: #fff;
         font-weight: 600;
+    }
+    /* 音樂編輯版本 tabs */
+    .music-version-tabs {
+        background: #f8f4ff;
+        border: 1px solid #e4d8ff;
+        border-radius: 10px;
+        padding: 12px 14px;
+    }
+
+    .music-edit-tab {
+        padding: 5px 14px;
+        border-radius: 20px;
+        border: 1.5px solid #b39ddb;
+        background: transparent;
+        color: #7b1fa2;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .music-edit-tab:hover {
+        background: #f3e5f5;
+    }
+
+    .music-edit-tab.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        border-color: #764ba2;
     }
 </style>
