@@ -1,0 +1,13 @@
+# Override PHP limits for large file uploads (required for music ZIP import)
+<IfModule mod_php.c>
+    php_value memory_limit 512M
+    php_value upload_max_filesize 300M
+    php_value post_max_size 300M
+    php_value max_execution_time 600
+    php_value max_input_time 600
+</IfModule>
+
+# For Apache 2.4+ LimitRequestBody (web server layer upload limit)
+<IfModule !mod_proxy.c>
+    LimitRequestBody 314572800
+</IfModule>

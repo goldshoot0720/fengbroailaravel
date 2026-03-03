@@ -1,9 +1,14 @@
 <?php
 ob_start();
 ini_set('memory_limit', '512M');
-set_time_limit(0);
-error_reporting(0);
+set_time_limit(300);
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
+
+$debug = [];
+$debugLog = function ($msg) use (&$debug) {
+    $debug[] = '[' . date('H:i:s') . '] ' . $msg;
+};
 
 function outputJson($data)
 {
@@ -14,7 +19,6 @@ function outputJson($data)
 }
 
 require_once 'includes/functions.php';
-require_once 'includes/PureZip.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     outputJson(['error' => '請使用 POST 方法']);
@@ -25,45 +29,119 @@ $tempFileFromPreview = $_POST['tempFile'] ?? '';
 $zipFile = '';
 $cleanupTempFile = false;
 
-if ($tempFileFromPreview && file_exists($tempFileFromPreview) && strpos(realpath($tempFileFromPreview), realpath('uploads/temp')) === 0) {
-    $zipFile = $tempFileFromPreview;
-    $cleanupTempFile = true;
+$debugLog('POST keys: ' . implode(', ', array_keys($_POST)));
+$debugLog('FILES keys: ' . implode(', ', array_keys($_FILES)));
+$debugLog('PHP memory_limit: ' . ini_get('memory_limit'));
+$debugLog('upload_max_filesize: ' . ini_get('upload_max_filesize'));
+$debugLog('post_max_size: ' . ini_get('post_max_size'));
+$debugLog('ZipArchive available: ' . (class_exists('ZipArchive') ? 'YES' : 'NO'));
+
+if ($tempFileFromPreview) {
+    $debugLog('tempFile from preview: ' . $tempFileFromPreview);
+    $realTemp = realpath($tempFileFromPreview);
+    $uploadsTemp = realpath('uploads/temp');
+    $debugLog('realpath(tempFile)=' . ($realTemp ?: 'NOT FOUND'));
+    $debugLog('realpath(uploads/temp)=' . ($uploadsTemp ?: 'NOT FOUND'));
+    if ($realTemp && $uploadsTemp && strpos($realTemp, $uploadsTemp) === 0) {
+        $zipFile = $tempFileFromPreview;
+        $cleanupTempFile = true;
+        $debugLog('Using tempFile from preview: ' . $zipFile);
+    } else {
+        $debugLog('tempFile path security check FAILED');
+        outputJson(['error' => '暫存檔案路徑不安全或不存在', 'debug' => $debug]);
+    }
 } elseif (isset($_FILES['file'])) {
     $uploadErr = $_FILES['file']['error'];
+    $debugLog('File upload error code: ' . $uploadErr . ', size: ' . ($_FILES['file']['size'] ?? 'N/A') . ', name: ' . ($_FILES['file']['name'] ?? 'N/A'));
     if ($uploadErr === UPLOAD_ERR_OK) {
         $zipFile = $_FILES['file']['tmp_name'];
+        $debugLog('Direct file upload OK: ' . $zipFile . ' (exists=' . (file_exists($zipFile) ? 'yes' : 'no') . ', size=' . (file_exists($zipFile) ? filesize($zipFile) : 'N/A') . ')');
+    } elseif ($uploadErr === UPLOAD_ERR_INI_SIZE || $uploadErr === UPLOAD_ERR_FORM_SIZE) {
+        outputJson(['error' => '檔案太大，超過伺服器上傳限制 (upload_max_filesize=' . ini_get('upload_max_filesize') . ', post_max_size=' . ini_get('post_max_size') . ')', 'debug' => $debug]);
     } else {
         $errMessages = [
-            UPLOAD_ERR_INI_SIZE => '檔案太大，超過伺服器上傳限制（upload_max_filesize）',
-            UPLOAD_ERR_FORM_SIZE => '檔案太大，超過表單限制',
             UPLOAD_ERR_PARTIAL => '檔案只上傳部分，請重試',
             UPLOAD_ERR_NO_FILE => '未選擇檔案',
             UPLOAD_ERR_NO_TMP_DIR => '伺服器暫存目錄不存在',
             UPLOAD_ERR_CANT_WRITE => '伺服器無法寫入檔案',
         ];
         $msg = $errMessages[$uploadErr] ?? "上傳失敗（錯誤碼: {$uploadErr}）";
-        outputJson(['error' => $msg]);
+        outputJson(['error' => $msg, 'debug' => $debug]);
     }
 } else {
-    outputJson(['error' => '請上傳 ZIP 檔案']);
+    outputJson(['error' => '請上傳 ZIP 檔案 (no file received)', 'debug' => $debug]);
 }
+
+if (empty($zipFile) || !file_exists($zipFile)) {
+    outputJson(['error' => '上傳的 ZIP 檔案不存在: ' . $zipFile, 'debug' => $debug]);
+}
+
+$debugLog('ZIP file size: ' . filesize($zipFile) . ' bytes (' . round(filesize($zipFile) / 1024 / 1024, 2) . ' MB)');
 
 // Create temp directory for extraction
 $tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'import_music_' . uniqid();
-if (!is_dir($tempDir)) {
-    mkdir($tempDir, 0755, true);
+if (!mkdir($tempDir, 0755, true)) {
+    outputJson(['error' => '無法建立暫存目錄: ' . $tempDir, 'debug' => $debug]);
+}
+$debugLog('Temp dir: ' . $tempDir);
+
+// Try to open the ZIP file
+$debugLog('Checking ZIP magic bytes...');
+$fh = fopen($zipFile, 'rb');
+$magic = bin2hex(fread($fh, 4));
+fclose($fh);
+$debugLog('ZIP magic bytes (hex): ' . $magic . ' (expect: 504b0304)');
+
+// Use ZipArchive if available (preferred), otherwise fall back to PureZipExtract
+$allZipFiles = [];
+$extractOk = false;
+
+if (class_exists('ZipArchive')) {
+    $zip = new ZipArchive();
+    $openResult = $zip->open($zipFile);
+    $debugLog('ZipArchive::open result: ' . ($openResult === true ? 'SUCCESS' : 'FAILED (code=' . $openResult . ')'));
+    if ($openResult === true) {
+        $debugLog('ZIP has ' . $zip->numFiles . ' entries');
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $allZipFiles[] = $zip->getNameIndex($i);
+        }
+        $debugLog('ZIP entries (first 20): ' . implode(', ', array_slice($allZipFiles, 0, 20)));
+        $zip->extractTo($tempDir);
+        $zip->close();
+        $extractOk = true;
+        $debugLog('ZipArchive extraction complete');
+    } else {
+        $debugLog('ZipArchive failed, will try PureZip fallback');
+    }
 }
 
-// Extract ZIP using pure PHP
-$zip = new PureZipExtract();
-if (!$zip->open($zipFile)) {
-    cleanupDir($tempDir);
-    if ($cleanupTempFile)
-        @unlink($zipFile);
-    outputJson(['error' => '無法開啟 ZIP 檔案']);
+if (!$extractOk) {
+    // Fallback: PureZip
+    $debugLog('Trying PureZip fallback...');
+    require_once 'includes/PureZip.php';
+    $zip2 = new PureZipExtract();
+    if (!$zip2->open($zipFile)) {
+        cleanupDir($tempDir);
+        if ($cleanupTempFile)
+            @unlink($zipFile);
+        outputJson(['error' => '無法開啟 ZIP 檔案（ZipArchive 和 PureZip 均失敗）。Magic bytes: 0x' . $magic, 'debug' => $debug]);
+    }
+    $zip2->extractTo($tempDir);
+    $allZipFiles = $zip2->getFiles();
+    $extractOk = true;
+    $debugLog('PureZip extraction OK, files: ' . count($allZipFiles));
 }
 
-$zip->extractTo($tempDir);
+// List extracted files
+$extractedList = [];
+$rit = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS));
+foreach ($rit as $f) {
+    if ($f->isFile()) {
+        $rel = substr($f->getPathname(), strlen($tempDir) + 1);
+        $extractedList[] = str_replace('\\', '/', $rel);
+    }
+}
+$debugLog('Extracted ' . count($extractedList) . ' files. First 20: ' . implode(', ', array_slice($extractedList, 0, 20)));
 
 // Copy files to uploads directory
 $uploadDir = 'uploads';
@@ -86,16 +164,19 @@ foreach (glob($tempDir . DIRECTORY_SEPARATOR . '*.csv') as $f) {
 foreach (glob($tempDir . DIRECTORY_SEPARATOR . '*' . DIRECTORY_SEPARATOR . '*.csv') as $f) {
     $searchPaths[] = $f;
 }
+$debugLog('CSV search paths (' . count($searchPaths) . '): ' . implode(', ', $searchPaths));
 
 foreach ($searchPaths as $path) {
-    if (file_exists($path)) {
+    $exists = file_exists($path);
+    $debugLog('CSV check: ' . $path . ' => ' . ($exists ? 'EXISTS' : 'not found'));
+    if ($exists) {
         $csvFile = $path;
         break;
     }
 }
 
-// 判斷模式：有 CSV = Appwrite 結構，無 CSV = 純音樂 ZIP
 $hasCsv = ($csvFile !== null);
+$debugLog('Mode: ' . ($hasCsv ? 'Appwrite CSV mode, CSV=' . $csvFile : 'Plain ZIP mode (no CSV)'));
 
 if ($hasCsv) {
     // ===== Appwrite 格式：CSV + music/ + covers/ + lyrics/ 資料夾 =====
@@ -105,39 +186,52 @@ if ($hasCsv) {
         '$updatedAt' => 'updated_at'
     ];
 
-    // 動態取得資料表欄位，自動相容 Appwrite 匯出（不論 CSV 有哪些額外欄位都會被忽略）
+    // 動態取得 DB 欄位
     $dbColumns = [];
-    $colStmt = $pdo->query("SHOW COLUMNS FROM music");
-    foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
-        $dbColumns[] = $col['Field'];
+    try {
+        $colStmt = $pdo->query("SHOW COLUMNS FROM music");
+        foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+            $dbColumns[] = $col['Field'];
+        }
+        $debugLog('DB columns in music: ' . implode(', ', $dbColumns));
+    } catch (PDOException $e) {
+        outputJson(['error' => 'DB 錯誤: ' . $e->getMessage(), 'debug' => $debug]);
     }
 
     $handle = fopen($csvFile, 'r');
     $bom = fread($handle, 3);
     if ($bom !== "\xEF\xBB\xBF") {
         rewind($handle);
+        $debugLog('No BOM');
+    } else {
+        $debugLog('BOM detected and skipped');
     }
 
-    $headers = fgetcsv($handle, 0, ',', '"', '');
+    $rawHeaders = fgetcsv($handle, 0, ',', '"', '');
+    $debugLog('Raw CSV headers (' . count((array) $rawHeaders) . '): ' . json_encode($rawHeaders, JSON_UNESCAPED_UNICODE));
+    $headers = $rawHeaders;
+
     if (!$headers) {
         fclose($handle);
         cleanupDir($tempDir);
         if ($cleanupTempFile)
             @unlink($zipFile);
-        outputJson(['error' => 'CSV 格式錯誤']);
+        outputJson(['error' => 'CSV 格式錯誤（無法讀取標頭列）', 'debug' => $debug]);
     }
 
-    // 把 Appwrite 欄位名稱轉換成 DB 欄位名稱
+    // 把 Appwrite 欄位轉換成 DB 欄位名稱
     $headers = array_map(function ($h) use ($fieldMapping) {
         $h = trim($h);
         return $fieldMapping[$h] ?? $h;
     }, $headers);
+    $debugLog('Mapped headers: ' . json_encode($headers, JSON_UNESCAPED_UNICODE));
 
-    // 只保留資料庫中實際存在的欄位，其餘全部忽略
+    // 只保留 DB 中存在的欄位
     $ignoredIndexes = [];
     foreach ($headers as $i => $h) {
         if (!in_array($h, $dbColumns)) {
             $ignoredIndexes[] = $i;
+            $debugLog("Ignoring CSV col [{$i}]: {$h} (not in DB)");
         }
     }
     foreach ($ignoredIndexes as $i) {
@@ -145,6 +239,7 @@ if ($hasCsv) {
     }
     $headers = array_values($headers);
     $headerCount = count($headers);
+    $debugLog('Final headers (' . $headerCount . '): ' . implode(', ', $headers));
 
     $lineNum = 1;
     $fileFields = ['file', 'cover'];
@@ -158,7 +253,7 @@ if ($hasCsv) {
         $row = array_values($row);
 
         if (count($row) !== $headerCount) {
-            $errors[] = "第 {$lineNum} 行: 欄位數不匹配";
+            $errors[] = "第 {$lineNum} 行: 欄位數不匹配 (expected {$headerCount}, got " . count($row) . ")";
             continue;
         }
 
@@ -177,16 +272,17 @@ if ($hasCsv) {
             if (!isset($data[$fileField]) || empty($data[$fileField]))
                 continue;
 
-            $zipPath = $data[$fileField]; // e.g. "music/1_songname_zh.mp3" or "covers/1_thumb.png"
+            $zipPath = $data[$fileField];
 
-            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            // Normalize path separators
+            $zipPathNorm = str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+            $sourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . $zipPathNorm;
             if (!file_exists($sourcePath)) {
-                $sourcePath = $tempDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $zipPath);
+                $sourcePath = $tempDir . DIRECTORY_SEPARATOR . $zipPathNorm;
             }
 
             if (file_exists($sourcePath)) {
                 $baseName = basename($zipPath);
-                // 移除流水號前綴 (e.g. "1_songname_zh.mp3" -> "songname_zh.mp3")
                 $originalName = preg_replace('/^\d+_/', '', $baseName);
                 if (empty($originalName))
                     $originalName = $baseName;
@@ -202,8 +298,8 @@ if ($hasCsv) {
                     $errors[] = "第 {$lineNum} 行: 無法複製檔案 {$baseName}";
                 }
             } else {
-                // 如果是相對路徑但檔案不存在，清空
                 if (strpos($zipPath, 'music/') === 0 || strpos($zipPath, 'covers/') === 0) {
+                    $errors[] = "第 {$lineNum} 行: 檔案不存在 {$zipPath}";
                     $data[$fileField] = '';
                 }
             }
@@ -212,9 +308,10 @@ if ($hasCsv) {
         // 處理歌詞欄位 (lyrics/ 資料夾 -> 讀取文字內容)
         if (isset($data['lyrics']) && !empty($data['lyrics']) && strpos($data['lyrics'], 'lyrics/') === 0) {
             $lyricsZipPath = $data['lyrics'];
-            $lyricsSourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
+            $lyricsNorm = str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
+            $lyricsSourcePath = dirname($csvFile) . DIRECTORY_SEPARATOR . $lyricsNorm;
             if (!file_exists($lyricsSourcePath)) {
-                $lyricsSourcePath = $tempDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $lyricsZipPath);
+                $lyricsSourcePath = $tempDir . DIRECTORY_SEPARATOR . $lyricsNorm;
             }
             if (file_exists($lyricsSourcePath)) {
                 $data['lyrics'] = file_get_contents($lyricsSourcePath);
@@ -255,8 +352,7 @@ if ($hasCsv) {
                 $stmt->execute($values);
             } else {
                 $columns = array_map(function ($c) {
-                    return "`{$c}`";
-                }, array_keys($data));
+                    return "`{$c}`"; }, array_keys($data));
                 $placeholders = array_fill(0, count($data), '?');
                 $sql = "INSERT INTO music (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
                 $stmt = $pdo->prepare($sql);
@@ -269,32 +365,39 @@ if ($hasCsv) {
     }
 
     fclose($handle);
+    $debugLog("CSV processing done: imported={$imported}, errors=" . count($errors));
 
 } else {
     // ===== 舊格式：純音樂 ZIP（無 CSV） =====
     $musicExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'wma'];
-    $files = glob($tempDir . DIRECTORY_SEPARATOR . '*');
+    $allFiles = [];
 
-    foreach ($files as $file) {
-        if (!is_file($file))
-            continue;
+    // Recurse through extracted files
+    $rit2 = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($tempDir, RecursiveDirectoryIterator::SKIP_DOTS));
+    foreach ($rit2 as $f) {
+        if ($f->isFile())
+            $allFiles[] = $f->getPathname();
+    }
 
+    $debugLog('Plain ZIP mode: found ' . count($allFiles) . ' files total');
+
+    foreach ($allFiles as $file) {
         $fileName = basename($file);
 
-        // Skip cover files
+        // Skip cover files and hidden files
         if (strpos($fileName, 'cover_') === 0)
+            continue;
+        if (strpos($fileName, '.') === 0)
+            continue;
+        if (strpos(str_replace('\\', '/', $file), '__MACOSX') !== false)
             continue;
 
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-        // Skip non-music files
         if (!in_array($ext, $musicExtensions))
             continue;
 
         // Copy to uploads
         $destPath = $uploadDir . '/' . $fileName;
-
-        // Handle duplicate filenames
         if (file_exists($destPath)) {
             $info = pathinfo($fileName);
             $base = $info['filename'];
@@ -311,10 +414,10 @@ if ($hasCsv) {
             continue;
         }
 
-        // Create database record
+        // Create DB record
         $name = pathinfo($fileName, PATHINFO_FILENAME);
         $filePath = 'uploads/' . $fileName;
-        $filetype = $ext; // derive filetype from extension
+        $filetype = $ext;
 
         try {
             $id = generateUUID();
@@ -326,9 +429,11 @@ if ($hasCsv) {
             $errors[] = "$fileName: " . $e->getMessage();
         }
     }
+
+    $debugLog("Plain ZIP done: imported={$imported}, errors=" . count($errors));
 }
 
-// 清理
+// Cleanup
 cleanupDir($tempDir);
 if ($cleanupTempFile)
     @unlink($zipFile);
@@ -336,7 +441,8 @@ if ($cleanupTempFile)
 outputJson([
     'success' => true,
     'imported' => $imported,
-    'errors' => $errors
+    'errors' => $errors,
+    'debug' => $debug
 ]);
 
 function cleanupDir($dir)
