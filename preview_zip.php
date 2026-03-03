@@ -22,19 +22,42 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     outputJson(['success' => false, 'error' => '請使用 POST 方法']);
 }
 
-$type = trim($_POST['type'] ?? '');
+// 優先從 URL 查詢參數取得 type（JS 用 ?type=xxx 傳遞，較可靠）
+// 再 fallback 到 POST body
+$type = trim($_GET['type'] ?? $_POST['type'] ?? '');
 // Normalize plural forms (e.g. 'documents' -> 'document')
 $type = rtrim($type, 's'); // 'documents' -> 'document', etc.
-// Re-apply 's' for types that legitimately end with 's'
-// But none of our types do, so this is safe
 
 $allowedTypes = ['image', 'music', 'document', 'video', 'podcast', 'article', 'note'];
 
-if (!in_array($type, $allowedTypes)) {
-    outputJson(['success' => false, 'error' => '無效的類型: ' . $type . ' (允許: ' . implode(', ', $allowedTypes) . ')']);
-}
+// 延遲驗證 type（不在此處立即退出），先處理 tempFile/file，最後再驗證
 
-if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+// ===== 支援 tempFile（分段上傳後組裝）或直接 file 上傳 =====
+$tempFileFromChunk = $_POST['tempFile'] ?? '';
+$tempFile = '';
+$isChunkedTemp = false;
+
+if ($tempFileFromChunk) {
+    // 安全性驗證：必須在 uploads/temp/ 目錄下
+    $realTemp = realpath($tempFileFromChunk);
+    $uploadsTemp = realpath('uploads/temp');
+    if ($realTemp && $uploadsTemp && strpos($realTemp, $uploadsTemp) === 0 && file_exists($realTemp)) {
+        $tempFile = $tempFileFromChunk;
+        $isChunkedTemp = true; // 已組裝，不需再搬移；也不在此刪除
+    } else {
+        outputJson(['success' => false, 'error' => '暫存檔案路徑不安全或不存在']);
+    }
+} elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+    // 直接上傳 → 搬到 uploads/temp/
+    $tempDir = 'uploads/temp/';
+    if (!is_dir($tempDir)) {
+        mkdir($tempDir, 0755, true);
+    }
+    $tempFile = $tempDir . 'zip_' . uniqid() . '.zip';
+    if (!move_uploaded_file($_FILES['file']['tmp_name'], $tempFile)) {
+        outputJson(['success' => false, 'error' => '無法儲存暫存檔案']);
+    }
+} else {
     $errCode = $_FILES['file']['error'] ?? -1;
     $errMsgs = [
         UPLOAD_ERR_INI_SIZE => '檔案太大，超過 upload_max_filesize=' . ini_get('upload_max_filesize'),
@@ -47,15 +70,17 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
     outputJson(['success' => false, 'error' => $errMsgs[$errCode] ?? "上傳失敗 (code=$errCode, post_max_size=" . ini_get('post_max_size') . ")"]);
 }
 
-// Save ZIP to temp directory (so we can re-use it later for import)
-$tempDir = 'uploads/temp/';
-if (!is_dir($tempDir)) {
-    mkdir($tempDir, 0755, true);
-}
-
-$tempFile = $tempDir . 'zip_' . uniqid() . '.zip';
-if (!move_uploaded_file($_FILES['file']['tmp_name'], $tempFile)) {
-    outputJson(['success' => false, 'error' => '無法儲存暫存檔案']);
+// ===== 驗證 type（延遲到 file 解析後，方便 debug）=====
+if (!in_array($type, $allowedTypes)) {
+    outputJson([
+        'success' => false,
+        'error' => '無效的類型: "' . $type . '" (允許: ' . implode(', ', $allowedTypes) . ')',
+        'debug' => [
+            'post_keys' => array_keys($_POST),
+            'type_raw' => $_POST['type'] ?? '(未傳入)',
+            'tempFile' => $_POST['tempFile'] ?? '(未傳入)',
+        ]
+    ]);
 }
 
 // Use ZipArchive (preferred: streams from disk, no RAM load)

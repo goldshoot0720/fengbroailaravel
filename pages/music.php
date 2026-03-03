@@ -531,65 +531,56 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         modal.style.display = 'flex';
         progressBar.style.width = '0%';
         progressText.textContent = '0%';
-        fileName.textContent = file.name;
+        fileName.textContent = file.name + ' — 準備分段上傳...';
 
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('file', file);
-
-        xhr.upload.addEventListener('progress', function (e) {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
+        uploadChunked(
+            file,
+            // onProgress
+            function (done, total, percent) {
                 progressBar.style.width = percent + '%';
                 progressText.textContent = percent + '%';
-                const loaded = formatFileSize(e.loaded);
-                const total = formatFileSize(e.total);
-                fileName.textContent = file.name + ' (' + loaded + ' / ' + total + ')';
+                fileName.textContent = file.name + ' — 上傳第 ' + done + ' / ' + total + ' 片';
+            },
+            // onDone: tempFile ready, now trigger import
+            function (tempFile) {
+                fileName.textContent = file.name + ' — 正在匯入...';
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+
+                const fd = new FormData();
+                fd.append('tempFile', tempFile);
+
+                fetch('import_zip_music.php', { method: 'POST', body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        modal.style.display = 'none';
+                        if (res.success) {
+                            let msg = '匯入完成！\n成功匯入: ' + res.imported + ' 首音樂';
+                            if (res.errors && res.errors.length > 0) {
+                                msg += '\n\n錯誤明細:\n' + res.errors.join('\n');
+                            }
+                            alert(msg);
+                            location.reload();
+                        } else {
+                            let msg = '匯入失敗: ' + (res.error || '未知錯誤');
+                            if (res.debug && res.debug.length > 0) {
+                                msg += '\n\n--- Debug ---\n' + res.debug.slice(-5).join('\n');
+                            }
+                            alert(msg);
+                        }
+                    })
+                    .catch(function (e) {
+                        modal.style.display = 'none';
+                        alert('匯入失敗: 網路錯誤 — ' + e.message);
+                    });
+            },
+            // onError
+            function (errMsg) {
+                modal.style.display = 'none';
+                alert('上傳失敗: ' + errMsg);
             }
-        });
+        );
 
-        xhr.addEventListener('load', function () {
-            modal.style.display = 'none';
-            try {
-                const res = JSON.parse(xhr.responseText);
-                if (res.success) {
-                    let msg = '匯入完成！\n成功匯入: ' + res.imported + ' 首音樂';
-                    if (res.errors && res.errors.length > 0) {
-                        msg += '\n\n錯誤明細:\n' + res.errors.join('\n');
-                    }
-                    alert(msg);
-                    location.reload();
-                } else {
-                    let msg = '匯入失敗: ' + (res.error || '未知錯誤');
-                    if (res.server) {
-                        msg += '\n\n--- 伺服器設定 ---';
-                        msg += '\npost_max_size: ' + res.server.post_max_size;
-                        msg += '\nupload_max_filesize: ' + res.server.upload_max_filesize;
-                        msg += '\nmemory_limit: ' + res.server.memory_limit;
-                        msg += '\nCONTENT_LENGTH: ' + res.server.CONTENT_LENGTH_MB;
-                    }
-                    if (res.debug && res.debug.length > 0) {
-                        msg += '\n\n--- Debug ---\n' + res.debug.slice(-5).join('\n');
-                    }
-                    alert(msg);
-                }
-            } catch (e) {
-                // 若無法解析 JSON，通常是伺服器因為檔案太大直接回傳 HTML 錯誤頁
-                if (xhr.status === 0 || xhr.status >= 500) {
-                    alert('匯入失敗: 伺服器錯誤，可能是檔案太大超過伺服器限制 (upload_max_filesize)');
-                } else {
-                    alert('匯入失敗: 回應格式錯誤\n\n原始回應(前500字):\n' + xhr.responseText.substring(0, 500));
-                }
-            }
-        });
-
-        xhr.addEventListener('error', function () {
-            modal.style.display = 'none';
-            alert('匯入失敗: 網路錯誤');
-        });
-
-        xhr.open('POST', 'import_zip_music.php');
-        xhr.send(formData);
         input.value = '';
     }
 

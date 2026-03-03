@@ -1,47 +1,49 @@
-    </div>
-    <script src="assets/js/main.js"></script>
-    <script src="assets/js/inline-edit.js"></script>
+</div>
+<script src="assets/js/main.js"></script>
+<script src="assets/js/inline-edit.js"></script>
 
-    <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
-    <script>
+<!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
+<script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').then(function(reg) {
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
             // ── Periodic Background Sync：定期背景執行（Chrome Android 80+）────
             // 即使 App 關閉，手機也會定期喚醒 Service Worker
             if ('periodicSync' in reg) {
                 // 請求 background-periodic-sync 權限後才能註冊
-                navigator.permissions.query({ name: 'periodic-background-sync' }).then(function(status) {
+                navigator.permissions.query({ name: 'periodic-background-sync' }).then(function (status) {
                     if (status.state === 'granted') {
                         // 每 12 小時（最小間隔，由瀏覽器決定實際頻率）
                         reg.periodicSync.register('fengxiong-heartbeat', {
                             minInterval: 12 * 60 * 60 * 1000
-                        }).catch(function() {});
+                        }).catch(function () { });
                     }
-                }).catch(function() {});
+                }).catch(function () { });
             }
 
             // ── Background Sync：網路恢復時自動同步 ──────────────────────────
             if ('sync' in reg) {
-                reg.sync.register('fengxiong-sync').catch(function() {});
+                reg.sync.register('fengxiong-sync').catch(function () { });
             }
-        }).catch(function(){});
+        }).catch(function () { });
     }
-    </script>
+</script>
 
-    <!-- PWA 安裝提示 (iOS + Android) -->
-    <div id="pwaInstallPrompt" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:99998; padding:16px; background:linear-gradient(135deg,#2c3e50,#3498db); color:#fff; box-shadow:0 -2px 16px rgba(0,0,0,0.3); animation:slideUp 0.4s ease;">
-        <div style="max-width:600px; margin:0 auto; display:flex; align-items:center; gap:14px;">
-            <i class="fa-solid fa-mobile-screen-button" style="font-size:2rem;"></i>
-            <div style="flex:1;">
-                <strong style="font-size:1rem;">安裝鋒兄AI到主畫面</strong>
-                <p id="pwaInstallText" style="font-size:0.82rem; margin-top:4px; opacity:0.9;"></p>
-            </div>
-            <button id="pwaInstallBtn" onclick="pwaInstallAction()" style="background:#fff; color:#2c3e50; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; white-space:nowrap;">安裝</button>
-            <span onclick="dismissPwaPrompt()" style="cursor:pointer; font-size:1.3rem; padding:4px 8px;">&times;</span>
+<!-- PWA 安裝提示 (iOS + Android) -->
+<div id="pwaInstallPrompt"
+    style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:99998; padding:16px; background:linear-gradient(135deg,#2c3e50,#3498db); color:#fff; box-shadow:0 -2px 16px rgba(0,0,0,0.3); animation:slideUp 0.4s ease;">
+    <div style="max-width:600px; margin:0 auto; display:flex; align-items:center; gap:14px;">
+        <i class="fa-solid fa-mobile-screen-button" style="font-size:2rem;"></i>
+        <div style="flex:1;">
+            <strong style="font-size:1rem;">安裝鋒兄AI到主畫面</strong>
+            <p id="pwaInstallText" style="font-size:0.82rem; margin-top:4px; opacity:0.9;"></p>
         </div>
+        <button id="pwaInstallBtn" onclick="pwaInstallAction()"
+            style="background:#fff; color:#2c3e50; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; white-space:nowrap;">安裝</button>
+        <span onclick="dismissPwaPrompt()" style="cursor:pointer; font-size:1.3rem; padding:4px 8px;">&times;</span>
     </div>
-    <script>
-    (function() {
+</div>
+<script>
+    (function () {
         if (localStorage.getItem('pwa_prompt_dismissed')) return;
 
         // 判斷是否已經是 PWA 模式
@@ -64,11 +66,11 @@
         }
 
         // 延遲 2 秒顯示
-        setTimeout(function() { prompt.style.display = 'block'; }, 2000);
+        setTimeout(function () { prompt.style.display = 'block'; }, 2000);
 
         // Android: 攔截安裝事件
         window._deferredPwaPrompt = null;
-        window.addEventListener('beforeinstallprompt', function(e) {
+        window.addEventListener('beforeinstallprompt', function (e) {
             e.preventDefault();
             window._deferredPwaPrompt = e;
         });
@@ -77,7 +79,7 @@
     function pwaInstallAction() {
         if (window._deferredPwaPrompt) {
             window._deferredPwaPrompt.prompt();
-            window._deferredPwaPrompt.userChoice.then(function() {
+            window._deferredPwaPrompt.userChoice.then(function () {
                 window._deferredPwaPrompt = null;
                 dismissPwaPrompt();
             });
@@ -90,173 +92,260 @@
         document.getElementById('pwaInstallPrompt').style.display = 'none';
         localStorage.setItem('pwa_prompt_dismissed', '1');
     }
-    </script>
-    <style>
-    @keyframes slideUp { from { opacity:0; transform:translateY(60px); } to { opacity:1; transform:translateY(0); } }
-    </style>
+</script>
+<style>
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(60px);
+        }
 
-    <?php
-    // 訂閱到期通知 (3天內)
-    $notifPdo = getConnection();
-    $expiringSubscriptions = $notifPdo->query("SELECT name, nextdate FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate >= CURDATE() ORDER BY nextdate ASC")->fetchAll();
-    ?>
-    <?php if (!empty($expiringSubscriptions)): ?>
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<?php
+// 訂閱到期通知 (3天內)
+$notifPdo = getConnection();
+$expiringSubscriptions = $notifPdo->query("SELECT name, nextdate FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate >= CURDATE() ORDER BY nextdate ASC")->fetchAll();
+?>
+<?php if (!empty($expiringSubscriptions)): ?>
     <!-- 頁面內通知橫幅 -->
-    <div id="subExpiringBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:10px 15px; background:rgba(0,0,0,0.15);">
-        <div style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:8px;" id="subExpiringList"></div>
+    <div id="subExpiringBanner"
+        style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:10px 15px; background:rgba(0,0,0,0.15);">
+        <div style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:8px;" id="subExpiringList">
+        </div>
     </div>
     <script>
-    (function() {
-        const expiring = <?php echo json_encode(array_map(function($sub) {
-            $days = round((strtotime($sub['nextdate']) - strtotime(date('Y-m-d'))) / 86400);
-            $daysText = $days == 0 ? '今天到期' : ($days == 1 ? '明天到期' : $days . '天後到期');
-            return ['name' => $sub['name'], 'date' => date('m/d', strtotime($sub['nextdate'])), 'daysText' => $daysText];
-        }, $expiringSubscriptions), JSON_UNESCAPED_UNICODE); ?>;
+        (function () {
+            const expiring = <?php echo json_encode(array_map(function ($sub) {
+                $days = round((strtotime($sub['nextdate']) - strtotime(date('Y-m-d'))) / 86400);
+                $daysText = $days == 0 ? '今天到期' : ($days == 1 ? '明天到期' : $days . '天後到期');
+                return ['name' => $sub['name'], 'date' => date('m/d', strtotime($sub['nextdate'])), 'daysText' => $daysText];
+            }, $expiringSubscriptions), JSON_UNESCAPED_UNICODE); ?>;
 
-        const today = new Date().toISOString().slice(0, 10);
-        const notifiedKey = 'sub_notified_' + today;
-        if (sessionStorage.getItem(notifiedKey)) return;
+            const today = new Date().toISOString().slice(0, 10);
+            const notifiedKey = 'sub_notified_' + today;
+            if (sessionStorage.getItem(notifiedKey)) return;
 
-        // 頁面內橫幅通知（保底，電腦手機都會顯示）
-        function showBannerNotifications() {
-            const banner = document.getElementById('subExpiringBanner');
-            const list = document.getElementById('subExpiringList');
-            expiring.forEach(function(sub, i) {
-                const item = document.createElement('div');
-                item.style.cssText = 'background:#e74c3c; color:#fff; padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 12px rgba(0,0,0,0.2); font-size:0.9rem; animation:slideDown 0.3s ease ' + (i * 0.1) + 's both;';
-                item.innerHTML = '<span><i class="fa-solid fa-bell" style="margin-right:8px;"></i><strong>' + sub.name + '</strong> — ' + sub.date + '（' + sub.daysText + '）</span>' +
-                    '<span onclick="this.parentElement.remove(); if(!document.getElementById(\'subExpiringList\').children.length) document.getElementById(\'subExpiringBanner\').style.display=\'none\';" style="cursor:pointer; font-size:1.3rem; padding:2px 6px; min-width:24px; text-align:center;">&times;</span>';
-                list.appendChild(item);
-            });
-            banner.style.display = 'block';
+            // 頁面內橫幅通知（保底，電腦手機都會顯示）
+            function showBannerNotifications() {
+                const banner = document.getElementById('subExpiringBanner');
+                const list = document.getElementById('subExpiringList');
+                expiring.forEach(function (sub, i) {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'background:#e74c3c; color:#fff; padding:12px 16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 12px rgba(0,0,0,0.2); font-size:0.9rem; animation:slideDown 0.3s ease ' + (i * 0.1) + 's both;';
+                    item.innerHTML = '<span><i class="fa-solid fa-bell" style="margin-right:8px;"></i><strong>' + sub.name + '</strong> — ' + sub.date + '（' + sub.daysText + '）</span>' +
+                        '<span onclick="this.parentElement.remove(); if(!document.getElementById(\'subExpiringList\').children.length) document.getElementById(\'subExpiringBanner\').style.display=\'none\';" style="cursor:pointer; font-size:1.3rem; padding:2px 6px; min-width:24px; text-align:center;">&times;</span>';
+                    list.appendChild(item);
+                });
+                banner.style.display = 'block';
 
-            // 8秒後自動關閉
-            setTimeout(function() {
-                banner.style.transition = 'opacity 0.5s';
-                banner.style.opacity = '0';
-                setTimeout(function() { banner.style.display = 'none'; }, 500);
-            }, 8000);
-        }
+                // 8秒後自動關閉
+                setTimeout(function () {
+                    banner.style.transition = 'opacity 0.5s';
+                    banner.style.opacity = '0';
+                    setTimeout(function () { banner.style.display = 'none'; }, 500);
+                }, 8000);
+            }
 
-        // 透過 Service Worker 發送通知（手機＋電腦都支援）
-        function showSwNotifications(reg) {
-            expiring.forEach(function(sub, i) {
-                setTimeout(function() {
-                    reg.showNotification('訂閱到期提醒', {
-                        body: sub.name + ' - ' + sub.date + '（' + sub.daysText + '）',
-                        icon: 'favicon.ico',
-                        tag: 'sub-expiring-' + i,
-                        vibrate: [200, 100, 200],
-                        requireInteraction: false
-                    });
-                }, i * 500);
-            });
-        }
+            // 透過 Service Worker 發送通知（手機＋電腦都支援）
+            function showSwNotifications(reg) {
+                expiring.forEach(function (sub, i) {
+                    setTimeout(function () {
+                        reg.showNotification('訂閱到期提醒', {
+                            body: sub.name + ' - ' + sub.date + '（' + sub.daysText + '）',
+                            icon: 'favicon.ico',
+                            tag: 'sub-expiring-' + i,
+                            vibrate: [200, 100, 200],
+                            requireInteraction: false
+                        });
+                    }, i * 500);
+                });
+            }
 
-        // 直接用 Notification API（電腦瀏覽器）
-        function showDirectNotifications() {
-            expiring.forEach(function(sub, i) {
-                setTimeout(function() {
-                    new Notification('訂閱到期提醒', {
-                        body: sub.name + ' - ' + sub.date + '（' + sub.daysText + '）',
-                        icon: 'favicon.ico',
-                        tag: 'sub-expiring-' + i
-                    });
-                }, i * 500);
-            });
-        }
+            // 直接用 Notification API（電腦瀏覽器）
+            function showDirectNotifications() {
+                expiring.forEach(function (sub, i) {
+                    setTimeout(function () {
+                        new Notification('訂閱到期提醒', {
+                            body: sub.name + ' - ' + sub.date + '（' + sub.daysText + '）',
+                            icon: 'favicon.ico',
+                            tag: 'sub-expiring-' + i
+                        });
+                    }, i * 500);
+                });
+            }
 
-        // 顯示頁面橫幅
-        showBannerNotifications();
-        sessionStorage.setItem(notifiedKey, '1');
+            // 顯示頁面橫幅
+            showBannerNotifications();
+            sessionStorage.setItem(notifiedKey, '1');
 
-        // 嘗試系統通知
-        if ('Notification' in window) {
-            function triggerNotifications() {
-                // 優先用 Service Worker（手機必須用這種方式）
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready.then(function(reg) {
-                        showSwNotifications(reg);
-                    }).catch(function() {
+            // 嘗試系統通知
+            if ('Notification' in window) {
+                function triggerNotifications() {
+                    // 優先用 Service Worker（手機必須用這種方式）
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(function (reg) {
+                            showSwNotifications(reg);
+                        }).catch(function () {
+                            showDirectNotifications();
+                        });
+                    } else {
                         showDirectNotifications();
+                    }
+                }
+
+                if (Notification.permission === 'granted') {
+                    triggerNotifications();
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(function (p) {
+                        if (p === 'granted') triggerNotifications();
                     });
-                } else {
-                    showDirectNotifications();
+                }
+            }
+        })();
+    </script>
+    <style>
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+<?php endif; ?>
+
+<?php
+// 讀取 VAPID 公鑰供 JS 使用（使用已建立的 $notifPdo 連線）
+$vapidPublicKey = '';
+try {
+    $r = $notifPdo->query("SELECT setting_value FROM settings WHERE setting_key='vapid_public_key' AND user_id IS NULL LIMIT 1");
+    $vapidPublicKey = $r ? ($r->fetchColumn() ?: '') : '';
+} catch (Throwable $e) {
+}
+?>
+<?php if ($vapidPublicKey): ?>
+    <script>
+        (function () {
+            function urlBase64ToUint8Array(base64String) {
+                var padding = '='.repeat((4 - base64String.length % 4) % 4);
+                var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                var rawData = window.atob(base64);
+                var output = new Uint8Array(rawData.length);
+                for (var i = 0; i < rawData.length; i++) {
+                    output[i] = rawData.charCodeAt(i);
+                }
+                return output;
+            }
+
+            async function registerPush() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                if (Notification.permission !== 'granted') return;
+
+                try {
+                    var reg = await navigator.serviceWorker.ready;
+                    var sub = await reg.pushManager.getSubscription();
+                    if (sub) return; // 已訂閱，不重複
+
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array('<?= htmlspecialchars($vapidPublicKey, ENT_QUOTES) ?>')
+                    });
+
+                    await fetch('push_subscribe.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(sub)
+                    });
+                } catch (e) {
+                    // 訂閱失敗（使用者未授權或瀏覽器不支援）靜默略過
                 }
             }
 
+            // 等待通知權限授予後再訂閱
             if (Notification.permission === 'granted') {
-                triggerNotifications();
+                registerPush();
             } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(function(p) {
-                    if (p === 'granted') triggerNotifications();
+                // 權限待確認：監聽通知權限變更
+                Notification.requestPermission().then(function (p) {
+                    if (p === 'granted') registerPush();
                 });
             }
-        }
-    })();
+        })();
     </script>
-    <style>
-    @keyframes slideDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
-    </style>
-    <?php endif; ?>
+<?php endif; ?>
 
-    <?php
-    // 讀取 VAPID 公鑰供 JS 使用（使用已建立的 $notifPdo 連線）
-    $vapidPublicKey = '';
-    try {
-        $r = $notifPdo->query("SELECT setting_value FROM settings WHERE setting_key='vapid_public_key' AND user_id IS NULL LIMIT 1");
-        $vapidPublicKey = $r ? ($r->fetchColumn() ?: '') : '';
-    } catch (Throwable $e) {}
-    ?>
-    <?php if ($vapidPublicKey): ?>
-    <script>
-    (function() {
-        function urlBase64ToUint8Array(base64String) {
-            var padding = '='.repeat((4 - base64String.length % 4) % 4);
-            var base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-            var rawData = window.atob(base64);
-            var output  = new Uint8Array(rawData.length);
-            for (var i = 0; i < rawData.length; i++) {
-                output[i] = rawData.charCodeAt(i);
-            }
-            return output;
-        }
+<script>
+    /**
+     * uploadChunked — 分段上傳大型 ZIP 檔案，繞過 Cloudflare 100MB 單次限制
+     *
+     * @param {File}     file        要上傳的 File 物件
+     * @param {Function} onProgress  (chunksDone, totalChunks, percent) 每片完成後回呼
+     * @param {Function} onDone      (tempFile) 全部組裝完成後回呼
+     * @param {Function} onError     (message) 發生錯誤時回呼
+     * @param {number}   [chunkSize] 每片大小，預設 20MB
+     */
+    async function uploadChunked(file, onProgress, onDone, onError, chunkSize) {
+        chunkSize = chunkSize || (20 * 1024 * 1024); // 20 MB
 
-        async function registerPush() {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-            if (Notification.permission !== 'granted') return;
+        // 產生唯一 uploadId
+        const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+        const totalChunks = Math.ceil(file.size / chunkSize);
 
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const blob = file.slice(start, end);
+
+            const fd = new FormData();
+            fd.append('uploadId', uploadId);
+            fd.append('chunkIndex', i);
+            fd.append('totalChunks', totalChunks);
+            fd.append('filename', file.name);
+            fd.append('chunk', blob, file.name);
+
+            let res;
             try {
-                var reg = await navigator.serviceWorker.ready;
-                var sub = await reg.pushManager.getSubscription();
-                if (sub) return; // 已訂閱，不重複
-
-                sub = await reg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array('<?= htmlspecialchars($vapidPublicKey, ENT_QUOTES) ?>')
-                });
-
-                await fetch('push_subscribe.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(sub)
-                });
+                const resp = await fetch('upload_chunk.php', { method: 'POST', body: fd });
+                const text = await resp.text();
+                try {
+                    res = JSON.parse(text);
+                } catch (je) {
+                    const preview = text.replace(/<[^>]+>/g, '').trim().slice(0, 300);
+                    if (onError) onError('伺服器錯誤（HTTP ' + resp.status + '）:\n' + (preview || '(空回應)'));
+                    return;
+                }
             } catch (e) {
-                // 訂閱失敗（使用者未授權或瀏覽器不支援）靜默略過
+                if (onError) onError('網路錯誤（片段 ' + i + '）：' + e.message);
+                return;
+            }
+
+            if (res.error) {
+                if (onError) onError(res.error);
+                return;
+            }
+
+            const done = i + 1;
+            const percent = Math.round((done / totalChunks) * 100);
+            if (onProgress) onProgress(done, totalChunks, percent);
+
+            // 最後一片，server 回傳 assembled + tempFile
+            if (res.status === 'assembled') {
+                if (onDone) onDone(res.tempFile);
+                return;
             }
         }
-
-        // 等待通知權限授予後再訂閱
-        if (Notification.permission === 'granted') {
-            registerPush();
-        } else if (Notification.permission !== 'denied') {
-            // 權限待確認：監聽通知權限變更
-            Notification.requestPermission().then(function(p) {
-                if (p === 'granted') registerPush();
-            });
-        }
-    })();
-    </script>
-    <?php endif; ?>
+    }
+</script>
 </body>
+
 </html>

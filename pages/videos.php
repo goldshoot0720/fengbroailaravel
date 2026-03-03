@@ -106,10 +106,12 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                 <?php endif; ?>
                                 <div>
                                     <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;">
-                                        <?php echo htmlspecialchars($item['name']); ?></h3>
+                                        <?php echo htmlspecialchars($item['name']); ?>
+                                    </h3>
                                     <?php if (!empty($item['note'])): ?>
                                         <p style="margin: 0; color: #666; font-size: 0.85rem;">
-                                            <?php echo htmlspecialchars($item['note']); ?></p>
+                                            <?php echo htmlspecialchars($item['note']); ?>
+                                        </p>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -764,45 +766,48 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         modal.style.display = 'flex';
         progressBar.style.width = '0%';
         progressText.textContent = '0%';
-        fileName.textContent = file.name;
+        fileName.textContent = file.name + ' — 準備分段上傳...';
 
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('file', file);
-
-        xhr.upload.addEventListener('progress', function (e) {
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
+        uploadChunked(
+            file,
+            // onProgress
+            function (done, total, percent) {
                 progressBar.style.width = percent + '%';
                 progressText.textContent = percent + '%';
-                const loaded = formatFileSize(e.loaded);
-                const total = formatFileSize(e.total);
-                fileName.textContent = file.name + ' (' + loaded + ' / ' + total + ')';
+                fileName.textContent = file.name + ' — 上傳第 ' + done + ' / ' + total + ' 片';
+            },
+            // onDone
+            function (tempFile) {
+                fileName.textContent = file.name + ' — 正在匯入...';
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+
+                const fd = new FormData();
+                fd.append('tempFile', tempFile);
+
+                fetch('import_zip_video.php', { method: 'POST', body: fd })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        modal.style.display = 'none';
+                        if (res.success) {
+                            alert('匯入完成！\n成功匯入: ' + res.imported + ' 部影片');
+                            location.reload();
+                        } else {
+                            alert('匯入失敗: ' + (res.error || '未知錯誤'));
+                        }
+                    })
+                    .catch(function (e) {
+                        modal.style.display = 'none';
+                        alert('匯入失敗: 網路錯誤 — ' + e.message);
+                    });
+            },
+            // onError
+            function (errMsg) {
+                modal.style.display = 'none';
+                alert('上傳失敗: ' + errMsg);
             }
-        });
+        );
 
-        xhr.addEventListener('load', function () {
-            modal.style.display = 'none';
-            try {
-                const res = JSON.parse(xhr.responseText);
-                if (res.success) {
-                    alert('匯入完成！\n成功匯入: ' + res.imported + ' 部影片');
-                    location.reload();
-                } else {
-                    alert('匯入失敗: ' + (res.error || '未知錯誤'));
-                }
-            } catch (e) {
-                alert('匯入失敗: 回應格式錯誤');
-            }
-        });
-
-        xhr.addEventListener('error', function () {
-            modal.style.display = 'none';
-            alert('匯入失敗: 網路錯誤');
-        });
-
-        xhr.open('POST', 'import_zip_video.php');
-        xhr.send(formData);
         input.value = '';
     }
 </script>
