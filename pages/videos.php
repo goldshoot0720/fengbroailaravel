@@ -26,7 +26,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     <?php include 'includes/batch-delete.php'; ?>
 
     <div class="video-list" style="margin-top: 20px;">
-        <div id="inlineAddCard" class="video-item inline-add-card"
+        <div id="inlineAddCard" class="video-item card inline-add-card"
             style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;">
             <div class="inline-edit inline-edit-always">
                 <div class="form-group">
@@ -77,7 +77,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             </div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="video-item"
+                <div class="video-item card"
                     style="background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative;"
                     data-id="<?php echo $item['id']; ?>"
                     data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
@@ -356,7 +356,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     }
 
     function getCardById(id) {
-        return document.querySelector(`.video-item[data-id="${id}"]`);
+        return document.querySelector(`.card[data-id="${id}"]`);
     }
 
     function startInlineEdit(id) {
