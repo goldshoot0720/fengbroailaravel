@@ -237,7 +237,7 @@ if ($hasCsv) {
 
 } else {
     // ===== 舊格式：純文件 ZIP（無 CSV） =====
-    $validExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv'];
+    $validExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv', 'zip', 'rar', 'mp3', 'mp4', 'wav', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
     $files = glob($tempDir . DIRECTORY_SEPARATOR . '*');
 
     foreach ($files as $file) {
