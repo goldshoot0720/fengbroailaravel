@@ -23,6 +23,50 @@
     let _zipPreviewType = null;
     let _zipPreviewLabel = null;
     let _zipPreviewInput = null;
+    let _zipDebugLogs = [];
+
+    function addZipDebug(stage, data) {
+        _zipDebugLogs.push({
+            ts: new Date().toISOString(),
+            stage: stage,
+            data: data || {}
+        });
+        if (_zipDebugLogs.length > 200) _zipDebugLogs.shift();
+    }
+
+    function getZipDebugText() {
+        return _zipDebugLogs.map(function (item) {
+            return '[' + item.ts + '] ' + item.stage + ' ' + JSON.stringify(item.data || {});
+        }).join('\n');
+    }
+
+    function renderZipDebugBox() {
+        const txt = escapeHtmlZip(getZipDebugText() || '(尚無 debug 資訊)');
+        return '' +
+            '<div style="margin-top:12px;text-align:left;background:#1f1f1f;border-radius:8px;padding:10px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+            '<strong style="color:#ffd166;">Debug 訊息（給工程師）</strong>' +
+            '<button type="button" class="btn" style="padding:2px 8px;font-size:0.75rem;" onclick="copyZipDebugInfo()">複製</button>' +
+            '</div>' +
+            '<pre style="margin:0;max-height:220px;overflow:auto;white-space:pre-wrap;font-size:12px;line-height:1.35;color:#ddd;">' + txt + '</pre>' +
+            '</div>';
+    }
+
+    function copyZipDebugInfo() {
+        const txt = getZipDebugText();
+        if (!txt) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).then(function () { alert('已複製 debug 訊息'); });
+            return;
+        }
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('已複製 debug 訊息');
+    }
 
     function getPreviewApiUrl(type) {
         const base = (typeof appUrl === 'function') ? appUrl('preview_zip.php') : 'preview_zip.php';
@@ -32,6 +76,7 @@
     function previewZipByDirectUpload(file, type, label) {
         const body = document.getElementById('zipPreviewBody');
         body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>改用直接上傳模式，正在分析 ZIP 內容...</div>';
+        addZipDebug('direct_upload_start', { file: file ? file.name : '', type: type || _zipPreviewType || '' });
 
         const finalType = String(type || _zipPreviewType || '').trim();
         const fd = new FormData();
@@ -39,17 +84,23 @@
         fd.append('type', finalType);
 
         fetch(getPreviewApiUrl(finalType), { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
+            .then(function (r) {
+                addZipDebug('direct_upload_response', { status: r.status });
+                return r.json();
+            })
             .then(function (res) {
                 if (res.success) {
+                    addZipDebug('direct_upload_success', { tempFile: res.tempFile || '', validFiles: res.validFiles || 0 });
                     _zipPreviewTempFile = res.tempFile;
                     renderZipPreview(res, label);
                 } else {
-                    body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + '</div>';
+                    addZipDebug('direct_upload_failed', { error: res.error || '分析失敗' });
+                    body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + renderZipDebugBox() + '</div>';
                 }
             })
-            .catch(function () {
-                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤</div>';
+            .catch(function (e) {
+                addZipDebug('direct_upload_exception', { error: e && e.message ? e.message : String(e) });
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤' + renderZipDebugBox() + '</div>';
             });
     }
 
@@ -62,6 +113,18 @@
         _zipPreviewType = type;
         _zipPreviewLabel = label;
         _zipPreviewTempFile = null;
+        _zipDebugLogs = [];
+        addZipDebug('preview_start', {
+            page: window.location.href,
+            file: file.name,
+            size: file.size,
+            type: type || '',
+            importUrl: importUrl || '',
+            userAgent: navigator.userAgent
+        });
+        window.__zipDebugHook = function (entry) {
+            addZipDebug('chunk_' + (entry && entry.stage ? entry.stage : 'event'), entry || {});
+        };
 
         // Show modal with loading
         const modal = document.getElementById('zipPreviewModal');
@@ -73,12 +136,20 @@
         body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>準備分段上傳...</div>';
         actions.style.display = 'none';
         modal.style.display = 'flex';
+        let hasProgress = false;
+        const stuckTimer = setTimeout(function () {
+            if (hasProgress) return;
+            addZipDebug('stuck_timeout', { message: '停留在準備分段上傳超過 10 秒' });
+            body.innerHTML = '<div style="text-align:center;padding:30px;color:#f39c12;"><i class="fa-solid fa-triangle-exclamation fa-2x"></i><br>卡在「準備分段上傳」超過 10 秒，請將以下 debug 提供給工程師。' + renderZipDebugBox() + '</div>';
+        }, 10000);
 
         // Step 1: chunked upload to upload_chunk.php
         uploadChunked(
             file,
             // onProgress
             function (done, total, percent) {
+                hasProgress = true;
+                clearTimeout(stuckTimer);
                 body.innerHTML = '<div style="text-align:center;padding:30px;">' +
                     '<i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>' +
                     '上傳中... ' + percent + '% &nbsp;<small style="color:#aaa;">片段 ' + done + ' / ' + total + '</small>' +
@@ -87,6 +158,7 @@
             },
             // onDone: all chunks assembled, now preview
             function (tempFile) {
+                clearTimeout(stuckTimer);
                 body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>正在分析 ZIP 內容...</div>';
 
                 const finalType = String(type || _zipPreviewType || '').trim();
@@ -101,24 +173,30 @@
                     .then(function (r) { return r.json(); })
                     .then(function (res) {
                         if (res.success) {
+                            addZipDebug('preview_success', { validFiles: res.validFiles || 0, totalFiles: res.totalFiles || 0 });
                             _zipPreviewTempFile = res.tempFile;
                             renderZipPreview(res, label);
                         } else {
-                            body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + '</div>';
+                            addZipDebug('preview_failed', { error: res.error || '分析失敗' });
+                            body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + renderZipDebugBox() + '</div>';
                         }
                     })
-                    .catch(function () {
-                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤</div>';
+                    .catch(function (e) {
+                        addZipDebug('preview_exception', { error: e && e.message ? e.message : String(e) });
+                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤' + renderZipDebugBox() + '</div>';
                     });
             },
             // onError
             function (errMsg) {
+                clearTimeout(stuckTimer);
                 const msg = String(errMsg || '');
                 if (msg.indexOf('HTTP 404') !== -1) {
+                    addZipDebug('chunk_404_fallback', { error: msg });
                     previewZipByDirectUpload(file, type, label);
                     return;
                 }
-                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>上傳失敗: ' + msg + '</div>';
+                addZipDebug('chunk_failed', { error: msg });
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>上傳失敗: ' + msg + renderZipDebugBox() + '</div>';
             }
         );
 
@@ -270,6 +348,7 @@
 
     function closeZipPreview() {
         document.getElementById('zipPreviewModal').style.display = 'none';
+        window.__zipDebugHook = null;
 
         // Cleanup temp file if not imported
         if (_zipPreviewTempFile) {

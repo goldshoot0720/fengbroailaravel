@@ -322,16 +322,34 @@ try {
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize) {
         chunkSize = chunkSize || (20 * 1024 * 1024); // 20 MB
 
+        const debug = function (payload) {
+            try {
+                if (typeof window.__zipDebugHook === 'function') {
+                    window.__zipDebugHook(Object.assign({ ts: new Date().toISOString() }, payload || {}));
+                }
+            } catch (_) { }
+        };
+
         // 產生唯一 uploadId
         const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         const totalChunks = Math.ceil(file.size / chunkSize);
         const candidates = getChunkUploadCandidates();
         let chosenEndpoint = window.__chunkUploadEndpoint || null;
+        debug({
+            stage: 'init',
+            uploadId: uploadId,
+            totalChunks: totalChunks,
+            candidates: candidates,
+            chosenEndpoint: chosenEndpoint || '',
+            fileName: file && file.name ? file.name : '',
+            fileSize: file && file.size ? file.size : 0
+        });
 
         for (let i = 0; i < totalChunks; i++) {
             const start = i * chunkSize;
             const end = Math.min(start + chunkSize, file.size);
             const blob = file.slice(start, end);
+            debug({ stage: 'chunk_start', index: i, start: start, end: end, size: end - start });
 
             const fd = new FormData();
             fd.append('uploadId', uploadId);
@@ -344,19 +362,25 @@ try {
             try {
                 let resp = null;
                 if (chosenEndpoint) {
+                    debug({ stage: 'request', index: i, url: chosenEndpoint, mode: 'cached-endpoint' });
                     resp = await fetch(chosenEndpoint, { method: 'POST', body: fd });
+                    debug({ stage: 'response', index: i, url: chosenEndpoint, status: resp.status });
                 } else {
                     for (const url of candidates) {
+                        debug({ stage: 'request', index: i, url: url, mode: 'candidate-probe' });
                         resp = await fetch(url, { method: 'POST', body: fd });
+                        debug({ stage: 'response', index: i, url: url, status: resp.status });
                         if (resp.status !== 404) {
                             chosenEndpoint = url;
                             window.__chunkUploadEndpoint = url;
+                            debug({ stage: 'endpoint_selected', index: i, url: url, status: resp.status });
                             break;
                         }
                     }
                 }
 
                 if (!resp) {
+                    debug({ stage: 'no_endpoint', index: i, candidates: candidates });
                     if (onError) onError('找不到可用上傳端點：' + candidates.join(' , '));
                     return;
                 }
@@ -366,25 +390,30 @@ try {
                     res = JSON.parse(text);
                 } catch (je) {
                     const preview = text.replace(/<[^>]+>/g, '').trim().slice(0, 300);
+                    debug({ stage: 'json_parse_error', index: i, status: resp.status, endpoint: chosenEndpoint || '', preview: preview });
                     if (onError) onError('伺服器錯誤（HTTP ' + resp.status + '） @ ' + (chosenEndpoint || '(unknown)') + ':\n' + (preview || '(空回應)'));
                     return;
                 }
             } catch (e) {
+                debug({ stage: 'network_error', index: i, message: e && e.message ? e.message : String(e) });
                 if (onError) onError('網路錯誤（片段 ' + i + '）：' + e.message);
                 return;
             }
 
             if (res.error) {
+                debug({ stage: 'server_error', index: i, endpoint: chosenEndpoint || '', error: res.error });
                 if (onError) onError(res.error);
                 return;
             }
 
             const done = i + 1;
             const percent = Math.round((done / totalChunks) * 100);
+            debug({ stage: 'chunk_done', index: i, done: done, total: totalChunks, percent: percent, endpoint: chosenEndpoint || '' });
             if (onProgress) onProgress(done, totalChunks, percent);
 
             // 最後一片，server 回傳 assembled + tempFile
             if (res.status === 'assembled') {
+                debug({ stage: 'assembled', endpoint: chosenEndpoint || '', tempFile: res.tempFile || '', size: res.size || 0 });
                 if (onDone) onDone(res.tempFile);
                 return;
             }
