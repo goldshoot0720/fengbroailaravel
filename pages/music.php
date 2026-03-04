@@ -275,6 +275,12 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                 </button>
                             <?php endif; ?>
 
+                            <?php if (!empty($group['items'][0]['file'])): ?>
+                                <a href="<?php echo htmlspecialchars($group['items'][0]['file']); ?>" class="btn btn-sm btn-success" download target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-solid fa-download"></i> 下載
+                                </a>
+                            <?php endif; ?>
+
                             <?php if (!empty($group['lyrics'])): ?>
                                 <button class="btn btn-sm btn-info" onclick="viewLyrics('<?php echo $group['items'][0]['id']; ?>')">
                                     <i class="fa-solid fa-file-lines"></i> 歌詞
@@ -610,6 +616,15 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
     let _currentLyrics = '';
 
+    function setLyricsButtonState(hasLyrics, opened) {
+        const btn = document.getElementById('lyricsToggleBtn');
+        if (!btn) return;
+        btn.style.opacity = hasLyrics ? '1' : '0.4';
+        btn.disabled = !hasLyrics;
+        btn.style.background = opened ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.2)';
+        btn.title = opened ? '隱藏歌詞' : '顯示歌詞';
+    }
+
     function toggleLyricsPanel() {
         const panel = document.getElementById('lyricsPanel');
         const btn = document.getElementById('lyricsToggleBtn');
@@ -617,10 +632,10 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         if (isHidden) {
             if (!_currentLyrics) { alert('目前歌曲沒有歌詞'); return; }
             panel.style.display = 'block';
-            if (btn) { btn.style.background = 'rgba(255,255,255,0.45)'; btn.title = '隱藏歌詞'; }
+            setLyricsButtonState(true, true);
         } else {
             panel.style.display = 'none';
-            if (btn) { btn.style.background = 'rgba(255,255,255,0.2)'; btn.title = '顯示歌詞'; }
+            setLyricsButtonState(true, false);
         }
     }
 
@@ -725,6 +740,25 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         input.value = '';
     }
 
+    function sanitizeMusicFilename(name) {
+        const safe = (name || 'music').replace(/[\\/:*?"<>|]+/g, '_').trim();
+        return safe || 'music';
+    }
+
+    function setMusicDownloadLink(src, title) {
+        const btn = document.getElementById('musicDownloadBtn');
+        if (!btn) return;
+        if (src) {
+            btn.href = src;
+            btn.setAttribute('download', sanitizeMusicFilename(title) + '.mp3');
+            btn.style.display = 'inline-flex';
+            return;
+        }
+        btn.removeAttribute('href');
+        btn.removeAttribute('download');
+        btn.style.display = 'none';
+    }
+
     // ========== 底部播放列 ==========
     function playMusic(src, title, musicId) {
         const bar = document.getElementById('musicPlayerBar');
@@ -733,6 +767,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         titleEl.textContent = title;
         titleEl.style.color = '#fff';
         player.src = src;
+        setMusicDownloadLink(src, title);
         player.volume = parseFloat(localStorage.getItem('musicVolume') ?? '1.0');
         bar.style.display = 'block';
 
@@ -755,22 +790,22 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     if (res.success && res.data) {
                         const lyrics = (res.data.lyrics || '').trim();
                         _currentLyrics = lyrics;
-                        const btn = document.getElementById('lyricsToggleBtn');
                         if (lyrics) {
                             document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
                             document.getElementById('lyricsContent').textContent = lyrics;
-                            if (btn) { btn.style.opacity = '1'; btn.disabled = false; }
+                            // 預設開啟歌詞面板
+                            document.getElementById('lyricsPanel').style.display = 'block';
+                            setLyricsButtonState(true, true);
                         } else {
                             document.getElementById('lyricsPanel').style.display = 'none';
-                            if (btn) { btn.style.opacity = '0.4'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.2)'; }
+                            setLyricsButtonState(false, false);
                         }
                     }
                 });
         } else {
             _currentLyrics = '';
             document.getElementById('lyricsPanel').style.display = 'none';
-            const btn = document.getElementById('lyricsToggleBtn');
-            if (btn) { btn.style.opacity = '0.4'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.2)'; }
+            setLyricsButtonState(false, false);
         }
     }
 
@@ -778,6 +813,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         const player = document.getElementById('musicPlayer');
         player.pause();
         player.src = '';
+        setMusicDownloadLink('', '');
         document.getElementById('musicPlayerBar').style.display = 'none';
     }
 
@@ -837,6 +873,19 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         playMusic(twoLayerCurrentFile, title, twoLayerCurrentId);
     }
 
+    function downloadTwoLayerTrack() {
+        if (!twoLayerCurrentFile) { alert('請選擇版本'); return; }
+        const title = document.getElementById('twoLayerTitle').textContent + ' - ' + document.getElementById('twoLayerTrackName').textContent;
+        const a = document.createElement('a');
+        a.href = twoLayerCurrentFile;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.setAttribute('download', sanitizeMusicFilename(title) + '.mp3');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
     function closeTwoLayerModal() {
         document.getElementById('twoLayerModal').style.display = 'none';
     }
@@ -856,6 +905,10 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             style="color:#fff; font-weight:bold; min-width:120px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0;">
         </div>
         <audio id="musicPlayer" controls style="flex:1; height:40px; min-width:0;">您的瀏覽器不支援音樂播放</audio>
+        <a id="musicDownloadBtn" href="#" title="下載目前音樂"
+            style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); border:none; color:#fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.1rem; flex-shrink:0; text-decoration:none;">
+            <i class="fa-solid fa-download"></i>
+        </a>
         <button id="lyricsToggleBtn" onclick="toggleLyricsPanel()" title="顯示歌詞"
             style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.1rem; flex-shrink:0; opacity:0.4; transition:all 0.2s;"
             disabled>
@@ -889,6 +942,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div style="font-size:0.85rem; opacity:0.8;">已選版本：</div>
                 <div id="twoLayerTrackName" style="font-weight:600; font-size:1.1rem;">請選擇</div>
             </div>
+            <button onclick="downloadTwoLayerTrack()"
+                style="width:52px; height:52px; border-radius:50%; border:none; background:#f3f4f6; color:#764ba2; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                    class="fas fa-download"></i></button>
             <button onclick="playTwoLayerTrack()"
                 style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#764ba2; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
                     class="fas fa-play"></i></button>
