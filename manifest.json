@@ -1,8 +1,8 @@
 {
     "id": "fengxiong-ai",
-    "name": "鋒兄AI Laravel+MySQL",
-    "short_name": "鋒兄AI",
-    "description": "鋒兄AI Laravel+Mysql 個人管理系統",
+    "name": "鋒兄AI Laravel",
+    "short_name": "鋒兄AI Laravel",
+    "description": "鋒兄AI Laravel 個人管理系統",
     "start_url": "index.php?page=dashboard",
     "scope": ".",
     "display": "standalone",

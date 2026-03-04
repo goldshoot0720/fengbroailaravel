@@ -298,6 +298,18 @@ try {
         return (APP_BASE_PATH ? APP_BASE_PATH : '') + '/' + clean;
     }
 
+    function getChunkUploadCandidates() {
+        const dir = window.location.pathname.replace(/\/[^/]*$/, '');
+        const cands = [
+            appUrl('upload_chunk.php'),
+            'upload_chunk.php',
+            './upload_chunk.php',
+            dir.replace(/\/+$/, '') + '/upload_chunk.php',
+            '/upload_chunk.php'
+        ];
+        return Array.from(new Set(cands.filter(Boolean)));
+    }
+
     /**
      * uploadChunked — 分段上傳大型 ZIP 檔案，繞過 Cloudflare 100MB 單次限制
      *
@@ -313,6 +325,8 @@ try {
         // 產生唯一 uploadId
         const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
         const totalChunks = Math.ceil(file.size / chunkSize);
+        const candidates = getChunkUploadCandidates();
+        let chosenEndpoint = window.__chunkUploadEndpoint || null;
 
         for (let i = 0; i < totalChunks; i++) {
             const start = i * chunkSize;
@@ -328,13 +342,31 @@ try {
 
             let res;
             try {
-                const resp = await fetch(appUrl('upload_chunk.php'), { method: 'POST', body: fd });
+                let resp = null;
+                if (chosenEndpoint) {
+                    resp = await fetch(chosenEndpoint, { method: 'POST', body: fd });
+                } else {
+                    for (const url of candidates) {
+                        resp = await fetch(url, { method: 'POST', body: fd });
+                        if (resp.status !== 404) {
+                            chosenEndpoint = url;
+                            window.__chunkUploadEndpoint = url;
+                            break;
+                        }
+                    }
+                }
+
+                if (!resp) {
+                    if (onError) onError('找不到可用上傳端點：' + candidates.join(' , '));
+                    return;
+                }
+
                 const text = await resp.text();
                 try {
                     res = JSON.parse(text);
                 } catch (je) {
                     const preview = text.replace(/<[^>]+>/g, '').trim().slice(0, 300);
-                    if (onError) onError('伺服器錯誤（HTTP ' + resp.status + '）:\n' + (preview || '(空回應)'));
+                    if (onError) onError('伺服器錯誤（HTTP ' + resp.status + '） @ ' + (chosenEndpoint || '(unknown)') + ':\n' + (preview || '(空回應)'));
                     return;
                 }
             } catch (e) {
