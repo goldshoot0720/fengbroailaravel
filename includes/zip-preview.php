@@ -33,10 +33,12 @@
         const body = document.getElementById('zipPreviewBody');
         body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>改用直接上傳模式，正在分析 ZIP 內容...</div>';
 
+        const finalType = String(type || _zipPreviewType || '').trim();
         const fd = new FormData();
         fd.append('file', file);
+        fd.append('type', finalType);
 
-        fetch(getPreviewApiUrl(type), { method: 'POST', body: fd })
+        fetch(getPreviewApiUrl(finalType), { method: 'POST', body: fd })
             .then(function (r) { return r.json(); })
             .then(function (res) {
                 if (res.success) {
@@ -87,11 +89,13 @@
             function (tempFile) {
                 body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>正在分析 ZIP 內容...</div>';
 
+                const finalType = String(type || _zipPreviewType || '').trim();
                 const fd = new FormData();
                 fd.append('tempFile', tempFile);
+                fd.append('type', finalType);
 
                 // 用 URL 查詢參數傳遞 type，確保不受 POST body 解析影響
-                const previewUrl = getPreviewApiUrl(type);
+                const previewUrl = getPreviewApiUrl(finalType);
 
                 fetch(previewUrl, { method: 'POST', body: fd })
                     .then(function (r) { return r.json(); })
