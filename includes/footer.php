@@ -285,6 +285,19 @@ try {
 <?php endif; ?>
 
 <script>
+    const APP_BASE_PATH = <?php
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        if ($scriptDir === '.' || $scriptDir === '\\' || $scriptDir === '/') {
+            $scriptDir = '';
+        }
+        echo json_encode(rtrim($scriptDir, '/'));
+    ?>;
+
+    function appUrl(path) {
+        const clean = String(path || '').replace(/^\/+/, '');
+        return (APP_BASE_PATH ? APP_BASE_PATH : '') + '/' + clean;
+    }
+
     /**
      * uploadChunked — 分段上傳大型 ZIP 檔案，繞過 Cloudflare 100MB 單次限制
      *
@@ -315,7 +328,7 @@ try {
 
             let res;
             try {
-                const resp = await fetch('upload_chunk.php', { method: 'POST', body: fd });
+                const resp = await fetch(appUrl('upload_chunk.php'), { method: 'POST', body: fd });
                 const text = await resp.text();
                 try {
                     res = JSON.parse(text);

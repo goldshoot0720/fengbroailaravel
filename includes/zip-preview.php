@@ -29,7 +29,7 @@
 
         const file = input.files[0];
         _zipPreviewInput = input;
-        _zipPreviewImportUrl = importUrl;
+        _zipPreviewImportUrl = (typeof appUrl === 'function') ? appUrl(importUrl) : importUrl;
         _zipPreviewType = type;
         _zipPreviewLabel = label;
         _zipPreviewTempFile = null;
@@ -64,7 +64,8 @@
                 fd.append('tempFile', tempFile);
 
                 // 用 URL 查詢參數傳遞 type，確保不受 POST body 解析影響
-                const previewUrl = 'preview_zip.php?type=' + encodeURIComponent(type || _zipPreviewType);
+                const previewUrl = ((typeof appUrl === 'function') ? appUrl('preview_zip.php') : 'preview_zip.php')
+                    + '?type=' + encodeURIComponent(type || _zipPreviewType);
 
                 fetch(previewUrl, { method: 'POST', body: fd })
                     .then(function (r) { return r.json(); })
@@ -237,7 +238,8 @@
 
         // Cleanup temp file if not imported
         if (_zipPreviewTempFile) {
-            fetch('cleanup_temp_zip.php', {
+            const cleanupUrl = (typeof appUrl === 'function') ? appUrl('cleanup_temp_zip.php') : 'cleanup_temp_zip.php';
+            fetch(cleanupUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tempFile: _zipPreviewTempFile })
