@@ -24,6 +24,33 @@
     let _zipPreviewLabel = null;
     let _zipPreviewInput = null;
 
+    function getPreviewApiUrl(type) {
+        const base = (typeof appUrl === 'function') ? appUrl('preview_zip.php') : 'preview_zip.php';
+        return base + '?type=' + encodeURIComponent(type || _zipPreviewType || '');
+    }
+
+    function previewZipByDirectUpload(file, type, label) {
+        const body = document.getElementById('zipPreviewBody');
+        body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>改用直接上傳模式，正在分析 ZIP 內容...</div>';
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        fetch(getPreviewApiUrl(type), { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.success) {
+                    _zipPreviewTempFile = res.tempFile;
+                    renderZipPreview(res, label);
+                } else {
+                    body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + '</div>';
+                }
+            })
+            .catch(function () {
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤</div>';
+            });
+    }
+
     function previewAndImportZIP(input, type, importUrl, label) {
         if (!input.files || !input.files[0]) return;
 
@@ -64,8 +91,7 @@
                 fd.append('tempFile', tempFile);
 
                 // 用 URL 查詢參數傳遞 type，確保不受 POST body 解析影響
-                const previewUrl = ((typeof appUrl === 'function') ? appUrl('preview_zip.php') : 'preview_zip.php')
-                    + '?type=' + encodeURIComponent(type || _zipPreviewType);
+                const previewUrl = getPreviewApiUrl(type);
 
                 fetch(previewUrl, { method: 'POST', body: fd })
                     .then(function (r) { return r.json(); })
@@ -83,7 +109,12 @@
             },
             // onError
             function (errMsg) {
-                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>上傳失敗: ' + errMsg + '</div>';
+                const msg = String(errMsg || '');
+                if (msg.indexOf('HTTP 404') !== -1) {
+                    previewZipByDirectUpload(file, type, label);
+                    return;
+                }
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>上傳失敗: ' + msg + '</div>';
             }
         );
 
