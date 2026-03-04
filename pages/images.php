@@ -15,14 +15,6 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增圖片"><i class="fas fa-plus"></i> 新增圖片</button>
-
-        <a href="export.php?table=image&format=appwrite" class="btn btn-success">
-            <i class="fa-solid fa-download"></i> 匯出 Appwrite
-        </a>
-        <a href="export.php?table=image&format=laravel" class="btn btn-success">
-            <i class="fa-solid fa-download"></i> 匯出 Laravel
-        </a>
-
         <a href="export_zip_image.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 圖片）">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>

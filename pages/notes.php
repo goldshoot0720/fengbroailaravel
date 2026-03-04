@@ -50,14 +50,6 @@ sort($categories);
         <button class="btn btn-primary" onclick="handleAdd()" title="新增筆記">
             <i class="fas fa-plus"></i> 新增筆記
         </button>
-
-        <a href="export.php?table=article&format=appwrite" class="btn btn-success">
-            <i class="fa-solid fa-download"></i> 匯出 Appwrite
-        </a>
-        <a href="export.php?table=article&format=laravel" class="btn btn-success">
-            <i class="fa-solid fa-download"></i> 匯出 Laravel
-        </a>
-
         <!-- ZIP 匯出入 (含檔案) -->
         <a href="export_zip_article.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 檔案）">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
