@@ -84,6 +84,7 @@ try {
     jsonResponse(['error' => 'DB 錯誤: ' . $e->getMessage()], 500);
 }
 
+$ignoredIndexes = [];
 foreach ($headers as $i => $h) {
     if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
         $ignoredIndexes[] = $i;
