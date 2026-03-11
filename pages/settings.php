@@ -98,9 +98,10 @@
                 <td>
                     <code
                         style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
+                        CRON_TZ=Asia/Taipei<br>
                         0 9 * * * php <?php echo htmlspecialchars($scriptPath); ?> &gt;&gt; /var/log/push_send.log 2&gt;&amp;1
                     </code>
-                    <div style="font-size:0.8em; color:#888; margin-top:4px;">每天 09:00 自動發送 3 天內到期訂閱提醒</div>
+                    <div style="font-size:0.8em; color:#888; margin-top:4px;">每天台灣時間上午 09:00 自動發送 3 天內到期訂閱提醒</div>
                 </td>
             </tr>
         </table>

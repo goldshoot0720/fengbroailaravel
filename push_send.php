@@ -10,11 +10,13 @@
  *   php push_send.php              → 發送到期提醒推播
  *   php push_send.php init_vapid   → 產生 VAPID 金鑰
  *
- * Cron 範例（每天 09:00 發送）：
+ * Cron 範例（每天台灣時間 09:00 發送）：
+ *   CRON_TZ=Asia/Taipei
  *   0 9 * * * php /path/to/push_send.php >> /var/log/push_send.log 2>&1
  */
 
 // ── 環境初始化 ───────────────────────────────────────────────────────────────
+date_default_timezone_set('Asia/Taipei');
 $isCli = (PHP_SAPI === 'cli');
 
 // CLI 模式：模擬 $_SERVER 讓 getConnection() 正常運作
