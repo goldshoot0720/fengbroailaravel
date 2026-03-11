@@ -13,8 +13,8 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
-    <button class="btn btn-primary" onclick="handleAdd()" title="新增影片"><i class="fas fa-plus"></i></button>
-    <div style="display: inline-block; margin-left: 10px;">
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增影片"><i class="fas fa-plus"></i></button>
         <a href="export_zip_video.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>
@@ -22,8 +22,31 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
         </button>
         <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
+        <div id="videoInterfaceSwitch" class="video-interface-switch">
+            <button type="button" class="video-mode-btn active" data-mode="youtube" onclick="setVideoInterface('youtube')">Like YouTube</button>
+            <button type="button" class="video-mode-btn" data-mode="bilibili" onclick="setVideoInterface('bilibili')">Like Bilibili</button>
+        </div>
     </div>
     <?php include 'includes/batch-delete.php'; ?>
+
+    <div id="videoExperience" class="video-experience video-experience-youtube">
+        <div class="video-hero">
+            <div>
+                <div class="video-hero-kicker">鋒兄影片</div>
+                <h2 id="videoExperienceTitle">Theater feed, clean controls, playlist rhythm.</h2>
+                <p id="videoExperienceDescription">切成 YouTube 介面時，列表偏向縮圖與標題優先；切成 Bilibili 介面時，資訊層次會更密集。</p>
+            </div>
+            <div class="video-hero-stats">
+                <div class="video-hero-stat">
+                    <strong><?php echo count($items); ?></strong>
+                    <span>影片數量</span>
+                </div>
+                <div class="video-hero-stat">
+                    <strong><?php echo count(array_filter($items, fn($item) => !empty($item['cover']))); ?></strong>
+                    <span>已有封面</span>
+                </div>
+            </div>
+        </div>
 
     <div class="video-list" style="margin-top: 20px;">
         <div id="inlineAddCard" class="video-item card inline-add-card"
@@ -84,7 +107,8 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                     data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
                     data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>"
                     data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
-                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>">
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                    data-created="<?php echo htmlspecialchars($item['created_at'] ?? '', ENT_QUOTES); ?>">
                     <div class="inline-view">
                         <div class="card-header">
                             <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
@@ -110,8 +134,12 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                     <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;">
                                         <?php echo htmlspecialchars($item['name']); ?>
                                     </h3>
+                                    <div class="video-meta-row">
+                                        <span class="video-badge"><?php echo !empty($item['ref']) ? htmlspecialchars($item['ref']) : '本機影片'; ?></span>
+                                        <span class="video-created-at"><?php echo !empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : '未記錄'; ?></span>
+                                    </div>
                                     <?php if (!empty($item['note'])): ?>
-                                        <p style="margin: 0; color: #666; font-size: 0.85rem;">
+                                        <p class="video-note-preview" style="margin: 0; color: #666; font-size: 0.85rem;">
                                             <?php echo htmlspecialchars($item['note']); ?>
                                         </p>
                                     <?php endif; ?>
@@ -175,10 +203,167 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+    </div>
 
     <!-- Video.js CSS -->
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
     <style>
+        .video-experience {
+            --video-shell-bg: linear-gradient(135deg, #f7f7f7 0%, #ffffff 55%, #eef4ff 100%);
+            --video-shell-border: rgba(0, 0, 0, 0.06);
+            --video-shell-shadow: 0 18px 40px rgba(32, 45, 72, 0.08);
+            --video-accent: #ff0033;
+            --video-secondary: #111827;
+            --video-chip-bg: rgba(17, 24, 39, 0.06);
+            --video-chip-text: #374151;
+            --video-modal-bg: #0f1115;
+            --video-side-bg: rgba(255, 255, 255, 0.06);
+        }
+
+        .video-experience-bilibili {
+            --video-shell-bg: linear-gradient(135deg, #ecfaff 0%, #ffffff 45%, #ffeef7 100%);
+            --video-shell-border: rgba(57, 191, 255, 0.18);
+            --video-shell-shadow: 0 20px 44px rgba(58, 170, 220, 0.18);
+            --video-accent: #00a1d6;
+            --video-secondary: #1f2937;
+            --video-chip-bg: rgba(0, 161, 214, 0.12);
+            --video-chip-text: #0369a1;
+            --video-modal-bg: #101923;
+            --video-side-bg: rgba(0, 161, 214, 0.12);
+        }
+
+        .video-hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: center;
+            padding: 24px 28px;
+            margin-top: 18px;
+            border-radius: 22px;
+            background: var(--video-shell-bg);
+            border: 1px solid var(--video-shell-border);
+            box-shadow: var(--video-shell-shadow);
+        }
+
+        .video-hero-kicker {
+            font-size: 0.78rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--video-accent);
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .video-hero h2 {
+            margin: 0 0 8px;
+            font-size: 1.6rem;
+            color: var(--video-secondary);
+        }
+
+        .video-hero p {
+            margin: 0;
+            color: #5b6474;
+            max-width: 680px;
+            line-height: 1.6;
+        }
+
+        .video-hero-stats {
+            display: flex;
+            gap: 14px;
+        }
+
+        .video-hero-stat {
+            min-width: 108px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--video-shell-border);
+            text-align: center;
+        }
+
+        .video-hero-stat strong {
+            display: block;
+            font-size: 1.35rem;
+            color: var(--video-secondary);
+        }
+
+        .video-hero-stat span {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+
+        .video-interface-switch {
+            display: inline-flex;
+            padding: 4px;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, 0.08);
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .video-mode-btn {
+            border: none;
+            background: transparent;
+            color: #475569;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .video-mode-btn.active {
+            background: #fff;
+            color: var(--video-secondary);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+        }
+
+        .video-list .video-item {
+            background: var(--video-shell-bg) !important;
+            border: 1px solid var(--video-shell-border);
+            box-shadow: var(--video-shell-shadow) !important;
+        }
+
+        .video-experience-bilibili .video-list .video-item {
+            border-radius: 18px !important;
+        }
+
+        .video-experience-bilibili .video-list .inline-view>div:nth-child(2) {
+            align-items: flex-start !important;
+        }
+
+        .video-meta-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .video-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: var(--video-chip-bg);
+            color: var(--video-chip-text);
+        }
+
+        .video-created-at {
+            font-size: 0.78rem;
+            color: #64748b;
+        }
+
+        .video-note-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
         /* Force 16:9 aspect ratio for video player */
         .video-container {
             position: relative;
@@ -228,21 +413,222 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         .video-js .vjs-mouse-display {
             display: block !important;
         }
+
+        .video-player-shell {
+            width: 94%;
+            max-width: 1320px;
+            position: relative;
+            border-radius: 28px;
+            overflow: hidden;
+            background: var(--video-modal-bg);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .video-player-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+            min-height: 70vh;
+        }
+
+        .video-player-main {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .video-player-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .video-player-title-wrap h3 {
+            color: #fff;
+            margin: 0 0 8px;
+            font-size: 1.5rem;
+        }
+
+        .video-player-title-wrap p {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.68);
+            line-height: 1.6;
+        }
+
+        .video-player-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: #fff;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .video-player-side {
+            background: var(--video-side-bg);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 24px 20px;
+            overflow-y: auto;
+        }
+
+        .video-side-section + .video-side-section {
+            margin-top: 22px;
+        }
+
+        .video-side-section h4 {
+            margin: 0 0 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+        }
+
+        .video-detail-card {
+            border-radius: 18px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.82);
+            line-height: 1.6;
+        }
+
+        .video-queue-item {
+            display: flex;
+            gap: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .video-queue-item:hover,
+        .video-queue-item.active {
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .video-queue-cover {
+            width: 112px;
+            height: 64px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.08);
+            flex-shrink: 0;
+        }
+
+        .video-queue-title {
+            color: #fff;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .video-queue-meta {
+            color: rgba(255, 255, 255, 0.56);
+            font-size: 0.8rem;
+        }
+
+        .video-experience-bilibili .video-player-layout {
+            grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+        }
+
+        .video-experience-bilibili .video-player-main {
+            gap: 14px;
+        }
+
+        .video-experience-bilibili .video-player-shell {
+            border-radius: 24px;
+        }
+
+        .video-experience-bilibili .video-detail-card {
+            background: rgba(0, 161, 214, 0.16);
+        }
+
+        .video-experience-bilibili .video-queue-item.active {
+            border-color: rgba(0, 161, 214, 0.55);
+            background: rgba(0, 161, 214, 0.14);
+        }
+
+        @media (max-width: 960px) {
+            .video-hero {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .video-hero-stats {
+                width: 100%;
+            }
+
+            .video-player-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .video-player-side {
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .video-interface-switch {
+                width: 100%;
+                margin-left: 0;
+                justify-content: space-between;
+            }
+
+            .video-mode-btn {
+                flex: 1;
+            }
+
+            .video-player-main,
+            .video-player-side {
+                padding: 16px;
+            }
+
+            .video-player-title-wrap h3 {
+                font-size: 1.18rem;
+            }
+
+            .video-queue-cover {
+                width: 88px;
+                height: 52px;
+            }
+        }
     </style>
 
     <!-- Video Player Modal -->
     <div id="videoPlayerModal"
         style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center;">
-        <div style="width: 90%; max-width: 900px; position: relative;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="videoPlayerTitle" style="color: #fff; margin: 0;"></h3>
-                <button onclick="closeVideoPlayer()"
-                    style="background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer;">&times;</button>
-            </div>
-            <div class="video-container">
-                <video id="videoPlayer" class="video-js vjs-big-play-centered" controls preload="auto">
-                    <p class="vjs-no-js">您的瀏覽器不支援影片播放</p>
-                </video>
+        <div class="video-player-shell">
+            <div class="video-player-layout">
+                <div class="video-player-main">
+                    <div class="video-player-topbar">
+                        <div class="video-player-title-wrap">
+                            <h3 id="videoPlayerTitle"></h3>
+                            <p id="videoPlayerSummary"></p>
+                        </div>
+                        <button class="video-player-close" onclick="closeVideoPlayer()">&times;</button>
+                    </div>
+                    <div class="video-container">
+                        <video id="videoPlayer" class="video-js vjs-big-play-centered" controls preload="auto">
+                            <p class="vjs-no-js">您的瀏覽器不支援影片播放</p>
+                        </video>
+                    </div>
+                </div>
+                <aside class="video-player-side">
+                    <section class="video-side-section">
+                        <h4 id="videoPlayerMetaTitle">影片資訊</h4>
+                        <div id="videoPlayerMeta" class="video-detail-card">尚未選擇影片</div>
+                    </section>
+                    <section class="video-side-section">
+                        <h4 id="videoPlayerQueueTitle">接續播放</h4>
+                        <div id="videoPlayerQueue"></div>
+                    </section>
+                </aside>
             </div>
         </div>
     </div>
@@ -300,7 +686,70 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
 <script>
     const TABLE = 'video';
+    const VIDEO_INTERFACE_STORAGE_KEY = 'videoInterfaceMode';
+    const VIDEO_ITEMS = <?php echo json_encode(array_map(function ($item) {
+        return [
+            'id' => $item['id'],
+            'name' => $item['name'] ?? '',
+            'file' => $item['file'] ?? '',
+            'cover' => $item['cover'] ?? '',
+            'ref' => $item['ref'] ?? '',
+            'note' => $item['note'] ?? '',
+            'created_at' => $item['created_at'] ?? '',
+        ];
+    }, $items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    let currentVideoInterface = 'youtube';
+    let currentPlayingVideoId = null;
     initBatchDelete(TABLE);
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getVideoItem(id) {
+        return VIDEO_ITEMS.find(item => item.id === id) || null;
+    }
+
+    function setVideoInterface(mode) {
+        currentVideoInterface = mode === 'bilibili' ? 'bilibili' : 'youtube';
+        const container = document.getElementById('videoExperience');
+        const title = document.getElementById('videoExperienceTitle');
+        const description = document.getElementById('videoExperienceDescription');
+        const metaTitle = document.getElementById('videoPlayerMetaTitle');
+        const queueTitle = document.getElementById('videoPlayerQueueTitle');
+
+        if (container) {
+            container.classList.toggle('video-experience-youtube', currentVideoInterface === 'youtube');
+            container.classList.toggle('video-experience-bilibili', currentVideoInterface === 'bilibili');
+        }
+
+        document.querySelectorAll('.video-mode-btn').forEach(button => {
+            button.classList.toggle('active', button.dataset.mode === currentVideoInterface);
+        });
+
+        if (title && description && metaTitle && queueTitle) {
+            if (currentVideoInterface === 'bilibili') {
+                title.textContent = '資訊更密、右欄更強、像追番站的看片節奏。';
+                description.textContent = 'Bilibili 介面會把影片資訊、接續播放與備註放得更靠近主播放器，適合快速切片切片地看。';
+                metaTitle.textContent = '稿件資訊';
+                queueTitle.textContent = '推薦連播';
+            } else {
+                title.textContent = 'Theater feed, clean controls, playlist rhythm.';
+                description.textContent = 'YouTube 介面強調主播放器與清楚縮圖，右欄像播放清單，適合長時間連續播放。';
+                metaTitle.textContent = '影片資訊';
+                queueTitle.textContent = '接續播放';
+            }
+        }
+
+        localStorage.setItem(VIDEO_INTERFACE_STORAGE_KEY, currentVideoInterface);
+        renderVideoQueue(currentPlayingVideoId);
+        renderVideoMeta(currentPlayingVideoId);
+    }
 
     function handleAdd() {
         if (window.matchMedia('(max-width: 768px)').matches) {
@@ -718,9 +1167,25 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     function playVideo(id, src, title) {
         const modal = document.getElementById('videoPlayerModal');
         const titleEl = document.getElementById('videoPlayerTitle');
+        const item = getVideoItem(id);
 
+        currentPlayingVideoId = id;
         titleEl.textContent = title;
         modal.style.display = 'flex';
+        renderVideoMeta(id);
+        renderVideoQueue(id);
+        const summary = document.getElementById('videoPlayerSummary');
+        if (summary) {
+            if (currentVideoInterface === 'bilibili') {
+                summary.textContent = item && item.ref
+                    ? `分區 / 來源：${item.ref}`
+                    : '本機稿件播放中';
+            } else {
+                summary.textContent = item && item.note
+                    ? item.note
+                    : '沉浸播放模式已開啟';
+            }
+        }
 
         const player = initVideoJS();
         player.src({ type: 'video/mp4', src: src });
@@ -734,7 +1199,72 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             vjsPlayer.pause();
             vjsPlayer.src('');
         }
+        currentPlayingVideoId = null;
         modal.style.display = 'none';
+    }
+
+    function renderVideoMeta(id) {
+        const meta = document.getElementById('videoPlayerMeta');
+        const item = getVideoItem(id);
+        if (!meta) return;
+
+        if (!item) {
+            meta.textContent = '尚未選擇影片';
+            return;
+        }
+
+        const created = item.created_at ? escapeHtml(item.created_at.replace('T', ' ')) : '未記錄';
+        const source = item.ref ? escapeHtml(item.ref) : '本機影片';
+        const note = item.note ? escapeHtml(item.note) : '沒有額外備註';
+
+        if (currentVideoInterface === 'bilibili') {
+            meta.innerHTML = `
+                <div style="display:grid;gap:10px;">
+                    <div><strong style="color:#fff;">標題</strong><div>${escapeHtml(item.name)}</div></div>
+                    <div><strong style="color:#fff;">分區 / 來源</strong><div>${source}</div></div>
+                    <div><strong style="color:#fff;">建立時間</strong><div>${created}</div></div>
+                    <div><strong style="color:#fff;">簡介</strong><div>${note}</div></div>
+                </div>
+            `;
+            return;
+        }
+
+        meta.innerHTML = `
+            <div style="display:grid;gap:10px;">
+                <div><strong style="color:#fff;">Now Playing</strong><div>${escapeHtml(item.name)}</div></div>
+                <div><strong style="color:#fff;">Source</strong><div>${source}</div></div>
+                <div><strong style="color:#fff;">Uploaded</strong><div>${created}</div></div>
+                <div><strong style="color:#fff;">Notes</strong><div>${note}</div></div>
+            </div>
+        `;
+    }
+
+    function renderVideoQueue(activeId) {
+        const queue = document.getElementById('videoPlayerQueue');
+        if (!queue) return;
+
+        queue.innerHTML = VIDEO_ITEMS
+            .filter(item => item.file)
+            .map(item => {
+                const isActive = item.id === activeId;
+                const cover = item.cover
+                    ? `<img class="video-queue-cover" src="${escapeHtml(item.cover)}" alt="${escapeHtml(item.name)}">`
+                    : `<div class="video-queue-cover" style="display:flex;align-items:center;justify-content:center;color:#fff;"><i class="fa-solid fa-video"></i></div>`;
+                const meta = currentVideoInterface === 'bilibili'
+                    ? escapeHtml(item.ref || '稿件未分類')
+                    : escapeHtml(item.created_at ? item.created_at.slice(0, 10) : '最近加入');
+
+                return `
+                    <div class="video-queue-item${isActive ? ' active' : ''}" onclick="playVideo('${escapeHtml(item.id)}', '${escapeHtml(item.file)}', '${escapeHtml(item.name)}')">
+                        ${cover}
+                        <div style="min-width:0;">
+                            <div class="video-queue-title">${escapeHtml(item.name)}</div>
+                            <div class="video-queue-meta">${meta}</div>
+                        </div>
+                    </div>
+                `;
+            })
+            .join('');
     }
 
     // Close modal on ESC key
@@ -749,6 +1279,13 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         if (e.target === this) {
             closeVideoPlayer();
         }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const savedMode = localStorage.getItem(VIDEO_INTERFACE_STORAGE_KEY);
+        setVideoInterface(savedMode || 'youtube');
+        renderVideoQueue(null);
+        renderVideoMeta(null);
     });
 
     function importZIP(input) {

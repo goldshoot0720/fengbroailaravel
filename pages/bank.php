@@ -16,6 +16,8 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons-bar">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行"><i class="fas fa-plus"></i></button>
+        <button class="btn btn-success" type="button" onclick="openTransactionModal('income')">新增收入</button>
+        <button class="btn btn-danger" type="button" onclick="openTransactionModal('expense')">新增支出</button>
         <?php $csvTable = 'bank';
         include 'includes/csv_buttons.php'; ?>
         <?php include 'includes/batch-delete.php'; ?>
@@ -234,9 +236,57 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
     </div>
 </div>
 
+<div id="transactionModal" class="modal" onclick="if (event.target === this) closeTransactionModal()">
+    <div class="modal-content" style="max-width: 520px;">
+        <span class="modal-close" onclick="closeTransactionModal()">&times;</span>
+        <h2>銀行收支調整</h2>
+        <div style="display: grid; gap: 16px;">
+            <div>
+                <label for="transactionBank" style="display: block; margin-bottom: 8px; font-weight: 600;">1. 選擇銀行</label>
+                <select id="transactionBank" class="form-control" onchange="updateTransactionPreview()">
+                    <option value="">請選擇銀行</option>
+                    <?php foreach ($items as $item): ?>
+                        <option value="<?php echo htmlspecialchars($item['id'], ENT_QUOTES); ?>">
+                            <?php echo htmlspecialchars($item['name']); ?>（目前 <?php echo formatMoney($item['deposit']); ?>）
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label for="transactionType" style="display: block; margin-bottom: 8px; font-weight: 600;">2. 選擇收入或支出</label>
+                <select id="transactionType" class="form-control" onchange="updateTransactionPreview()">
+                    <option value="income">收入</option>
+                    <option value="expense">支出</option>
+                </select>
+            </div>
+            <div>
+                <label for="transactionAmount" style="display: block; margin-bottom: 8px; font-weight: 600;">3. 輸入金額</label>
+                <input id="transactionAmount" type="number" min="0" step="1" class="form-control" placeholder="請輸入金額"
+                    oninput="updateTransactionPreview()">
+            </div>
+            <div id="transactionPreview"
+                style="padding: 14px 16px; border-radius: 8px; background: var(--table-header-bg); color: var(--text-color);">
+                請先選擇銀行並輸入金額。
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn" onclick="closeTransactionModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitTransaction()">完成</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <script>
     const TABLE = 'bank';
+    const BANK_ITEMS = <?php echo json_encode(array_map(function ($item) {
+        return [
+            'id' => $item['id'],
+            'name' => $item['name'],
+            'deposit' => (int) ($item['deposit'] ?? 0),
+            'withdrawals' => (int) ($item['withdrawals'] ?? 0),
+        ];
+    }, $items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     initBatchDelete(TABLE);
 
     function handleAdd() {
@@ -379,6 +429,107 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
                     else alert('刪除失敗');
                 });
         }
+    }
+
+    function formatAmount(amount) {
+        const value = Number(amount) || 0;
+        return new Intl.NumberFormat('zh-TW', {
+            style: 'currency',
+            currency: 'TWD',
+            maximumFractionDigits: 0
+        }).format(value);
+    }
+
+    function getBankById(id) {
+        return BANK_ITEMS.find(item => item.id === id) || null;
+    }
+
+    function openTransactionModal(defaultType = 'income') {
+        const modal = document.getElementById('transactionModal');
+        const typeInput = document.getElementById('transactionType');
+        const bankInput = document.getElementById('transactionBank');
+        const amountInput = document.getElementById('transactionAmount');
+
+        if (!modal || !typeInput || !bankInput || !amountInput) return;
+
+        typeInput.value = defaultType;
+        bankInput.value = '';
+        amountInput.value = '';
+        modal.style.display = 'flex';
+        updateTransactionPreview();
+    }
+
+    function closeTransactionModal() {
+        const modal = document.getElementById('transactionModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    function updateTransactionPreview() {
+        const preview = document.getElementById('transactionPreview');
+        const bankId = document.getElementById('transactionBank')?.value || '';
+        const type = document.getElementById('transactionType')?.value || 'income';
+        const amount = Number(document.getElementById('transactionAmount')?.value || 0);
+
+        if (!preview) return;
+
+        const bank = getBankById(bankId);
+        if (!bank) {
+            preview.textContent = '請先選擇銀行並輸入金額。';
+            return;
+        }
+
+        const currentDeposit = Number(bank.deposit) || 0;
+        const nextDeposit = type === 'income' ? currentDeposit + amount : currentDeposit - amount;
+        const typeLabel = type === 'income' ? '收入' : '支出';
+
+        if (!amount) {
+            preview.innerHTML = `${bank.name} 目前金額：<strong>${formatAmount(currentDeposit)}</strong>`;
+            return;
+        }
+
+        preview.innerHTML = `${bank.name} 目前金額：<strong>${formatAmount(currentDeposit)}</strong><br>${typeLabel}金額：<strong>${formatAmount(amount)}</strong><br>調整後金額：<strong>${formatAmount(nextDeposit)}</strong>`;
+    }
+
+    function submitTransaction() {
+        const bankId = document.getElementById('transactionBank')?.value || '';
+        const type = document.getElementById('transactionType')?.value || 'income';
+        const amount = Number(document.getElementById('transactionAmount')?.value || 0);
+        const bank = getBankById(bankId);
+
+        if (!bank) {
+            alert('請先選擇銀行');
+            return;
+        }
+
+        if (!amount || amount <= 0) {
+            alert('請輸入正確金額');
+            return;
+        }
+
+        const currentDeposit = Number(bank.deposit) || 0;
+        const currentWithdrawals = Number(bank.withdrawals) || 0;
+        const data = {
+            deposit: type === 'income' ? currentDeposit + amount : currentDeposit - amount,
+            withdrawals: type === 'expense' ? currentWithdrawals + amount : currentWithdrawals
+        };
+
+        fetch(`api.php?action=update&table=${TABLE}&id=${bankId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    closeTransactionModal();
+                    location.reload();
+                } else {
+                    alert('更新失敗: ' + (res.error || ''));
+                }
+            })
+            .catch(err => alert('更新失敗: ' + (err.message || '網路錯誤')));
     }
 
 </script>
