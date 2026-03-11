@@ -151,6 +151,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                         onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
                                         <i class="fa-solid fa-play"></i> 播放
                                     </button>
+                                    <button class="btn btn-success btn-sm"
+                                        onclick="downloadVideo('<?php echo $item['id']; ?>')">
+                                        <i class="fa-solid fa-download"></i> 下載
+                                    </button>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -444,6 +448,12 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             gap: 16px;
         }
 
+        .video-player-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
         .video-player-title-wrap h3 {
             color: #fff;
             margin: 0 0 8px;
@@ -611,7 +621,13 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                             <h3 id="videoPlayerTitle"></h3>
                             <p id="videoPlayerSummary"></p>
                         </div>
-                        <button class="video-player-close" onclick="closeVideoPlayer()">&times;</button>
+                        <div class="video-player-actions">
+                            <button id="videoPlayerDownloadBtn" type="button" class="btn btn-success"
+                                onclick="downloadCurrentVideo()" style="display: none;">
+                                <i class="fa-solid fa-download"></i> 下載影片
+                            </button>
+                            <button class="video-player-close" onclick="closeVideoPlayer()">&times;</button>
+                        </div>
                     </div>
                     <div class="video-container">
                         <video id="videoPlayer" class="video-js vjs-big-play-centered" controls preload="auto">
@@ -713,6 +729,47 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
     function getVideoItem(id) {
         return VIDEO_ITEMS.find(item => item.id === id) || null;
+    }
+
+    function getVideoDownloadName(item) {
+        const fallback = 'video';
+        const rawName = String(item?.name || fallback).trim() || fallback;
+        const cleanName = rawName.replace(/[\\\\/:*?"<>|]+/g, '-');
+
+        try {
+            const pathname = new URL(item.file, window.location.href).pathname || '';
+            const lastSegment = pathname.split('/').pop() || '';
+            const extMatch = lastSegment.match(/(\.[a-z0-9]{2,5})$/i);
+            return extMatch ? `${cleanName}${extMatch[1]}` : cleanName;
+        } catch (error) {
+            return cleanName;
+        }
+    }
+
+    function downloadVideo(id) {
+        const item = getVideoItem(id);
+        if (!item || !item.file) {
+            alert('找不到可下載的影片檔案');
+            return;
+        }
+
+        const link = document.createElement('a');
+        link.href = item.file;
+        link.download = getVideoDownloadName(item);
+        link.target = '_blank';
+        link.rel = 'noopener';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function downloadCurrentVideo() {
+        if (!currentPlayingVideoId) {
+            alert('目前沒有播放中的影片');
+            return;
+        }
+
+        downloadVideo(currentPlayingVideoId);
     }
 
     function setVideoInterface(mode) {
@@ -1168,10 +1225,14 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         const modal = document.getElementById('videoPlayerModal');
         const titleEl = document.getElementById('videoPlayerTitle');
         const item = getVideoItem(id);
+        const downloadBtn = document.getElementById('videoPlayerDownloadBtn');
 
         currentPlayingVideoId = id;
         titleEl.textContent = title;
         modal.style.display = 'flex';
+        if (downloadBtn) {
+            downloadBtn.style.display = item && item.file ? 'inline-flex' : 'none';
+        }
         renderVideoMeta(id);
         renderVideoQueue(id);
         const summary = document.getElementById('videoPlayerSummary');
@@ -1194,10 +1255,14 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
     function closeVideoPlayer() {
         const modal = document.getElementById('videoPlayerModal');
+        const downloadBtn = document.getElementById('videoPlayerDownloadBtn');
 
         if (vjsPlayer) {
             vjsPlayer.pause();
             vjsPlayer.src('');
+        }
+        if (downloadBtn) {
+            downloadBtn.style.display = 'none';
         }
         currentPlayingVideoId = null;
         modal.style.display = 'none';
