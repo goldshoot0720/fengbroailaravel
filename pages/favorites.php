@@ -40,10 +40,8 @@ foreach ($items as $item) {
 $commonSites = array_filter($siteAccounts, function ($accounts) {
     return count($accounts) >= 1;
 });
-// 按出現次數排序
-uasort($commonSites, function ($a, $b) {
-    return count($b) - count($a);
-});
+// 依網站名稱字母小到大排序
+uksort($commonSites, 'strnatcasecmp');
 ?>
 
 <div class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
