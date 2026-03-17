@@ -97,6 +97,10 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <button class="btn btn-primary" onclick="handleAdd()" title="新增音樂"><i class="fas fa-plus"></i></button>
+    <button type="button" class="btn" onclick="document.getElementById('multiAudioFiles').click()" title="一次上傳多首音樂" style="margin-left: 10px;">
+        <i class="fa-solid fa-music"></i> 多音樂上傳
+    </button>
+    <input type="file" id="multiAudioFiles" accept="audio/*" multiple style="display: none;" onchange="uploadMultipleAudioFiles(this.files)">
 
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_music.php" class="btn btn-success">
@@ -501,6 +505,112 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         preview.innerHTML = url
             ? `<img src="${url}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">`
             : '';
+    }
+
+    function uploadFileWithProgressPromise(file) {
+        return new Promise((resolve, reject) => {
+            uploadFileWithProgress(file, resolve, reject);
+        });
+    }
+
+    function createMusicRecord(data) {
+        return fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json());
+    }
+
+    function baseName(filename) {
+        return String(filename || '').replace(/\.[^.]+$/, '');
+    }
+
+    async function uploadMultipleAudioFiles(fileList) {
+        const files = Array.from(fileList || []).filter(file => file && String(file.type || '').startsWith('audio/'));
+        if (!files.length) return;
+
+        const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+        let completedBytes = 0;
+        let successCount = 0;
+        const failedFiles = [];
+        const input = document.getElementById('multiAudioFiles');
+
+        showUploadProgressModal(
+            0,
+            `0% (${successCount}/${files.length})`,
+            `準備上傳 0 / ${files.length} 首`,
+            '多音樂上傳中...'
+        );
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const uploadRes = await new Promise((resolve, reject) => {
+                    uploadFileWithProgress(file, resolve, reject, {
+                        showModal: false,
+                        onProgress: function (progress) {
+                            const aggregateLoaded = completedBytes + progress.loaded;
+                            const aggregatePercent = totalBytes > 0
+                                ? Math.round((aggregateLoaded / totalBytes) * 100)
+                                : Math.round(((i + (progress.percent / 100)) / files.length) * 100);
+                            showUploadProgressModal(
+                                aggregatePercent,
+                                `${aggregatePercent}% (${i + 1}/${files.length})`,
+                                `第 ${i + 1} / ${files.length} 首：${file.name} (${progress.loadedText} / ${progress.totalText})`,
+                                '多音樂上傳中...'
+                            );
+                        }
+                    });
+                });
+                completedBytes += file.size || 0;
+
+                const data = {
+                    name: baseName(uploadRes.filename || file.name) || '未命名音樂',
+                    file: uploadRes.file,
+                    category: '',
+                    language: '',
+                    cover: '',
+                    ref: '',
+                    note: '',
+                    lyrics: ''
+                };
+                const createRes = await createMusicRecord(data);
+                if (!createRes.success) {
+                    throw new Error(createRes.error || '建立音樂資料失敗');
+                }
+                successCount++;
+
+                const aggregatePercent = totalBytes > 0
+                    ? Math.round((completedBytes / totalBytes) * 100)
+                    : Math.round((successCount / files.length) * 100);
+                showUploadProgressModal(
+                    aggregatePercent,
+                    `${aggregatePercent}% (${successCount}/${files.length})`,
+                    `已完成 ${successCount} / ${files.length} 首`,
+                    '多音樂上傳中...'
+                );
+            } catch (error) {
+                completedBytes += file.size || 0;
+                failedFiles.push(`${file.name}: ${error && error.message ? error.message : error}`);
+            }
+        }
+
+        hideUploadProgressModal();
+        if (input) input.value = '';
+
+        if (successCount > 0 && failedFiles.length === 0) {
+            alert(`已成功上傳 ${successCount} 首音樂`);
+            location.reload();
+            return;
+        }
+
+        if (successCount > 0) {
+            alert(`成功 ${successCount} 首，失敗 ${failedFiles.length} 首：\n${failedFiles.join('\n')}`);
+            location.reload();
+            return;
+        }
+
+        alert('多音樂上傳失敗：\n' + failedFiles.join('\n'));
     }
 
     function fillInlineInputs(card) {
