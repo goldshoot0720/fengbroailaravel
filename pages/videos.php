@@ -128,6 +128,14 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                 <?php if (!empty($item['cover'])): ?>
                                     <img src="<?php echo htmlspecialchars($item['cover']); ?>"
                                         style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
+                                <?php elseif (!empty($item['file'])): ?>
+                                    <video
+                                        src="<?php echo htmlspecialchars($item['file']); ?>"
+                                        preload="metadata"
+                                        muted
+                                        playsinline
+                                        style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px; background: #34495e;">
+                                    </video>
                                 <?php else: ?>
                                     <div class="video-thumb-placeholder"
                                         style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
@@ -1062,77 +1070,6 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             ? `<img src="${url}" style="width: 120px; height: 90px; object-fit: cover; border-radius: 5px;">`
             : '';
     }
-
-    // 擷取影片畫面，回傳 base64 dataURL
-    function captureVideoFrame(src, seekSec, callback) {
-        const video = document.createElement('video');
-        video.crossOrigin = 'anonymous';
-        video.muted = true;
-        video.playsInline = true;
-        video.preload = 'auto';
-        let done = false;
-
-        function finish(dataUrl) {
-            if (done) return;
-            done = true;
-            callback(dataUrl);
-            video.pause();
-            video.removeAttribute('src');
-            video.load();
-        }
-
-        function drawFrame() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 160;
-            canvas.height = 120;
-            canvas.getContext('2d').drawImage(video, 0, 0, 160, 120);
-            finish(canvas.toDataURL('image/jpeg', 0.85));
-        }
-
-        video.addEventListener('loadedmetadata', function () {
-            const duration = Number.isFinite(video.duration) ? video.duration : 0;
-            const targetTime = duration > 0 ? Math.min(seekSec, Math.max(duration - 0.1, 0)) : 0;
-
-            if (targetTime <= 0) {
-                if (video.readyState >= 2) {
-                    drawFrame();
-                } else {
-                    video.addEventListener('loadeddata', drawFrame, { once: true });
-                }
-                return;
-            }
-
-            video.currentTime = targetTime;
-        }, { once: true });
-
-        video.addEventListener('seeked', function () {
-            if (video.readyState >= 2) {
-                drawFrame();
-            }
-        });
-
-        video.addEventListener('error', function () { });
-        setTimeout(function () {
-            if (!done && video.readyState >= 2) {
-                drawFrame();
-            }
-        }, 1500);
-
-        video.src = src;
-        video.load();
-    }
-
-    // 頁面載入：為沒有封面的影片自動擷取第 1 秒畫面
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.video-item').forEach(function (item) {
-            if (item.dataset.cover || !item.dataset.file) return;
-            const placeholder = item.querySelector('.video-thumb-placeholder');
-            if (!placeholder) return;
-            captureVideoFrame(item.dataset.file, 1, function (dataUrl) {
-                placeholder.innerHTML = `<img src="${dataUrl}" style="width:80px;height:60px;object-fit:cover;border-radius:5px;">`;
-            });
-        });
-    });
 
     function uploadVideo() {
         const input = document.getElementById('videoFile');
