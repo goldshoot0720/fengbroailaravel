@@ -88,9 +88,9 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                             </div>
                         </div>
                         <?php if (!empty($item['cover'])): ?>
-                            <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
+                            <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">
                         <?php elseif (!empty($item['file'])): ?>
-                            <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
+                            <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">
                         <?php endif; ?>
                         <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
                         <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
@@ -248,7 +248,7 @@ function addCardToGrid(id, data) {
         return d.innerHTML;
     }
     const imgHtml = data.file
-        ? `<img src="${esc(data.file)}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">`
+        ? `<img src="${esc(data.file)}" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">`
         : '';
     const newCard = document.createElement('div');
     newCard.className = 'card';
