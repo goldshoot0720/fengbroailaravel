@@ -1063,28 +1063,63 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             : '';
     }
 
-    // 擷取影片第 N 秒畫面，回傳 base64 dataURL
+    // 擷取影片畫面，回傳 base64 dataURL
     function captureVideoFrame(src, seekSec, callback) {
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
         video.muted = true;
-        video.preload = 'metadata';
+        video.playsInline = true;
+        video.preload = 'auto';
         let done = false;
-        video.addEventListener('loadeddata', function () {
-            video.currentTime = seekSec;
-        });
-        video.addEventListener('seeked', function () {
+
+        function finish(dataUrl) {
             if (done) return;
             done = true;
+            callback(dataUrl);
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+        }
+
+        function drawFrame() {
             const canvas = document.createElement('canvas');
             canvas.width = 160;
             canvas.height = 120;
             canvas.getContext('2d').drawImage(video, 0, 0, 160, 120);
-            callback(canvas.toDataURL('image/jpeg', 0.85));
-            video.src = '';
+            finish(canvas.toDataURL('image/jpeg', 0.85));
+        }
+
+        video.addEventListener('loadedmetadata', function () {
+            const duration = Number.isFinite(video.duration) ? video.duration : 0;
+            const targetTime = duration > 0 ? Math.min(seekSec, Math.max(duration - 0.1, 0)) : 0;
+
+            if (targetTime <= 0) {
+                if (video.readyState >= 2) {
+                    drawFrame();
+                } else {
+                    video.addEventListener('loadeddata', drawFrame, { once: true });
+                }
+                return;
+            }
+
+            video.currentTime = targetTime;
+        }, { once: true });
+
+        video.addEventListener('seeked', function () {
+            if (video.readyState >= 2) {
+                drawFrame();
+            }
         });
+
         video.addEventListener('error', function () { });
+        setTimeout(function () {
+            if (!done && video.readyState >= 2) {
+                drawFrame();
+            }
+        }, 1500);
+
         video.src = src;
+        video.load();
     }
 
     // 頁面載入：為沒有封面的影片自動擷取第 1 秒畫面
