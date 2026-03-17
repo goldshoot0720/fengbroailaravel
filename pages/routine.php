@@ -2,6 +2,20 @@
 $pageTitle = '例行事項';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll();
+
+function getRoutineDaysDiff(array $item): array
+{
+    if (empty($item['lastdate1'])) {
+        return ['text' => '-', 'days' => 0];
+    }
+
+    $date1 = new DateTime($item['lastdate1']);
+    $date2 = !empty($item['lastdate2']) ? new DateTime($item['lastdate2']) : new DateTime('today');
+    $diff = $date1->diff($date2);
+    $days = $diff->days;
+
+    return ['text' => $days . ' 天', 'days' => $days];
+}
 ?>
 
 <div class="content-header">
@@ -90,13 +104,8 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
                     <?php
-                    $daysDiff = '-';
-                    if (!empty($item['lastdate1']) && !empty($item['lastdate2'])) {
-                        $date1 = new DateTime($item['lastdate1']);
-                        $date2 = new DateTime($item['lastdate2']);
-                        $diff = $date1->diff($date2);
-                        $daysDiff = $diff->days . ' 天';
-                    }
+                    $routineDaysDiff = getRoutineDaysDiff($item);
+                    $daysDiff = $routineDaysDiff['text'];
                     ?>
                     <tr data-id="<?php echo $item['id']; ?>"
                         data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
@@ -192,15 +201,9 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
             <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無例行事項</div>
         <?php else: ?>
             <?php foreach ($items as $item):
-                $daysDiff = '-';
-                $daysDiffNum = 0;
-                if (!empty($item['lastdate1']) && !empty($item['lastdate2'])) {
-                    $date1 = new DateTime($item['lastdate1']);
-                    $date2 = new DateTime($item['lastdate2']);
-                    $diff = $date1->diff($date2);
-                    $daysDiffNum = $diff->days;
-                    $daysDiff = $daysDiffNum . ' 天';
-                }
+                $routineDaysDiff = getRoutineDaysDiff($item);
+                $daysDiff = $routineDaysDiff['text'];
+                $daysDiffNum = $routineDaysDiff['days'];
                 ?>
                 <div class="mobile-card" style="border-left: 4px solid #9b59b6;">
                     <div class="mobile-card-actions">
@@ -230,7 +233,7 @@ $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll
                         </div>
                         <div
                             style="text-align: center; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
-                            <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiffNum ?: '-'; ?></div>
+                            <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiff === '-' ? '-' : $daysDiffNum; ?></div>
                             <div style="font-size: 0.7rem;">天</div>
                         </div>
                     </div>
