@@ -527,15 +527,41 @@ async function uploadMultipleImages(fileList) {
     const triggerInputs = ['multiImageFiles', 'modalMultiImageFiles'];
     let successCount = 0;
     const failedFiles = [];
+    const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    let completedBytes = 0;
 
     if (document.getElementById('modal')?.style.display === 'flex') {
         closeModal();
     }
 
+    showUploadProgressModal(
+        0,
+        `0% (${successCount}/${files.length})`,
+        `準備上傳 0 / ${files.length} 張`,
+        '多圖片上傳中...'
+    );
+
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-            const uploadRes = await uploadFileWithProgressPromise(file);
+            const uploadRes = await new Promise((resolve, reject) => {
+                uploadFileWithProgress(file, resolve, reject, {
+                    showModal: false,
+                    onProgress: function (progress) {
+                        const aggregateLoaded = completedBytes + progress.loaded;
+                        const aggregatePercent = totalBytes > 0
+                            ? Math.round((aggregateLoaded / totalBytes) * 100)
+                            : Math.round(((i + (progress.percent / 100)) / files.length) * 100);
+                        showUploadProgressModal(
+                            aggregatePercent,
+                            `${aggregatePercent}% (${i + 1}/${files.length})`,
+                            `第 ${i + 1} / ${files.length} 張：${file.name} (${progress.loadedText} / ${progress.totalText})`,
+                            '多圖片上傳中...'
+                        );
+                    }
+                });
+            });
+            completedBytes += file.size || 0;
             const data = {
                 name: baseName(uploadRes.filename || file.name) || '未命名圖片',
                 file: uploadRes.file,
@@ -549,10 +575,22 @@ async function uploadMultipleImages(fileList) {
                 throw new Error(createRes.error || '建立圖片資料失敗');
             }
             successCount++;
+            const aggregatePercent = totalBytes > 0
+                ? Math.round((completedBytes / totalBytes) * 100)
+                : Math.round((successCount / files.length) * 100);
+            showUploadProgressModal(
+                aggregatePercent,
+                `${aggregatePercent}% (${successCount}/${files.length})`,
+                `已完成 ${successCount} / ${files.length} 張`,
+                '多圖片上傳中...'
+            );
         } catch (error) {
+            completedBytes += file.size || 0;
             failedFiles.push(`${file.name}: ${error && error.message ? error.message : error}`);
         }
     }
+
+    hideUploadProgressModal();
 
     triggerInputs.forEach(id => {
         const input = document.getElementById(id);
