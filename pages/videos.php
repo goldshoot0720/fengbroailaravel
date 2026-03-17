@@ -15,6 +15,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons-bar">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增影片"><i class="fas fa-plus"></i></button>
+        <button type="button" class="btn" onclick="document.getElementById('multiVideoFiles').click()">
+            <i class="fa-solid fa-photo-film"></i> 多影片上傳
+        </button>
+        <input type="file" id="multiVideoFiles" accept="video/*" multiple style="display: none;" onchange="uploadMultipleVideos(this.files)">
         <a href="export_zip_video.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>
@@ -671,6 +675,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                     <button type="button" class="btn" onclick="document.getElementById('videoFile').click()">
                         <i class="fa-solid fa-upload"></i> 上傳影片
                     </button>
+                    <input type="file" id="modalMultiVideoFiles" accept="video/*" multiple onchange="uploadMultipleVideos(this.files)" style="display: none;">
+                    <button type="button" class="btn" onclick="document.getElementById('modalMultiVideoFiles').click()">
+                        <i class="fa-solid fa-photo-film"></i> 多影片上傳
+                    </button>
                 </div>
                 <div id="videoPreview" style="margin-top: 10px;"></div>
             </div>
@@ -1109,6 +1117,78 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             }
         );
         input.value = '';
+    }
+
+    function uploadFileWithProgressPromise(file) {
+        return new Promise((resolve, reject) => {
+            uploadFileWithProgress(file, resolve, reject);
+        });
+    }
+
+    function createVideoRecord(data) {
+        return fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json());
+    }
+
+    function baseName(filename) {
+        return String(filename || '').replace(/\.[^.]+$/, '');
+    }
+
+    async function uploadMultipleVideos(fileList) {
+        const files = Array.from(fileList || []).filter(file => file && String(file.type || '').startsWith('video/'));
+        if (!files.length) return;
+
+        const triggerInputs = ['multiVideoFiles', 'modalMultiVideoFiles'];
+        let successCount = 0;
+        const failedFiles = [];
+
+        if (document.getElementById('modal')?.style.display === 'flex') {
+            closeModal();
+        }
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const uploadRes = await uploadFileWithProgressPromise(file);
+                const data = {
+                    name: baseName(uploadRes.filename || file.name) || '未命名影片',
+                    file: uploadRes.file,
+                    cover: '',
+                    ref: '',
+                    note: '',
+                    category: 'video'
+                };
+                const createRes = await createVideoRecord(data);
+                if (!createRes.success) {
+                    throw new Error(createRes.error || '建立影片資料失敗');
+                }
+                successCount++;
+            } catch (error) {
+                failedFiles.push(`${file.name}: ${error && error.message ? error.message : error}`);
+            }
+        }
+
+        triggerInputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) input.value = '';
+        });
+
+        if (successCount > 0 && failedFiles.length === 0) {
+            alert(`已成功上傳 ${successCount} 部影片`);
+            location.reload();
+            return;
+        }
+
+        if (successCount > 0) {
+            alert(`成功 ${successCount} 部，失敗 ${failedFiles.length} 部：\n${failedFiles.join('\n')}`);
+            location.reload();
+            return;
+        }
+
+        alert('多影片上傳失敗：\n' + failedFiles.join('\n'));
     }
 
     function updateVideoPreview() {
