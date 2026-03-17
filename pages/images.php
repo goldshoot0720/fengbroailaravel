@@ -15,6 +15,10 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增圖片"><i class="fas fa-plus"></i> 新增圖片</button>
+        <button type="button" class="btn" onclick="document.getElementById('multiImageFiles').click()" title="一次上傳多張圖片">
+            <i class="fa-solid fa-images"></i> 多圖片上傳
+        </button>
+        <input type="file" id="multiImageFiles" accept="image/*" multiple style="display: none;" onchange="uploadMultipleImages(this.files)">
         <a href="export_zip_image.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 圖片）">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
         </a>
@@ -148,6 +152,10 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                     <input type="file" id="imageFile" accept="image/*" onchange="uploadImage()" style="display: none;">
                     <button type="button" class="btn" onclick="document.getElementById('imageFile').click()">
                         <i class="fa-solid fa-upload"></i> 上傳圖片
+                    </button>
+                    <input type="file" id="modalMultiImageFiles" accept="image/*" multiple onchange="uploadMultipleImages(this.files)" style="display: none;">
+                    <button type="button" class="btn" onclick="document.getElementById('modalMultiImageFiles').click()">
+                        <i class="fa-solid fa-images"></i> 多圖片上傳
                     </button>
                 </div>
                 <div id="imagePreview" style="margin-top: 10px;"></div>
@@ -492,6 +500,78 @@ function uploadImage() {
         }
     );
     input.value = '';
+}
+
+function uploadFileWithProgressPromise(file) {
+    return new Promise((resolve, reject) => {
+        uploadFileWithProgress(file, resolve, reject);
+    });
+}
+
+function createImageRecord(data) {
+    return fetch(`api.php?action=create&table=${TABLE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(r => r.json());
+}
+
+function baseName(filename) {
+    return String(filename || '').replace(/\.[^.]+$/, '');
+}
+
+async function uploadMultipleImages(fileList) {
+    const files = Array.from(fileList || []).filter(file => file && String(file.type || '').startsWith('image/'));
+    if (!files.length) return;
+
+    const triggerInputs = ['multiImageFiles', 'modalMultiImageFiles'];
+    let successCount = 0;
+    const failedFiles = [];
+
+    if (document.getElementById('modal')?.style.display === 'flex') {
+        closeModal();
+    }
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+            const uploadRes = await uploadFileWithProgressPromise(file);
+            const data = {
+                name: baseName(uploadRes.filename || file.name) || '未命名圖片',
+                file: uploadRes.file,
+                cover: uploadRes.file,
+                category: '',
+                ref: '',
+                note: ''
+            };
+            const createRes = await createImageRecord(data);
+            if (!createRes.success) {
+                throw new Error(createRes.error || '建立圖片資料失敗');
+            }
+            successCount++;
+        } catch (error) {
+            failedFiles.push(`${file.name}: ${error && error.message ? error.message : error}`);
+        }
+    }
+
+    triggerInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+
+    if (successCount > 0 && failedFiles.length === 0) {
+        alert(`已成功上傳 ${successCount} 張圖片`);
+        location.reload();
+        return;
+    }
+
+    if (successCount > 0) {
+        alert(`成功 ${successCount} 張，失敗 ${failedFiles.length} 張：\n${failedFiles.join('\n')}`);
+        location.reload();
+        return;
+    }
+
+    alert('多圖片上傳失敗：\n' + failedFiles.join('\n'));
 }
 
 function updateImagePreview() {
