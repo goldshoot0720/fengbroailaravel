@@ -36,6 +36,12 @@ sort($categories);
     <?php include 'includes/zip-preview.php'; ?>
     <?php include 'includes/batch-delete.php'; ?>
 
+    <div class="desktop-only" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:0.85rem;color:#888;"><i class="fas fa-table-columns"></i> 檢視：</span>
+        <button class="btn btn-sm document-view-btn active" data-view="list" onclick="setDocumentView('list')">列表式</button>
+        <button class="btn btn-sm document-view-btn" data-view="card" onclick="setDocumentView('card')">卡片式</button>
+    </div>
+
     <!-- 分類篩選 -->
     <?php if (!empty($categories)): ?>
         <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -67,6 +73,103 @@ sort($categories);
         .category-filter-btn:hover:not(.active) {
             background: #d0e8f8;
             color: #2c3e50;
+        }
+
+        .document-view-btn {
+            background: #f0f0f0;
+            color: #555;
+            border: none;
+            border-radius: 20px;
+            padding: 4px 14px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .document-view-btn.active {
+            background: #2c3e50;
+            color: #fff;
+        }
+
+        .document-view-btn:hover:not(.active) {
+            background: #dde6ed;
+            color: #1f2d3d;
+        }
+
+        .document-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 18px;
+            margin-top: 20px;
+        }
+
+        .document-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 10px 24px rgba(44, 62, 80, 0.08);
+            border: 1px solid rgba(230, 126, 34, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .document-card-thumb {
+            width: 100%;
+            height: 160px;
+            border-radius: 12px;
+            object-fit: cover;
+            background: linear-gradient(135deg, #f8f9fb, #eef3f7);
+        }
+
+        .document-card-fallback {
+            width: 100%;
+            height: 160px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .document-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .document-card-badge {
+            font-size: 0.75rem;
+            background: #fff3e8;
+            color: #d35400;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        .document-card-time {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        .document-card-note {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 3.9em;
+        }
+
+        .document-card-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: auto;
         }
     </style>
 
@@ -190,6 +293,67 @@ sort($categories);
         </tbody>
     </table>
 
+    <div id="documentCardView" class="document-card-grid desktop-only" style="display:none;">
+        <?php foreach ($items as $item): ?>
+            <?php
+                $fileExt = strtolower(pathinfo($item['file'] ?? '', PATHINFO_EXTENSION));
+                $isImagePreview = in_array($fileExt, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'], true);
+            ?>
+            <div class="document-card"
+                data-id="<?php echo $item['id']; ?>"
+                data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>">
+                <?php if (!empty($item['cover'])): ?>
+                    <img class="document-card-thumb" src="<?php echo htmlspecialchars($item['cover']); ?>" alt="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>">
+                <?php elseif ($isImagePreview && !empty($item['file'])): ?>
+                    <img class="document-card-thumb" src="<?php echo htmlspecialchars($item['file']); ?>" alt="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>">
+                <?php else: ?>
+                    <div class="document-card-fallback">
+                        <i class="fa-solid fa-file-alt"></i>
+                    </div>
+                <?php endif; ?>
+
+                <div>
+                    <h3 style="margin:0 0 8px 0;color:#2c3e50;line-height:1.4;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                    <div class="document-card-meta">
+                        <?php if (!empty($item['category'])): ?>
+                            <span class="document-card-badge"><?php echo htmlspecialchars($item['category']); ?></span>
+                        <?php endif; ?>
+                        <span class="document-card-time"><?php echo formatDateTime($item['created_at']); ?></span>
+                    </div>
+                </div>
+
+                <?php if (!empty($item['ref'])): ?>
+                    <div style="font-size:0.85rem;color:#666;word-break:break-all;">
+                        <i class="fas fa-link" style="color:#999;"></i> <?php echo htmlspecialchars($item['ref']); ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="document-card-note"><?php echo htmlspecialchars($item['note'] ?? ''); ?></div>
+
+                <div class="document-card-actions">
+                    <?php if (!empty($item['file'])): ?>
+                        <button class="btn btn-sm btn-primary"
+                            onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
+                            <i class="fa-solid fa-eye"></i> 預覽
+                        </button>
+                        <a href="<?php echo htmlspecialchars($item['file']); ?>" download="<?php
+                           $ext = pathinfo($item['file'], PATHINFO_EXTENSION);
+                           echo htmlspecialchars($item['name'] . ($ext ? '.' . $ext : ''), ENT_QUOTES);
+                           ?>" class="btn btn-sm btn-success">
+                            <i class="fa-solid fa-download"></i> 下載
+                        </a>
+                    <?php endif; ?>
+                    <button class="btn btn-sm btn-warning" onclick="editItem('<?php echo $item['id']; ?>')">
+                        <i class="fa-solid fa-pen"></i> 編輯
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteItem('<?php echo $item['id']; ?>')">
+                        <i class="fa-solid fa-trash"></i> 刪除
+                    </button>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
     <!-- 手機版卡片 -->
     <div class="mobile-only" style="margin-top: 20px;">
         <?php if (empty($items)): ?>
@@ -259,7 +423,25 @@ sort($categories);
 
 <script>
     const TABLE = 'commondocument';
+    const DOCUMENT_VIEW_STORAGE_KEY = 'documentViewMode';
     initBatchDelete(TABLE);
+
+    function setDocumentView(view) {
+        const table = document.querySelector('table.desktop-only');
+        const cardView = document.getElementById('documentCardView');
+        const isCard = view === 'card';
+
+        if (table) table.style.display = isCard ? 'none' : 'table';
+        if (cardView) cardView.style.display = isCard ? 'grid' : 'none';
+
+        document.querySelectorAll('.document-view-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === view);
+        });
+
+        try {
+            localStorage.setItem(DOCUMENT_VIEW_STORAGE_KEY, view);
+        } catch (_) {}
+    }
 
     function filterByCategory(btn, cat) {
         document.querySelectorAll('.category-filter-btn').forEach(b => b.classList.remove('active'));
@@ -267,7 +449,14 @@ sort($categories);
         // 桌面版：篩選 tr（跳過新增列與 thead）
         document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(tr => {
             const rowCat = tr.dataset.category || '';
-            tr.style.display = (!cat || rowCat === cat) ? '' : 'none';
+            const visible = !cat || rowCat === cat;
+            tr.style.display = visible ? '' : 'none';
+            const noteRow = document.querySelector(`tr[data-note-row="${tr.dataset.id}"]`);
+            if (noteRow) noteRow.style.display = visible ? '' : 'none';
+        });
+        document.querySelectorAll('#documentCardView .document-card[data-category]').forEach(card => {
+            const cardCat = card.dataset.category || '';
+            card.style.display = (!cat || cardCat === cat) ? '' : 'none';
         });
         // 手機版：篩選 mobile-card
         document.querySelectorAll('.mobile-only .mobile-card[data-category]').forEach(card => {
@@ -616,6 +805,14 @@ sort($categories);
                 alert('儲存失敗: 連線錯誤');
             });
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let preferredView = 'list';
+        try {
+            preferredView = localStorage.getItem(DOCUMENT_VIEW_STORAGE_KEY) || 'list';
+        } catch (_) {}
+        setDocumentView(preferredView === 'card' ? 'card' : 'list');
+    });
 </script>
 
 <!-- 文件預覽彈窗 -->
