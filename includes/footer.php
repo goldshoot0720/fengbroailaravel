@@ -20,6 +20,9 @@
         <button id="globalMediaToggle" type="button" class="btn btn-ghost" title="播放或暫停">
             <i class="fa-solid fa-pause"></i>
         </button>
+        <button id="globalMediaCollapse" type="button" class="btn btn-ghost" title="收合播放器" style="display:none;">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
         <button id="globalMediaLyricsToggle" type="button" class="btn btn-ghost" title="顯示歌詞" style="display:none;">
             <i class="fa-solid fa-file-lines"></i>
         </button>

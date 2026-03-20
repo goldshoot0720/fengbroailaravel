@@ -60,6 +60,7 @@ function initHeaderRefreshButtons() {
     const PLAYER_KEY = 'fengbro_global_media_state';
     const VIEW_KEY_PREFIX = 'fengbro_media_view_';
     const THEME_KEY = 'fengbro_media_player_theme';
+    const PLAYER_COLLAPSED_KEY = 'fengbro_media_player_collapsed';
     let shell;
     let titleEl;
     let metaEl;
@@ -68,6 +69,7 @@ function initHeaderRefreshButtons() {
     let thumbEl;
     let closeBtn;
     let toggleBtn;
+    let collapseBtn;
     let lyricsBtn;
     let downloadBtn;
     let lyricsPanelEl;
@@ -90,6 +92,7 @@ function initHeaderRefreshButtons() {
         thumbEl = document.getElementById('globalMediaThumb');
         closeBtn = document.getElementById('globalMediaClose');
         toggleBtn = document.getElementById('globalMediaToggle');
+        collapseBtn = document.getElementById('globalMediaCollapse');
         lyricsBtn = document.getElementById('globalMediaLyricsToggle');
         downloadBtn = document.getElementById('globalMediaDownload');
         lyricsPanelEl = document.getElementById('globalLyricsPanel');
@@ -184,6 +187,14 @@ function initHeaderRefreshButtons() {
             : '<i class="fa-solid fa-pause"></i>';
     }
 
+    function readCollapsedPreference() {
+        return localStorage.getItem(PLAYER_COLLAPSED_KEY) === '1';
+    }
+
+    function writeCollapsedPreference(collapsed) {
+        localStorage.setItem(PLAYER_COLLAPSED_KEY, collapsed ? '1' : '0');
+    }
+
     function clearResumeOnInteraction() {
         if (!resumeOnInteractionHandler) return;
         ['pointerdown', 'keydown', 'touchstart'].forEach(function (eventName) {
@@ -250,7 +261,29 @@ function initHeaderRefreshButtons() {
         }
         lyricsTitleEl.textContent = state.lyricsTitle || ((state.title || '目前歌曲') + ' - 歌詞');
         lyricsContentEl.textContent = state.lyrics;
-        lyricsPanelEl.style.display = state.lyricsOpen ? 'block' : 'none';
+        lyricsPanelEl.style.display = state.lyricsOpen && !state.collapsed ? 'block' : 'none';
+    }
+
+    function applyCollapsedState(state) {
+        getElements();
+        if (!shell) return;
+        const canCollapse = !!(state && state.src);
+        const collapsed = !!(canCollapse && state.collapsed);
+
+        shell.classList.toggle('is-collapsed', collapsed);
+
+        if (collapseBtn) {
+            collapseBtn.style.display = canCollapse ? 'inline-flex' : 'none';
+            collapseBtn.classList.toggle('active', collapsed);
+            collapseBtn.title = collapsed ? '展開播放器' : '收合播放器';
+            collapseBtn.innerHTML = collapsed
+                ? '<i class="fa-solid fa-chevron-up"></i>'
+                : '<i class="fa-solid fa-chevron-down"></i>';
+        }
+
+        if (lyricsPanelEl && collapsed) {
+            lyricsPanelEl.style.display = 'none';
+        }
     }
 
     function renderShell(state) {
@@ -263,6 +296,7 @@ function initHeaderRefreshButtons() {
             shell.classList.remove('is-video');
             shell.classList.remove('is-audio');
             shell.classList.remove('is-mini-video');
+            shell.classList.remove('is-collapsed');
             if (audioEl) {
                 audioEl.pause();
                 audioEl.removeAttribute('src');
@@ -286,6 +320,7 @@ function initHeaderRefreshButtons() {
         shell.classList.toggle('is-audio', activeKind === 'audio');
         applyShellMode(state);
         applyTheme(readTheme(state), state);
+        applyCollapsedState(state);
 
         titleEl.textContent = state.title || (activeKind === 'video' ? '影片播放中' : '音訊播放中');
         metaEl.textContent = state.meta || (state.mediaType === 'podcast' ? 'Podcast' : state.mediaType === 'music' ? 'Music' : 'Media');
@@ -398,6 +433,7 @@ function initHeaderRefreshButtons() {
             lyrics: payload.lyrics || '',
             lyricsTitle: payload.lyricsTitle || '',
             lyricsOpen: !!payload.lyricsOpen,
+            collapsed: readCollapsedPreference(),
         };
         writeState(current);
         pauseCompetingMedia(kind === 'video' ? videoEl : audioEl);
@@ -434,8 +470,24 @@ function initHeaderRefreshButtons() {
         const current = readState();
         if (!current || !current.lyrics) return;
         current.lyricsOpen = !current.lyricsOpen;
+        if (current.lyricsOpen && current.collapsed) {
+            current.collapsed = false;
+            writeCollapsedPreference(false);
+        }
         writeState(current);
-        applyLyricsState(current);
+        renderShell(current);
+    }
+
+    function toggleCollapse() {
+        const current = readState();
+        if (!current) return;
+        current.collapsed = !current.collapsed;
+        if (current.collapsed) {
+            current.lyricsOpen = false;
+        }
+        writeCollapsedPreference(current.collapsed);
+        writeState(current);
+        renderShell(current);
     }
 
     function toggleBySource(payload) {
@@ -485,6 +537,9 @@ function initHeaderRefreshButtons() {
         }
         if (toggleBtn) {
             toggleBtn.addEventListener('click', toggle);
+        }
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', toggleCollapse);
         }
         if (lyricsBtn) {
             lyricsBtn.addEventListener('click', toggleLyricsPanel);
@@ -557,6 +612,7 @@ function initHeaderRefreshButtons() {
         playVideo: function (payload) { play('video', payload); },
         stop: stop,
         toggle: toggle,
+        toggleCollapse: toggleCollapse,
         setLyrics: setLyrics,
         toggleLyricsPanel: toggleLyricsPanel,
         toggleBySource: toggleBySource,
