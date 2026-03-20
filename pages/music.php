@@ -855,24 +855,32 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         return safe || 'music';
     }
 
-    function setMusicDownloadLink(src, title) {
-        const btn = document.getElementById('musicDownloadBtn');
-        if (!btn) return;
-        if (src) {
-            btn.href = src;
-            btn.setAttribute('download', sanitizeMusicFilename(title) + '.mp3');
-            btn.style.display = 'inline-flex';
+    function withSharedMusicPlayer(onReady) {
+        if (window.FengbroMedia) {
+            onReady(window.FengbroMedia);
             return;
         }
-        btn.removeAttribute('href');
-        btn.removeAttribute('download');
-        btn.style.display = 'none';
+
+        let attempts = 0;
+        const maxAttempts = 20;
+        const timer = window.setInterval(function () {
+            if (window.FengbroMedia) {
+                window.clearInterval(timer);
+                onReady(window.FengbroMedia);
+                return;
+            }
+
+            attempts += 1;
+            if (attempts >= maxAttempts) {
+                window.clearInterval(timer);
+                alert('共用播放器初始化失敗，請重新整理頁面後再試。');
+            }
+        }, 50);
     }
 
-    // ========== 底部播放列 ==========
     function playMusic(src, title, musicId) {
-        if (window.FengbroMedia) {
-            window.FengbroMedia.playAudio({
+        withSharedMusicPlayer(function (player) {
+            player.playAudio({
                 src: src,
                 title: title,
                 id: musicId,
@@ -880,29 +888,6 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 meta: 'Music',
                 downloadName: sanitizeMusicFilename(title) + '.mp3'
             });
-            return;
-        }
-
-        const bar = document.getElementById('musicPlayerBar');
-        const player = document.getElementById('musicPlayer');
-        const titleEl = document.getElementById('musicPlayerTitle');
-        titleEl.textContent = title;
-        titleEl.style.color = '#fff';
-        player.src = src;
-        setMusicDownloadLink(src, title);
-        player.volume = parseFloat(localStorage.getItem('musicVolume') ?? '1.0');
-        bar.style.display = 'block';
-
-        // 錯誤處理
-        player.onerror = function () {
-            const code = player.error ? player.error.code : '?';
-            const msgs = { 1: '已中止', 2: '網路錯誤', 3: '解碼失敗（格式不支援？）', 4: '找不到檔案或格式不支援' };
-            const reason = msgs[code] || '未知錯誤';
-            titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 無法播放：${reason}</span><br><small style="font-size:0.75rem;opacity:0.8;">${src.split('/').pop()}</small>`;
-        };
-
-        player.play().catch(function (err) {
-            titleEl.innerHTML = `<span style="color:#ffcccc;">⚠ 播放失敗：${err.message}</span>`;
         });
 
         if (musicId) {
@@ -934,14 +919,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     function closeMusicPlayer() {
         if (window.FengbroMedia) {
             window.FengbroMedia.stop();
-            return;
         }
-
-        const player = document.getElementById('musicPlayer');
-        player.pause();
-        player.src = '';
-        setMusicDownloadLink('', '');
-        document.getElementById('musicPlayerBar').style.display = 'none';
     }
 
     // ========== 兩層分類播放器 ==========
@@ -1021,29 +999,6 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         if (e.key === 'Escape') { closeLyricsModal(); closeTwoLayerModal(); }
     });
 </script>
-
-<!-- 底部播放列 -->
-<div id="musicPlayerBar"
-    style="display:none; position:fixed; bottom:0; left:0; right:0; background:linear-gradient(135deg,#667eea,#764ba2); padding:12px 20px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.3);">
-    <div style="max-width:1200px; margin:0 auto; display:flex; align-items:center; gap:12px;">
-        <button onclick="closeMusicPlayer()"
-            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:35px; height:35px; border-radius:50%; cursor:pointer; font-size:1.2rem; flex-shrink:0;">&times;</button>
-        <div id="musicPlayerTitle"
-            style="color:#fff; font-weight:bold; min-width:120px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0;">
-        </div>
-        <audio id="musicPlayer" controls style="flex:1; height:40px; min-width:0;">您的瀏覽器不支援音樂播放</audio>
-        <a id="musicDownloadBtn" href="#" title="下載目前音樂"
-            style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); border:none; color:#fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.1rem; flex-shrink:0; text-decoration:none;">
-            <i class="fa-solid fa-download"></i>
-        </a>
-        <button id="lyricsToggleBtn" onclick="toggleLyricsPanel()" title="顯示歌詞"
-            style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:1.1rem; flex-shrink:0; opacity:0.4; transition:all 0.2s;"
-            disabled>
-            <i class="fa-solid fa-file-lines"></i>
-        </button>
-    </div>
-</div>
-
 
 <!-- 兩層分類播放器彈窗 -->
 <div id="twoLayerModal" class="modal" onclick="if(event.target && event.target===this)closeTwoLayerModal()">
