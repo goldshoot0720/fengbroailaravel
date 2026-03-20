@@ -366,6 +366,19 @@ function convertToTWD($price, $currency, $rates)
         border-color: transparent;
     }
 
+    .filter-btn {
+        background: rgba(255, 255, 255, 0.86);
+        color: #1e293b;
+        border: 1px solid rgba(100, 116, 139, 0.24);
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .filter-btn:hover {
+        background: #ffffff;
+        border-color: rgba(52, 152, 219, 0.34);
+        color: #0f172a;
+    }
+
     .inline-add-row {
         display: none;
     }
