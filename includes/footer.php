@@ -1,4 +1,28 @@
 </div>
+<div id="globalMediaShell" class="global-media-shell" style="display:none;">
+    <div class="global-media-meta">
+        <img id="globalMediaThumb" class="global-media-thumb" alt="">
+        <div class="global-media-copy">
+            <strong id="globalMediaTitle">Now Playing</strong>
+            <span id="globalMediaMeta">Media</span>
+        </div>
+    </div>
+    <div class="global-media-stage">
+        <audio id="globalAudioPlayer" controls preload="auto" style="display:none;"></audio>
+        <video id="globalVideoPlayer" controls preload="metadata" playsinline style="display:none;"></video>
+    </div>
+    <div class="global-media-actions">
+        <button id="globalMediaToggle" type="button" class="btn btn-ghost" title="播放或暫停">
+            <i class="fa-solid fa-pause"></i>
+        </button>
+        <a id="globalMediaDownload" class="btn btn-ghost" href="#" style="display:none;" title="下載媒體">
+            <i class="fa-solid fa-download"></i>
+        </a>
+        <button id="globalMediaClose" type="button" class="btn btn-ghost" title="關閉播放器">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+</div>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/inline-edit.js"></script>
 

@@ -871,6 +871,18 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
     // ========== 底部播放列 ==========
     function playMusic(src, title, musicId) {
+        if (window.FengbroMedia) {
+            window.FengbroMedia.playAudio({
+                src: src,
+                title: title,
+                id: musicId,
+                mediaType: 'music',
+                meta: 'Music',
+                downloadName: sanitizeMusicFilename(title) + '.mp3'
+            });
+            return;
+        }
+
         const bar = document.getElementById('musicPlayerBar');
         const player = document.getElementById('musicPlayer');
         const titleEl = document.getElementById('musicPlayerTitle');
@@ -920,6 +932,11 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     }
 
     function closeMusicPlayer() {
+        if (window.FengbroMedia) {
+            window.FengbroMedia.stop();
+            return;
+        }
+
         const player = document.getElementById('musicPlayer');
         player.pause();
         player.src = '';

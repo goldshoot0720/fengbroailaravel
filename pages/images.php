@@ -31,6 +31,15 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
         <?php include 'includes/batch-delete.php'; ?>
     </div>
 
+    <div class="media-toolbar">
+        <div></div>
+        <div class="view-switch">
+            <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('images', 'grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片</button>
+            <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('images', 'list')"><i class="fa-solid fa-list"></i> 列表</button>
+        </div>
+    </div>
+
+    <div class="media-browser media-browser-images media-view-grid" data-media-scope="images">
     <div class="card-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
@@ -132,6 +141,7 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
+    </div>
     </div>
 </div>
 
@@ -625,5 +635,8 @@ function updateImagePreview() {
 
 document.getElementById('file').addEventListener('change', updateImagePreview);
 document.getElementById('file').addEventListener('input', updateImagePreview);
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.initMediaView) initMediaView('images', 'grid');
+});
 
 </script>

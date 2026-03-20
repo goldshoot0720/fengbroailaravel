@@ -30,10 +30,14 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             <button type="button" class="video-mode-btn active" data-mode="youtube" onclick="setVideoInterface('youtube')">Like YouTube</button>
             <button type="button" class="video-mode-btn" data-mode="bilibili" onclick="setVideoInterface('bilibili')">Like Bilibili</button>
         </div>
+        <div class="view-switch">
+            <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('videos', 'grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片</button>
+            <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('videos', 'list')"><i class="fa-solid fa-list"></i> 列表</button>
+        </div>
     </div>
     <?php include 'includes/batch-delete.php'; ?>
 
-    <div id="videoExperience" class="video-experience video-experience-youtube">
+    <div id="videoExperience" class="video-experience video-experience-youtube media-browser media-browser-video media-view-list" data-media-scope="videos">
         <div class="video-hero">
             <div>
                 <div class="video-hero-kicker">鋒兄影片</div>
@@ -123,8 +127,9 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                 <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                             </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="video-summary" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="video-summary-main" style="display: flex; align-items: center; gap: 15px;">
+                                <div class="video-summary-media">
                                 <?php if (!empty($item['cover'])): ?>
                                     <img src="<?php echo htmlspecialchars($item['cover']); ?>"
                                         style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
@@ -142,6 +147,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                         <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
                                     </div>
                                 <?php endif; ?>
+                                </div>
                                 <div>
                                     <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;">
                                         <?php echo htmlspecialchars($item['name']); ?>
@@ -157,7 +163,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                     <?php endif; ?>
                                 </div>
                             </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
+                            <div class="video-actions" style="display: flex; gap: 8px; align-items: center;">
                                 <?php if (!empty($item['file'])): ?>
                                     <button class="btn btn-primary btn-sm"
                                         onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
@@ -1312,9 +1318,22 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     }
 
     function playVideo(id, src, title) {
+        const item = getVideoItem(id);
+        if (window.FengbroMedia) {
+            window.FengbroMedia.playVideo({
+                src: src,
+                title: title,
+                id: id,
+                mediaType: 'video',
+                poster: item && item.cover ? item.cover : '',
+                meta: item && item.ref ? item.ref : 'Video',
+                downloadName: item ? getVideoDownloadName(item) : ''
+            });
+            return;
+        }
+
         const modal = document.getElementById('videoPlayerModal');
         const titleEl = document.getElementById('videoPlayerTitle');
-        const item = getVideoItem(id);
         const downloadBtn = document.getElementById('videoPlayerDownloadBtn');
 
         currentPlayingVideoId = id;
@@ -1439,6 +1458,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     document.addEventListener('DOMContentLoaded', function () {
         const savedMode = localStorage.getItem(VIDEO_INTERFACE_STORAGE_KEY);
         setVideoInterface(savedMode || 'youtube');
+        if (window.initMediaView) initMediaView('videos', 'list');
         renderVideoQueue(null);
         renderVideoMeta(null);
     });

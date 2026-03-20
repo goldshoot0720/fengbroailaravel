@@ -1,6 +1,6 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化暗黑模式
+document.addEventListener('DOMContentLoaded', function () {
     initDarkMode();
+    initGlobalMediaPlayer();
 });
 
 function initDarkMode() {
@@ -33,3 +33,311 @@ function updateDarkModeIcon(isDark) {
         btn.innerHTML = isDark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
     }
 }
+
+(function () {
+    const PLAYER_KEY = 'fengbro_global_media_state';
+    const VIEW_KEY_PREFIX = 'fengbro_media_view_';
+    let shell;
+    let titleEl;
+    let metaEl;
+    let audioEl;
+    let videoEl;
+    let thumbEl;
+    let closeBtn;
+    let toggleBtn;
+    let downloadBtn;
+    let activeKind = null;
+    let syncing = false;
+
+    function getElements() {
+        if (shell) return;
+        shell = document.getElementById('globalMediaShell');
+        titleEl = document.getElementById('globalMediaTitle');
+        metaEl = document.getElementById('globalMediaMeta');
+        audioEl = document.getElementById('globalAudioPlayer');
+        videoEl = document.getElementById('globalVideoPlayer');
+        thumbEl = document.getElementById('globalMediaThumb');
+        closeBtn = document.getElementById('globalMediaClose');
+        toggleBtn = document.getElementById('globalMediaToggle');
+        downloadBtn = document.getElementById('globalMediaDownload');
+    }
+
+    function readState() {
+        try {
+            return JSON.parse(localStorage.getItem(PLAYER_KEY) || 'null');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function writeState(state) {
+        if (!state || !state.src) {
+            localStorage.removeItem(PLAYER_KEY);
+            return;
+        }
+        localStorage.setItem(PLAYER_KEY, JSON.stringify(state));
+    }
+
+    function getActiveElement() {
+        return activeKind === 'video' ? videoEl : audioEl;
+    }
+
+    function updateToggleIcon(isPaused) {
+        if (!toggleBtn) return;
+        toggleBtn.innerHTML = isPaused
+            ? '<i class="fa-solid fa-play"></i>'
+            : '<i class="fa-solid fa-pause"></i>';
+    }
+
+    function applyDownload(state) {
+        if (!downloadBtn) return;
+        if (state && state.src) {
+            downloadBtn.href = state.src;
+            if (state.downloadName) {
+                downloadBtn.setAttribute('download', state.downloadName);
+            } else {
+                downloadBtn.removeAttribute('download');
+            }
+            downloadBtn.style.display = 'inline-flex';
+            return;
+        }
+        downloadBtn.removeAttribute('href');
+        downloadBtn.removeAttribute('download');
+        downloadBtn.style.display = 'none';
+    }
+
+    function renderShell(state) {
+        getElements();
+        if (!shell) return;
+
+        if (!state || !state.src) {
+            shell.style.display = 'none';
+            shell.classList.remove('is-video');
+            shell.classList.remove('is-audio');
+            if (audioEl) {
+                audioEl.pause();
+                audioEl.removeAttribute('src');
+                audioEl.load();
+            }
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.removeAttribute('src');
+                videoEl.load();
+                videoEl.removeAttribute('poster');
+            }
+            applyDownload(null);
+            activeKind = null;
+            return;
+        }
+
+        activeKind = state.kind === 'video' ? 'video' : 'audio';
+        shell.style.display = 'block';
+        shell.classList.toggle('is-video', activeKind === 'video');
+        shell.classList.toggle('is-audio', activeKind === 'audio');
+
+        titleEl.textContent = state.title || (activeKind === 'video' ? '影片播放中' : '音訊播放中');
+        metaEl.textContent = state.meta || (state.mediaType === 'podcast' ? 'Podcast' : state.mediaType === 'music' ? 'Music' : 'Media');
+
+        if (thumbEl) {
+            if (state.poster) {
+                thumbEl.src = state.poster;
+                thumbEl.style.display = 'block';
+            } else {
+                thumbEl.removeAttribute('src');
+                thumbEl.style.display = 'none';
+            }
+        }
+
+        applyDownload(state);
+
+        if (audioEl) {
+            audioEl.style.display = activeKind === 'audio' ? 'block' : 'none';
+        }
+        if (videoEl) {
+            videoEl.style.display = activeKind === 'video' ? 'block' : 'none';
+        }
+    }
+
+    function syncStateFromElement() {
+        if (syncing) return;
+        const current = readState();
+        const el = getActiveElement();
+        if (!current || !el) return;
+        current.currentTime = Number(el.currentTime || 0);
+        current.volume = Number(el.volume || 1);
+        current.wasPlaying = !el.paused && !el.ended;
+        writeState(current);
+        updateToggleIcon(el.paused);
+    }
+
+    function loadStateIntoElement(state, autoplay) {
+        getElements();
+        if (!state || !state.src) {
+            renderShell(null);
+            return;
+        }
+
+        renderShell(state);
+        const el = state.kind === 'video' ? videoEl : audioEl;
+        const other = state.kind === 'video' ? audioEl : videoEl;
+
+        syncing = true;
+        if (other) {
+            other.pause();
+            other.removeAttribute('src');
+            other.load();
+        }
+
+        if (state.kind === 'video' && state.poster) {
+            videoEl.poster = state.poster;
+        }
+
+        if (el.src !== state.src) {
+            el.src = state.src;
+        }
+        el.volume = Number(state.volume ?? 1);
+
+        const resumeAt = Number(state.currentTime || 0);
+        const finalizeLoad = function () {
+            if (resumeAt > 0 && Number.isFinite(resumeAt)) {
+                try {
+                    el.currentTime = resumeAt;
+                } catch (error) {
+                    // ignore seek errors during initial load
+                }
+            }
+            syncing = false;
+            updateToggleIcon(el.paused);
+            if (autoplay || state.wasPlaying) {
+                el.play().then(function () {
+                    syncStateFromElement();
+                }).catch(function () {
+                    syncStateFromElement();
+                });
+            } else {
+                syncStateFromElement();
+            }
+        };
+
+        if (el.readyState >= 1) {
+            finalizeLoad();
+        } else {
+            el.onloadedmetadata = finalizeLoad;
+        }
+    }
+
+    function play(kind, payload) {
+        const current = {
+            kind: kind,
+            mediaType: payload.mediaType || kind,
+            id: payload.id || '',
+            src: payload.src || '',
+            title: payload.title || '',
+            meta: payload.meta || '',
+            poster: payload.poster || '',
+            currentTime: Number(payload.currentTime || 0),
+            volume: Number(payload.volume ?? readState()?.volume ?? 1),
+            wasPlaying: true,
+            downloadName: payload.downloadName || '',
+        };
+        writeState(current);
+        loadStateIntoElement(current, true);
+    }
+
+    function stop() {
+        renderShell(null);
+        writeState(null);
+    }
+
+    function toggle() {
+        const el = getActiveElement();
+        if (!el) return;
+        if (el.paused) {
+            el.play().catch(function () {});
+        } else {
+            el.pause();
+        }
+        syncStateFromElement();
+    }
+
+    function toggleBySource(payload) {
+        const state = readState();
+        const el = getActiveElement();
+        if (state && el && state.src === payload.src && state.kind === payload.kind) {
+            toggle();
+            return;
+        }
+        play(payload.kind, payload);
+    }
+
+    function initGlobalMediaPlayer() {
+        getElements();
+        if (!shell || !audioEl || !videoEl) return;
+
+        [audioEl, videoEl].forEach(function (el) {
+            ['play', 'pause', 'timeupdate', 'volumechange', 'ended'].forEach(function (eventName) {
+                el.addEventListener(eventName, function () {
+                    if (eventName === 'ended') {
+                        const current = readState();
+                        if (current) {
+                            current.wasPlaying = false;
+                            current.currentTime = 0;
+                            writeState(current);
+                        }
+                    } else {
+                        syncStateFromElement();
+                    }
+                });
+            });
+        });
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', stop);
+        }
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggle);
+        }
+
+        const state = readState();
+        if (state && state.src) {
+            loadStateIntoElement(state, false);
+        } else {
+            renderShell(null);
+        }
+
+        window.addEventListener('pagehide', syncStateFromElement);
+    }
+
+    function setMediaView(scope, mode) {
+        const browser = document.querySelector('[data-media-scope="' + scope + '"]');
+        if (!browser) return;
+        const normalized = mode === 'list' ? 'list' : 'grid';
+        browser.classList.remove('media-view-grid', 'media-view-list');
+        browser.classList.add('media-view-' + normalized);
+        browser.querySelectorAll('[data-media-view-btn]').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.mediaViewBtn === normalized);
+        });
+        localStorage.setItem(VIEW_KEY_PREFIX + scope, normalized);
+    }
+
+    function initMediaView(scope, fallbackMode) {
+        const saved = localStorage.getItem(VIEW_KEY_PREFIX + scope) || fallbackMode || 'grid';
+        setMediaView(scope, saved);
+    }
+
+    window.FengbroMedia = {
+        initGlobalMediaPlayer: initGlobalMediaPlayer,
+        playAudio: function (payload) { play('audio', payload); },
+        playVideo: function (payload) { play('video', payload); },
+        stop: stop,
+        toggle: toggle,
+        toggleBySource: toggleBySource,
+        getState: readState,
+        setMediaView: setMediaView,
+        initMediaView: initMediaView
+    };
+
+    window.initGlobalMediaPlayer = initGlobalMediaPlayer;
+    window.setMediaView = setMediaView;
+    window.initMediaView = initMediaView;
+})();

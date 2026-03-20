@@ -341,6 +341,39 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
 
     // 播放/暫停切換
     function togglePlay(id) {
+        const card = getCardById(id);
+        if (card && window.FengbroMedia) {
+            const src = card.dataset.file || '';
+            const title = card.dataset.name || 'Podcast';
+            const state = window.FengbroMedia.getState();
+            const isSame = state && state.kind === 'audio' && state.src === src;
+
+            if (isSame) {
+                window.FengbroMedia.toggle();
+            } else {
+                window.FengbroMedia.playAudio({
+                    src: src,
+                    title: title,
+                    id: id,
+                    mediaType: 'podcast',
+                    poster: card.dataset.cover || '',
+                    meta: card.dataset.category || 'Podcast',
+                    downloadName: (title || 'podcast').replace(/[\\/:*?"<>|]+/g, '_') + '.mp3'
+                });
+            }
+
+            document.querySelectorAll('[id^="playBtn-"]').forEach(function (button) {
+                button.innerHTML = '<i class="fa-solid fa-play"></i> ?剜';
+            });
+            const currentBtn = document.getElementById('playBtn-' + id);
+            if (currentBtn) {
+                currentBtn.innerHTML = isSame && state && state.wasPlaying
+                    ? '<i class="fa-solid fa-play"></i> ?剜'
+                    : '<i class="fa-solid fa-pause"></i> ?怠?';
+            }
+            return;
+        }
+
         const audio = document.getElementById('audio-' + id);
         const btn = document.getElementById('playBtn-' + id);
 
