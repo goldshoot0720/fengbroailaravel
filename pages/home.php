@@ -3,20 +3,39 @@ $pageTitle = '首頁';
 ?>
 
 <div class="content-header">
-    <h1>鋒兄首頁</h1>
+    <div class="page-intro">
+        <span class="eyebrow">Welcome</span>
+        <h1>Fengbro AI 工作台</h1>
+        <p>為科技人打造的個人控制台，把訂閱、食品與日常資料集中在同一個俐落介面裡。</p>
+    </div>
 </div>
 
 <div class="content-body">
-    <div style="text-align: center; padding: 60px 20px;">
-        <i class="fa-solid fa-dragon" style="font-size: 5rem; color: #9b59b6; margin-bottom: 30px;"></i>
-        <h2 style="margin-bottom: 20px;">歡迎來到鋒兄系統</h2>
-        <p style="font-size: 1.1rem; color: #666; line-height: 1.8; max-width: 600px; margin: 0 auto;">
-            這是您的個人管理系統，您可以透過左側選單瀏覽各項功能。<br>
-            點擊下方按鈕查看資料統計儀表板。
-        </p>
-        <a href="index.php?page=dashboard" class="btn btn-primary"
-            style="margin-top: 30px; font-size: 1.1rem; padding: 15px 40px;">
-            <i class="fa-solid fa-gauge-high"></i> 進入儀表板
-        </a>
-    </div>
+    <section class="hero-panel hero-panel-home">
+        <div class="hero-copy">
+            <span class="eyebrow">Tech-focused personal command center</span>
+            <h2>把訂閱與食品管理，變成可追蹤、可預判、可長時間使用的日常系統。</h2>
+            <p>新介面採用 calm futurism 的方向，保留高資訊密度，同時讓視線先看到風險、再看到狀態、最後才深入細節。</p>
+            <div class="hero-actions">
+                <a href="index.php?page=dashboard" class="btn btn-primary">
+                    <i class="fa-solid fa-gauge-high"></i> 進入儀表板
+                </a>
+                <a href="index.php?page=subscription" class="btn btn-ghost">
+                    <i class="fa-solid fa-credit-card"></i> 管理訂閱
+                </a>
+            </div>
+        </div>
+        <div class="hero-stack">
+            <article class="signal-card signal-card-primary">
+                <span class="signal-label">Live Focus</span>
+                <strong>Subscriptions + Food Ops</strong>
+                <p>優先掌握固定支出、到期提醒與庫存狀態。</p>
+            </article>
+            <article class="signal-card">
+                <span class="signal-label">Interaction Goal</span>
+                <strong>Fast scan, low friction</strong>
+                <p>更適合科技人日常反覆打開、快速決策與即時新增。</p>
+            </article>
+        </div>
+    </section>
 </div>
