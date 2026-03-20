@@ -73,6 +73,7 @@ function initHeaderRefreshButtons() {
     let activeKind = null;
     let syncing = false;
     let preservingPlaybackState = false;
+    let resumeOnInteractionHandler = null;
 
     function getElements() {
         if (shell) return;
@@ -142,6 +143,27 @@ function initHeaderRefreshButtons() {
             : '<i class="fa-solid fa-pause"></i>';
     }
 
+    function clearResumeOnInteraction() {
+        if (!resumeOnInteractionHandler) return;
+        ['pointerdown', 'keydown', 'touchstart'].forEach(function (eventName) {
+            document.removeEventListener(eventName, resumeOnInteractionHandler, true);
+        });
+        resumeOnInteractionHandler = null;
+    }
+
+    function queueResumeOnInteraction(el) {
+        clearResumeOnInteraction();
+        resumeOnInteractionHandler = function () {
+            el.play().then(function () {
+                clearResumeOnInteraction();
+                syncStateFromElement(true);
+            }).catch(function () {});
+        };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, resumeOnInteractionHandler, true);
+        });
+    }
+
     function applyDownload(state) {
         if (!downloadBtn) return;
         if (state && state.src) {
@@ -164,6 +186,7 @@ function initHeaderRefreshButtons() {
         if (!shell) return;
 
         if (!state || !state.src) {
+            clearResumeOnInteraction();
             shell.style.display = 'none';
             shell.classList.remove('is-video');
             shell.classList.remove('is-audio');
@@ -266,11 +289,14 @@ function initHeaderRefreshButtons() {
             updateToggleIcon(el.paused);
             if (autoplay || state.wasPlaying) {
                 el.play().then(function () {
+                    clearResumeOnInteraction();
                     syncStateFromElement();
                 }).catch(function () {
-                    syncStateFromElement();
+                    queueResumeOnInteraction(el);
+                    syncStateFromElement(true);
                 });
             } else {
+                clearResumeOnInteraction();
                 syncStateFromElement();
             }
         };
