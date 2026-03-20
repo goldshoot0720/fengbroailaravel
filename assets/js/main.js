@@ -195,6 +195,17 @@ function initHeaderRefreshButtons() {
         });
     }
 
+    function pauseCompetingMedia(activeEl) {
+        document.querySelectorAll('audio, video').forEach(function (mediaEl) {
+            if (!mediaEl || mediaEl === activeEl) return;
+            try {
+                mediaEl.pause();
+            } catch (error) {
+                // ignore pause errors from detached or unsupported elements
+            }
+        });
+    }
+
     function applyDownload(state) {
         if (!downloadBtn) return;
         if (state && state.src) {
@@ -354,6 +365,7 @@ function initHeaderRefreshButtons() {
             downloadName: payload.downloadName || '',
         };
         writeState(current);
+        pauseCompetingMedia(kind === 'video' ? videoEl : audioEl);
         loadStateIntoElement(current, true);
     }
 
@@ -390,7 +402,10 @@ function initHeaderRefreshButtons() {
         [audioEl, videoEl].forEach(function (el) {
             ['play', 'pause', 'timeupdate', 'volumechange', 'ended'].forEach(function (eventName) {
                 el.addEventListener(eventName, function () {
-                    if (eventName === 'ended') {
+                    if (eventName === 'play') {
+                        pauseCompetingMedia(el);
+                        syncStateFromElement(true);
+                    } else if (eventName === 'ended') {
                         const current = readState();
                         if (current) {
                             current.wasPlaying = false;
@@ -405,6 +420,12 @@ function initHeaderRefreshButtons() {
                 });
             });
         });
+
+        document.addEventListener('play', function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLMediaElement)) return;
+            pauseCompetingMedia(target);
+        }, true);
 
         if (closeBtn) {
             closeBtn.addEventListener('click', stop);
