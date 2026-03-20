@@ -245,6 +245,18 @@ body::before {
     font-weight: 700;
 }
 
+.content-header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-refresh-btn {
+    white-space: nowrap;
+}
+
 .content-body {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.14));
     padding: 26px;

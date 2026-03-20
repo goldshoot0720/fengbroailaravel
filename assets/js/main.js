@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     initDarkMode();
+    initHeaderRefreshButtons();
     initGlobalMediaPlayer();
 });
 
@@ -32,6 +33,27 @@ function updateDarkModeIcon(isDark) {
     if (btn) {
         btn.innerHTML = isDark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
     }
+}
+
+function initHeaderRefreshButtons() {
+    document.querySelectorAll('.content-header').forEach(function (header) {
+        if (header.querySelector('.header-refresh-btn')) return;
+
+        const actionWrap = document.createElement('div');
+        actionWrap.className = 'content-header-actions';
+
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'btn btn-ghost header-refresh-btn';
+        refreshBtn.title = '重新整理';
+        refreshBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 重新整理';
+        refreshBtn.addEventListener('click', function () {
+            window.location.reload();
+        });
+
+        actionWrap.appendChild(refreshBtn);
+        header.appendChild(actionWrap);
+    });
 }
 
 (function () {
