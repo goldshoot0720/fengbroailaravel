@@ -37,6 +37,7 @@ function updateDarkModeIcon(isDark) {
 (function () {
     const PLAYER_KEY = 'fengbro_global_media_state';
     const VIEW_KEY_PREFIX = 'fengbro_media_view_';
+    const THEME_KEY = 'fengbro_media_player_theme';
     let shell;
     let titleEl;
     let metaEl;
@@ -46,6 +47,7 @@ function updateDarkModeIcon(isDark) {
     let closeBtn;
     let toggleBtn;
     let downloadBtn;
+    let themeButtons;
     let activeKind = null;
     let syncing = false;
 
@@ -60,6 +62,7 @@ function updateDarkModeIcon(isDark) {
         closeBtn = document.getElementById('globalMediaClose');
         toggleBtn = document.getElementById('globalMediaToggle');
         downloadBtn = document.getElementById('globalMediaDownload');
+        themeButtons = Array.from(document.querySelectorAll('[data-player-theme]'));
     }
 
     function readState() {
@@ -80,6 +83,22 @@ function updateDarkModeIcon(isDark) {
 
     function getActiveElement() {
         return activeKind === 'video' ? videoEl : audioEl;
+    }
+
+    function readTheme() {
+        return localStorage.getItem(THEME_KEY) || 'spotify';
+    }
+
+    function applyTheme(theme) {
+        getElements();
+        const normalized = ['spotify', 'youtube', 'apple'].includes(theme) ? theme : 'spotify';
+        if (!shell) return;
+        shell.classList.remove('theme-spotify', 'theme-youtube', 'theme-apple');
+        shell.classList.add('theme-' + normalized);
+        themeButtons.forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.playerTheme === normalized);
+        });
+        localStorage.setItem(THEME_KEY, normalized);
     }
 
     function updateToggleIcon(isPaused) {
@@ -134,6 +153,7 @@ function updateDarkModeIcon(isDark) {
         shell.style.display = 'block';
         shell.classList.toggle('is-video', activeKind === 'video');
         shell.classList.toggle('is-audio', activeKind === 'audio');
+        applyTheme(readTheme());
 
         titleEl.textContent = state.title || (activeKind === 'video' ? '影片播放中' : '音訊播放中');
         metaEl.textContent = state.meta || (state.mediaType === 'podcast' ? 'Podcast' : state.mediaType === 'music' ? 'Music' : 'Media');
@@ -297,8 +317,14 @@ function updateDarkModeIcon(isDark) {
         if (toggleBtn) {
             toggleBtn.addEventListener('click', toggle);
         }
+        themeButtons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                applyTheme(btn.dataset.playerTheme);
+            });
+        });
 
         const state = readState();
+        applyTheme(readTheme());
         if (state && state.src) {
             loadStateIntoElement(state, false);
         } else {

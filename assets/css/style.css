@@ -1197,6 +1197,31 @@ table.desktop-only {
     font-size: 0.84rem;
 }
 
+.global-media-themes {
+    display: inline-flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.global-theme-btn {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(226, 232, 240, 0.86);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.global-theme-btn.active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
 .global-media-stage audio,
 .global-media-stage video {
     width: 100%;
@@ -1219,6 +1244,66 @@ table.desktop-only {
     min-width: 44px;
     min-height: 44px;
     padding: 0 14px;
+}
+
+.global-media-shell.theme-spotify {
+    background: linear-gradient(135deg, rgba(10, 20, 14, 0.98), rgba(15, 46, 31, 0.96));
+    border-color: rgba(29, 185, 84, 0.26);
+    box-shadow: 0 24px 54px rgba(6, 18, 10, 0.45);
+}
+
+.global-media-shell.theme-spotify .global-theme-btn.active,
+.global-media-shell.theme-spotify .global-media-actions .btn:hover {
+    background: rgba(29, 185, 84, 0.18);
+    border-color: rgba(29, 185, 84, 0.32);
+}
+
+.global-media-shell.theme-youtube {
+    background: linear-gradient(135deg, rgba(24, 24, 27, 0.98), rgba(56, 12, 16, 0.96));
+    border-color: rgba(255, 77, 79, 0.24);
+    box-shadow: 0 24px 54px rgba(28, 8, 10, 0.44);
+}
+
+.global-media-shell.theme-youtube .global-theme-btn.active,
+.global-media-shell.theme-youtube .global-media-actions .btn:hover {
+    background: rgba(255, 77, 79, 0.18);
+    border-color: rgba(255, 77, 79, 0.3);
+}
+
+.global-media-shell.theme-apple {
+    background: linear-gradient(135deg, rgba(247, 244, 255, 0.98), rgba(236, 228, 255, 0.96));
+    border-color: rgba(141, 87, 255, 0.18);
+    box-shadow: 0 24px 54px rgba(91, 68, 156, 0.22);
+}
+
+.global-media-shell.theme-apple .global-media-copy strong {
+    color: #22173f;
+}
+
+.global-media-shell.theme-apple .global-media-copy span {
+    color: rgba(68, 53, 110, 0.78);
+}
+
+.global-media-shell.theme-apple .global-theme-btn {
+    border-color: rgba(141, 87, 255, 0.18);
+    background: rgba(141, 87, 255, 0.08);
+    color: #4d3a85;
+}
+
+.global-media-shell.theme-apple .global-theme-btn.active,
+.global-media-shell.theme-apple .global-media-actions .btn:hover {
+    background: rgba(141, 87, 255, 0.16);
+    border-color: rgba(141, 87, 255, 0.26);
+    color: #2f214f;
+}
+
+.global-media-shell.theme-apple .global-media-actions .btn {
+    color: #3f315f;
+}
+
+.global-media-shell.theme-apple .global-media-stage audio,
+.global-media-shell.theme-apple .global-media-stage video {
+    background: rgba(255, 255, 255, 0.76);
 }
 
 @media (max-width: 1280px) {

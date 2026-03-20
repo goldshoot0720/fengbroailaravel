@@ -5,6 +5,11 @@
         <div class="global-media-copy">
             <strong id="globalMediaTitle">Now Playing</strong>
             <span id="globalMediaMeta">Media</span>
+            <div class="global-media-themes">
+                <button type="button" class="global-theme-btn" data-player-theme="spotify">Spotify</button>
+                <button type="button" class="global-theme-btn" data-player-theme="youtube">YouTube</button>
+                <button type="button" class="global-theme-btn" data-player-theme="apple">Apple Podcasts</button>
+            </div>
         </div>
     </div>
     <div class="global-media-stage">
