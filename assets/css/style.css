@@ -1180,9 +1180,9 @@ table.desktop-only {
     gap: 16px;
     padding: 14px 16px;
     border-radius: 24px;
-    background: linear-gradient(135deg, rgba(7, 17, 31, 0.96), rgba(12, 24, 42, 0.92));
-    border: 1px solid rgba(125, 211, 252, 0.14);
-    box-shadow: 0 24px 54px rgba(2, 6, 23, 0.36);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 247, 255, 0.96));
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    box-shadow: 0 24px 54px rgba(15, 23, 42, 0.16);
     backdrop-filter: blur(20px);
 }
 
@@ -1215,12 +1215,12 @@ table.desktop-only {
 }
 
 .global-media-copy strong {
-    color: #f8fbff;
+    color: #0f172a;
     font-size: 0.98rem;
 }
 
 .global-media-copy span {
-    color: rgba(226, 232, 240, 0.7);
+    color: #475569;
     font-size: 0.84rem;
 }
 
@@ -1232,9 +1232,9 @@ table.desktop-only {
 }
 
 .global-theme-btn {
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.12);
-    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.82);
+    color: #334155;
     padding: 6px 10px;
     border-radius: 999px;
     font-size: 0.74rem;
@@ -1244,15 +1244,15 @@ table.desktop-only {
 }
 
 .global-theme-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.28);
+    background: #ffffff;
+    border-color: rgba(96, 165, 250, 0.42);
 }
 
 .global-theme-btn.active {
-    background: rgba(255, 255, 255, 0.26);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    background: #ffffff;
+    color: #0f172a;
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 10px 24px rgba(59, 130, 246, 0.16);
 }
 
 .global-media-stage audio,
@@ -1260,7 +1260,8 @@ table.desktop-only {
     width: 100%;
     max-height: 190px;
     border-radius: 18px;
-    background: rgba(15, 23, 42, 0.86);
+    background: rgba(226, 232, 240, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.22);
 }
 
 .global-media-shell.is-audio .global-media-stage video,
@@ -1322,46 +1323,59 @@ table.desktop-only {
     min-width: 44px;
     min-height: 44px;
     padding: 0 14px;
-    background: rgba(255, 255, 255, 0.12);
-    color: #f8fafc;
-    border-color: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.94);
+    color: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.global-media-actions .btn i {
+    color: inherit;
+}
+
+.global-media-actions .btn:hover {
+    background: #ffffff;
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #0f172a;
 }
 
 .global-media-shell.theme-spotify {
-    background: linear-gradient(135deg, rgba(10, 20, 14, 0.98), rgba(15, 46, 31, 0.96));
-    border-color: rgba(29, 185, 84, 0.26);
-    box-shadow: 0 24px 54px rgba(6, 18, 10, 0.45);
+    background: linear-gradient(135deg, rgba(245, 255, 249, 0.99), rgba(231, 250, 239, 0.98));
+    border-color: rgba(34, 197, 94, 0.26);
+    box-shadow: 0 24px 54px rgba(15, 118, 110, 0.14);
 }
 
 .global-media-shell.theme-spotify .global-theme-btn.active,
 .global-media-shell.theme-spotify .global-media-actions .btn:hover {
-    background: rgba(29, 185, 84, 0.18);
-    border-color: rgba(29, 185, 84, 0.32);
+    background: #1db954;
+    border-color: rgba(29, 185, 84, 0.82);
+    color: #ffffff;
 }
 
 .global-media-shell.theme-youtube {
-    background: linear-gradient(135deg, rgba(24, 24, 27, 0.98), rgba(56, 12, 16, 0.96));
-    border-color: rgba(255, 77, 79, 0.24);
-    box-shadow: 0 24px 54px rgba(28, 8, 10, 0.44);
+    background: linear-gradient(135deg, rgba(255, 247, 247, 0.98), rgba(255, 237, 237, 0.96));
+    border-color: rgba(248, 113, 113, 0.28);
+    box-shadow: 0 24px 54px rgba(239, 68, 68, 0.12);
 }
 
 .global-media-shell.theme-youtube .global-theme-btn.active,
 .global-media-shell.theme-youtube .global-media-actions .btn:hover {
-    background: rgba(255, 77, 79, 0.18);
-    border-color: rgba(255, 77, 79, 0.3);
+    background: #ff4d4f;
+    border-color: rgba(255, 77, 79, 0.82);
+    color: #ffffff;
 }
 
 .global-media-shell.theme-bilibili {
-    background: linear-gradient(135deg, rgba(14, 34, 56, 0.98), rgba(18, 74, 120, 0.96));
-    border-color: rgba(88, 196, 255, 0.34);
-    box-shadow: 0 24px 54px rgba(7, 23, 42, 0.46);
+    background: linear-gradient(135deg, rgba(242, 250, 255, 0.98), rgba(228, 245, 255, 0.96));
+    border-color: rgba(56, 189, 248, 0.3);
+    box-shadow: 0 24px 54px rgba(14, 116, 144, 0.12);
 }
 
 .global-media-shell.theme-bilibili .global-theme-btn.active,
 .global-media-shell.theme-bilibili .global-media-actions .btn:hover {
     background: #5cc8ff;
     border-color: rgba(92, 200, 255, 0.82);
-    color: #062033;
+    color: #0b2942;
 }
 
 .global-media-shell.theme-apple {
