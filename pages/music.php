@@ -400,20 +400,6 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     </div>
 </div>
 
-<!-- Lyrics Panel -->
-<div id="lyricsPanel"
-    style="display: none; position: fixed; bottom: 72px; right: 0; width: 350px; max-height: calc(100vh - 80px); background: #fff; box-shadow: -2px 0 10px rgba(0,0,0,0.2); z-index: 9998; overflow-y: auto; border-radius: 12px 0 0 0; transition: all 0.3s ease;">
-    <div style="padding: 20px;">
-        <div
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
-            <h3 id="lyricsTitle" style="margin: 0;">歌詞</h3>
-            <button onclick="closeLyricsModal()"
-                style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
-        </div>
-        <pre id="lyricsContent" style="white-space: pre-wrap; font-family: inherit; line-height: 1.8; margin: 0;"></pre>
-    </div>
-</div>
-
 <?php include 'includes/upload-progress.php'; ?>
 
 <script>
@@ -718,45 +704,21 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         cancelInlineEdit(card.dataset.id);
     }
 
-    function closeLyricsModal() {
-        document.getElementById('lyricsPanel').style.display = 'none';
-        const btn = document.getElementById('lyricsToggleBtn');
-        if (btn) { btn.style.background = 'rgba(255,255,255,0.2)'; btn.title = '顯示歌詞'; }
-    }
-
     let _currentLyrics = '';
-
-    function setLyricsButtonState(hasLyrics, opened) {
-        const btn = document.getElementById('lyricsToggleBtn');
-        if (!btn) return;
-        btn.style.opacity = hasLyrics ? '1' : '0.4';
-        btn.disabled = !hasLyrics;
-        btn.style.background = opened ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.2)';
-        btn.title = opened ? '隱藏歌詞' : '顯示歌詞';
-    }
-
-    function toggleLyricsPanel() {
-        const panel = document.getElementById('lyricsPanel');
-        const btn = document.getElementById('lyricsToggleBtn');
-        const isHidden = panel.style.display === 'none' || panel.style.display === '';
-        if (isHidden) {
-            if (!_currentLyrics) { alert('目前歌曲沒有歌詞'); return; }
-            panel.style.display = 'block';
-            setLyricsButtonState(true, true);
-        } else {
-            panel.style.display = 'none';
-            setLyricsButtonState(true, false);
-        }
-    }
 
     function viewLyrics(id) {
         fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
             .then(r => r.json())
             .then(res => {
                 if (res.success && res.data) {
-                    document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
-                    document.getElementById('lyricsContent').textContent = res.data.lyrics || '暫無歌詞';
-                    document.getElementById('lyricsPanel').style.display = 'block';
+                    _currentLyrics = (res.data.lyrics || '').trim();
+                    if (window.FengbroMedia) {
+                        window.FengbroMedia.setLyrics({
+                            lyrics: _currentLyrics || '暫無歌詞',
+                            title: res.data.name + ' - 歌詞',
+                            open: true
+                        });
+                    }
                 } else {
                     alert('無法載入歌詞: ' + (res.error || '未知錯誤'));
                 }
@@ -917,22 +879,20 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                     if (res.success && res.data) {
                         const lyrics = (res.data.lyrics || '').trim();
                         _currentLyrics = lyrics;
-                        if (lyrics) {
-                            document.getElementById('lyricsTitle').textContent = res.data.name + ' - 歌詞';
-                            document.getElementById('lyricsContent').textContent = lyrics;
-                            // 預設開啟歌詞面板
-                            document.getElementById('lyricsPanel').style.display = 'block';
-                            setLyricsButtonState(true, true);
-                        } else {
-                            document.getElementById('lyricsPanel').style.display = 'none';
-                            setLyricsButtonState(false, false);
+                        if (window.FengbroMedia) {
+                            window.FengbroMedia.setLyrics({
+                                lyrics: lyrics,
+                                title: res.data.name + ' - 歌詞',
+                                open: !!lyrics
+                            });
                         }
                     }
                 });
         } else {
             _currentLyrics = '';
-            document.getElementById('lyricsPanel').style.display = 'none';
-            setLyricsButtonState(false, false);
+            if (window.FengbroMedia) {
+                window.FengbroMedia.setLyrics({ lyrics: '', title: title + ' - 歌詞', open: false });
+            }
         }
     }
 
@@ -961,11 +921,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         // 預載歌詞（不自動顯示，由播放列按鈕控制）
         const lyricsStr = (lyrics || '').trim();
         _currentLyrics = lyricsStr;
-        if (lyricsStr) {
-            document.getElementById('lyricsTitle').textContent = songName + ' - 歌詞';
-            document.getElementById('lyricsContent').textContent = lyricsStr;
+        if (window.FengbroMedia) {
+            window.FengbroMedia.setLyrics({ lyrics: lyricsStr, title: songName + ' - 歌詞', open: false });
         }
-        document.getElementById('lyricsPanel').style.display = 'none';
         document.getElementById('twoLayerModal').style.display = 'flex';
     }
 
@@ -1016,7 +974,16 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     }
 
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { closeLyricsModal(); closeTwoLayerModal(); }
+        if (e.key === 'Escape') {
+            if (window.FengbroMedia && window.FengbroMedia.getState()) {
+                window.FengbroMedia.setLyrics({
+                    lyrics: window.FengbroMedia.getState().lyrics || '',
+                    title: window.FengbroMedia.getState().lyricsTitle || '歌詞',
+                    open: false
+                });
+            }
+            closeTwoLayerModal();
+        }
     });
 </script>
 

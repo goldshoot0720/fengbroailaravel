@@ -68,7 +68,12 @@ function initHeaderRefreshButtons() {
     let thumbEl;
     let closeBtn;
     let toggleBtn;
+    let lyricsBtn;
     let downloadBtn;
+    let lyricsPanelEl;
+    let lyricsTitleEl;
+    let lyricsContentEl;
+    let lyricsCloseBtn;
     let themeButtons;
     let activeKind = null;
     let syncing = false;
@@ -85,7 +90,12 @@ function initHeaderRefreshButtons() {
         thumbEl = document.getElementById('globalMediaThumb');
         closeBtn = document.getElementById('globalMediaClose');
         toggleBtn = document.getElementById('globalMediaToggle');
+        lyricsBtn = document.getElementById('globalMediaLyricsToggle');
         downloadBtn = document.getElementById('globalMediaDownload');
+        lyricsPanelEl = document.getElementById('globalLyricsPanel');
+        lyricsTitleEl = document.getElementById('globalLyricsTitle');
+        lyricsContentEl = document.getElementById('globalLyricsContent');
+        lyricsCloseBtn = document.getElementById('globalLyricsClose');
         themeButtons = Array.from(document.querySelectorAll('[data-player-theme]'));
     }
 
@@ -223,6 +233,26 @@ function initHeaderRefreshButtons() {
         downloadBtn.style.display = 'none';
     }
 
+    function applyLyricsState(state) {
+        getElements();
+        const hasLyrics = !!(state && state.kind === 'audio' && state.mediaType === 'music' && state.lyrics);
+        if (lyricsBtn) {
+            lyricsBtn.style.display = hasLyrics ? 'inline-flex' : 'none';
+            lyricsBtn.classList.toggle('active', !!(hasLyrics && state.lyricsOpen));
+            lyricsBtn.title = hasLyrics ? (state.lyricsOpen ? '隱藏歌詞' : '顯示歌詞') : '顯示歌詞';
+        }
+        if (!lyricsPanelEl || !lyricsTitleEl || !lyricsContentEl) return;
+        if (!hasLyrics) {
+            lyricsPanelEl.style.display = 'none';
+            lyricsTitleEl.textContent = '歌詞';
+            lyricsContentEl.textContent = '';
+            return;
+        }
+        lyricsTitleEl.textContent = state.lyricsTitle || ((state.title || '目前歌曲') + ' - 歌詞');
+        lyricsContentEl.textContent = state.lyrics;
+        lyricsPanelEl.style.display = state.lyricsOpen ? 'block' : 'none';
+    }
+
     function renderShell(state) {
         getElements();
         if (!shell) return;
@@ -245,6 +275,7 @@ function initHeaderRefreshButtons() {
                 videoEl.removeAttribute('poster');
             }
             applyDownload(null);
+            applyLyricsState(null);
             activeKind = null;
             return;
         }
@@ -270,6 +301,7 @@ function initHeaderRefreshButtons() {
         }
 
         applyDownload(state);
+        applyLyricsState(state);
 
         if (audioEl) {
             audioEl.style.display = activeKind === 'audio' ? 'block' : 'none';
@@ -363,6 +395,9 @@ function initHeaderRefreshButtons() {
             volume: Number(payload.volume ?? readState()?.volume ?? 1),
             wasPlaying: true,
             downloadName: payload.downloadName || '',
+            lyrics: payload.lyrics || '',
+            lyricsTitle: payload.lyricsTitle || '',
+            lyricsOpen: !!payload.lyricsOpen,
         };
         writeState(current);
         pauseCompetingMedia(kind === 'video' ? videoEl : audioEl);
@@ -383,6 +418,24 @@ function initHeaderRefreshButtons() {
             el.pause();
         }
         syncStateFromElement();
+    }
+
+    function setLyrics(payload) {
+        const current = readState();
+        if (!current || current.kind !== 'audio') return;
+        current.lyrics = String(payload && payload.lyrics ? payload.lyrics : '');
+        current.lyricsTitle = String(payload && payload.title ? payload.title : (current.title || '歌詞'));
+        current.lyricsOpen = !!(payload && payload.open && current.lyrics);
+        writeState(current);
+        applyLyricsState(current);
+    }
+
+    function toggleLyricsPanel() {
+        const current = readState();
+        if (!current || !current.lyrics) return;
+        current.lyricsOpen = !current.lyricsOpen;
+        writeState(current);
+        applyLyricsState(current);
     }
 
     function toggleBySource(payload) {
@@ -432,6 +485,18 @@ function initHeaderRefreshButtons() {
         }
         if (toggleBtn) {
             toggleBtn.addEventListener('click', toggle);
+        }
+        if (lyricsBtn) {
+            lyricsBtn.addEventListener('click', toggleLyricsPanel);
+        }
+        if (lyricsCloseBtn) {
+            lyricsCloseBtn.addEventListener('click', function () {
+                const current = readState();
+                if (!current) return;
+                current.lyricsOpen = false;
+                writeState(current);
+                applyLyricsState(current);
+            });
         }
         themeButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -492,6 +557,8 @@ function initHeaderRefreshButtons() {
         playVideo: function (payload) { play('video', payload); },
         stop: stop,
         toggle: toggle,
+        setLyrics: setLyrics,
+        toggleLyricsPanel: toggleLyricsPanel,
         toggleBySource: toggleBySource,
         getState: readState,
         setMediaView: setMediaView,

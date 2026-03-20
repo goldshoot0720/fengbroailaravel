@@ -20,6 +20,9 @@
         <button id="globalMediaToggle" type="button" class="btn btn-ghost" title="播放或暫停">
             <i class="fa-solid fa-pause"></i>
         </button>
+        <button id="globalMediaLyricsToggle" type="button" class="btn btn-ghost" title="顯示歌詞" style="display:none;">
+            <i class="fa-solid fa-file-lines"></i>
+        </button>
         <a id="globalMediaDownload" class="btn btn-ghost" href="#" style="display:none;" title="下載媒體">
             <i class="fa-solid fa-download"></i>
         </a>
@@ -27,6 +30,15 @@
             <i class="fa-solid fa-xmark"></i>
         </button>
     </div>
+</div>
+<div id="globalLyricsPanel" class="global-lyrics-panel" style="display:none;">
+    <div class="global-lyrics-header">
+        <strong id="globalLyricsTitle">歌詞</strong>
+        <button id="globalLyricsClose" type="button" class="btn btn-ghost" title="關閉歌詞">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <pre id="globalLyricsContent" class="global-lyrics-content"></pre>
 </div>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/inline-edit.js"></script>
