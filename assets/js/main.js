@@ -109,8 +109,27 @@ function initHeaderRefreshButtons() {
         return activeKind === 'video' ? videoEl : audioEl;
     }
 
-    function readTheme() {
-        return localStorage.getItem(THEME_KEY) || 'spotify';
+    function getThemeOptions(state) {
+        if (state && state.kind === 'video') {
+            return [
+                { theme: 'bilibili', label: 'Bilibili' },
+                { theme: 'youtube', label: 'YouTube' }
+            ];
+        }
+        return [
+            { theme: 'spotify', label: 'Spotify' },
+            { theme: 'youtube', label: 'YouTube' },
+            { theme: 'apple', label: 'Apple Podcasts' }
+        ];
+    }
+
+    function readTheme(state) {
+        const saved = localStorage.getItem(THEME_KEY);
+        const options = getThemeOptions(state);
+        if (saved && options.some(function (option) { return option.theme === saved; })) {
+            return saved;
+        }
+        return options[0].theme;
     }
 
     function getCurrentPageName() {
@@ -124,14 +143,26 @@ function initHeaderRefreshButtons() {
         shell.classList.toggle('is-mini-video', isMiniVideo);
     }
 
-    function applyTheme(theme) {
+    function applyTheme(theme, state) {
         getElements();
-        const normalized = ['spotify', 'youtube', 'apple'].includes(theme) ? theme : 'spotify';
+        const options = getThemeOptions(state);
+        const fallbackTheme = options[0].theme;
+        const normalized = options.some(function (option) { return option.theme === theme; }) ? theme : fallbackTheme;
         if (!shell) return;
-        shell.classList.remove('theme-spotify', 'theme-youtube', 'theme-apple');
+        shell.classList.remove('theme-spotify', 'theme-youtube', 'theme-apple', 'theme-bilibili');
         shell.classList.add('theme-' + normalized);
-        themeButtons.forEach(function (btn) {
-            btn.classList.toggle('active', btn.dataset.playerTheme === normalized);
+        themeButtons.forEach(function (btn, index) {
+            const option = options[index];
+            if (!option) {
+                btn.style.display = 'none';
+                btn.classList.remove('active');
+                btn.removeAttribute('data-player-theme');
+                return;
+            }
+            btn.style.display = 'inline-flex';
+            btn.dataset.playerTheme = option.theme;
+            btn.textContent = option.label;
+            btn.classList.toggle('active', option.theme === normalized);
         });
         localStorage.setItem(THEME_KEY, normalized);
     }
@@ -212,7 +243,7 @@ function initHeaderRefreshButtons() {
         shell.classList.toggle('is-video', activeKind === 'video');
         shell.classList.toggle('is-audio', activeKind === 'audio');
         applyShellMode(state);
-        applyTheme(readTheme());
+        applyTheme(readTheme(state), state);
 
         titleEl.textContent = state.title || (activeKind === 'video' ? '影片播放中' : '音訊播放中');
         metaEl.textContent = state.meta || (state.mediaType === 'podcast' ? 'Podcast' : state.mediaType === 'music' ? 'Music' : 'Media');
@@ -383,12 +414,12 @@ function initHeaderRefreshButtons() {
         }
         themeButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                applyTheme(btn.dataset.playerTheme);
+                applyTheme(btn.dataset.playerTheme, readState());
             });
         });
 
         const state = readState();
-        applyTheme(readTheme());
+        applyTheme(readTheme(state), state);
         if (state && state.src) {
             loadStateIntoElement(state, false);
         } else {
