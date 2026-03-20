@@ -50,6 +50,7 @@ function updateDarkModeIcon(isDark) {
     let themeButtons;
     let activeKind = null;
     let syncing = false;
+    let preservingPlaybackState = false;
 
     function getElements() {
         if (shell) return;
@@ -178,14 +179,14 @@ function updateDarkModeIcon(isDark) {
         }
     }
 
-    function syncStateFromElement() {
+    function syncStateFromElement(forceKeepPlaying) {
         if (syncing) return;
         const current = readState();
         const el = getActiveElement();
         if (!current || !el) return;
         current.currentTime = Number(el.currentTime || 0);
         current.volume = Number(el.volume || 1);
-        current.wasPlaying = !el.paused && !el.ended;
+        current.wasPlaying = forceKeepPlaying ? true : (!el.paused && !el.ended);
         writeState(current);
         updateToggleIcon(el.paused);
     }
@@ -304,6 +305,8 @@ function updateDarkModeIcon(isDark) {
                             current.currentTime = 0;
                             writeState(current);
                         }
+                    } else if (eventName === 'pause' && (preservingPlaybackState || document.visibilityState === 'hidden')) {
+                        return;
                     } else {
                         syncStateFromElement();
                     }
@@ -331,7 +334,26 @@ function updateDarkModeIcon(isDark) {
             renderShell(null);
         }
 
-        window.addEventListener('pagehide', syncStateFromElement);
+        document.addEventListener('visibilitychange', function () {
+            preservingPlaybackState = document.visibilityState === 'hidden';
+            if (preservingPlaybackState) {
+                syncStateFromElement(true);
+            }
+        });
+
+        window.addEventListener('pagehide', function () {
+            preservingPlaybackState = true;
+            syncStateFromElement(true);
+        });
+
+        window.addEventListener('pageshow', function () {
+            preservingPlaybackState = false;
+        });
+
+        window.addEventListener('beforeunload', function () {
+            preservingPlaybackState = true;
+            syncStateFromElement(true);
+        });
     }
 
     function setMediaView(scope, mode) {
