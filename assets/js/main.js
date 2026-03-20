@@ -112,6 +112,17 @@ function initHeaderRefreshButtons() {
         return localStorage.getItem(THEME_KEY) || 'spotify';
     }
 
+    function getCurrentPageName() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('page') || 'home';
+    }
+
+    function applyShellMode(state) {
+        if (!shell) return;
+        const isMiniVideo = !!(state && state.src && state.kind === 'video' && getCurrentPageName() !== 'videos');
+        shell.classList.toggle('is-mini-video', isMiniVideo);
+    }
+
     function applyTheme(theme) {
         getElements();
         const normalized = ['spotify', 'youtube', 'apple'].includes(theme) ? theme : 'spotify';
@@ -156,6 +167,7 @@ function initHeaderRefreshButtons() {
             shell.style.display = 'none';
             shell.classList.remove('is-video');
             shell.classList.remove('is-audio');
+            shell.classList.remove('is-mini-video');
             if (audioEl) {
                 audioEl.pause();
                 audioEl.removeAttribute('src');
@@ -176,6 +188,7 @@ function initHeaderRefreshButtons() {
         shell.style.display = 'block';
         shell.classList.toggle('is-video', activeKind === 'video');
         shell.classList.toggle('is-audio', activeKind === 'audio');
+        applyShellMode(state);
         applyTheme(readTheme());
 
         titleEl.textContent = state.title || (activeKind === 'video' ? '影片播放中' : '音訊播放中');
