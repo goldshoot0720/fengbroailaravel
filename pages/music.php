@@ -861,9 +861,29 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             return;
         }
 
+        if (typeof window.initGlobalMediaPlayer === 'function') {
+            try {
+                window.initGlobalMediaPlayer();
+            } catch (error) {
+                // keep waiting below; the retry path will surface if it never becomes ready
+            }
+            if (window.FengbroMedia) {
+                onReady(window.FengbroMedia);
+                return;
+            }
+        }
+
         let attempts = 0;
-        const maxAttempts = 20;
+        const maxAttempts = 40;
         const timer = window.setInterval(function () {
+            if (!window.FengbroMedia && typeof window.initGlobalMediaPlayer === 'function') {
+                try {
+                    window.initGlobalMediaPlayer();
+                } catch (error) {
+                    // ignore and keep retrying until timeout
+                }
+            }
+
             if (window.FengbroMedia) {
                 window.clearInterval(timer);
                 onReady(window.FengbroMedia);
@@ -873,7 +893,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             attempts += 1;
             if (attempts >= maxAttempts) {
                 window.clearInterval(timer);
-                alert('共用播放器初始化失敗，請重新整理頁面後再試。');
+                alert('共用播放器初始化失敗，請重新整理頁面或清除快取後再試。');
             }
         }, 50);
     }
