@@ -589,6 +589,11 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
             .video-hero-stats {
                 width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .video-hero-stat {
+                flex: 1 1 180px;
             }
 
             .video-player-layout {
@@ -612,6 +617,42 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 flex: 1;
             }
 
+            .video-list {
+                margin-top: 16px !important;
+            }
+
+            .video-summary {
+                display: block !important;
+            }
+
+            .video-summary-main {
+                display: block !important;
+            }
+
+            .video-summary-media {
+                margin-bottom: 14px;
+            }
+
+            .video-summary-media img,
+            .video-summary-media video,
+            .video-summary-media .video-thumb-placeholder {
+                width: 100% !important;
+                height: auto !important;
+                max-height: 220px;
+            }
+
+            .video-actions {
+                width: 100%;
+                margin-top: 14px;
+                flex-wrap: wrap;
+                justify-content: flex-start !important;
+            }
+
+            .video-actions .btn {
+                flex: 1 1 160px;
+                justify-content: center;
+            }
+
             .video-player-main,
             .video-player-side {
                 padding: 16px;
@@ -624,6 +665,62 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             .video-queue-cover {
                 width: 88px;
                 height: 52px;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .video-hero {
+                padding: 18px 18px;
+                border-radius: 18px;
+            }
+
+            .video-hero h2 {
+                font-size: 1.32rem;
+            }
+
+            .video-hero p {
+                font-size: 0.92rem;
+            }
+
+            .video-hero-stats {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .video-hero-stat {
+                min-width: 0;
+                padding: 12px 14px;
+            }
+
+            .video-interface-switch {
+                padding: 3px;
+            }
+
+            .video-mode-btn {
+                padding: 8px 10px;
+                font-size: 0.8rem;
+            }
+
+            .video-player-shell {
+                width: calc(100% - 16px);
+                border-radius: 20px;
+            }
+
+            .video-player-topbar {
+                flex-direction: column;
+            }
+
+            .video-player-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .video-player-actions .btn {
+                flex: 1 1 auto;
+            }
+
+            .video-queue-item {
+                padding: 8px;
             }
         }
     </style>
