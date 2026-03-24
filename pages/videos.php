@@ -482,6 +482,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             margin: 0;
             color: rgba(255, 255, 255, 0.68);
             line-height: 1.6;
+            max-width: 68ch;
         }
 
         .video-player-close {
@@ -519,6 +520,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             background: rgba(255, 255, 255, 0.06);
             color: rgba(255, 255, 255, 0.82);
             line-height: 1.6;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         .video-queue-item {
@@ -558,6 +560,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         .video-queue-meta {
             color: rgba(255, 255, 255, 0.56);
             font-size: 0.8rem;
+            line-height: 1.5;
         }
 
         .video-experience-bilibili .video-player-layout {
@@ -658,6 +661,12 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 padding: 16px;
             }
 
+            .video-player-actions {
+                flex-wrap: wrap;
+                width: 100%;
+                justify-content: flex-start;
+            }
+
             .video-player-title-wrap h3 {
                 font-size: 1.18rem;
             }
@@ -716,7 +725,16 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             }
 
             .video-player-actions .btn {
-                flex: 1 1 auto;
+                flex: 1 1 150px;
+            }
+
+            .video-player-side {
+                padding-top: 14px;
+            }
+
+            .video-queue-item {
+                border-radius: 16px;
+                padding: 9px;
             }
 
             .video-queue-item {

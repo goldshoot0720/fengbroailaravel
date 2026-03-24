@@ -1069,6 +1069,24 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         min-height: 42px;
     }
 
+    #twoLayerModal .modal-content {
+        box-shadow: 0 28px 70px rgba(38, 23, 86, 0.34);
+        overflow: hidden;
+    }
+
+    #twoLayerTitle {
+        line-height: 1.25;
+    }
+
+    #twoLayerSubBtns,
+    #twoLayerLangBtns {
+        align-items: stretch;
+    }
+
+    #twoLayerTrackName {
+        line-height: 1.35;
+    }
+
     .two-layer-lang-btn {
         padding: 10px 18px;
         border-radius: 25px;
@@ -1178,6 +1196,11 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         .music-version-tabs {
             padding: 10px 12px;
         }
+
+        #twoLayerModal .modal-content > div:last-child {
+            gap: 12px !important;
+            align-items: stretch !important;
+        }
     }
 
     @media (max-width: 560px) {
@@ -1206,6 +1229,17 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         #twoLayerModal .modal-content {
             width: calc(100% - 20px);
             padding: 22px 16px;
+        }
+
+        #twoLayerModal .modal-content > div:last-child {
+            display: grid !important;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px !important;
+        }
+
+        #twoLayerModal .modal-content > div:last-child button {
+            width: 52px !important;
+            height: 52px !important;
         }
     }
 </style>

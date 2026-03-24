@@ -441,6 +441,10 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         position: relative;
     }
 
+    .podcast-library-grid .card {
+        overflow: hidden;
+    }
+
     .podcast-cover-image {
         border-radius: 18px !important;
         height: 180px !important;
@@ -465,6 +469,16 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         flex-wrap: wrap;
         align-items: center;
         gap: 10px;
+        padding-top: 2px;
+    }
+
+    .podcast-play-row .btn {
+        min-height: 42px;
+    }
+
+    .podcast-time-label {
+        color: #64748b !important;
+        font-weight: 600;
     }
 
     @media (max-width: 768px) {
@@ -480,6 +494,11 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         .podcast-play-row .btn {
             flex: 1 1 160px;
             justify-content: center;
+        }
+
+        .podcast-time-label {
+            width: 100%;
+            margin-left: 0 !important;
         }
     }
 

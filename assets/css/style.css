@@ -411,6 +411,7 @@ body::before {
     text-decoration: none;
     font-weight: 700;
     letter-spacing: 0.01em;
+    white-space: nowrap;
     color: var(--header-color);
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(91, 114, 148, 0.22);
@@ -564,6 +565,10 @@ textarea.form-control {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 20px;
+}
+
+.card > .inline-view > p:last-child {
+    margin-bottom: 0;
 }
 
 .card:hover {
@@ -944,6 +949,7 @@ textarea.form-control {
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--text-color);
+    line-height: 1.45;
 }
 
 .mobile-card-note {
@@ -1673,6 +1679,7 @@ table.desktop-only {
     .media-toolbar .btn {
         width: 100%;
         justify-content: center;
+        white-space: normal;
     }
 
     .media-toolbar > * {

@@ -496,6 +496,11 @@ function convertToTWD($price, $currency, $rates)
         text-decoration: none;
     }
 
+    .sub-card-title a:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
     .sub-card-badge {
         font-size: 0.75rem;
         padding: 3px 8px;
@@ -550,6 +555,7 @@ function convertToTWD($price, $currency, $rates)
         font-size: 1rem;
         font-weight: 600;
         color: var(--text-color, #333);
+        line-height: 1.45;
     }
 
     .sub-card-note {
@@ -641,6 +647,11 @@ function convertToTWD($price, $currency, $rates)
 
         .sub-card-account {
             padding-left: 0;
+        }
+
+        .sub-card-actions {
+            top: 14px;
+            right: 14px;
         }
     }
 

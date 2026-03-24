@@ -283,9 +283,22 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
         border-radius: 14px;
     }
 
+    .food-mobile-list .mobile-card-value {
+        line-height: 1.45;
+    }
+
+    .food-mobile-list .mobile-card-title {
+        line-height: 1.35;
+    }
+
     @media (max-width: 768px) {
         .food-mobile-list .mobile-card-info {
             grid-template-columns: 1fr 1fr;
+        }
+
+        .food-mobile-list .mobile-card-actions {
+            top: 14px;
+            right: 14px;
         }
     }
 
