@@ -366,7 +366,8 @@ body::before {
     font-size: 0.85rem;
 }
 
-.action-buttons-bar {
+.action-buttons-bar,
+.action-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -376,7 +377,9 @@ body::before {
 }
 
 .action-buttons-bar .btn,
-.action-buttons-bar a.btn {
+.action-buttons-bar a.btn,
+.action-buttons .btn,
+.action-buttons a.btn {
     min-height: 44px;
 }
 
@@ -1656,6 +1659,7 @@ table.desktop-only {
     }
 
     .action-buttons-bar,
+    .action-buttons,
     .hero-actions,
     .header-pillset,
     .media-toolbar {
@@ -1663,6 +1667,7 @@ table.desktop-only {
     }
 
     .action-buttons-bar .btn,
+    .action-buttons .btn,
     .hero-actions .btn,
     .header-pill,
     .media-toolbar .btn {

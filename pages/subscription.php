@@ -587,6 +587,95 @@ function convertToTWD($price, $currency, $rates)
         background: #27ae60;
         color: #fff;
     }
+
+    .subscription-filters {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .sub-card {
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+        border-left-width: 5px;
+    }
+
+    .sub-card-title {
+        line-height: 1.35;
+    }
+
+    .sub-card-info {
+        border-radius: 14px;
+        gap: 14px;
+    }
+
+    .sub-card-note {
+        line-height: 1.6;
+    }
+
+    @media (max-width: 1024px) {
+        .subscription-filters {
+            justify-content: flex-start;
+        }
+
+        .subscription-filters .btn {
+            flex: 1 1 120px;
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .sub-card {
+            padding: 18px 16px;
+        }
+
+        .sub-card-header {
+            align-items: flex-start;
+            padding-right: 72px;
+        }
+
+        .sub-card-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .sub-card-account {
+            padding-left: 0;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .subscription-filters {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr 1fr;
+            width: 100%;
+        }
+
+        .subscription-filters .btn {
+            width: 100%;
+        }
+
+        .sub-card {
+            padding: 16px 14px;
+        }
+
+        .sub-card-header {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 10px;
+            padding-right: 56px;
+        }
+
+        .sub-card-badge {
+            grid-column: 1 / -1;
+            justify-self: start;
+            margin-left: 50px;
+        }
+
+        .sub-card-info {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <script>

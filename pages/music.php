@@ -96,6 +96,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar music-toolbar">
     <button class="btn btn-primary" onclick="handleAdd()" title="新增音樂"><i class="fas fa-plus"></i></button>
     <button type="button" class="btn" onclick="document.getElementById('multiAudioFiles').click()" title="一次上傳多首音樂" style="margin-left: 10px;">
         <i class="fa-solid fa-music"></i> 多音樂上傳
@@ -112,8 +113,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
     </div>
     <?php include 'includes/batch-delete.php'; ?>
+    </div>
 
-    <div class="card-grid" style="margin-top: 20px;">
+    <div class="card-grid music-library-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
                 <!-- 防止瀏覽器自動填入：隱藏假帳密欄位 -->
@@ -233,8 +235,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                 onchange="toggleSelectItem(this)">
                         </div>
                         <?php if (!empty($group['cover'])): ?>
-                            <div style="text-align: center; margin-bottom: 15px;">
+                            <div class="music-cover-wrap" style="text-align: center; margin-bottom: 15px;">
                                 <img src="<?php echo htmlspecialchars($group['cover']); ?>"
+                                    class="music-cover-image"
                                     style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                             </div>
                         <?php endif; ?>
@@ -249,7 +252,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <?php endif; ?>
                         </h3>
 
-                        <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
+                        <div class="music-meta-strip" style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
                             <?php if (!empty($group['category'])): ?>
                                 <span
                                     style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">
@@ -264,13 +267,13 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         </div>
 
                         <?php if (!empty($group['note'])): ?>
-                            <p style="color: #666; font-size: 0.9rem; margin: 10px 0; line-height: 1.4;">
+                            <p class="music-note-preview" style="color: #666; font-size: 0.9rem; margin: 10px 0; line-height: 1.4;">
                                 <?php echo nl2br(htmlspecialchars(mb_substr($group['note'], 0, 100))); ?>
                                 <?php echo mb_strlen($group['note']) > 100 ? '...' : ''; ?>
                             </p>
                         <?php endif; ?>
 
-                        <div style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <div class="music-card-actions" style="margin-top: 15px; display: flex; gap: 8px; flex-wrap: wrap;">
                             <?php if (!empty($group['languageGroups'])): ?>
                                 <?php $playerId = 'player_' . md5($group['name']); ?>
                                 <button class="btn btn-sm btn-primary"
@@ -1022,6 +1025,50 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 </div>
 
 <style>
+    .music-toolbar > div {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .music-library-grid > .card:not(.inline-add-card) {
+        position: relative;
+    }
+
+    .music-cover-wrap {
+        display: flex;
+        justify-content: center;
+    }
+
+    .music-cover-image {
+        width: 132px !important;
+        height: 132px !important;
+        border-radius: 22px !important;
+    }
+
+    .music-meta-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .music-note-preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .music-card-actions {
+        align-items: stretch;
+    }
+
+    .music-card-actions .btn {
+        min-height: 42px;
+    }
+
     .two-layer-lang-btn {
         padding: 10px 18px;
         border-radius: 25px;
@@ -1090,5 +1137,75 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         background: linear-gradient(135deg, #667eea, #764ba2);
         color: #fff;
         border-color: #764ba2;
+    }
+
+    @media (max-width: 1024px) {
+        .music-toolbar {
+            align-items: flex-start;
+        }
+
+        .music-toolbar > div {
+            margin-left: 0 !important;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .music-toolbar > div,
+        .music-card-actions {
+            width: 100%;
+        }
+
+        .music-toolbar > div .btn,
+        .music-card-actions .btn {
+            flex: 1 1 160px;
+            justify-content: center;
+        }
+
+        .music-library-grid > .card:not(.inline-add-card) {
+            padding-top: 56px;
+        }
+
+        .music-library-grid .card-actions {
+            top: 16px;
+            right: 16px;
+        }
+
+        .music-cover-image {
+            width: min(48vw, 144px) !important;
+            height: min(48vw, 144px) !important;
+        }
+
+        .music-version-tabs {
+            padding: 10px 12px;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .music-toolbar > div,
+        .music-card-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .music-toolbar > div .btn,
+        .music-card-actions .btn {
+            width: 100%;
+        }
+
+        .music-meta-strip {
+            gap: 6px;
+        }
+
+        .two-layer-lang-btn,
+        .two-layer-sub-btn {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #twoLayerModal .modal-content {
+            width: calc(100% - 20px);
+            padding: 22px 16px;
+        }
     }
 </style>

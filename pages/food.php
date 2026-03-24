@@ -157,7 +157,7 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
     </table>
 
     <!-- 手機版卡片 -->
-    <div class="mobile-only" style="margin-top: 20px;">
+    <div class="mobile-only food-mobile-list" style="margin-top: 20px;">
         <?php if (empty($items)): ?>
             <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無食品資料</div>
         <?php else: ?>
@@ -259,6 +259,52 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
 </div>
 
 <?php include 'includes/upload-progress.php'; ?>
+
+<style>
+    .food-mobile-list {
+        display: grid;
+        gap: 14px;
+    }
+
+    .food-mobile-list .mobile-card {
+        border-radius: 20px;
+        padding: 18px 16px;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+    }
+
+    .food-mobile-list .mobile-card-header {
+        align-items: flex-start;
+        gap: 14px;
+        padding-right: 64px;
+    }
+
+    .food-mobile-list .mobile-card-info {
+        gap: 12px;
+        border-radius: 14px;
+    }
+
+    @media (max-width: 768px) {
+        .food-mobile-list .mobile-card-info {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .food-mobile-list .mobile-card {
+            padding: 16px 14px;
+        }
+
+        .food-mobile-list .mobile-card-header {
+            grid-template-columns: 50px 1fr;
+            display: grid;
+            padding-right: 54px;
+        }
+
+        .food-mobile-list .mobile-card-info {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
 
 <script>
     const TABLE = 'food';

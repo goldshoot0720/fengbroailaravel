@@ -31,7 +31,7 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
 
     <?php include 'includes/batch-delete.php'; ?>
 
-    <div class="card-grid" style="margin-top: 20px;">
+    <div class="card-grid podcast-library-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
                 <div class="form-group">
@@ -98,21 +98,22 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                         </div>
                         <?php if ($item['cover']): ?>
                             <img src="<?php echo htmlspecialchars($item['cover']); ?>"
+                                class="podcast-cover-image"
                                 style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
                         <?php endif; ?>
                         <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                        <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
-                        <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
+                        <p class="podcast-meta-line" style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
+                        <p class="podcast-note-preview" style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
 
                         <?php if ($item['file']): ?>
-                            <div style="margin-top: 10px;">
+                            <div class="podcast-play-row" style="margin-top: 10px;">
                                 <audio id="audio-<?php echo $item['id']; ?>" src="<?php echo htmlspecialchars($item['file']); ?>"
                                     preload="none"></audio>
                                 <button class="btn btn-sm btn-success" onclick="togglePlay('<?php echo $item['id']; ?>')"
                                     id="playBtn-<?php echo $item['id']; ?>">
                                     <i class="fa-solid fa-play"></i> 播放
                                 </button>
-                                <span id="time-<?php echo $item['id']; ?>"
+                                <span id="time-<?php echo $item['id']; ?>" class="podcast-time-label"
                                     style="font-size: 0.8rem; color: #888; margin-left: 8px;">00:00</span>
                             </div>
                         <?php endif; ?>
@@ -434,3 +435,66 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         }
     }
 </script>
+
+<style>
+    .podcast-library-grid > .card:not(.inline-add-card) {
+        position: relative;
+    }
+
+    .podcast-cover-image {
+        border-radius: 18px !important;
+        height: 180px !important;
+        object-fit: cover;
+    }
+
+    .podcast-meta-line {
+        margin-bottom: 6px;
+    }
+
+    .podcast-note-preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.6;
+        min-height: 3.2em;
+    }
+
+    .podcast-play-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+        .podcast-library-grid > .card:not(.inline-add-card) {
+            padding-top: 56px;
+        }
+
+        .podcast-library-grid .card-actions {
+            top: 16px;
+            right: 16px;
+        }
+
+        .podcast-play-row .btn {
+            flex: 1 1 160px;
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .podcast-cover-image {
+            height: 200px !important;
+        }
+
+        .podcast-play-row {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        .podcast-time-label {
+            margin-left: 0;
+        }
+    }
+</style>
