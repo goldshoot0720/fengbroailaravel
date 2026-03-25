@@ -1,124 +1,122 @@
-<?php $pageTitle = '關於系統'; ?>
+﻿<?php $pageTitle = '?蝟餌絞'; ?>
 
 <div class="content-header">
-    <h1>鋒兄關於</h1>
+    <h1>???</h1>
 </div>
 
 <div class="content-body">
     <div class="card">
-        <h3 class="card-title">系統資訊</h3>
+        <h3 class="card-title">蝟餌絞鞈?</h3>
         <table class="table">
             <tr>
-                <th style="width: 200px;">系統名稱</th>
-                <td>鋒兄系統</td>
+                <th style="width: 200px;">蝟餌絞?迂</th>
+                <td>??蝟餌絞</td>
             </tr>
             <tr>
-                <th>版本</th>
+                <th>?</th>
                 <td>1.0.0</td>
             </tr>
             <tr>
-                <th>開發語言</th>
+                <th>?隤?</th>
                 <td>PHP + MySQL</td>
             </tr>
             <tr>
-                <th>PHP 版本</th>
+                <th>PHP ?</th>
                 <td><?php echo phpversion(); ?></td>
             </tr>
             <tr>
-                <th>目前環境</th>
+                <th>?桀??啣?</th>
                 <td><?php echo strtoupper($GLOBALS['ENV']); ?></td>
             </tr>
             <tr>
-                <th>程式碼行數</th>
+                <th>蝔?蝣潸???/th>
                 <td>
-                    <strong>15,428</strong> 行
-                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
-                        (71 個檔案：.php: 13,776 &nbsp;|&nbsp; .css: 968 &nbsp;|&nbsp; .js: 684)
+                    <strong>19,314</strong> 行                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
+                        (72 個檔案 .php: 16,015 &nbsp;|&nbsp; .css: 1,791 &nbsp;|&nbsp; .js: 1,216 &nbsp;|&nbsp; .sql: 292)
                     </span>
-                    <br><small style="color:#aaa;">統計日期：2026-03-03</small>
+                    <br><small style="color:#aaa;">統計日期：2026-03-25</small>
                 </td>
             </tr>
         </table>
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h3 class="card-title">功能說明</h3>
+        <h3 class="card-title">?隤芣?</h3>
         <table class="table">
             <tr>
-                <th style="width: 150px;">首頁</th>
-                <td>系統總覽，顯示各項目數量統計</td>
+                <th style="width: 150px;">擐?</th>
+                <td>蝟餌絞蝮質汗嚗＊蝷箏???賊?蝯梯?</td>
             </tr>
             <tr>
-                <th>儀表板</th>
-                <td>詳細統計資訊與最近記錄</td>
+                <th>?銵冽</th>
+                <td>閰喟敦蝯梯?鞈???餈???/td>
             </tr>
             <tr>
-                <th>訂閱管理</th>
-                <td>管理各類訂閱服務，追蹤付款日期與費用</td>
+                <th>閮蝞∠?</th>
+                <td>蝞∠???閮??嚗蕭頩支?甈暹??鞎餌</td>
             </tr>
             <tr>
-                <th>食品管理</th>
-                <td>追蹤食品存貨、價格與有效期限</td>
+                <th>憌?蝞∠?</th>
+                <td>餈質馱憌?摮疏??潸?????</td>
             </tr>
             <tr>
-                <th>筆記本</th>
-                <td>記錄重要筆記與文章，支援分類與連結</td>
+                <th>蝑???/th>
+                <td>閮???蝑???蝡??舀?????</td>
             </tr>
             <tr>
-                <th>常用項目</th>
-                <td>儲存常用帳號資訊，最多支援 37 組欄位</td>
+                <th>撣貊?</th>
+                <td>?脣?撣貊撣唾?鞈?嚗?憭??37 蝯?雿?/td>
             </tr>
             <tr>
-                <th>圖片管理</th>
-                <td>管理圖片檔案與封面</td>
+                <th>??蝞∠?</th>
+                <td>蝞∠???瑼?????/td>
             </tr>
             <tr>
-                <th>影片管理</th>
-                <td>管理影片檔案</td>
+                <th>敶梁?蝞∠?</th>
+                <td>蝞∠?敶梁?瑼?</td>
             </tr>
             <tr>
-                <th>音樂管理</th>
-                <td>管理音樂檔案，支援歌詞儲存</td>
+                <th>?單?蝞∠?</th>
+                <td>蝞∠??單?瑼?嚗?湔?閰摮?/td>
             </tr>
             <tr>
-                <th>文件管理</th>
-                <td>管理各類文件檔案</td>
+                <th>?辣蝞∠?</th>
+                <td>蝞∠????辣瑼?</td>
             </tr>
             <tr>
-                <th>播客管理</th>
-                <td>管理播客節目</td>
+                <th>?剖恥蝞∠?</th>
+                <td>蝞∠??剖恥蝭??/td>
             </tr>
             <tr>
-                <th>銀行管理</th>
-                <td>追蹤銀行帳戶、存款、提款與轉帳</td>
+                <th>?銵恣??/th>
+                <td>餈質馱?銵董?嗚?甈整?甈曇?頧董</td>
             </tr>
             <tr>
-                <th>例行事項</th>
-                <td>管理週期性任務，記錄最近三次執行時間</td>
+                <th>靘?鈭?</th>
+                <td>蝞∠??望??找遙??閮??餈?甈∪銵???/td>
             </tr>
             <tr>
-                <th>系統設定</th>
-                <td>查看系統配置與資料庫統計</td>
+                <th>蝟餌絞閮剖?</th>
+                <td>?亦?蝟餌絞?蔭???澈蝯梯?</td>
             </tr>
         </table>
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h3 class="card-title">資料表結構</h3>
+        <h3 class="card-title">鞈?銵函?瑽?/h3>
         <p style="line-height: 1.8;">
-            本系統使用以下資料表：
-        </p>
+            ?祉頂蝯曹蝙?其誑銝??”嚗?        </p>
         <ul style="line-height: 2; padding-left: 20px; margin-top: 10px;">
-            <li><code>subscription</code> - 訂閱服務</li>
-            <li><code>food</code> - 食品紀錄</li>
-            <li><code>article</code> - 筆記/文章</li>
-            <li><code>commonaccount</code> - 常用帳號 (37 組欄位)</li>
-            <li><code>image</code> - 圖片</li>
-            <li><code>music</code> - 音樂 (含歌詞)</li>
-            <li><code>podcast</code> - 播客</li>
-            <li><code>commondocument</code> - 文件/影片</li>
-            <li><code>bank</code> - 銀行帳戶</li>
-            <li><code>routine</code> - 例行事項</li>
+            <li><code>subscription</code> - 閮??</li>
+            <li><code>food</code> - 憌?蝝??/li>
+            <li><code>article</code> - 蝑?/??</li>
+            <li><code>commonaccount</code> - 撣貊撣唾? (37 蝯?雿?</li>
+            <li><code>image</code> - ??</li>
+            <li><code>music</code> - ?單? (?急?閰?</li>
+            <li><code>podcast</code> - ?剖恥</li>
+            <li><code>commondocument</code> - ?辣/敶梁?</li>
+            <li><code>bank</code> - ?銵董??/li>
+            <li><code>routine</code> - 靘?鈭?</li>
         </ul>
     </div>
 </div>
