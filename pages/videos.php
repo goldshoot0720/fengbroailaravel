@@ -346,6 +346,23 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             box-shadow: var(--video-shell-shadow) !important;
         }
 
+        .video-summary {
+            gap: 18px;
+        }
+
+        .video-summary-main {
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .video-summary-media {
+            flex-shrink: 0;
+        }
+
+        .video-summary-main > div:last-child {
+            min-width: 0;
+        }
+
         .video-experience-bilibili .video-list .video-item {
             border-radius: 18px !important;
         }
@@ -384,6 +401,14 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             -webkit-box-orient: vertical;
             overflow: hidden;
             line-height: 1.5;
+        }
+
+        .video-actions {
+            flex-wrap: wrap;
+        }
+
+        .video-actions .btn {
+            min-height: 42px;
         }
 
         /* Force 16:9 aspect ratio for video player */
@@ -542,6 +567,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             background: rgba(255, 255, 255, 0.08);
         }
 
+        .video-queue-item > div:last-child {
+            min-width: 0;
+        }
+
         .video-queue-cover {
             width: 112px;
             height: 64px;
@@ -607,6 +636,15 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 border-left: none;
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
             }
+
+            .video-summary {
+                display: block !important;
+            }
+
+            .video-actions {
+                margin-top: 14px;
+                justify-content: flex-start !important;
+            }
         }
 
         @media (max-width: 768px) {
@@ -669,6 +707,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
             .video-player-title-wrap h3 {
                 font-size: 1.18rem;
+            }
+
+            .video-player-title-wrap p {
+                font-size: 0.92rem;
             }
 
             .video-queue-cover {
@@ -737,8 +779,9 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 padding: 9px;
             }
 
-            .video-queue-item {
-                padding: 8px;
+            .video-queue-cover {
+                width: 78px;
+                height: 48px;
             }
         }
     </style>
