@@ -34,7 +34,18 @@ function getRoutineDaysDiff(array $item): array
     </div>
 
     <!-- 桌面版表格 -->
-    <table class="table desktop-only" style="margin-top: 20px;">
+    <table class="table desktop-only routine-table" style="margin-top: 20px;">
+        <colgroup>
+            <col style="width: 40px;">
+            <col style="width: 16%;">
+            <col style="width: 28%;">
+            <col style="width: 8%;">
+            <col style="width: 12%;">
+            <col style="width: 12%;">
+            <col style="width: 8%;">
+            <col style="width: 12%;">
+            <col style="width: 72px;">
+        </colgroup>
         <thead>
             <tr>
                 <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
@@ -137,7 +148,7 @@ function getRoutineDaysDiff(array $item): array
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
+                            <span class="inline-view routine-note-text"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
                             <div class="inline-edit inline-edit-row">
                                 <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
                                     style="resize:vertical;"></textarea>
@@ -205,8 +216,8 @@ function getRoutineDaysDiff(array $item): array
                 $daysDiff = $routineDaysDiff['text'];
                 $daysDiffNum = $routineDaysDiff['days'];
                 ?>
-                <div class="mobile-card" style="border-left: 4px solid #9b59b6;">
-                    <div class="mobile-card-actions">
+                <div class="mobile-card routine-mobile-card" style="border-left: 4px solid #9b59b6;">
+                    <div class="mobile-card-actions routine-mobile-actions">
                         <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')" title="日期遞移"
                             style="padding: 5px 10px;">
                             <i class="fa-solid fa-arrow-right"></i>
@@ -215,7 +226,7 @@ function getRoutineDaysDiff(array $item): array
                                 class="fas fa-pen"></i></span>
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                     </div>
-                    <div class="mobile-card-header">
+                    <div class="mobile-card-header routine-mobile-header">
                         <?php if (!empty($item['photo'])): ?>
                             <img src="<?php echo htmlspecialchars($item['photo']); ?>"
                                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
@@ -225,13 +236,13 @@ function getRoutineDaysDiff(array $item): array
                                 <i class="fas fa-redo" style="color: #fff; font-size: 1.2rem;"></i>
                             </div>
                         <?php endif; ?>
-                        <div style="flex: 1;">
+                        <div class="routine-mobile-copy" style="flex: 1;">
                             <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
                             <?php if (!empty($item['note'])): ?>
-                                <div style="font-size: 0.8rem; color: #888;"><?php echo htmlspecialchars($item['note']); ?></div>
+                                <div class="routine-mobile-note" style="font-size: 0.8rem; color: #888;"><?php echo htmlspecialchars($item['note']); ?></div>
                             <?php endif; ?>
                         </div>
-                        <div
+                        <div class="routine-mobile-badge"
                             style="text-align: center; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
                             <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiff === '-' ? '-' : $daysDiffNum; ?></div>
                             <div style="font-size: 0.7rem;">天</div>
@@ -258,6 +269,95 @@ function getRoutineDaysDiff(array $item): array
 </div>
 
 <?php include 'includes/upload-progress.php'; ?>
+
+<style>
+    .routine-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .routine-table th,
+    .routine-table td {
+        overflow: hidden;
+    }
+
+    .routine-note-text {
+        display: block;
+        white-space: pre-line;
+        line-height: 1.65;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
+    }
+
+    .routine-mobile-note {
+        white-space: pre-line;
+        line-height: 1.6;
+        word-break: break-word;
+        margin-top: 4px;
+    }
+
+    .routine-mobile-card {
+        padding-top: 56px;
+    }
+
+    .routine-mobile-actions {
+        top: 14px;
+        right: 14px;
+        gap: 10px;
+        z-index: 2;
+    }
+
+    .routine-mobile-header {
+        align-items: flex-start;
+        padding-right: 0;
+        gap: 12px;
+    }
+
+    .routine-mobile-copy {
+        min-width: 0;
+        padding-right: 6px;
+    }
+
+    .routine-mobile-badge {
+        flex-shrink: 0;
+        align-self: flex-start;
+        min-width: 68px !important;
+    }
+
+    table.table td {
+        vertical-align: top;
+    }
+
+    .routine-table td:nth-child(2) .inline-view,
+    .routine-table td:nth-child(2) .inline-edit,
+    .routine-table td:nth-child(5),
+    .routine-table td:nth-child(6),
+    .routine-table td:nth-child(8) {
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 1024px) {
+        .routine-table.desktop-only {
+            display: none !important;
+        }
+
+        .mobile-only {
+            display: block !important;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .routine-mobile-header {
+            display: grid;
+            grid-template-columns: 50px minmax(0, 1fr) auto;
+        }
+
+        .routine-mobile-actions .btn {
+            min-height: 38px;
+        }
+    }
+</style>
 
 <script>
     const TABLE = 'routine';
