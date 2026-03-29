@@ -1,5 +1,5 @@
 ﻿<?php
-$pageTitle = '靘?鈭?';
+$pageTitle = '例行事項';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll();
 
@@ -19,7 +19,7 @@ function getRoutineDaysDiff(array $item): array
 ?>
 
 <div class="content-header">
-    <h1>??靘? <span
+    <h1>鋒兄例行 <span
             style="font-size:0.55em;background:#9b59b6;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
     </h1>
 </div>
@@ -27,13 +27,12 @@ function getRoutineDaysDiff(array $item): array
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons-bar">
-        <button class="btn btn-primary" onclick="handleAdd()" title="?啣?靘?鈭?"><i class="fas fa-plus"></i></button>
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增例行事項"><i class="fas fa-plus"></i></button>
         <?php $csvTable = 'routine';
         include 'includes/csv_buttons.php'; ?>
         <?php include 'includes/batch-delete.php'; ?>
     </div>
-
-    <!-- 獢?”??-->
+    <!-- 桌機表格版 -->
     <table class="table desktop-only routine-table" style="margin-top: 20px;">
         <colgroup>
             <col style="width: 40px;">
@@ -50,14 +49,14 @@ function getRoutineDaysDiff(array $item): array
             <tr>
                 <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
                         onchange="toggleSelectAll(this)"></th>
-                <th>?迂</th>
-                <th>?酉</th>
-                <th>??</th>
-                <th>?餈?銵?銝</th>
-                <th>?餈?銵?鈭?/th>
-                <th>?貉?憭拇</th>
-                <th>?餈?銵?銝?/th>
-                <th>??</th>
+                <th>名稱</th>
+                <th>備註</th>
+                <th>圖片</th>
+                <th>最近例行之一</th>
+                <th>最近例行之二</th>
+                <th>相距天數</th>
+                <th>最近例行之三</th>
+                <th>操作</th>
             </tr>
         </thead>
         <tbody>
@@ -65,24 +64,24 @@ function getRoutineDaysDiff(array $item): array
                 <td></td>
                 <td>
                     <div class="inline-edit inline-edit-always">
-                        <input type="text" class="form-control inline-input" data-field="name" placeholder="?迂">
-                        <input type="url" class="form-control inline-input" data-field="link" placeholder="???">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
                         <div class="inline-actions">
-                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">?脣?</button>
-                            <button type="button" class="btn" onclick="cancelInlineAdd()">??</button>
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
                         </div>
                     </div>
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
-                        <textarea class="form-control inline-input" data-field="note" placeholder="?酉" rows="5"
+                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
                             style="resize:vertical;"></textarea>
                     </div>
                 </td>
                 <td>
                     <div class="inline-edit inline-edit-row inline-edit-always">
                         <div style="display:flex;gap:6px;align-items:center;">
-                            <input type="text" class="form-control inline-input" data-field="photo" placeholder="??蝬脣?"
+                            <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
                                 style="flex:1;">
                             <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
                                 onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
@@ -110,7 +109,7 @@ function getRoutineDaysDiff(array $item): array
             </tr>
             <?php if (empty($items)): ?>
                 <tr>
-                    <td colspan="9" style="text-align: center; color: #999;">?怎靘?鈭?</td>
+                    <td colspan="9" style="text-align: center; color: #999;">暫無例行事項</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
@@ -137,20 +136,20 @@ function getRoutineDaysDiff(array $item): array
                                     style="margin-left: 6px; cursor: pointer;">&times;</span>
                             </div>
                             <div class="inline-edit">
-                                <input type="text" class="form-control inline-input" data-field="name" placeholder="?迂">
-                                <input type="url" class="form-control inline-input" data-field="link" placeholder="???">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
                                 <div class="inline-actions">
                                     <button type="button" class="btn btn-primary"
-                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">?脣?</button>
+                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
                                     <button type="button" class="btn"
-                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">??</button>
+                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
                                 </div>
                             </div>
                         </td>
                         <td>
                             <span class="inline-view routine-note-text"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
                             <div class="inline-edit inline-edit-row">
-                                <textarea class="form-control inline-input" data-field="note" placeholder="?酉" rows="5"
+                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
                                     style="resize:vertical;"></textarea>
                             </div>
                         </td>
@@ -165,7 +164,7 @@ function getRoutineDaysDiff(array $item): array
                             </div>
                             <div class="inline-edit inline-edit-row">
                                 <div style="display:flex;gap:6px;align-items:center;">
-                                    <input type="text" class="form-control inline-input" data-field="photo" placeholder="??蝬脣?"
+                                    <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
                                         style="flex:1;">
                                     <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
                                         onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
@@ -195,7 +194,7 @@ function getRoutineDaysDiff(array $item): array
                         <td>
                             <div class="inline-view">
                                 <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')"
-                                    title="?交??宏">
+                                    title="推進日期">
                                     <i class="fa-solid fa-arrow-right"></i>
                                 </button>
                             </div>
@@ -205,11 +204,11 @@ function getRoutineDaysDiff(array $item): array
             <?php endif; ?>
         </tbody>
     </table>
-
-    <!-- ?????-->
+    <!-- 手機卡片版 -->
+    <!-- 手機卡片版 -->
     <div class="mobile-only" style="margin-top: 20px;">
         <?php if (empty($items)): ?>
-            <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">?怎靘?鈭?</div>
+            <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無例行事項</div>
         <?php else: ?>
             <?php foreach ($items as $item):
                 $routineDaysDiff = getRoutineDaysDiff($item);
@@ -376,7 +375,7 @@ function getRoutineDaysDiff(array $item): array
 
     function startInlineAdd() {
         const row = document.getElementById('inlineAddRow');
-        if (!row) {
+            alert('找不到新增列，請重新整理頁面後再試。');
             alert('?曆??唳憓?嚗???渡??');
             return;
         }
@@ -398,7 +397,7 @@ function getRoutineDaysDiff(array $item): array
         const row = document.getElementById('inlineAddRow');
         if (!row) return;
         const name = row.querySelector('[data-field="name"]').value.trim();
-        if (!name) {
+            alert('請輸入名稱');
             alert('隢撓?亙?蝔?);
             return;
         }
@@ -418,9 +417,9 @@ function getRoutineDaysDiff(array $item): array
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
                 else alert('?脣?憭望?: ' + (res.error || res.message || ''));
-            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
             .catch(err => alert('?脣?憭望?: ' + (err.message || '蝬脰楝?航炊')));
     }
 
@@ -466,7 +465,7 @@ function getRoutineDaysDiff(array $item): array
         const row = getRowById(id);
         if (!row) return;
         const name = row.querySelector('[data-field="name"]').value.trim();
-        if (!name) {
+            alert('請輸入名稱');
             alert('隢撓?亙?蝔?);
             return;
         }
@@ -486,24 +485,24 @@ function getRoutineDaysDiff(array $item): array
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
                 else alert('?脣?憭望?: ' + (res.error || ''));
             });
     }
 
 
-    function deleteItem(id) {
+        if (confirm('確定要刪除這筆例行事項嗎？')) {
         if (confirm('蝣箏?閬?文?嚗?)) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
                 .then(r => r.json())
                 .then(res => {
-                    if (res.success) location.reload();
+                    else alert('刪除失敗');
                     else alert('?芷憭望?');
                 });
         }
     }
 
-    // ??銝?
+    // 圖片上傳功能
     (function () {
         const _uploadInput = document.createElement('input');
         _uploadInput.type = 'file';
@@ -523,7 +522,7 @@ function getRoutineDaysDiff(array $item): array
                     }
                 },
                 function (err) {
-                    alert('銝憭望?: ' + err);
+                    alert('上傳失敗: ' + err);
                 }
             );
             this.value = '';
@@ -535,7 +534,7 @@ function getRoutineDaysDiff(array $item): array
         };
     })();
 
-    // ???楊頛?Modal
+    // 手機編輯 Modal
     function editItem(id) {
         const srcEl = document.querySelector(`tr[data-id="${id}"]`);
         const d = srcEl ? srcEl.dataset : {};
@@ -557,7 +556,7 @@ function getRoutineDaysDiff(array $item): array
     function saveRoutineMobile() {
         const id = document.getElementById('routineMobileId').value;
         const name = document.getElementById('routineMobileName').value.trim();
-        if (!name) { alert('隢撓?亙?蝔?); return; }
+        if (!name) { alert('請輸入名稱'); return; }
         const data = {
             name,
             note: document.getElementById('routineMobileNote').value.trim(),
@@ -575,57 +574,57 @@ function getRoutineDaysDiff(array $item): array
             .then(r => r.json())
             .then(res => {
                 if (res.success) location.reload();
-                else alert('?脣?憭望?: ' + (res.error || ''));
+                else alert('儲存失敗: ' + (res.error || ''));
             });
     }
 </script>
 
-<!-- ???楊頛?Modal -->
+<!-- 手機編輯 Modal -->
 <div id="routineMobileModal" class="modal" onclick="if(event.target===this)closeRoutineMobileModal()"
     style="display:none;">
     <div class="modal-content" style="max-width:500px;width:95%;">
         <span class="modal-close" onclick="closeRoutineMobileModal()">&times;</span>
-        <h2 style="margin:0 0 20px 0;"><i class="fas fa-edit"></i> 蝺刻摩靘?鈭?</h2>
+        <h2 style="margin:0 0 20px 0;"><i class="fas fa-edit"></i> 編輯例行事項</h2>
         <input type="hidden" id="routineMobileId">
         <div style="display:flex;flex-direction:column;gap:12px;">
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">?迂 *</label>
-                <input type="text" id="routineMobileName" class="form-control" placeholder="?迂">
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">名稱 *</label>
+                <input type="text" id="routineMobileName" class="form-control" placeholder="名稱">
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">?酉</label>
-                <textarea id="routineMobileNote" class="form-control" placeholder="?酉" rows="5"
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">備註</label>
+                <textarea id="routineMobileNote" class="form-control" placeholder="備註" rows="5"
                     style="resize:vertical;"></textarea>
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">???</label>
-                <input type="url" id="routineMobileLink" class="form-control" placeholder="???">
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">連結</label>
+                <input type="url" id="routineMobileLink" class="form-control" placeholder="連結">
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">??</label>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">圖片</label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="text" id="routineMobilePhoto" class="form-control" placeholder="??蝬脣?" style="flex:1;">
+                    <input type="text" id="routineMobilePhoto" class="form-control" placeholder="圖片網址" style="flex:1;">
                     <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
                         onclick="triggerPhotoUpload(document.getElementById('routineMobilePhoto'))"><i
                             class="fas fa-upload"></i></button>
                 </div>
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">?餈?銵?銝</label>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之一</label>
                 <input type="date" id="routineMobileDate1" class="form-control">
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">?餈?銵?鈭?/label>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之二</label>
                 <input type="date" id="routineMobileDate2" class="form-control">
             </div>
             <div>
-                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">?餈?銵?銝?/label>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之三</label>
                 <input type="date" id="routineMobileDate3" class="form-control">
             </div>
             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
-                <button type="button" class="btn" onclick="closeRoutineMobileModal()">??</button>
+                <button type="button" class="btn" onclick="closeRoutineMobileModal()">取消</button>
                 <button type="button" class="btn btn-primary" onclick="saveRoutineMobile()"><i class="fas fa-save"></i>
-                    ?脣?</button>
+                    儲存</button>
             </div>
         </div>
     </div>
