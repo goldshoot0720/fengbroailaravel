@@ -369,14 +369,13 @@ function getRoutineDaysDiff(array $item): array
     initBatchDelete(TABLE);
 
     function handleAdd() {
-        // Use inline editing for all screen sizes
         startInlineAdd();
     }
 
     function startInlineAdd() {
         const row = document.getElementById('inlineAddRow');
+        if (!row) {
             alert('找不到新增列，請重新整理頁面後再試。');
-            alert('?曆??唳憓?嚗???渡??');
             return;
         }
         row.style.setProperty('display', 'table-row', 'important');
@@ -397,8 +396,8 @@ function getRoutineDaysDiff(array $item): array
         const row = document.getElementById('inlineAddRow');
         if (!row) return;
         const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
             alert('請輸入名稱');
-            alert('隢撓?亙?蝔?);
             return;
         }
         const data = {
@@ -417,10 +416,13 @@ function getRoutineDaysDiff(array $item): array
         })
             .then(r => r.json())
             .then(res => {
-                else alert('儲存失敗: ' + (res.error || res.message || ''));
-                else alert('?脣?憭望?: ' + (res.error || res.message || ''));
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('儲存失敗: ' + (res.error || res.message || ''));
+                }
+            })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
-            .catch(err => alert('?脣?憭望?: ' + (err.message || '蝬脰楝?航炊')));
     }
 
     function getRowById(id) {
@@ -465,8 +467,8 @@ function getRoutineDaysDiff(array $item): array
         const row = getRowById(id);
         if (!row) return;
         const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
             alert('請輸入名稱');
-            alert('隢撓?亙?蝔?);
             return;
         }
         const data = {
@@ -485,19 +487,24 @@ function getRoutineDaysDiff(array $item): array
         })
             .then(r => r.json())
             .then(res => {
-                else alert('儲存失敗: ' + (res.error || ''));
-                else alert('?脣?憭望?: ' + (res.error || ''));
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('儲存失敗: ' + (res.error || ''));
+                }
             });
     }
 
-
+    function deleteItem(id) {
         if (confirm('確定要刪除這筆例行事項嗎？')) {
-        if (confirm('蝣箏?閬?文?嚗?)) {
             fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
                 .then(r => r.json())
                 .then(res => {
-                    else alert('刪除失敗');
-                    else alert('?芷憭望?');
+                    if (res.success) {
+                        location.reload();
+                    } else {
+                        alert('刪除失敗');
+                    }
                 });
         }
     }
