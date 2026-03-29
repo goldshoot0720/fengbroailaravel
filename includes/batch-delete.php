@@ -1,9 +1,9 @@
-<!-- 批量刪除元件 -->
+<!-- 批量刪除 -->
 <style>
     .batch-delete-bar {
         display: none;
         background: linear-gradient(135deg, #e74c3c, #c0392b);
-        color: white;
+        color: #fff;
         padding: 12px 20px;
         border-radius: 8px;
         margin-bottom: 15px;
@@ -22,7 +22,7 @@
     }
 
     .batch-delete-bar .btn {
-        background: white;
+        background: #fff;
         color: #e74c3c;
         border: none;
     }
@@ -45,7 +45,7 @@
 
     .btn-select-mode {
         background: linear-gradient(135deg, #9b59b6, #8e44ad);
-        color: white;
+        color: #fff;
         border: none;
         margin-left: 8px;
     }
@@ -65,7 +65,7 @@
     let isSelectMode = false;
 
     function initBatchDelete(tableName) {
-        batchDeleteTable = tableName;
+        batchDeleteTable = tableName || null;
         batchDeleteIds = new Set();
         isSelectMode = false;
         updateBatchDeleteBar();
@@ -77,17 +77,18 @@
         const btn = document.getElementById('selectModeBtn');
         const selectAllWrap = document.getElementById('batchSelectAllWrap');
 
+        if (!btn) return;
+
         if (isSelectMode) {
             body.classList.add('select-mode');
             btn.classList.add('active');
-            btn.innerHTML = '<i class="fas fa-times"></i> 退出選擇';
+            btn.innerHTML = '<i class="fas fa-times"></i> 取消選取';
             if (selectAllWrap) selectAllWrap.style.display = 'inline-flex';
         } else {
             body.classList.remove('select-mode');
             btn.classList.remove('active');
             btn.innerHTML = '<i class="fas fa-check-square"></i> 全選模式';
             if (selectAllWrap) selectAllWrap.style.display = 'none';
-            // 清除所有選擇
             cancelBatchSelect();
         }
     }
@@ -124,7 +125,7 @@
         }
 
         const allCheckboxes = document.querySelectorAll('.item-checkbox');
-        const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+        const allChecked = allCheckboxes.length > 0 && Array.from(allCheckboxes).every(cb => cb.checked);
         syncSelectAllCheckboxes(allChecked, batchDeleteIds.size > 0);
         updateBatchDeleteBar();
     }
@@ -132,6 +133,8 @@
     function updateBatchDeleteBar() {
         const bar = document.getElementById('batchDeleteBar');
         const countSpan = document.getElementById('batchSelectedCount');
+
+        if (!bar || !countSpan) return;
 
         if (batchDeleteIds.size > 0) {
             bar.classList.add('show');
@@ -150,28 +153,38 @@
         updateBatchDeleteBar();
     }
 
+    function getBatchDeleteKeyword() {
+        return batchDeleteTable ? `DELETE ${batchDeleteTable}` : 'DELETE';
+    }
+
     function confirmBatchDelete() {
         if (batchDeleteIds.size === 0) return;
 
-        const confirmText = `DELETE ${batchDeleteTable}`;
+        if (!batchDeleteTable) {
+            alert('批量刪除尚未初始化，請重新整理頁面後再試。');
+            return;
+        }
+
+        const confirmText = getBatchDeleteKeyword();
         const userInput = prompt(
-            `⚠️ 警告：此操作無法撤銷！\n\n` +
+            `警告：此操作無法復原！\n\n` +
             `您即將刪除 ${batchDeleteIds.size} 筆資料。\n\n` +
             `請輸入以下文字確認刪除：\n${confirmText}`
         );
 
         if (userInput !== confirmText) {
             if (userInput !== null) {
-                alert('輸入不正確，刪除已取消。');
+                alert('輸入內容不符，已取消批量刪除。');
             }
             return;
         }
 
         const ids = Array.from(batchDeleteIds);
         const bar = document.getElementById('batchDeleteBar');
-        bar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在刪除...';
+        if (bar) {
+            bar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在刪除...';
+        }
 
-        // 逐一刪除
         let completed = 0;
         let errors = 0;
 
@@ -184,7 +197,7 @@
 
                     if (completed === ids.length) {
                         if (errors > 0) {
-                            alert(`刪除完成，但有 ${errors} 個項目刪除失敗`);
+                            alert(`批量刪除完成，但有 ${errors} 筆失敗。`);
                         }
                         location.reload();
                     }
@@ -193,7 +206,7 @@
                     completed++;
                     errors++;
                     if (completed === ids.length) {
-                        alert(`刪除完成，但有 ${errors} 個項目刪除失敗`);
+                        alert(`批量刪除完成，但有 ${errors} 筆失敗。`);
                         location.reload();
                     }
                 });
@@ -204,8 +217,10 @@
 <button id="selectModeBtn" class="btn btn-select-mode" onclick="toggleSelectMode()">
     <i class="fas fa-check-square"></i> 全選模式
 </button>
-<label id="batchSelectAllWrap" style="display: none; align-items: center; gap: 6px; cursor: pointer; color: #666; font-weight: 500; font-size: 0.9rem; margin-left: 4px;">
-    <input type="checkbox" id="batchSelectAllCb" onchange="toggleSelectAll(this)" style="width: 16px; height: 16px; accent-color: #e74c3c;">
+<label id="batchSelectAllWrap"
+    style="display: none; align-items: center; gap: 6px; cursor: pointer; color: #666; font-weight: 500; font-size: 0.9rem; margin-left: 4px;">
+    <input type="checkbox" id="batchSelectAllCb" onchange="toggleSelectAll(this)"
+        style="width: 16px; height: 16px; accent-color: #e74c3c;">
     全選
 </label>
 
