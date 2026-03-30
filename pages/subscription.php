@@ -2,6 +2,14 @@
 $pageTitle = '訂閱管理';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM subscription ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+$availableYears = [];
+foreach ($items as $item) {
+    if (!empty($item['nextdate'])) {
+        $year = date('Y', strtotime($item['nextdate']));
+        $availableYears[$year] = $year;
+    }
+}
+krsort($availableYears);
 
 // 取得已有的服務名稱、網站、帳號（去重複）
 $existingNames = $pdo->query("SELECT DISTINCT name FROM subscription WHERE name IS NOT NULL AND name != '' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
@@ -55,6 +63,18 @@ function formatDaysFromToday($date)
         </span>
     </div>
     <div class="subscription-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <select id="yearFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
+            <option value="">全部年份</option>
+            <?php foreach ($availableYears as $year): ?>
+                <option value="<?php echo $year; ?>"><?php echo $year; ?> 年</option>
+            <?php endforeach; ?>
+        </select>
+        <select id="monthFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
+            <option value="">全部月份</option>
+            <?php for ($month = 1; $month <= 12; $month++): ?>
+                <option value="<?php echo str_pad((string) $month, 2, '0', STR_PAD_LEFT); ?>"><?php echo $month; ?> 月</option>
+            <?php endfor; ?>
+        </select>
         <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">全部</button>
         <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">續訂</button>
         <button class="btn btn-sm filter-btn" onclick="filterByContinue('0')" data-continue="0">不續</button>
@@ -139,6 +159,8 @@ function formatDaysFromToday($date)
                         data-price="<?php echo htmlspecialchars($item['price'] ?? '', ENT_QUOTES); ?>"
                         data-currency="<?php echo htmlspecialchars($item['currency'] ?? 'TWD', ENT_QUOTES); ?>"
                         data-nextdate="<?php echo htmlspecialchars($item['nextdate'] ?? '', ENT_QUOTES); ?>"
+                        data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
+                        data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
                         data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
                         data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
                         data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
@@ -194,7 +216,10 @@ function formatDaysFromToday($date)
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo formatDate($item['nextdate']); ?></span>
+                            <span class="inline-view subscription-date-cell">
+                                <span class="subscription-date-primary"><?php echo formatDate($item['nextdate']); ?></span>
+                                <span class="subscription-date-secondary"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
+                            </span>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="nextdate">
                                 <div class="date-shift-btns">
@@ -225,7 +250,10 @@ function formatDaysFromToday($date)
             <div class="sub-card" style="text-align: center; color: #999; padding: 40px;">暫無訂閱資料</div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>" data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
+                <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>"
+                    data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>"
+                    data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
+                    data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>">
                     <div class="sub-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -420,6 +448,22 @@ function formatDaysFromToday($date)
 
     .inline-edit-row {
         margin-top: 6px;
+    }
+
+    .subscription-date-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1.35;
+    }
+
+    .subscription-date-primary {
+        font-weight: 600;
+    }
+
+    .subscription-date-secondary {
+        font-size: 0.85rem;
+        color: #6b7280;
     }
 
     .inline-actions {
@@ -630,6 +674,14 @@ function formatDaysFromToday($date)
         justify-content: flex-end;
     }
 
+    .subscription-select-filter {
+        min-width: 120px;
+        border-radius: 999px;
+        padding: 10px 16px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(255, 255, 255, 0.88);
+    }
+
     .sub-card {
         border-radius: 20px;
         padding: 18px;
@@ -655,8 +707,12 @@ function formatDaysFromToday($date)
             justify-content: flex-start;
         }
 
+        .subscription-select-filter,
         .subscription-filters .btn {
             flex: 1 1 120px;
+        }
+
+        .subscription-filters .btn {
             justify-content: center;
         }
     }
@@ -689,12 +745,14 @@ function formatDaysFromToday($date)
     @media (max-width: 560px) {
         .subscription-filters {
             display: grid !important;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             width: 100%;
         }
 
+        .subscription-select-filter,
         .subscription-filters .btn {
             width: 100%;
+            min-width: 0;
         }
 
         .sub-card {
@@ -808,13 +866,33 @@ function formatDaysFromToday($date)
             btn.classList.toggle('active', btn.dataset.continue === value);
         });
 
+        applyFilters();
+    }
+
+    function getActiveContinueFilter() {
+        const activeButton = document.querySelector('.filter-btn.active');
+        return activeButton ? activeButton.dataset.continue : '';
+    }
+
+    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue) {
+        const matchesContinue = !continueValue || element.dataset.continue === continueValue;
+        const matchesYear = !yearValue || element.dataset.year === yearValue;
+        const matchesMonth = !monthValue || element.dataset.month === monthValue;
+        return matchesContinue && matchesYear && matchesMonth;
+    }
+
+    function applyFilters() {
+        const continueValue = getActiveContinueFilter();
+        const yearValue = document.getElementById('yearFilter')?.value || '';
+        const monthValue = document.getElementById('monthFilter')?.value || '';
+
         document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(row => {
-            const match = !value || row.dataset.continue === value;
+            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue);
             row.style.display = match ? '' : 'none';
         });
 
         document.querySelectorAll('.mobile-cards .sub-card').forEach(card => {
-            const match = !value || card.dataset.continue === value;
+            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue);
             card.style.display = match ? '' : 'none';
         });
     }
