@@ -24,6 +24,27 @@ function convertToTWD($price, $currency, $rates)
     $rate = $rates[$currency] ?? 1;
     return round($price * $rate);
 }
+
+function formatDaysFromToday($date)
+{
+    if (empty($date)) {
+        return '-';
+    }
+
+    $today = new DateTime('today');
+    $target = new DateTime(date('Y-m-d', strtotime($date)));
+    $days = (int) $today->diff($target)->format('%r%a');
+
+    if ($days === 0) {
+        return '&#20170;&#22825;';
+    }
+
+    if ($days > 0) {
+        return $days . ' &#22825;';
+    }
+
+    return abs($days) . ' &#22825;&#21069;';
+}
 ?>
 
 <div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
@@ -240,8 +261,8 @@ function convertToTWD($price, $currency, $rates)
                                 class="sub-card-value"><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></span>
                         </div>
                         <div class="sub-card-date">
-                            <span class="sub-card-label">下次付款</span>
-                            <span class="sub-card-value"><?php echo formatDate($item['nextdate']) ?: '-'; ?></span>
+                            <span class="sub-card-label">&#36317;&#20170;&#22825;&#25976;</span>
+                            <span class="sub-card-value"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
                         </div>
                     </div>
                     <?php if (!empty($item['note'])): ?>
