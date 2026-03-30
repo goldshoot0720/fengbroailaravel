@@ -261,8 +261,10 @@ function formatDaysFromToday($date)
                                 class="sub-card-value"><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></span>
                         </div>
                         <div class="sub-card-date">
-                            <span class="sub-card-label">&#36317;&#20170;&#22825;&#25976;</span>
-                            <span class="sub-card-value"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
+                            <span class="sub-card-label">下次付款</span>
+                            <span class="sub-card-value"><?php echo formatDate($item['nextdate']) ?: '-'; ?></span>
+                            <span class="sub-card-label sub-card-label-secondary">&#36317;&#20170;&#22825;&#25976;</span>
+                            <span class="sub-card-value sub-card-value-secondary"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
                         </div>
                     </div>
                     <?php if (!empty($item['note'])): ?>
@@ -577,6 +579,14 @@ function formatDaysFromToday($date)
         font-weight: 600;
         color: var(--text-color, #333);
         line-height: 1.45;
+    }
+
+    .sub-card-label-secondary {
+        margin-top: 10px;
+    }
+
+    .sub-card-value-secondary {
+        font-size: 0.95rem;
     }
 
     .sub-card-note {
