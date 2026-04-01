@@ -1287,7 +1287,7 @@ sort($categories);
     function updateCategoryPicker(picker, categories) {
         if (!picker) return;
         const normalized = Array.from(new Set((categories || []).map(item => item.trim()).filter(Boolean)));
-        const hiddenInput = picker.querySelector('[data-field="category"], #category');
+        const hiddenInput = picker.querySelector('[data-field="category"], #category, #batchCategoryValue');
         const selectedList = picker.querySelector('[data-role="selected"]');
         const entryInput = picker.querySelector('.category-entry-input');
 
@@ -1309,7 +1309,7 @@ sort($categories);
     }
 
     function getPickerCategories(picker) {
-        const hiddenInput = picker.querySelector('[data-field="category"], #category');
+        const hiddenInput = picker.querySelector('[data-field="category"], #category, #batchCategoryValue');
         return parseCategoryValue(hiddenInput ? hiddenInput.value : '');
     }
 
@@ -1348,7 +1348,7 @@ sort($categories);
 
     function initCategoryPickers(scope = document) {
         scope.querySelectorAll('[data-category-picker]').forEach(picker => {
-            const hiddenInput = picker.querySelector('[data-field="category"], #category');
+            const hiddenInput = picker.querySelector('[data-field="category"], #category, #batchCategoryValue');
             updateCategoryPicker(picker, parseCategoryValue(hiddenInput ? hiddenInput.value : ''));
 
             const entryInput = picker.querySelector('.category-entry-input');
