@@ -26,19 +26,17 @@ $categories = array_keys($categories);
 sort($categories);
 ?>
 
-<div class="content-header"
-    style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-        <h1 style="margin: 0;">鋒兄筆記</h1>
-        <span
-            style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-            <?php echo count($items); ?> 篇
-        </span>
+<div class="content-header notes-header">
+    <div class="notes-header-main">
+        <div class="notes-title-wrap">
+            <h1 class="notes-title">鋒兄筆記</h1>
+            <span class="notes-count-pill"><?php echo count($items); ?> 篇</span>
+        </div>
+        <p class="notes-subtitle">記錄想法、參考資料與附件內容，並支援批次分類整理。</p>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <i class="fas fa-filter" style="color: #999; font-size: 0.85rem;"></i>
-        <select id="categoryFilter" class="form-control" onchange="filterNotes()"
-            style="width: auto; min-width: 140px; padding: 8px 12px; font-size: 0.9rem;">
+    <div class="notes-filter-wrap">
+        <i class="fas fa-layer-group"></i>
+        <select id="categoryFilter" class="form-control notes-filter-select" onchange="filterNotes()">
             <option value="__all">全部分類</option>
             <?php foreach ($categories as $category): ?>
                 <option value="<?php echo htmlspecialchars($category); ?>"><?php echo htmlspecialchars($category); ?>
@@ -54,24 +52,34 @@ sort($categories);
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
 
-    <!-- 操作按鈕區 -->
-    <div class="action-buttons"
-        style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
-        <button class="btn btn-primary" onclick="handleAdd()" title="新增筆記">
-            <i class="fas fa-plus"></i> 新增筆記
-        </button>
-        <!-- ZIP 匯出入 (含檔案) -->
-        <a href="export_zip_article.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 檔案）">
-            <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
-        </a>
-        <button type="button" class="btn" onclick="document.getElementById('zipImportArticle').click()"
-            title="匯入 Appwrite ZIP（含 CSV + 檔案）">
-            <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
-        </button>
-        <input type="file" id="zipImportArticle" accept=".zip" style="display: none;"
-            onchange="previewAndImportZIP(this, 'article', 'import_zip_article.php', '筆記')">
+    <div class="notes-search-toolbar">
+        <label class="notes-search-box" for="noteSearchInput">
+            <i class="fas fa-search"></i>
+            <input type="text" id="noteSearchInput" class="form-control" placeholder="搜尋標題、內容、分類或參考..."
+                oninput="filterNotes()">
+        </label>
+        <div class="notes-toolbar-actions">
+            <a href="export_zip_article.php" class="btn btn-success" title="匯出 Appwrite ZIP（含 CSV + 檔案）">
+                <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
+            </a>
+            <button type="button" class="btn" onclick="document.getElementById('zipImportArticle').click()"
+                title="匯入 Appwrite ZIP（含 CSV + 檔案）">
+                <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
+            </button>
+            <input type="file" id="zipImportArticle" accept=".zip" style="display: none;"
+                onchange="previewAndImportZIP(this, 'article', 'import_zip_article.php', '筆記')">
+        </div>
+    </div>
 
-        <?php include 'includes/batch-delete.php'; ?>
+    <!-- 操作按鈕區 -->
+    <div class="action-buttons">
+        <div class="notes-primary-actions">
+            <?php include 'includes/batch-delete.php'; ?>
+            <button class="btn btn-primary notes-add-btn" onclick="handleAdd()" title="新增筆記">
+                <i class="fas fa-plus"></i>
+            </button>
+            <span class="notes-total-count">共 <?php echo count($items); ?> 篇筆記</span>
+        </div>
     </div>
 
     <datalist id="categoryOptions">
@@ -225,6 +233,7 @@ sort($categories);
                     data-file3="<?php echo htmlspecialchars($item['file3'] ?? '', ENT_QUOTES); ?>"
                     data-file3name="<?php echo htmlspecialchars($item['file3name'] ?? '', ENT_QUOTES); ?>"
                     data-file3type="<?php echo htmlspecialchars($item['file3type'] ?? '', ENT_QUOTES); ?>"
+                    data-search="<?php echo htmlspecialchars(mb_strtolower(($item['title'] ?? '') . ' ' . ($item['content'] ?? '') . ' ' . ($item['category'] ?? '') . ' ' . ($item['ref'] ?? '')), ENT_QUOTES); ?>"
                     style="border-left: 4px solid <?php echo $catColor; ?>;">
 
                     <!-- 卡片頂部：checkbox + 操作 -->
@@ -538,6 +547,123 @@ sort($categories);
 </div>
 
 <style>
+    .notes-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        flex-wrap: wrap;
+        padding: 8px 0 4px;
+    }
+
+    .notes-header-main {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .notes-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .notes-title {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 2.6rem);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+    }
+
+    .notes-count-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #8b5cf6, #d946ef);
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 700;
+        box-shadow: 0 10px 24px rgba(139, 92, 246, 0.2);
+    }
+
+    .notes-subtitle {
+        margin: 0;
+        color: #6b7280;
+        font-size: 1rem;
+        line-height: 1.7;
+    }
+
+    .notes-filter-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+        color: #64748b;
+    }
+
+    .notes-filter-select {
+        min-width: 150px;
+        border: none;
+        background: transparent;
+        padding: 0;
+        color: #111827;
+        font-weight: 600;
+    }
+
+    .notes-filter-select:focus {
+        box-shadow: none;
+    }
+
+    .notes-search-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin: 16px 0 18px;
+    }
+
+    .notes-search-box {
+        flex: 1;
+        min-width: 280px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 18px 34px rgba(15, 23, 42, 0.05);
+    }
+
+    .notes-search-box i {
+        color: #94a3b8;
+        font-size: 1.2rem;
+    }
+
+    .notes-search-box .form-control {
+        border: none;
+        background: transparent;
+        padding: 18px 0;
+        font-size: 1.05rem;
+        box-shadow: none;
+    }
+
+    .notes-search-box .form-control:focus {
+        box-shadow: none;
+    }
+
+    .notes-toolbar-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
     .file-preview {
         margin-top: 5px;
         font-size: 0.85rem;
@@ -556,11 +682,60 @@ sort($categories);
 
     /* 操作按鈕區 */
     .action-buttons {
-        background: var(--card-bg);
-        padding: 12px 16px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: linear-gradient(135deg, rgba(226, 248, 255, 0.88), rgba(214, 239, 247, 0.78));
+        padding: 18px 24px;
+        border-radius: 22px;
+        margin-bottom: 18px;
+        border: 1px solid rgba(191, 219, 254, 0.5);
+        box-shadow: 0 20px 34px rgba(148, 163, 184, 0.14);
+    }
+
+    .notes-primary-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .notes-add-btn {
+        width: 54px;
+        height: 54px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        font-size: 1.35rem;
+        box-shadow: 0 16px 30px rgba(99, 102, 241, 0.26);
+    }
+
+    .notes-total-count {
+        font-size: 1rem;
+        color: #475569;
+        font-weight: 600;
+    }
+
+    #selectModeBtn.btn-select-mode {
+        margin-left: 0;
+        min-height: 52px;
+        border-radius: 18px;
+        padding: 0 20px;
+        background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+        box-shadow: 0 14px 24px rgba(124, 58, 237, 0.18);
+    }
+
+    #selectModeBtn.btn-select-mode.active {
+        background: linear-gradient(135deg, #ea580c, #ef4444);
+    }
+
+    #batchSelectAllWrap {
+        margin-left: 0 !important;
+        padding: 0 6px;
     }
 
     /* ===== 筆記卡片美化 ===== */
@@ -936,10 +1111,41 @@ sort($categories);
     }
 
     @media (max-width: 768px) {
-        .action-buttons {
-            flex-direction: column;
+        .notes-header {
             align-items: stretch;
+        }
+
+        .notes-filter-wrap {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .notes-filter-select {
+            min-width: 0;
+            width: 100%;
+        }
+
+        .notes-search-toolbar {
+            align-items: stretch;
+        }
+
+        .notes-toolbar-actions {
+            width: 100%;
+        }
+
+        .notes-toolbar-actions .btn,
+        .notes-toolbar-actions a.btn {
+            flex: 1 1 0;
+            justify-content: center;
+        }
+
+        .action-buttons {
+            padding: 16px;
             gap: 8px;
+        }
+
+        .notes-primary-actions {
+            width: 100%;
         }
 
         .batch-category-bar {
@@ -952,6 +1158,10 @@ sort($categories);
 
         .batch-category-picker .category-input-row {
             flex-direction: column;
+        }
+
+        .notes-search-box .form-control {
+            font-size: 1rem;
         }
 
         .note-title {
@@ -995,16 +1205,21 @@ sort($categories);
         const select = document.getElementById('categoryFilter');
         if (!select) return;
         const value = select.value;
+        const keyword = (document.getElementById('noteSearchInput')?.value || '').trim().toLowerCase();
         const cards = document.querySelectorAll('.card-grid .card');
         cards.forEach(card => {
             const categories = card.getAttribute('data-categories') || '';
+            const searchText = (card.getAttribute('data-search') || '').toLowerCase();
+            const matchesKeyword = !keyword || searchText.includes(keyword);
+            let matchesCategory = false;
             if (value === '__all') {
-                card.style.display = '';
+                matchesCategory = true;
             } else if (value === '__uncategorized') {
-                card.style.display = categories === '__uncategorized' ? '' : 'none';
+                matchesCategory = categories === '__uncategorized';
             } else {
-                card.style.display = categories.includes(`|${value}|`) ? '' : 'none';
+                matchesCategory = categories.includes(`|${value}|`);
             }
+            card.style.display = matchesKeyword && matchesCategory ? '' : 'none';
         });
     }
 
