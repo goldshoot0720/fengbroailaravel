@@ -1448,6 +1448,12 @@ sort($categories);
 
     function applyCategoryToSelected() {
         const picker = document.querySelector('.batch-category-picker');
+        if (!picker) return;
+        const entryInput = picker.querySelector('.category-entry-input');
+        const pendingValue = entryInput ? entryInput.value.trim() : '';
+        if (pendingValue) {
+            addCategoryToPicker(picker, pendingValue);
+        }
         const selectedCategories = getPickerCategories(picker);
         if (!selectedCategories.length) {
             alert('請先選擇要套用的分類');
