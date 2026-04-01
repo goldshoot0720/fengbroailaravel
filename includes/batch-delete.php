@@ -101,8 +101,17 @@
         });
     }
 
+    function getSelectableItemCheckboxes() {
+        return Array.from(document.querySelectorAll('.item-checkbox')).filter(cb => {
+            if (!cb) return false;
+            const row = cb.closest('tr, .card, .sub-card, [data-id]');
+            if (!row) return true;
+            return row.offsetParent !== null;
+        });
+    }
+
     function toggleSelectAll(checkbox) {
-        const checkboxes = document.querySelectorAll('.item-checkbox');
+        const checkboxes = getSelectableItemCheckboxes();
         checkboxes.forEach(cb => {
             cb.checked = checkbox.checked;
             const id = cb.dataset.id;
@@ -124,7 +133,7 @@
             batchDeleteIds.delete(id);
         }
 
-        const allCheckboxes = document.querySelectorAll('.item-checkbox');
+        const allCheckboxes = getSelectableItemCheckboxes();
         const allChecked = allCheckboxes.length > 0 && Array.from(allCheckboxes).every(cb => cb.checked);
         syncSelectAllCheckboxes(allChecked, batchDeleteIds.size > 0);
         updateBatchDeleteBar();
