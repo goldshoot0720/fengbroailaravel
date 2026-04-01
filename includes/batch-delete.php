@@ -110,6 +110,21 @@
         });
     }
 
+    function reconcileSelectionWithVisibleItems() {
+        const visibleIds = new Set(getSelectableItemCheckboxes().map(cb => cb.dataset.id));
+        document.querySelectorAll('.item-checkbox').forEach(cb => {
+            if (!visibleIds.has(cb.dataset.id)) {
+                cb.checked = false;
+                batchDeleteIds.delete(cb.dataset.id);
+            }
+        });
+
+        const visibleCheckboxes = getSelectableItemCheckboxes();
+        const allChecked = visibleCheckboxes.length > 0 && visibleCheckboxes.every(cb => cb.checked);
+        syncSelectAllCheckboxes(allChecked, batchDeleteIds.size > 0);
+        updateBatchDeleteBar();
+    }
+
     function toggleSelectAll(checkbox) {
         const checkboxes = getSelectableItemCheckboxes();
         checkboxes.forEach(cb => {

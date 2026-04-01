@@ -1224,6 +1224,9 @@ sort($categories);
             card.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
         });
+        if (typeof reconcileSelectionWithVisibleItems === 'function') {
+            reconcileSelectionWithVisibleItems();
+        }
         updateVisibleNotesCount(visibleCount);
     }
 
