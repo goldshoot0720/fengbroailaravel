@@ -2,12 +2,22 @@
 $pageTitle = '筆記本';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll();
+
+function parseNoteCategories($value)
+{
+    $parts = preg_split('/\s*,\s*/', (string) $value);
+    $parts = array_filter(array_map('trim', $parts), fn($item) => $item !== '');
+    return array_values(array_unique($parts));
+}
+
 $categories = [];
 $hasUncategorized = false;
 foreach ($items as $item) {
-    $category = trim($item['category'] ?? '');
-    if ($category !== '') {
-        $categories[$category] = true;
+    $itemCategories = parseNoteCategories($item['category'] ?? '');
+    if (!empty($itemCategories)) {
+        foreach ($itemCategories as $category) {
+            $categories[$category] = true;
+        }
     } else {
         $hasUncategorized = true;
     }
@@ -64,6 +74,33 @@ sort($categories);
         <?php include 'includes/batch-delete.php'; ?>
     </div>
 
+    <datalist id="categoryOptions">
+        <?php foreach ($categories as $category): ?>
+            <option value="<?php echo htmlspecialchars($category); ?>"></option>
+        <?php endforeach; ?>
+    </datalist>
+
+    <div id="batchCategoryBar" class="batch-category-bar">
+        <div class="batch-category-meta">
+            <label class="batch-category-check">
+                <input type="checkbox" id="batchCategorySelectAll" onchange="toggleSelectAll(this)">
+                <span>全選 <strong id="batchCategoryCount">0</strong> 篇</span>
+            </label>
+        </div>
+        <div class="batch-category-controls">
+            <div class="category-picker batch-category-picker" data-category-picker>
+                <input type="hidden" id="batchCategoryValue">
+                <div class="category-selected-list" data-role="selected"></div>
+                <div class="category-input-row">
+                    <input type="text" class="form-control category-entry-input" list="categoryOptions"
+                        placeholder="輸入要套用的分類">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="applyCategoryToSelected()">套用分類</button>
+                    <button type="button" class="btn btn-sm" onclick="clearCategoriesFromSelected()">清除分類</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card-grid" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
@@ -71,12 +108,27 @@ sort($categories);
                     <label>標題 *</label>
                     <input type="text" class="form-control inline-input" data-field="title">
                 </div>
-                <div class="form-row">
-                    <div class="form-group" style="flex:1">
-                        <label>分類</label>
-                        <input type="text" class="form-control inline-input" data-field="category"
-                            list="categoryOptions" placeholder="可選既有分類或自行輸入">
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <label>分類</label>
+                    <div class="category-picker" data-category-picker>
+                        <input type="hidden" class="inline-input" data-field="category">
+                        <div class="category-selected-list" data-role="selected"></div>
+                        <div class="category-input-row">
+                            <input type="text" class="form-control category-entry-input" list="categoryOptions"
+                                placeholder="輸入分類後按 Enter">
+                            <button type="button" class="btn btn-sm" onclick="addCategoryFromPicker(this)">加入</button>
+                        </div>
+                        <?php if (!empty($categories)): ?>
+                            <div class="category-option-group">
+                                <?php foreach ($categories as $category): ?>
+                                    <button type="button" class="category-option-chip"
+                                        onclick="toggleCategoryOption(this, '<?php echo htmlspecialchars($category, ENT_QUOTES); ?>')"><?php echo htmlspecialchars($category); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
+                </div>
                     <div class="form-group" style="flex:1">
                         <label>參考</label>
                         <input type="text" class="form-control inline-input" data-field="ref">
@@ -148,16 +200,17 @@ sort($categories);
             }
             ?>
             <?php foreach ($items as $item):
-                $cat = $item['category'] ?? '';
-                $catColor = $categoryColorMap[$cat] ?? '#95a5a6';
+                $cardCategories = parseNoteCategories($item['category'] ?? '');
+                $primaryCategory = $cardCategories[0] ?? '';
+                $catColor = $categoryColorMap[$primaryCategory] ?? '#95a5a6';
                 $hasRef = !empty($item['ref']);
                 $hasUrls = !empty($item['url1']) || !empty($item['url2']) || !empty($item['url3']);
                 ?>
                 <div class="card note-card"
-                    data-category="<?php echo htmlspecialchars(!empty($cat) ? $cat : '__uncategorized'); ?>"
+                    data-categories="<?php echo htmlspecialchars(!empty($cardCategories) ? '|' . implode('|', $cardCategories) . '|' : '__uncategorized', ENT_QUOTES); ?>"
                     data-id="<?php echo $item['id']; ?>"
                     data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES); ?>"
-                    data-category-value="<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>"
+                    data-category-value="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>"
                     data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
                     data-content="<?php echo htmlspecialchars($item['content'] ?? '', ENT_QUOTES); ?>"
                     data-url1="<?php echo htmlspecialchars($item['url1'] ?? '', ENT_QUOTES); ?>"
@@ -186,9 +239,21 @@ sort($categories);
                     </div>
 
                     <!-- 分類標籤 -->
-                    <div class="note-category-badge"
-                        style="background: <?php echo $catColor; ?>15; color: <?php echo $catColor; ?>; border: 1px solid <?php echo $catColor; ?>40;">
-                        <i class="fas fa-tag"></i> <?php echo htmlspecialchars(!empty($cat) ? $cat : '未分類'); ?>
+                    <div class="note-category-badges">
+                        <?php if (!empty($cardCategories)): ?>
+                            <?php foreach ($cardCategories as $category): ?>
+                                <?php $badgeColor = $categoryColorMap[$category] ?? '#95a5a6'; ?>
+                                <div class="note-category-badge"
+                                    style="background: <?php echo $badgeColor; ?>15; color: <?php echo $badgeColor; ?>; border: 1px solid <?php echo $badgeColor; ?>40;">
+                                    <i class="fas fa-tag"></i> <?php echo htmlspecialchars($category); ?>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="note-category-badge"
+                                style="background: <?php echo $catColor; ?>15; color: <?php echo $catColor; ?>; border: 1px solid <?php echo $catColor; ?>40;">
+                                <i class="fas fa-tag"></i> 未分類
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- 標題 -->
@@ -323,8 +388,23 @@ sort($categories);
                         <div class="form-row">
                             <div class="form-group" style="flex:1">
                                 <label>分類</label>
-                                <input type="text" class="form-control inline-input" data-field="category"
-                                    list="categoryOptions">
+                                <div class="category-picker" data-category-picker>
+                                    <input type="hidden" class="inline-input" data-field="category">
+                                    <div class="category-selected-list" data-role="selected"></div>
+                                    <div class="category-input-row">
+                                        <input type="text" class="form-control category-entry-input" list="categoryOptions"
+                                            placeholder="輸入分類後按 Enter">
+                                        <button type="button" class="btn btn-sm" onclick="addCategoryFromPicker(this)">加入</button>
+                                    </div>
+                                    <?php if (!empty($categories)): ?>
+                                        <div class="category-option-group">
+                                            <?php foreach ($categories as $category): ?>
+                                                <button type="button" class="category-option-chip"
+                                                    onclick="toggleCategoryOption(this, '<?php echo htmlspecialchars($category, ENT_QUOTES); ?>')"><?php echo htmlspecialchars($category); ?></button>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                             <div class="form-group" style="flex:1">
                                 <label>參考</label>
@@ -389,21 +469,23 @@ sort($categories);
             <div class="form-row">
                 <div class="form-group" style="flex:1">
                     <label>分類</label>
-                    <input type="text" class="form-control" id="category" name="category" list="categoryOptions"
-                        placeholder="可選既有分類或自行輸入">
-                    <datalist id="categoryOptions">
-                        <?php foreach ($categories as $category): ?>
-                            <option value="<?php echo htmlspecialchars($category); ?>"></option>
-                        <?php endforeach; ?>
-                    </datalist>
-                    <?php if (!empty($categories)): ?>
-                        <div style="margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap;">
-                            <?php foreach ($categories as $category): ?>
-                                <button type="button" class="btn btn-sm"
-                                    onclick="setCategory('<?php echo htmlspecialchars($category); ?>')"><?php echo htmlspecialchars($category); ?></button>
-                            <?php endforeach; ?>
+                    <div class="category-picker" data-category-picker>
+                        <input type="hidden" class="form-control" id="category" name="category">
+                        <div class="category-selected-list" data-role="selected"></div>
+                        <div class="category-input-row">
+                            <input type="text" class="form-control category-entry-input" list="categoryOptions"
+                                placeholder="輸入分類後按 Enter">
+                            <button type="button" class="btn btn-sm" onclick="addCategoryFromPicker(this)">加入</button>
                         </div>
-                    <?php endif; ?>
+                        <?php if (!empty($categories)): ?>
+                            <div class="category-option-group">
+                                <?php foreach ($categories as $category): ?>
+                                    <button type="button" class="category-option-chip"
+                                        onclick="toggleCategoryOption(this, '<?php echo htmlspecialchars($category, ENT_QUOTES); ?>')"><?php echo htmlspecialchars($category); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="form-group" style="flex:1">
                     <label>參考</label>
@@ -512,8 +594,132 @@ sort($categories);
         width: fit-content;
     }
 
+    .note-category-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 16px 0;
+    }
+
+    .note-category-badges .note-category-badge {
+        margin: 0;
+    }
+
     .note-category-badge i {
         font-size: 0.65rem;
+    }
+
+    .category-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .category-input-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .category-selected-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 20px;
+    }
+
+    .category-selected-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #eef4ff;
+        border: 1px solid #c7d7fe;
+        color: #3451b2;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .category-remove-chip {
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        font-size: 0.9rem;
+    }
+
+    .category-option-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .category-option-chip {
+        border: 1px solid #d7deea;
+        background: #fff;
+        color: #5b6472;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .category-option-chip.is-active {
+        background: #3451b2;
+        border-color: #3451b2;
+        color: #fff;
+    }
+
+    .batch-category-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid #eadfce;
+        background: linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(250, 244, 255, 0.92));
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .batch-category-bar.show {
+        display: flex;
+    }
+
+    .batch-category-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .batch-category-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.95rem;
+        color: #4b5563;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .batch-category-check input {
+        width: 18px;
+        height: 18px;
+        accent-color: #8b5cf6;
+    }
+
+    .batch-category-controls {
+        flex: 1;
+        min-width: 280px;
+    }
+
+    .batch-category-picker .category-input-row .btn {
+        white-space: nowrap;
     }
 
     /* 標題 */
@@ -736,6 +942,18 @@ sort($categories);
             gap: 8px;
         }
 
+        .batch-category-bar {
+            align-items: stretch;
+        }
+
+        .batch-category-controls {
+            width: 100%;
+        }
+
+        .batch-category-picker .category-input-row {
+            flex-direction: column;
+        }
+
         .note-title {
             font-size: 1rem;
         }
@@ -779,13 +997,13 @@ sort($categories);
         const value = select.value;
         const cards = document.querySelectorAll('.card-grid .card');
         cards.forEach(card => {
-            const category = card.getAttribute('data-category') || '';
+            const categories = card.getAttribute('data-categories') || '';
             if (value === '__all') {
                 card.style.display = '';
             } else if (value === '__uncategorized') {
-                card.style.display = category === '__uncategorized' ? '' : 'none';
+                card.style.display = categories === '__uncategorized' ? '' : 'none';
             } else {
-                card.style.display = category === value ? '' : 'none';
+                card.style.display = categories.includes(`|${value}|`) ? '' : 'none';
             }
         });
     }
@@ -815,10 +1033,216 @@ sort($categories);
         alert('已複製');
     }
 
-    function setCategory(value) {
-        const input = document.getElementById('category');
-        if (!input) return;
-        input.value = value;
+    function parseCategoryValue(value) {
+        return Array.from(new Set((value || '')
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean)));
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function escapeJs(value) {
+        return String(value)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'");
+    }
+
+    function updateCategoryPicker(picker, categories) {
+        if (!picker) return;
+        const normalized = Array.from(new Set((categories || []).map(item => item.trim()).filter(Boolean)));
+        const hiddenInput = picker.querySelector('[data-field="category"], #category');
+        const selectedList = picker.querySelector('[data-role="selected"]');
+        const entryInput = picker.querySelector('.category-entry-input');
+
+        if (hiddenInput) hiddenInput.value = normalized.join(', ');
+        if (selectedList) {
+            selectedList.innerHTML = normalized.map(category => `
+                <span class="category-selected-chip">
+                    ${escapeHtml(category)}
+                    <button type="button" class="category-remove-chip" onclick="removeCategory(this, '${escapeJs(category)}')">&times;</button>
+                </span>
+            `).join('');
+        }
+
+        picker.querySelectorAll('.category-option-chip').forEach(button => {
+            button.classList.toggle('is-active', normalized.includes(button.textContent.trim()));
+        });
+
+        if (entryInput) entryInput.value = '';
+    }
+
+    function getPickerCategories(picker) {
+        const hiddenInput = picker.querySelector('[data-field="category"], #category');
+        return parseCategoryValue(hiddenInput ? hiddenInput.value : '');
+    }
+
+    function addCategoryToPicker(picker, value) {
+        const category = (value || '').trim();
+        if (!picker || !category) return;
+        const categories = getPickerCategories(picker);
+        if (!categories.includes(category)) categories.push(category);
+        updateCategoryPicker(picker, categories);
+    }
+
+    function removeCategory(button, value) {
+        const picker = button.closest('[data-category-picker]');
+        if (!picker) return;
+        const categories = getPickerCategories(picker).filter(category => category !== value);
+        updateCategoryPicker(picker, categories);
+    }
+
+    function toggleCategoryOption(button, value) {
+        const picker = button.closest('[data-category-picker]');
+        if (!picker) return;
+        const categories = getPickerCategories(picker);
+        const next = categories.includes(value)
+            ? categories.filter(category => category !== value)
+            : categories.concat(value);
+        updateCategoryPicker(picker, next);
+    }
+
+    function addCategoryFromPicker(button) {
+        const picker = button.closest('[data-category-picker]');
+        if (!picker) return;
+        const entryInput = picker.querySelector('.category-entry-input');
+        if (!entryInput) return;
+        addCategoryToPicker(picker, entryInput.value);
+    }
+
+    function initCategoryPickers(scope = document) {
+        scope.querySelectorAll('[data-category-picker]').forEach(picker => {
+            const hiddenInput = picker.querySelector('[data-field="category"], #category');
+            updateCategoryPicker(picker, parseCategoryValue(hiddenInput ? hiddenInput.value : ''));
+
+            const entryInput = picker.querySelector('.category-entry-input');
+            if (entryInput && !entryInput.dataset.categoryBound) {
+                entryInput.dataset.categoryBound = '1';
+                entryInput.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addCategoryToPicker(picker, entryInput.value);
+                    }
+                });
+            }
+        });
+    }
+
+    function syncBatchCategoryBar() {
+        const bar = document.getElementById('batchCategoryBar');
+        const count = document.getElementById('batchCategoryCount');
+        const selectAll = document.getElementById('batchCategorySelectAll');
+        if (!bar || !count || !selectAll) return;
+
+        const hasSelection = batchDeleteIds.size > 0;
+        bar.classList.toggle('show', hasSelection);
+        count.textContent = batchDeleteIds.size;
+
+        const allCheckboxes = document.querySelectorAll('.item-checkbox');
+        const allChecked = allCheckboxes.length > 0 && Array.from(allCheckboxes).every(cb => cb.checked);
+        selectAll.checked = allChecked;
+        selectAll.indeterminate = hasSelection && !allChecked;
+    }
+
+    function buildNotePayloadFromCard(card, overrides = {}) {
+        const data = card.dataset;
+        return {
+            title: data.title || '',
+            category: data.categoryValue || '',
+            ref: data.ref || '',
+            content: data.content || '',
+            url1: data.url1 || '',
+            url2: data.url2 || '',
+            url3: data.url3 || '',
+            file1: data.file1 || '',
+            file1name: data.file1name || '',
+            file1type: data.file1type || '',
+            file2: data.file2 || '',
+            file2name: data.file2name || '',
+            file2type: data.file2type || '',
+            file3: data.file3 || '',
+            file3name: data.file3name || '',
+            file3type: data.file3type || '',
+            ...overrides
+        };
+    }
+
+    function updateSelectedNotesCategories(resolver) {
+        const ids = Array.from(batchDeleteIds);
+        if (ids.length === 0) return Promise.resolve();
+
+        let completed = 0;
+        let failed = 0;
+
+        return new Promise(resolve => {
+            ids.forEach(id => {
+                const card = getCardById(id);
+                if (!card) {
+                    failed++;
+                    completed++;
+                    if (completed === ids.length) resolve({ failed });
+                    return;
+                }
+
+                const current = parseCategoryValue(card.dataset.categoryValue || '');
+                const nextCategories = resolver(current, card);
+                const payload = buildNotePayloadFromCard(card, {
+                    category: Array.from(new Set((nextCategories || []).map(item => item.trim()).filter(Boolean))).join(', ')
+                });
+
+                fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (!res.success) failed++;
+                    })
+                    .catch(() => {
+                        failed++;
+                    })
+                    .finally(() => {
+                        completed++;
+                        if (completed === ids.length) resolve({ failed });
+                    });
+            });
+        });
+    }
+
+    function applyCategoryToSelected() {
+        const picker = document.querySelector('.batch-category-picker');
+        const selectedCategories = getPickerCategories(picker);
+        if (!selectedCategories.length) {
+            alert('請先選擇要套用的分類');
+            return;
+        }
+
+        updateSelectedNotesCategories(current => current.concat(selectedCategories))
+            .then(({ failed }) => {
+                if (failed > 0) {
+                    alert(`套用完成，但有 ${failed} 篇更新失敗`);
+                }
+                location.reload();
+            });
+    }
+
+    function clearCategoriesFromSelected() {
+        if (batchDeleteIds.size === 0) return;
+        updateSelectedNotesCategories(() => [])
+            .then(({ failed }) => {
+                if (failed > 0) {
+                    alert(`清除完成，但有 ${failed} 篇更新失敗`);
+                }
+                location.reload();
+            });
     }
 
     function handleAdd() {
@@ -836,6 +1260,7 @@ sort($categories);
         card.querySelectorAll('[data-field]').forEach(input => {
             input.value = '';
         });
+        initCategoryPickers(card);
         const titleInput = card.querySelector('[data-field="title"]');
         if (titleInput) titleInput.focus();
     }
@@ -918,6 +1343,8 @@ sort($categories);
         if (titleInput) titleInput.value = data.title || '';
         const categoryInput = card.querySelector('[data-field="category"]');
         if (categoryInput) categoryInput.value = data.categoryValue || '';
+        const categoryPicker = card.querySelector('[data-category-picker]');
+        if (categoryPicker) updateCategoryPicker(categoryPicker, parseCategoryValue(data.categoryValue || ''));
         const refInput = card.querySelector('[data-field="ref"]');
         if (refInput) refInput.value = data.ref || '';
         const contentInput = card.querySelector('[data-field="content"]');
@@ -1022,6 +1449,7 @@ sort($categories);
         document.getElementById('modalTitle').textContent = '新增筆記';
         document.getElementById('itemForm').reset();
         document.getElementById('itemId').value = '';
+        initCategoryPickers(document.getElementById('modal'));
         // 清除檔案預覽
         for (let i = 1; i <= 3; i++) {
             document.getElementById('file' + i).value = '';
@@ -1044,6 +1472,7 @@ sort($categories);
                     document.getElementById('itemId').value = d.id;
                     document.getElementById('title').value = d.title || '';
                     document.getElementById('category').value = d.category || '';
+                    initCategoryPickers(document.getElementById('modal'));
                     document.getElementById('ref').value = d.ref || '';
                     document.getElementById('content').value = d.content || '';
                     document.getElementById('url1').value = d.url1 || '';
@@ -1109,6 +1538,16 @@ sort($categories);
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     });
+
+    initCategoryPickers();
+    const originalUpdateBatchDeleteBar = typeof updateBatchDeleteBar === 'function' ? updateBatchDeleteBar : null;
+    if (originalUpdateBatchDeleteBar) {
+        updateBatchDeleteBar = function () {
+            originalUpdateBatchDeleteBar();
+            syncBatchCategoryBar();
+        };
+        updateBatchDeleteBar();
+    }
 
     function uploadFile(num) {
         const input = document.getElementById('fileInput' + num);
