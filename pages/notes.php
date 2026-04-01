@@ -30,7 +30,7 @@ sort($categories);
     <div class="notes-header-main">
         <div class="notes-title-wrap">
             <h1 class="notes-title">鋒兄筆記</h1>
-            <span class="notes-count-pill"><?php echo count($items); ?> 篇</span>
+            <span class="notes-count-pill"><span id="notesVisibleCount"><?php echo count($items); ?></span> 篇</span>
         </div>
         <p class="notes-subtitle">記錄想法、參考資料與附件內容，並支援批次分類整理。</p>
     </div>
@@ -78,7 +78,7 @@ sort($categories);
             <button class="btn btn-primary notes-add-btn" onclick="handleAdd()" title="新增筆記">
                 <i class="fas fa-plus"></i>
             </button>
-            <span class="notes-total-count">共 <?php echo count($items); ?> 篇筆記</span>
+            <span class="notes-total-count">目前 <span id="notesToolbarCount"><?php echo count($items); ?></span> 篇筆記</span>
         </div>
     </div>
 
@@ -1207,6 +1207,7 @@ sort($categories);
         const value = select.value;
         const keyword = (document.getElementById('noteSearchInput')?.value || '').trim().toLowerCase();
         const cards = document.querySelectorAll('.card-grid .card');
+        let visibleCount = 0;
         cards.forEach(card => {
             const categories = card.getAttribute('data-categories') || '';
             const searchText = (card.getAttribute('data-search') || '').toLowerCase();
@@ -1219,8 +1220,18 @@ sort($categories);
             } else {
                 matchesCategory = categories.includes(`|${value}|`);
             }
-            card.style.display = matchesKeyword && matchesCategory ? '' : 'none';
+            const isVisible = matchesKeyword && matchesCategory;
+            card.style.display = isVisible ? '' : 'none';
+            if (isVisible) visibleCount++;
         });
+        updateVisibleNotesCount(visibleCount);
+    }
+
+    function updateVisibleNotesCount(count) {
+        const headerCount = document.getElementById('notesVisibleCount');
+        const toolbarCount = document.getElementById('notesToolbarCount');
+        if (headerCount) headerCount.textContent = count;
+        if (toolbarCount) toolbarCount.textContent = count;
     }
 
     function copyNoteContent(id) {
@@ -1755,6 +1766,7 @@ sort($categories);
     });
 
     initCategoryPickers();
+    filterNotes();
     const originalUpdateBatchDeleteBar = typeof updateBatchDeleteBar === 'function' ? updateBatchDeleteBar : null;
     if (originalUpdateBatchDeleteBar) {
         updateBatchDeleteBar = function () {
