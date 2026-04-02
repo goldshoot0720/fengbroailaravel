@@ -338,6 +338,16 @@ try {
         <button type="button" class="april-egg-close" data-egg-close>關閉</button>
     </div>
 </div>
+<div id="novEgg" class="april-egg" style="display:none;">
+    <div class="april-egg-bg"></div>
+    <div class="april-egg-confetti" aria-hidden="true"></div>
+    <div class="april-egg-card">
+        <div class="april-egg-badge">11/27 SPECIAL</div>
+        <h2 class="april-egg-title">鋒兄生日快樂特效</h2>
+        <p class="april-egg-subtitle">高考三級資訊處理榜首 鋒兄</p>
+        <button type="button" class="april-egg-close" data-egg-close>關閉</button>
+    </div>
+</div>
 <style>
     .april-egg {
         position: fixed;
@@ -457,8 +467,17 @@ try {
 <script>
     (function () {
         var now = new Date();
-        if (now.getMonth() !== 3 || now.getDate() !== 3) return;
-        var egg = document.getElementById('aprilEgg');
+        var month = now.getMonth();
+        var day = now.getDate();
+        var eggId = null;
+        if (month === 3 && day === 3) {
+            eggId = 'aprilEgg';
+        } else if (month === 10 && day === 27) {
+            eggId = 'novEgg';
+        }
+        if (!eggId) return;
+
+        var egg = document.getElementById(eggId);
         if (!egg) return;
         var confettiWrap = egg.querySelector('.april-egg-confetti');
         var colors = ['#ff6b6b', '#ffd93d', '#6bcBef', '#6bcB77', '#c77dff'];
