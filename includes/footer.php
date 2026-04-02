@@ -328,6 +328,166 @@ try {
     </script>
 <?php endif; ?>
 
+<div id="aprilEgg" class="april-egg" style="display:none;">
+    <div class="april-egg-bg"></div>
+    <div class="april-egg-confetti" aria-hidden="true"></div>
+    <div class="april-egg-card">
+        <div class="april-egg-badge">4/3 SPECIAL</div>
+        <h2 class="april-egg-title">塗哥生日快樂特效</h2>
+        <p class="april-egg-subtitle">今彩539頭獎得主 鋒兄</p>
+        <button type="button" class="april-egg-close" data-egg-close>關閉</button>
+    </div>
+</div>
+<style>
+    .april-egg {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Manrope', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .april-egg.egg-fade {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+
+    .april-egg-bg {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top, rgba(255, 214, 170, 0.9), rgba(20, 40, 60, 0.95));
+        opacity: 0.98;
+    }
+
+    .april-egg-confetti {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .april-egg-confetti .confetti-piece {
+        position: absolute;
+        width: 10px;
+        height: 14px;
+        opacity: 0.85;
+        border-radius: 2px;
+        animation: confetti-fall 2.8s ease-in infinite;
+    }
+
+    .april-egg-card {
+        position: relative;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 24px;
+        padding: 28px 32px;
+        box-shadow: 0 20px 60px rgba(10, 20, 40, 0.35);
+        text-align: center;
+        min-width: 260px;
+        max-width: 420px;
+    }
+
+    .april-egg-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: #ff8a4c;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        margin-bottom: 14px;
+    }
+
+    .april-egg-title {
+        margin: 0 0 10px 0;
+        font-size: 1.7rem;
+        font-weight: 800;
+        color: #1f2a3a;
+    }
+
+    .april-egg-subtitle {
+        margin: 0 0 18px 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #42526b;
+    }
+
+    .april-egg-close {
+        border: none;
+        background: #1f7ae0;
+        color: #fff;
+        padding: 10px 22px;
+        border-radius: 999px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(31, 122, 224, 0.35);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .april-egg-close:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 24px rgba(31, 122, 224, 0.4);
+    }
+
+    @keyframes confetti-fall {
+        0% {
+            transform: translateY(-20px) rotate(0deg);
+        }
+        100% {
+            transform: translateY(120vh) rotate(280deg);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .april-egg-card {
+            margin: 0 18px;
+            padding: 24px;
+        }
+        .april-egg-title {
+            font-size: 1.4rem;
+        }
+    }
+</style>
+<script>
+    (function () {
+        var now = new Date();
+        if (now.getMonth() !== 3 || now.getDate() !== 3) return;
+        var egg = document.getElementById('aprilEgg');
+        if (!egg) return;
+        var confettiWrap = egg.querySelector('.april-egg-confetti');
+        var colors = ['#ff6b6b', '#ffd93d', '#6bcBef', '#6bcB77', '#c77dff'];
+        for (var i = 0; i < 42; i++) {
+            var piece = document.createElement('span');
+            piece.className = 'confetti-piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.animationDelay = (Math.random() * 1.6) + 's';
+            piece.style.background = colors[i % colors.length];
+            piece.style.transform = 'rotate(' + Math.floor(Math.random() * 180) + 'deg)';
+            confettiWrap.appendChild(piece);
+        }
+        egg.style.display = 'flex';
+        var closeBtn = egg.querySelector('[data-egg-close]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                egg.remove();
+            });
+        }
+        setTimeout(function () {
+            if (!egg) return;
+            egg.classList.add('egg-fade');
+            setTimeout(function () {
+                if (egg) egg.remove();
+            }, 700);
+        }, 12000);
+    })();
+</script>
+
 <script>
     const APP_BASE_PATH = <?php
         $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
