@@ -1,21 +1,21 @@
-﻿<?php
-$pageTitle = '擐?';
+<?php
+$pageTitle = '首頁';
 ?>
 
 <div class="content-header">
     <div class="page-intro">
-        <span class="eyebrow">Welcome</span>
-        <h1>Fengbro AI 撌乩???/h1>
+        <span class="eyebrow">WELCOME</span>
+        <h1>Fengbro AI</h1>
         <pre class="ascii-fengbro" aria-label="ASCII art Feng Bro">
-  ______                  ____               
- |  ____|                |  _ \\              
- | |__  _ __ ___   ___   | |_) | ___ ___ ___ 
- |  __|| '_ ` _ \\ / _ \\  |  _ < / __/ __/ _ \\
+  ______                  ____
+ |  ____|                |  _ \
+ | |__  _ __ ___   ___   | |_) | ___ ___ ___
+ |  __|| '_ ` _ \ / _ \  |  _ < / __/ __/ _ \
  | |___| | | | | | (_) | | |_) | (_| (_| (_) |
- |______|_| |_| |_|\\___/  |____/ \\___\\___\\___/
+ |______|_| |_| |_|\___/  |____/ \___\___\___/
                      F E N G   B R O
         </pre>
-        <p>?箇??鈭箸????犖?批?堆????晞????亙虜鞈??葉?典?銝???賭??Ｚㄐ??/p>
+        <p>個人作業中樞，整合訂閱、筆記、資料庫與日常操作流程，快速掌握每個關鍵狀態。</p>
     </div>
 </div>
 
@@ -23,14 +23,14 @@ $pageTitle = '擐?';
     <section class="hero-panel hero-panel-home">
         <div class="hero-copy">
             <span class="eyebrow">Tech-focused personal command center</span>
-            <h2>???梯?憌?蝞∠?嚗??餈質馱????瑟??蝙?函??亙虜蝟餌絞??/h2>
-            <p>?唬??Ｘ??calm futurism ???靽?擃?閮?摨佗???霈?蝺??憸券??????敺?瘛勗蝝啁???/p>
+            <h2>專注、清晰、可操作的管理介面</h2>
+            <p>用清楚的資訊層級與快速動作，維持日常維運的節奏，讓重要狀態一眼可見。</p>
             <div class="hero-actions">
                 <a href="index.php?page=dashboard" class="btn btn-primary">
-                    <i class="fa-solid fa-gauge-high"></i> ?脣?銵冽
+                    <i class="fa-solid fa-gauge-high"></i> 前往儀表板
                 </a>
                 <a href="index.php?page=subscription" class="btn btn-ghost">
-                    <i class="fa-solid fa-credit-card"></i> 蝞∠?閮
+                    <i class="fa-solid fa-credit-card"></i> 訂閱管理
                 </a>
             </div>
         </div>
@@ -38,12 +38,12 @@ $pageTitle = '擐?';
             <article class="signal-card signal-card-primary">
                 <span class="signal-label">Live Focus</span>
                 <strong>Subscriptions + Food Ops</strong>
-                <p>?芸???箏??臬?????摨怠????/p>
+                <p>追蹤下一次付款與食材狀態，集中處理重要提醒。</p>
             </article>
             <article class="signal-card">
                 <span class="signal-label">Interaction Goal</span>
                 <strong>Fast scan, low friction</strong>
-                <p>?湧???鈭箸撣詨?閬??翰?捱蝑??單??啣???/p>
+                <p>用最低摩擦的操作完成日常維護與整理。</p>
             </article>
         </div>
     </section>
