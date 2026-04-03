@@ -328,48 +328,43 @@ try {
     </script>
 <?php endif; ?>
 
+<?php if (($page ?? '') === 'home'): ?>
 <div id="aprilEgg" class="april-egg" style="display:none;">
-    <div class="april-egg-bg"></div>
     <div class="april-egg-confetti" aria-hidden="true"></div>
     <div class="april-egg-card">
         <div class="april-egg-badge">4/3 SPECIAL</div>
-        <h2 class="april-egg-title">塗哥生日快樂特效</h2>
-        <p class="april-egg-subtitle">今彩539頭獎得主 鋒兄</p>
+        <div class="april-egg-text">
+            <h2 class="april-egg-title">塗哥生日快樂特效</h2>
+            <p class="april-egg-subtitle">今彩539頭獎得主 鋒兄</p>
+        </div>
         <button type="button" class="april-egg-close" data-egg-close>關閉</button>
     </div>
 </div>
 <div id="novEgg" class="april-egg" style="display:none;">
-    <div class="april-egg-bg"></div>
     <div class="april-egg-confetti" aria-hidden="true"></div>
     <div class="april-egg-card">
         <div class="april-egg-badge">11/27 SPECIAL</div>
-        <h2 class="april-egg-title">鋒兄生日快樂特效</h2>
-        <p class="april-egg-subtitle">高考三級資訊處理榜首 鋒兄</p>
+        <div class="april-egg-text">
+            <h2 class="april-egg-title">鋒兄生日快樂特效</h2>
+            <p class="april-egg-subtitle">高考三級資訊處理榜首 鋒兄</p>
+        </div>
         <button type="button" class="april-egg-close" data-egg-close>關閉</button>
     </div>
 </div>
 <style>
     .april-egg {
-        position: fixed;
-        inset: 0;
-        z-index: 100000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        position: relative;
+        z-index: 10;
+        display: none;
+        width: 100%;
+        margin: 0 0 16px 0;
         font-family: 'Manrope', 'Space Grotesk', system-ui, -apple-system, sans-serif;
         transition: opacity 0.6s ease, transform 0.6s ease;
     }
 
     .april-egg.egg-fade {
         opacity: 0;
-        transform: scale(0.98);
-    }
-
-    .april-egg-bg {
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at top, rgba(255, 214, 170, 0.9), rgba(20, 40, 60, 0.95));
-        opacity: 0.98;
+        transform: translateY(-6px);
     }
 
     .april-egg-confetti {
@@ -391,13 +386,19 @@ try {
     .april-egg-card {
         position: relative;
         z-index: 1;
-        background: rgba(255, 255, 255, 0.92);
-        border-radius: 24px;
-        padding: 28px 32px;
-        box-shadow: 0 20px 60px rgba(10, 20, 40, 0.35);
-        text-align: center;
-        min-width: 260px;
-        max-width: 420px;
+        background: linear-gradient(135deg, rgba(255, 247, 235, 0.98), rgba(230, 244, 255, 0.98));
+        border-radius: 20px;
+        padding: 18px 20px;
+        box-shadow: 0 16px 40px rgba(10, 20, 40, 0.18);
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        overflow: hidden;
+    }
+
+    .april-egg-text {
+        flex: 1;
+        text-align: left;
     }
 
     .april-egg-badge {
@@ -415,15 +416,15 @@ try {
     }
 
     .april-egg-title {
-        margin: 0 0 10px 0;
-        font-size: 1.7rem;
+        margin: 0 0 6px 0;
+        font-size: 1.4rem;
         font-weight: 800;
         color: #1f2a3a;
     }
 
     .april-egg-subtitle {
-        margin: 0 0 18px 0;
-        font-size: 1.05rem;
+        margin: 0;
+        font-size: 1rem;
         font-weight: 600;
         color: #42526b;
     }
@@ -432,12 +433,13 @@ try {
         border: none;
         background: #1f7ae0;
         color: #fff;
-        padding: 10px 22px;
+        padding: 8px 18px;
         border-radius: 999px;
         font-weight: 700;
         cursor: pointer;
-        box-shadow: 0 10px 20px rgba(31, 122, 224, 0.35);
+        box-shadow: 0 10px 20px rgba(31, 122, 224, 0.25);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        white-space: nowrap;
     }
 
     .april-egg-close:hover {
@@ -456,11 +458,8 @@ try {
 
     @media (max-width: 600px) {
         .april-egg-card {
-            margin: 0 18px;
-            padding: 24px;
-        }
-        .april-egg-title {
-            font-size: 1.4rem;
+            flex-direction: column;
+            align-items: flex-start;
         }
     }
 </style>
@@ -490,7 +489,11 @@ try {
             piece.style.transform = 'rotate(' + Math.floor(Math.random() * 180) + 'deg)';
             confettiWrap.appendChild(piece);
         }
-        egg.style.display = 'flex';
+        var content = document.querySelector('main.content');
+        if (content && content.firstChild) {
+            content.insertBefore(egg, content.firstChild);
+        }
+        egg.style.display = 'block';
         var closeBtn = egg.querySelector('[data-egg-close]');
         if (closeBtn) {
             closeBtn.addEventListener('click', function () {
@@ -506,6 +509,7 @@ try {
         }, 12000);
     })();
 </script>
+<?php endif; ?>
 
 <script>
     const APP_BASE_PATH = <?php
