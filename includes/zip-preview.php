@@ -75,6 +75,9 @@
 
     function previewZipByDirectUpload(file, type, label) {
         const body = document.getElementById('zipPreviewBody');
+        _zipPreviewImportUrl = null;
+        _zipPreviewType = type || _zipPreviewType;
+        _zipPreviewLabel = label || _zipPreviewLabel;
         body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>改用直接上傳模式，正在分析 ZIP 內容...</div>';
         addZipDebug('direct_upload_start', { file: file ? file.name : '', type: type || _zipPreviewType || '' });
 

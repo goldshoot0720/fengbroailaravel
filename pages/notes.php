@@ -328,6 +328,7 @@ sort($categories);
                                     $filetype = $item["file{$i}type"] ?? '';
                                     $filename = $item["file{$i}name"] ?? '檔案';
                                     $filepath = $item["file{$i}"];
+                                    $isZip = $filetype === 'application/zip' || preg_match('/\\.zip$/i', $filename);
                                     ?>
                                     <div class="note-file-item">
                                         <a href="<?php echo htmlspecialchars($filepath); ?>" target="_blank" class="note-file-thumb"
@@ -404,6 +405,13 @@ sort($categories);
                                         <input type="text" class="form-control category-entry-input" list="categoryOptions"
                                             placeholder="輸入分類後按 Enter">
                                         <button type="button" class="btn btn-sm" onclick="addCategoryFromPicker(this)">加入</button>
+                                        <?php if ($isZip): ?>
+                                            <button type="button" class="note-file-preview"
+                                                onclick="previewZipAttachment('<?php echo htmlspecialchars($filepath); ?>', '<?php echo htmlspecialchars($filename); ?>')"
+                                                title="預覽 ZIP">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                     <?php if (!empty($categories)): ?>
                                         <div class="category-option-group">
@@ -1026,6 +1034,31 @@ sort($categories);
         background: #1a3a5c;
         color: #5dade2;
         border-color: #2e6da4;
+    }
+
+    .note-file-preview {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1px solid #c8f0d1;
+        background: #e9fbef;
+        color: #27ae60;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.2s;
+    }
+
+    .note-file-preview:hover {
+        background: #d5f6e1;
+        transform: translateY(-1px);
+    }
+
+    [data-theme="dark"] .note-file-preview {
+        background: #163b2a;
+        color: #71d49a;
+        border-color: #2c7a57;
     }
 
     .note-file-thumb img {
@@ -1838,5 +1871,33 @@ sort($categories);
         document.getElementById('file' + num + 'type').value = '';
         document.getElementById('fileInput' + num).value = '';
         document.getElementById('file' + num + 'Preview').innerHTML = '';
+    }
+
+    function previewZipAttachment(url, filename) {
+        if (!url) return;
+        const safeName = filename || '附件.zip';
+        const modal = document.getElementById('zipPreviewModal');
+        const title = document.getElementById('zipPreviewTitle');
+        const actions = document.getElementById('zipPreviewActions');
+        if (modal) modal.style.display = 'flex';
+        if (title) title.textContent = 'ZIP 檔案預覽 - ' + safeName;
+        if (actions) actions.style.display = 'none';
+        if (typeof _zipPreviewImportUrl !== 'undefined') _zipPreviewImportUrl = null;
+        if (typeof _zipPreviewType !== 'undefined') _zipPreviewType = 'article';
+        if (typeof _zipPreviewLabel !== 'undefined') _zipPreviewLabel = '筆記';
+
+        fetch(url)
+            .then(res => res.blob())
+            .then(blob => {
+                const file = new File([blob], safeName, { type: 'application/zip' });
+                if (typeof previewZipByDirectUpload === 'function') {
+                    previewZipByDirectUpload(file, 'article', '筆記');
+                } else {
+                    alert('ZIP 預覽模組尚未載入。');
+                }
+            })
+            .catch(() => {
+                alert('無法下載 ZIP 檔案進行預覽。');
+            });
     }
 </script>
