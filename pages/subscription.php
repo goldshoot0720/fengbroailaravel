@@ -53,6 +53,17 @@ function formatDaysFromToday($date)
 
     return abs($days) . ' &#22825;&#21069;';
 }
+
+function getDaysUntil($date)
+{
+    if (empty($date)) {
+        return '';
+    }
+
+    $today = new DateTime('today');
+    $target = new DateTime(date('Y-m-d', strtotime($date)));
+    return (int) $today->diff($target)->format('%r%a');
+}
 ?>
 
 <div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
@@ -76,9 +87,10 @@ function formatDaysFromToday($date)
                 <option value="<?php echo str_pad((string) $month, 2, '0', STR_PAD_LEFT); ?>"><?php echo $month; ?> 月</option>
             <?php endfor; ?>
         </select>
-        <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">全部</button>
-        <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">續訂</button>
-        <button class="btn btn-sm filter-btn" onclick="filterByContinue('0')" data-continue="0">不續</button>
+        <button class="btn btn-sm filter-btn" id="within7Btn" onclick="toggleWithin7()" data-within="7">&#55;&#32;&#22825;&#20839;</button>
+        <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">&#20840;&#37096;</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">&#32396;&#35330;</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('0')" data-continue="0">&#19981;&#32396;</button>
     </div>
 </div>
 
@@ -162,6 +174,7 @@ function formatDaysFromToday($date)
                         data-nextdate="<?php echo htmlspecialchars($item['nextdate'] ?? '', ENT_QUOTES); ?>"
                         data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
                         data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
+                        data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>"
                         data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
                         data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
                         data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
@@ -254,7 +267,8 @@ function formatDaysFromToday($date)
                 <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>"
                     data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>"
                     data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
-                    data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>">
+                    data-month=\"<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
+                    data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>">
                     <div class="sub-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -862,8 +876,15 @@ function formatDaysFromToday($date)
         container.style.display = hasVisible ? 'block' : 'none';
     }
 
+    function toggleWithin7() {
+        const btn = document.getElementById('within7Btn');
+        if (!btn) return;
+        btn.classList.toggle('active');
+        applyFilters();
+    }
+
     function filterByContinue(value) {
-        document.querySelectorAll('.filter-btn').forEach(btn => {
+        document.querySelectorAll('.filter-btn[data-continue]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.continue === value);
         });
 
@@ -871,32 +892,35 @@ function formatDaysFromToday($date)
     }
 
     function getActiveContinueFilter() {
-        const activeButton = document.querySelector('.filter-btn.active');
+        const activeButton = document.querySelector('.filter-btn[data-continue].active');
         return activeButton ? activeButton.dataset.continue : '';
     }
 
-    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue) {
+    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue, within7Only) {
         const matchesContinue = !continueValue || element.dataset.continue === continueValue;
         const isNoMonth = monthValue === '__none';
         const matchesYear = isNoMonth ? true : (!yearValue || element.dataset.year === yearValue);
         const matchesMonth = isNoMonth
             ? element.dataset.month === ''
             : (!monthValue || element.dataset.month === monthValue);
-        return matchesContinue && matchesYear && matchesMonth;
+        const daysValue = parseInt(element.dataset.days || '', 10);
+        const matchesWithin7 = !within7Only || (!Number.isNaN(daysValue) && daysValue >= 0 && daysValue <= 7);
+        return matchesContinue && matchesYear && matchesMonth && matchesWithin7;
     }
 
     function applyFilters() {
         const continueValue = getActiveContinueFilter();
         const yearValue = document.getElementById('yearFilter')?.value || '';
         const monthValue = document.getElementById('monthFilter')?.value || '';
+        const within7Only = document.getElementById('within7Btn')?.classList.contains('active');
 
         document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(row => {
-            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue);
+            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue, within7Only);
             row.style.display = match ? '' : 'none';
         });
 
         document.querySelectorAll('.mobile-cards .sub-card').forEach(card => {
-            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue);
+            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue, within7Only);
             card.style.display = match ? '' : 'none';
         });
     }
