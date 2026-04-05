@@ -71,6 +71,7 @@ function formatDaysFromToday($date)
         </select>
         <select id="monthFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
             <option value="">全部月份</option>
+            <option value="__none">無月份</option>
             <?php for ($month = 1; $month <= 12; $month++): ?>
                 <option value="<?php echo str_pad((string) $month, 2, '0', STR_PAD_LEFT); ?>"><?php echo $month; ?> 月</option>
             <?php endfor; ?>
@@ -876,8 +877,11 @@ function formatDaysFromToday($date)
 
     function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue) {
         const matchesContinue = !continueValue || element.dataset.continue === continueValue;
-        const matchesYear = !yearValue || element.dataset.year === yearValue;
-        const matchesMonth = !monthValue || element.dataset.month === monthValue;
+        const isNoMonth = monthValue === '__none';
+        const matchesYear = isNoMonth ? true : (!yearValue || element.dataset.year === yearValue);
+        const matchesMonth = isNoMonth
+            ? element.dataset.month === ''
+            : (!monthValue || element.dataset.month === monthValue);
         return matchesContinue && matchesYear && matchesMonth;
     }
 
