@@ -139,6 +139,11 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         }
     }
 
+    // subscription.note is VARCHAR(100); truncate to avoid import failure
+    if ($table === 'subscription' && array_key_exists('note', $data) && $data['note'] !== null) {
+        $data['note'] = mb_substr($data['note'], 0, 100);
+    }
+
     // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
     // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
     foreach ($data as $key => $value) {
