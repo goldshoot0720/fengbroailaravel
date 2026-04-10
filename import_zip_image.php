@@ -63,14 +63,30 @@ if (!is_dir($extractDir)) {
     mkdir($extractDir, 0755, true);
 }
 
-$zip = new PureZipExtract();
-if (!$zip->open($zipFile)) {
-    if ($cleanupTempFile)
-        @unlink($zipFile);
-    outputJson(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
+$extracted = false;
+
+if (class_exists('ZipArchive')) {
+    $za = new ZipArchive();
+    $openResult = $za->open($zipFile);
+    if ($openResult === true) {
+        if ($za->extractTo($extractDir)) {
+            $extracted = true;
+        }
+        $za->close();
+    }
 }
 
-$zip->extractTo($extractDir);
+if (!$extracted) {
+    $zip = new PureZipExtract();
+    if (!$zip->open($zipFile)) {
+        if ($cleanupTempFile)
+            @unlink($zipFile);
+        outputJson(['success' => false, 'error' => 'Unzip failed']);
+    }
+
+    $zip->extractTo($extractDir);
+}
+
 
 // 尋找 CSV 檔案
 $csvFile = null;
