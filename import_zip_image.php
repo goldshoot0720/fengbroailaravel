@@ -4,6 +4,41 @@ set_time_limit(0);
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
+
+ob_start();
+
+function outputJson($data)
+{
+    ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if (!$error) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+    if (!in_array($error['type'], $fatalTypes, true)) {
+        return;
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode([
+        'success' => false,
+        'error' => 'Server error: ' . $error['message'],
+        'debug' => [
+            'file' => $error['file'] ?? '',
+            'line' => $error['line'] ?? 0,
+            'type' => $error['type'] ?? 0,
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
 header('Content-Type: application/json; charset=utf-8');
 
 require_once 'includes/functions.php';
@@ -19,8 +54,7 @@ if ($tempFile && file_exists($tempFile)) {
 } elseif (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
     $zipFile = $_FILES['file']['tmp_name'];
 } else {
-    echo json_encode(['success' => false, 'error' => '請上傳 ZIP 檔案']);
-    exit;
+    outputJson(['success' => false, 'error' => '請上傳 ZIP 檔案']);
 }
 
 // 解壓 ZIP
@@ -33,8 +67,7 @@ $zip = new PureZipExtract();
 if (!$zip->open($zipFile)) {
     if ($cleanupTempFile)
         @unlink($zipFile);
-    echo json_encode(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
-    exit;
+    outputJson(['success' => false, 'error' => '無法解壓 ZIP 檔案']);
 }
 
 $zip->extractTo($extractDir);
@@ -72,6 +105,28 @@ $errors = [];
 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 $debugInfo = ['mode' => 'unknown', 'csvFound' => false];
 
+function limitImportText($value, $maxLen)
+{
+    if ($value === null) {
+        return $value;
+    }
+    $str = (string)$value;
+    if ($maxLen <= 0) {
+        return '';
+    }
+    if (function_exists('mb_strlen')) {
+        if (mb_strlen($str) > $maxLen) {
+            return mb_substr($str, 0, $maxLen);
+        }
+        return $str;
+    }
+    if (strlen($str) > $maxLen) {
+        return substr($str, 0, $maxLen);
+    }
+    return $str;
+}
+
+
 if ($hasCsv) {
     // ===== Appwrite 格式：CSV + images/ 資料夾 =====
     $debugInfo['mode'] = 'appwrite';
@@ -98,8 +153,7 @@ if ($hasCsv) {
         cleanupDir($extractDir);
         if ($cleanupTempFile)
             @unlink($zipFile);
-        echo json_encode(['success' => false, 'error' => 'CSV 格式錯誤']);
-        exit;
+        outputJson(['success' => false, 'error' => 'CSV 格式錯誤']);
     }
 
     // 保存原始標頭用於除錯
@@ -243,7 +297,25 @@ if ($hasCsv) {
             }
         }
 
-        $stmt = $pdo->prepare("SELECT id FROM image WHERE id = ?");
+        
+        // Truncate fields to match DB column lengths
+        $fieldLimits = [
+            'name' => 100,
+            'file' => 150,
+            'filetype' => 50,
+            'note' => 100,
+            'ref' => 100,
+            'category' => 100,
+            'hash' => 300,
+            'cover' => 150,
+        ];
+        foreach ($fieldLimits as $col => $maxLen) {
+            if (isset($data[$col]) && $data[$col] !== null) {
+                $data[$col] = limitImportText($data[$col], $maxLen);
+            }
+        }
+
+$stmt = $pdo->prepare("SELECT id FROM image WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
 
@@ -329,7 +401,7 @@ cleanupDir($extractDir);
 if ($cleanupTempFile)
     @unlink($zipFile);
 
-echo json_encode([
+outputJson([
     'success' => true,
     'imported' => $imported,
     'errors' => $errors,
