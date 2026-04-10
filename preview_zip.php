@@ -12,6 +12,30 @@ function outputJson($data)
     exit;
 }
 
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if (!$error) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+    if (!in_array($error['type'], $fatalTypes, true)) {
+        return;
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo json_encode([
+        'success' => false,
+        'error' => 'Server error: ' . $error['message'],
+        'debug' => [
+            'file' => $error['file'] ?? '',
+            'line' => $error['line'] ?? 0,
+            'type' => $error['type'] ?? 0,
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
 try {
     require_once 'includes/functions.php';
 } catch (Exception $e) {
