@@ -180,13 +180,30 @@
                             _zipPreviewTempFile = res.tempFile;
                             renderZipPreview(res, label);
                         } else {
-                            addZipDebug('preview_failed', { error: res.error || '分析失敗' });
-                            body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' + (res.error || '分析失敗') + renderZipDebugBox() + '</div>';
+                            addZipDebug('preview_failed', { error: res.error || '&#20998;&#26512;&#22833;&#25943;' });
+                            _zipPreviewTempFile = tempFile;
+                            const failMsg = res.error || '&#20998;&#26512;&#22833;&#25943;';
+                            body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' +
+                                failMsg +
+                                '<div style="margin-top:10px;color:#f39c12;font-size:0.95rem;">&#38928;&#35261;&#22833;&#25943;&#65292;&#20173;&#21487;&#30452;&#25509;&#21295;&#20837;&#12290;</div>' +
+                                renderZipDebugBox() +
+                                '</div>';
+                            const btn = document.getElementById('zipConfirmImportBtn');
+                            if (btn) btn.innerHTML = ' &#30452;&#25509;&#21295;&#20837;&#65288;&#30053;&#36942;&#38928;&#35261;&#65289;';
+                            actions.style.display = 'block';
                         }
                     })
+                    
                     .catch(function (e) {
                         addZipDebug('preview_exception', { error: e && e.message ? e.message : String(e) });
-                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>回應格式錯誤' + renderZipDebugBox() + '</div>';
+                        _zipPreviewTempFile = tempFile;
+                        body.innerHTML = '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fa-solid fa-exclamation-circle fa-2x"></i><br>&#22238;&#25033;&#26684;&#24335;&#37679;&#35492;' +
+                            '<div style="margin-top:10px;color:#f39c12;font-size:0.95rem;">&#38928;&#35261;&#22833;&#25943;&#65292;&#20173;&#21487;&#30452;&#25509;&#21295;&#20837;&#12290;</div>' +
+                            renderZipDebugBox() +
+                            '</div>';
+                        const btn = document.getElementById('zipConfirmImportBtn');
+                        if (btn) btn.innerHTML = ' &#30452;&#25509;&#21295;&#20837;&#65288;&#30053;&#36942;&#38928;&#35261;&#65289;';
+                        actions.style.display = 'block';
                     });
             },
             // onError
