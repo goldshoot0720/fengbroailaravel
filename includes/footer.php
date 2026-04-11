@@ -601,7 +601,10 @@ try {
      * @param {number}   [chunkSize] 每片大小，預設 20MB
      */
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize) {
-        chunkSize = chunkSize || (10 * 1024 * 1024); // 10 MB
+        function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+        chunkSize = chunkSize || (5 * 1024 * 1024); // 5 MB
+        const maxRetries = 3;
 
         const debug = function (payload) {
             try {
@@ -642,15 +645,30 @@ try {
             let res;
             try {
                 let resp = null;
+                const shouldRetry = function (status) {
+                    return status >= 500 || status === 408 || status === 429;
+                };
+                const fetchWithRetry = async function (url, modeLabel) {
+                    let attempt = 0;
+                    let lastResp = null;
+                    while (true) {
+                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt });
+                        lastResp = await fetch(url, { method: 'POST', body: fd });
+                        debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
+                        if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
+                            return lastResp;
+                        }
+                        attempt++;
+                        debug({ stage: 'retry', index: i, url: url, attempt: attempt, status: lastResp.status });
+                        await sleep(1000 * attempt);
+                    }
+                };
+
                 if (chosenEndpoint) {
-                    debug({ stage: 'request', index: i, url: chosenEndpoint, mode: 'cached-endpoint' });
-                    resp = await fetch(chosenEndpoint, { method: 'POST', body: fd });
-                    debug({ stage: 'response', index: i, url: chosenEndpoint, status: resp.status });
+                    resp = await fetchWithRetry(chosenEndpoint, 'cached-endpoint');
                 } else {
                     for (const url of candidates) {
-                        debug({ stage: 'request', index: i, url: url, mode: 'candidate-probe' });
-                        resp = await fetch(url, { method: 'POST', body: fd });
-                        debug({ stage: 'response', index: i, url: url, status: resp.status });
+                        resp = await fetchWithRetry(url, 'candidate-probe');
                         if (resp.status !== 404) {
                             chosenEndpoint = url;
                             window.__chunkUploadEndpoint = url;
