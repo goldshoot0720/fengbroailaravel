@@ -601,7 +601,7 @@ try {
      * @param {number}   [chunkSize] 每片大小，預設 20MB
      */
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize) {
-        chunkSize = chunkSize || (20 * 1024 * 1024); // 20 MB
+        chunkSize = chunkSize || (10 * 1024 * 1024); // 10 MB
 
         const debug = function (payload) {
             try {
