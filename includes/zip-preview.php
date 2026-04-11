@@ -142,9 +142,9 @@
         let hasProgress = false;
         const stuckTimer = setTimeout(function () {
             if (hasProgress) return;
-            addZipDebug('stuck_timeout', { message: '停留在準備分段上傳超過 10 秒' });
-            body.innerHTML = '<div style="text-align:center;padding:30px;color:#f39c12;"><i class="fa-solid fa-triangle-exclamation fa-2x"></i><br>卡在「準備分段上傳」超過 10 秒，請將以下 debug 提供給工程師。' + renderZipDebugBox() + '</div>';
-        }, 10000);
+            addZipDebug('stuck_timeout', { message: '停留在準備分段上傳超過 60 秒' });
+            body.innerHTML = '<div style="text-align:center;padding:30px;color:#f39c12;"><i class="fa-solid fa-triangle-exclamation fa-2x"></i><br>卡在「準備分段上傳」超過 60 秒，請將以下 debug 提供給工程師。' + renderZipDebugBox() + '</div>';
+        }, 60000);
 
         // Step 1: chunked upload to upload_chunk.php
         uploadChunked(
