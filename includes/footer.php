@@ -325,7 +325,61 @@ try {
                 });
             }
         })();
-    </script>
+    
+<script>
+    (function () {
+        function pad2(n) { return n < 10 ? '0' + n : String(n); }
+        function dateKey(d) {
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        }
+        function slotKey(d) {
+            return dateKey(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+        function isSchedule(h, m) {
+            if (h === 4 && m === 0) return true;
+            if (h < 0 || h > 3) return false;
+            if (h < 2) return (m === 0 || m === 30);
+            return (m % 15 === 0);
+        }
+        function renderToast(lines) {
+            var toast = document.getElementById('sleepPromptToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'sleepPromptToast';
+                toast.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;background:#111827;color:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.25);font-size:0.95rem;line-height:1.5;max-width:320px;';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">睡眠提示</div>' +
+                '<div>' + lines[0] + '</div>' +
+                '<div>' + lines[1] + '</div>';
+            toast.style.opacity = '1';
+            clearTimeout(window.__sleepToastTimer);
+            window.__sleepToastTimer = setTimeout(function () {
+                toast.style.opacity = '0';
+            }, 12000);
+        }
+        function showPrompt(d) {
+            var dayKey = dateKey(d);
+            var countKey = 'sleepPromptCount_' + dayKey;
+            var count = parseInt(localStorage.getItem(countKey) || '0', 10) + 1;
+            localStorage.setItem(countKey, String(count));
+            localStorage.setItem('sleepPromptLastSlot', slotKey(d));
+            var line1 = '今日日期 ' + dayKey + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+            var line2 = '提示次數 ' + count;
+            renderToast([line1, line2]);
+        }
+        function maybePrompt() {
+            var d = new Date();
+            if (!isSchedule(d.getHours(), d.getMinutes())) return;
+            var slot = slotKey(d);
+            if (localStorage.getItem('sleepPromptLastSlot') === slot) return;
+            showPrompt(d);
+        }
+        maybePrompt();
+        setInterval(maybePrompt, 30000);
+    })();
+</script>
+</script>
 <?php endif; ?>
 
 <?php if (($page ?? '') === 'home'): ?>
