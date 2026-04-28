@@ -192,6 +192,20 @@ body::before {
 
 .menu-label {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.menu-label-main {
+    display: block;
+}
+
+.menu-label-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: rgba(226, 232, 240, 0.58);
+    line-height: 1.25;
 }
 
 .menu-arrow {

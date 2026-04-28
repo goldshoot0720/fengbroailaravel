@@ -308,6 +308,22 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     UNIQUE KEY unique_endpoint (endpoint(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 工具價格查詢快照（BigGo / 手機比價）
+CREATE TABLE IF NOT EXISTS tool_price_history (
+    id VARCHAR(36) PRIMARY KEY,
+    tool_type VARCHAR(30) NOT NULL,
+    query_text VARCHAR(500) NOT NULL,
+    title VARCHAR(500),
+    source VARCHAR(100),
+    current_price INT NULL,
+    high_price INT NULL,
+    low_price INT NULL,
+    result_url VARCHAR(1000),
+    notice TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_tool_query (tool_type, query_text(191), created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- VAPID 金鑰儲存於 settings 表，user_id = NULL
 -- 由 push_send.php?action=init_vapid 自動插入：
 --   setting_key = 'vapid_public_key'  → base64url 公鑰

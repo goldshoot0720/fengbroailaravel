@@ -1,7 +1,7 @@
 // Service Worker for 鋒兄AI Laravel MySQL PWA
 // v2.0 - 支援背景定期同步、推播通知
 
-const CACHE_NAME = 'fengxiong-ai-v2';
+const CACHE_NAME = 'fengxiong-ai-v3';
 const OFFLINE_URL = 'index.php?page=dashboard';
 
 // ── 安裝：快取核心頁面 ──────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ self.addEventListener('fetch', function (event) {
     // 跳過 uploads/ 媒體檔案（音樂、影片、圖片等），讓瀏覽器直接處理 Range Request
     var url = event.request.url;
     if (url.includes('/uploads/')) return;
+    if (url.endsWith('/manifest.json') || url.includes('/manifest.json?')) return;
     // 跳過 Range Request（音樂串流）
     if (event.request.headers.get('range')) return;
 

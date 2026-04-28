@@ -190,4 +190,85 @@
             </tbody>
         </table>
     </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">Storage 檔案管理</h3>
+        <p style="color: var(--muted-text); margin-bottom: 12px;">掃描本機 uploads 目錄，找出資料庫欄位未引用的檔案。這是 PHP/MySQL 版對應 Appwrite/Supabase Storage 清理的實作。</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button type="button" class="btn btn-primary" onclick="scanStorageFiles()">
+                <i class="fa-solid fa-magnifying-glass"></i> 掃描 uploads
+            </button>
+            <button type="button" class="btn btn-danger" id="deleteUnusedStorageBtn" onclick="deleteUnusedStorageFiles()" disabled>
+                <i class="fa-solid fa-trash"></i> 刪除未引用檔案
+            </button>
+        </div>
+        <div id="storageScanResult" style="color: var(--muted-text);">尚未掃描。</div>
+    </div>
 </div>
+
+<script>
+    let unusedStorageFiles = [];
+
+    function formatStorageSize(bytes) {
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = Number(bytes || 0);
+        let unit = 0;
+        while (value >= 1024 && unit < units.length - 1) {
+            value /= 1024;
+            unit++;
+        }
+        return value.toFixed(unit === 0 ? 0 : 1) + ' ' + units[unit];
+    }
+
+    function scanStorageFiles() {
+        const box = document.getElementById('storageScanResult');
+        const deleteBtn = document.getElementById('deleteUnusedStorageBtn');
+        box.innerHTML = '掃描中...';
+        deleteBtn.disabled = true;
+        fetch('storage_api.php?action=scan')
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.error || '掃描失敗');
+                unusedStorageFiles = res.unusedFiles || [];
+                deleteBtn.disabled = unusedStorageFiles.length === 0;
+                const rows = unusedStorageFiles.slice(0, 120).map(file => `
+                    <tr>
+                        <td><code>${file.path}</code></td>
+                        <td>${formatStorageSize(file.size)}</td>
+                        <td>${file.modified || ''}</td>
+                    </tr>
+                `).join('');
+                box.innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+                        <div class="card" style="margin:0;"><strong>${res.totalFiles}</strong><br><span>Storage 檔案</span></div>
+                        <div class="card" style="margin:0;"><strong>${res.referencedCount}</strong><br><span>已引用</span></div>
+                        <div class="card" style="margin:0;"><strong>${unusedStorageFiles.length}</strong><br><span>未引用</span></div>
+                    </div>
+                    ${unusedStorageFiles.length ? `
+                        <table class="table">
+                            <thead><tr><th>檔案</th><th>大小</th><th>修改時間</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                        ${unusedStorageFiles.length > 120 ? '<p>僅顯示前 120 筆。</p>' : ''}
+                    ` : '<p>目前沒有未引用檔案。</p>'}
+                `;
+            })
+            .catch(err => box.innerHTML = '<span style="color:#e74c3c;">' + err.message + '</span>');
+    }
+
+    function deleteUnusedStorageFiles() {
+        if (!unusedStorageFiles.length) return;
+        if (!confirm('確定刪除 ' + unusedStorageFiles.length + ' 個未引用檔案？此操作不可復原。')) return;
+        fetch('storage_api.php?action=delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: unusedStorageFiles.map(file => file.path) })
+        })
+            .then(r => r.json())
+            .then(res => {
+                alert('已刪除 ' + (res.deleted || 0) + ' 個檔案' + (res.errors && res.errors.length ? '\\n錯誤：' + res.errors.join('\\n') : ''));
+                scanStorageFiles();
+            })
+            .catch(err => alert('刪除失敗: ' + err.message));
+    }
+</script>

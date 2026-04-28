@@ -76,6 +76,7 @@ function getDaysUntil($date)
     <div class="subscription-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
         <select id="yearFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
             <option value="">全部年份</option>
+            <option value="__none">無年份</option>
             <?php foreach ($availableYears as $year): ?>
                 <option value="<?php echo $year; ?>"><?php echo $year; ?> 年</option>
             <?php endforeach; ?>
@@ -267,7 +268,7 @@ function getDaysUntil($date)
                 <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>"
                     data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>"
                     data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
-                    data-month=\"<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
+                    data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
                     data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>">
                     <div class="sub-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
@@ -899,7 +900,10 @@ function getDaysUntil($date)
     function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue, within7Only) {
         const matchesContinue = !continueValue || element.dataset.continue === continueValue;
         const isNoMonth = monthValue === '__none';
-        const matchesYear = isNoMonth ? true : (!yearValue || element.dataset.year === yearValue);
+        const isNoYear = yearValue === '__none';
+        const matchesYear = isNoMonth
+            ? true
+            : (isNoYear ? element.dataset.year === '' : (!yearValue || element.dataset.year === yearValue));
         const matchesMonth = isNoMonth
             ? element.dataset.month === ''
             : (!monthValue || element.dataset.month === monthValue);

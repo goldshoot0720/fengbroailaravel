@@ -1,11 +1,52 @@
 <?php
-$pageTitle = '食品管理';
+$pageTitle = '鋒兄食品 （＋商品庫存）';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 1 ELSE 0 END, todate ASC, created_at DESC")->fetchAll();
+$today = new DateTimeImmutable('today');
+$expiredCount = 0;
+$todayCount = 0;
+$threeDayCount = 0;
+$sevenDayCount = 0;
+$lowStockCount = 0;
+$totalValue = 0;
+$years = [];
+
+foreach ($items as $item) {
+    $amount = (int) ($item['amount'] ?? 0);
+    $price = (int) ($item['price'] ?? 0);
+    $totalValue += $amount * $price;
+    if ($amount <= 1) {
+        $lowStockCount++;
+    }
+    if (!empty($item['todate'])) {
+        $date = new DateTimeImmutable(date('Y-m-d', strtotime($item['todate'])));
+        $days = (int) $today->diff($date)->format('%r%a');
+        $years[] = $date->format('Y');
+        if ($days < 0) {
+            $expiredCount++;
+        } elseif ($days === 0) {
+            $todayCount++;
+        } elseif ($days <= 3) {
+            $threeDayCount++;
+        } elseif ($days <= 7) {
+            $sevenDayCount++;
+        }
+    }
+}
+$years = array_values(array_unique($years));
+$currentYear = (int) $today->format('Y');
+usort($years, function ($a, $b) use ($currentYear) {
+    $distanceA = abs((int) $a - $currentYear);
+    $distanceB = abs((int) $b - $currentYear);
+    if ($distanceA === $distanceB) {
+        return (int) $a <=> (int) $b;
+    }
+    return $distanceA <=> $distanceB;
+});
 ?>
 
 <div class="content-header" style="display: flex; align-items: center; gap: 12px;">
-    <h1 style="margin: 0;">鋒兄食品</h1>
+    <h1 style="margin: 0;">鋒兄食品 <span style="font-size: 0.48em; color: var(--muted-text); font-weight: 600;">（＋商品庫存）</span></h1>
     <span style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
         <?php echo count($items); ?> 項
     </span>
@@ -13,6 +54,73 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
 
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="food-ops-panel">
+        <div class="food-stat-card food-stat-danger">
+            <span>已過期</span>
+            <strong><?php echo $expiredCount; ?></strong>
+        </div>
+        <div class="food-stat-card food-stat-warning">
+            <span>今天到期</span>
+            <strong><?php echo $todayCount; ?></strong>
+        </div>
+        <div class="food-stat-card">
+            <span>3 天內</span>
+            <strong><?php echo $threeDayCount; ?></strong>
+        </div>
+        <div class="food-stat-card">
+            <span>低庫存</span>
+            <strong><?php echo $lowStockCount; ?></strong>
+        </div>
+        <div class="food-stat-card">
+            <span>庫存估值</span>
+            <strong><?php echo formatMoney($totalValue); ?></strong>
+        </div>
+    </div>
+
+    <div class="food-filter-panel">
+        <label class="food-search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="foodSearchInput" class="form-control" placeholder="搜尋食品或商店..." oninput="filterFoods()">
+        </label>
+        <select id="foodExpiryFilter" class="form-control" onchange="filterFoods()">
+            <option value="all">全部到期狀態</option>
+            <option value="expired">已過期</option>
+            <option value="today">今天到期</option>
+            <option value="3days">3 天內</option>
+            <option value="7days">7 天內</option>
+            <option value="normal">正常</option>
+            <option value="nodate">無日期</option>
+        </select>
+        <select id="foodYearFilter" class="form-control" onchange="filterFoods(); updateMonthOptions();">
+            <option value="">全部年份</option>
+            <option value="__empty">無日期</option>
+            <?php foreach ($years as $year): ?>
+                <option value="<?php echo htmlspecialchars($year); ?>"><?php echo htmlspecialchars($year); ?> 年</option>
+            <?php endforeach; ?>
+        </select>
+        <select id="foodMonthFilter" class="form-control" onchange="filterFoods()">
+            <option value="">全部月份</option>
+            <?php for ($m = 1; $m <= 12; $m++): ?>
+                <option value="<?php echo $m; ?>"><?php echo $m; ?> 月</option>
+            <?php endfor; ?>
+        </select>
+        <span class="food-result-count">顯示 <strong id="foodVisibleCount"><?php echo count($items); ?></strong> / <?php echo count($items); ?> 項</span>
+    </div>
+
+    <div class="food-quick-add card">
+        <div>
+            <h3 class="card-title">快速新增</h3>
+            <p style="color: var(--muted-text); margin-top: 4px;">套用常用食品與預設到期日，也可以直接輸入自訂項目。</p>
+        </div>
+        <div class="food-preset-row">
+            <button type="button" class="btn btn-ghost" onclick="applyFoodPreset('牛奶', 1, 7, '冷藏')">牛奶 +7天</button>
+            <button type="button" class="btn btn-ghost" onclick="applyFoodPreset('雞蛋', 10, 14, '冷藏')">雞蛋 +14天</button>
+            <button type="button" class="btn btn-ghost" onclick="applyFoodPreset('吐司', 1, 3, '常溫')">吐司 +3天</button>
+            <button type="button" class="btn btn-ghost" onclick="applyFoodPreset('優格', 1, 7, '冷藏')">優格 +7天</button>
+            <button type="button" class="btn btn-ghost" onclick="applyFoodPreset('即食飯', 1, 30, '常溫')">即食飯 +30天</button>
+        </div>
+    </div>
+
     <div class="action-buttons-bar">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增食品"><i class="fas fa-plus"></i></button>
         <?php $csvTable = 'food';
@@ -83,12 +191,34 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
-                    <tr data-id="<?php echo $item['id']; ?>"
+                    <?php
+                    $daysRemaining = null;
+                    $expiryBucket = 'nodate';
+                    if (!empty($item['todate'])) {
+                        $foodDate = new DateTimeImmutable(date('Y-m-d', strtotime($item['todate'])));
+                        $daysRemaining = (int) $today->diff($foodDate)->format('%r%a');
+                        if ($daysRemaining < 0) {
+                            $expiryBucket = 'expired';
+                        } elseif ($daysRemaining === 0) {
+                            $expiryBucket = 'today';
+                        } elseif ($daysRemaining <= 3) {
+                            $expiryBucket = '3days';
+                        } elseif ($daysRemaining <= 7) {
+                            $expiryBucket = '7days';
+                        } else {
+                            $expiryBucket = 'normal';
+                        }
+                    }
+                    ?>
+                    <tr data-food-item data-id="<?php echo $item['id']; ?>"
                         data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
                         data-amount="<?php echo htmlspecialchars($item['amount'] ?? '', ENT_QUOTES); ?>"
                         data-price="<?php echo htmlspecialchars($item['price'] ?? '', ENT_QUOTES); ?>"
                         data-shop="<?php echo htmlspecialchars($item['shop'] ?? '', ENT_QUOTES); ?>"
                         data-todate="<?php echo htmlspecialchars($item['todate'] ?? '', ENT_QUOTES); ?>"
+                        data-year="<?php echo !empty($item['todate']) ? date('Y', strtotime($item['todate'])) : ''; ?>"
+                        data-month="<?php echo !empty($item['todate']) ? (int) date('n', strtotime($item['todate'])) : ''; ?>"
+                        data-expiry="<?php echo $expiryBucket; ?>"
                         data-photo="<?php echo htmlspecialchars($item['photo'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
@@ -128,6 +258,10 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                         </td>
                         <td>
                             <span class="inline-view"><?php echo $item['amount'] ?? 0; ?></span>
+                            <div class="food-amount-controls inline-view">
+                                <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', -1)" title="減少數量">-</button>
+                                <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', 1)" title="增加數量">+</button>
+                            </div>
                             <div class="inline-edit inline-edit-row">
                                 <input type="number" class="form-control inline-input" data-field="amount" placeholder="數量">
                             </div>
@@ -146,6 +280,10 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                         </td>
                         <td>
                             <span class="inline-view"><?php echo formatDate($item['todate']); ?></span>
+                            <div class="food-quick-actions inline-view">
+                                <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'eat')">吃完</button>
+                                <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'discard')">丟棄</button>
+                            </div>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="todate">
                             </div>
@@ -165,7 +303,13 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                 $isExpired = !empty($item['todate']) && strtotime($item['todate']) < time();
                 $isExpiringSoon = !empty($item['todate']) && !$isExpired && strtotime($item['todate']) < strtotime('+7 days');
                 ?>
-                <div class="mobile-card"
+                <div class="mobile-card" data-food-item
+                    data-id="<?php echo $item['id']; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-shop="<?php echo htmlspecialchars($item['shop'] ?? '', ENT_QUOTES); ?>"
+                    data-year="<?php echo !empty($item['todate']) ? date('Y', strtotime($item['todate'])) : ''; ?>"
+                    data-month="<?php echo !empty($item['todate']) ? (int) date('n', strtotime($item['todate'])) : ''; ?>"
+                    data-expiry="<?php echo $isExpired ? 'expired' : ($isExpiringSoon ? '7days' : (!empty($item['todate']) ? 'normal' : 'nodate')); ?>"
                     style="border-left: 4px solid <?php echo $isExpired ? '#e74c3c' : ($isExpiringSoon ? '#f39c12' : '#27ae60'); ?>;">
                     <div class="mobile-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
@@ -193,7 +337,13 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                     <div class="mobile-card-info">
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">數量</span>
-                            <span class="mobile-card-value"><?php echo $item['amount'] ?? 0; ?></span>
+                            <span class="mobile-card-value">
+                                <?php echo $item['amount'] ?? 0; ?>
+                                <span class="food-amount-controls">
+                                    <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', -1)">-</button>
+                                    <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', 1)">+</button>
+                                </span>
+                            </span>
                         </div>
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">價格</span>
@@ -207,6 +357,10 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
                                 <?php if ($isExpired): ?><span style="font-size: 0.75rem;"> (已過期)</span><?php endif; ?>
                             </span>
                         </div>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+                        <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'eat')">吃完</button>
+                        <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'discard')">丟棄</button>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -266,6 +420,94 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
         gap: 14px;
     }
 
+    .food-ops-panel,
+    .food-filter-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .food-stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 14px 16px;
+        box-shadow: 0 12px 26px var(--shadow);
+    }
+
+    .food-stat-card span {
+        display: block;
+        color: var(--muted-text);
+        font-size: 0.82rem;
+        margin-bottom: 6px;
+    }
+
+    .food-stat-card strong {
+        font-size: 1.35rem;
+    }
+
+    .food-stat-danger strong {
+        color: #e74c3c;
+    }
+
+    .food-stat-warning strong {
+        color: #f39c12;
+    }
+
+    .food-filter-panel {
+        grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(130px, 0.7fr)) auto;
+        align-items: center;
+    }
+
+    .food-search-box {
+        position: relative;
+        display: block;
+    }
+
+    .food-search-box i {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        transform: translateY(-50%);
+        color: var(--muted-text);
+    }
+
+    .food-search-box input {
+        padding-left: 38px;
+    }
+
+    .food-result-count {
+        color: var(--muted-text);
+        white-space: nowrap;
+    }
+
+    .food-quick-add {
+        margin-bottom: 16px;
+        display: grid;
+        gap: 12px;
+    }
+
+    .food-preset-row,
+    .food-quick-actions,
+    .food-amount-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .food-amount-controls button {
+        width: 26px;
+        height: 26px;
+        border: 1px solid var(--border-color);
+        background: var(--input-bg);
+        color: var(--text-color);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 800;
+    }
+
     .food-mobile-list .mobile-card {
         border-radius: 20px;
         padding: 18px 16px;
@@ -296,6 +538,10 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
             grid-template-columns: 1fr 1fr;
         }
 
+        .food-filter-panel {
+            grid-template-columns: 1fr 1fr;
+        }
+
         .food-mobile-list .mobile-card-actions {
             top: 14px;
             right: 14px;
@@ -316,6 +562,11 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
         .food-mobile-list .mobile-card-info {
             grid-template-columns: 1fr;
         }
+
+        .food-filter-panel,
+        .food-ops-panel {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
@@ -326,6 +577,81 @@ $items = $pdo->query("SELECT * FROM food ORDER BY CASE WHEN todate IS NULL THEN 
     function handleAdd() {
         // Use inline editing for all screen sizes
         startInlineAdd();
+    }
+
+    function addDays(days) {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() + Number(days || 0));
+        return date.toISOString().slice(0, 10);
+    }
+
+    function applyFoodPreset(name, amount, days, shop) {
+        startInlineAdd();
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.querySelector('[data-field="name"]').value = name;
+        row.querySelector('[data-field="amount"]').value = amount || 1;
+        row.querySelector('[data-field="price"]').value = 0;
+        row.querySelector('[data-field="shop"]').value = shop || '';
+        row.querySelector('[data-field="todate"]').value = addDays(days);
+    }
+
+    function filterFoods() {
+        const query = (document.getElementById('foodSearchInput')?.value || '').trim().toLowerCase();
+        const expiry = document.getElementById('foodExpiryFilter')?.value || 'all';
+        const year = document.getElementById('foodYearFilter')?.value || '';
+        const month = document.getElementById('foodMonthFilter')?.value || '';
+        let visible = 0;
+        document.querySelectorAll('[data-food-item]').forEach(item => {
+            const haystack = ((item.dataset.name || '') + ' ' + (item.dataset.shop || '')).toLowerCase();
+            const matchesQuery = !query || haystack.includes(query);
+            const itemExpiry = item.dataset.expiry || 'nodate';
+            const matchesExpiry = expiry === 'all'
+                || itemExpiry === expiry
+                || (expiry === '7days' && ['today', '3days', '7days'].includes(itemExpiry))
+                || (expiry === '3days' && ['today', '3days'].includes(itemExpiry));
+            const matchesYear = !year || (year === '__empty' ? !item.dataset.year : item.dataset.year === year);
+            const matchesMonth = !month || item.dataset.month === month;
+            const show = matchesQuery && matchesExpiry && matchesYear && matchesMonth;
+            item.style.display = show ? '' : 'none';
+            if (show && item.tagName !== 'TR') visible++;
+            if (show && item.tagName === 'TR') visible++;
+        });
+        const desktopVisible = document.querySelectorAll('table.desktop-only [data-food-item]:not([style*="display: none"])').length;
+        const mobileVisible = document.querySelectorAll('.food-mobile-list [data-food-item]:not([style*="display: none"])').length;
+        const counter = document.getElementById('foodVisibleCount');
+        if (counter) counter.textContent = Math.max(desktopVisible, mobileVisible, visible);
+    }
+
+    function updateMonthOptions() {
+        const year = document.getElementById('foodYearFilter')?.value || '';
+        const monthSelect = document.getElementById('foodMonthFilter');
+        if (!monthSelect) return;
+        monthSelect.disabled = year === '__empty';
+        if (year === '__empty') monthSelect.value = '';
+    }
+
+    function adjustFoodAmount(id, delta) {
+        const row = getRowById(id);
+        const current = row ? parseInt(row.dataset.amount || '0', 10) || 0 : 0;
+        const nextAmount = Math.max(0, current + delta);
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: nextAmount })
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('更新數量失敗: ' + (res.error || ''));
+            });
+    }
+
+    function cleanupFood(id, action) {
+        const label = action === 'eat' ? '標記吃完' : '標記丟棄';
+        if (!confirm(`確定要${label}並移除這筆食品嗎？`)) return;
+        deleteItem(id);
     }
 
     function startInlineAdd() {

@@ -1,6 +1,23 @@
 <?php
-$pageTitle = 'Home';
+$pageTitle = '鋒兄首頁';
+
+$nowTaipei = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
+$currentHour = (int) $nowTaipei->format('G');
+$sleepWarningClass = '';
+
+if ($currentHour >= 0 && $currentHour <= 2) {
+    $sleepWarningClass = 'sleep-warning-yellow';
+} elseif ($currentHour >= 3 && $currentHour <= 6) {
+    $sleepWarningClass = 'sleep-warning-red';
+}
 ?>
+
+<?php if ($sleepWarningClass): ?>
+    <div class="sleep-warning <?= $sleepWarningClass ?>" role="alert">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <strong>請入睡</strong>
+    </div>
+<?php endif; ?>
 
 <div class="content-header">
     <div class="page-intro">
@@ -50,6 +67,50 @@ $pageTitle = 'Home';
 </div>
 
 <style>
+    .sleep-warning {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        box-shadow: 0 16px 38px rgba(15, 23, 42, 0.12);
+        font-size: 1.1rem;
+        color: #111827;
+    }
+
+    .sleep-warning i {
+        font-size: 1.25rem;
+    }
+
+    .sleep-warning-yellow {
+        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(253, 230, 138, 0.86));
+        border-color: rgba(245, 158, 11, 0.36);
+    }
+
+    .sleep-warning-red {
+        background: linear-gradient(180deg, rgba(254, 226, 226, 0.96), rgba(252, 165, 165, 0.9));
+        border-color: rgba(239, 68, 68, 0.42);
+        color: #7f1d1d;
+    }
+
+    [data-theme="dark"] .sleep-warning {
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .sleep-warning-yellow {
+        background: linear-gradient(180deg, rgba(146, 64, 14, 0.76), rgba(120, 53, 15, 0.82));
+        border-color: rgba(251, 191, 36, 0.36);
+        color: #fef3c7;
+    }
+
+    [data-theme="dark"] .sleep-warning-red {
+        background: linear-gradient(180deg, rgba(127, 29, 29, 0.78), rgba(153, 27, 27, 0.86));
+        border-color: rgba(248, 113, 113, 0.4);
+        color: #fee2e2;
+    }
+
     .ascii-fengbro {
         margin: 12px 0 0 0;
         padding: 12px 16px;

@@ -173,6 +173,21 @@ try {
             p256dh VARCHAR(500) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_endpoint (endpoint(191))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "tool_price_history" => "CREATE TABLE IF NOT EXISTS tool_price_history (
+            id VARCHAR(36) PRIMARY KEY,
+            tool_type VARCHAR(30) NOT NULL,
+            query_text VARCHAR(500) NOT NULL,
+            title VARCHAR(500),
+            source VARCHAR(100),
+            current_price INT NULL,
+            high_price INT NULL,
+            low_price INT NULL,
+            result_url VARCHAR(1000),
+            notice TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_tool_query (tool_type, query_text(191), created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
