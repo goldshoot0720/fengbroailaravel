@@ -27,6 +27,11 @@ sort($categories);
         </div>
     <?php endif; ?>
     <button class="btn btn-primary" onclick="handleAdd()" title="新增文件"><i class="fas fa-plus"></i></button>
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('multiDocumentFiles').click()">
+        <i class="fa-solid fa-upload"></i> 多選上傳
+    </button>
+    <input type="file" id="multiDocumentFiles" multiple style="display:none;"
+        onchange="uploadMultipleDocuments(this.files)">
     <a href="export_zip_document.php" class="btn btn-success"><i class="fa-solid fa-download"></i> 匯出 ZIP</a>
     <button class="btn btn-info" onclick="document.getElementById('zipImport').click()"><i
             class="fa-solid fa-upload"></i> 匯入 ZIP</button>
@@ -650,6 +655,109 @@ sort($categories);
                 if (res.success) location.reload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
+    }
+
+    function documentBaseName(filename) {
+        return String(filename || '').replace(/\.[^.]+$/, '');
+    }
+
+    function uploadDocumentFile(file, options) {
+        return new Promise((resolve, reject) => {
+            uploadFileWithProgress(file, resolve, reject, options || {});
+        });
+    }
+
+    function createDocumentRecord(data) {
+        return fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json());
+    }
+
+    async function uploadMultipleDocuments(fileList) {
+        const files = Array.from(fileList || []).filter(Boolean);
+        if (!files.length) return;
+
+        let successCount = 0;
+        const failedFiles = [];
+        const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+        let completedBytes = 0;
+
+        showUploadProgressModal(
+            0,
+            `0% (${successCount}/${files.length})`,
+            `準備上傳 0 / ${files.length} 個檔案`,
+            '多選文件上傳中...'
+        );
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const uploadRes = await uploadDocumentFile(file, {
+                    showModal: false,
+                    onProgress: function (progress) {
+                        const aggregateLoaded = completedBytes + progress.loaded;
+                        const aggregatePercent = totalBytes > 0
+                            ? Math.round((aggregateLoaded / totalBytes) * 100)
+                            : Math.round(((i + (progress.percent / 100)) / files.length) * 100);
+                        showUploadProgressModal(
+                            aggregatePercent,
+                            `${aggregatePercent}% (${i + 1}/${files.length})`,
+                            `第 ${i + 1} / ${files.length} 個：${file.name} (${progress.loadedText} / ${progress.totalText})`,
+                            '多選文件上傳中...'
+                        );
+                    }
+                });
+
+                completedBytes += file.size || 0;
+                const data = {
+                    name: documentBaseName(uploadRes.filename || file.name) || '未命名文件',
+                    file: uploadRes.file,
+                    cover: '',
+                    category: '',
+                    ref: '',
+                    note: ''
+                };
+                const createRes = await createDocumentRecord(data);
+                if (!createRes.success) {
+                    throw new Error(createRes.error || '建立文件資料失敗');
+                }
+
+                successCount++;
+                const aggregatePercent = totalBytes > 0
+                    ? Math.round((completedBytes / totalBytes) * 100)
+                    : Math.round((successCount / files.length) * 100);
+                showUploadProgressModal(
+                    aggregatePercent,
+                    `${aggregatePercent}% (${successCount}/${files.length})`,
+                    `已完成 ${successCount} / ${files.length} 個檔案`,
+                    '多選文件上傳中...'
+                );
+            } catch (error) {
+                completedBytes += file.size || 0;
+                failedFiles.push(`${file.name}: ${error && error.message ? error.message : error}`);
+            }
+        }
+
+        hideUploadProgressModal();
+
+        const input = document.getElementById('multiDocumentFiles');
+        if (input) input.value = '';
+
+        if (successCount > 0 && failedFiles.length === 0) {
+            alert(`已完成上傳 ${successCount} 個文件`);
+            location.reload();
+            return;
+        }
+
+        if (successCount > 0) {
+            alert(`成功 ${successCount} 個，失敗 ${failedFiles.length} 個\n${failedFiles.join('\n')}`);
+            location.reload();
+            return;
+        }
+
+        alert('多選文件上傳失敗\n' + failedFiles.join('\n'));
     }
 
 
