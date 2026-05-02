@@ -30,7 +30,7 @@ sort($categories);
     <button type="button" class="btn btn-primary" onclick="document.getElementById('multiDocumentFiles').click()">
         <i class="fa-solid fa-upload"></i> 多選上傳
     </button>
-    <input type="file" id="multiDocumentFiles" multiple style="display:none;"
+    <input type="file" id="multiDocumentFiles" multiple="multiple" style="display:none;"
         onchange="uploadMultipleDocuments(this.files)">
     <a href="export_zip_document.php" class="btn btn-success"><i class="fa-solid fa-download"></i> 匯出 ZIP</a>
     <button class="btn btn-info" onclick="document.getElementById('zipImport').click()"><i
@@ -765,13 +765,22 @@ sort($categories);
     (function () {
         const _uploadInput = document.createElement('input');
         _uploadInput.type = 'file';
+        _uploadInput.multiple = true;
         _uploadInput.style.display = 'none';
         document.body.appendChild(_uploadInput);
         let _uploadTargetInput = null;
 
         _uploadInput.addEventListener('change', function () {
-            const file = this.files[0];
-            if (!file) return;
+            const files = Array.from(this.files || []).filter(Boolean);
+            if (!files.length) return;
+            if (files.length > 1) {
+                _uploadTargetInput = null;
+                uploadMultipleDocuments(files);
+                this.value = '';
+                return;
+            }
+
+            const file = files[0];
             uploadFileWithProgress(file,
                 function (res) {
                     if (_uploadTargetInput) {
