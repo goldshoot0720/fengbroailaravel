@@ -598,14 +598,17 @@ try {
      * @param {Function} onProgress  (chunksDone, totalChunks, percent) 每片完成後回呼
      * @param {Function} onDone      (tempFile) 全部組裝完成後回呼
      * @param {Function} onError     (message) 發生錯誤時回呼
-     * @param {number}   [chunkSize] 每片大小，預設 20MB
+     * @param {number}   [chunkSize] 每片大小，預設 128KB
      */
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
         function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-        chunkSize = chunkSize || (512 * 1024); // 512 KB, safer for free hosts that reject larger POST bodies.
+        chunkSize = chunkSize || (128 * 1024); // 128 KB, safest for restrictive free hosts.
         options = options || {};
         const maxRetries = options.maxRetries || 8;
+        if (!window.__chunkUploadTransport && /(^|\.)cloudaccess\.host$/i.test(window.location.hostname || '')) {
+            window.__chunkUploadTransport = 'form';
+        }
 
         const debug = function (payload) {
             try {
@@ -626,6 +629,7 @@ try {
             totalChunks: totalChunks,
             candidates: candidates,
             chosenEndpoint: chosenEndpoint || '',
+            transport: window.__chunkUploadTransport || 'raw',
             fileName: file && file.name ? file.name : '',
             fileSize: file && file.size ? file.size : 0
         });
@@ -636,16 +640,28 @@ try {
             const blob = file.slice(start, end);
             debug({ stage: 'chunk_start', index: i, start: start, end: end, size: end - start });
 
-            const buildChunkUrl = function (url) {
+            const buildChunkUrl = function (url, transport) {
                 const params = new URLSearchParams({
                     uploadId: uploadId,
                     chunkIndex: String(i),
                     totalChunks: String(totalChunks),
                     filename: file.name,
                     target: options && options.target ? options.target : 'temp',
-                    transport: 'raw'
+                    transport: transport || 'raw'
                 });
                 return url + (url.indexOf('?') === -1 ? '?' : '&') + params.toString();
+            };
+
+            const buildFormData = function (transport) {
+                const fd = new FormData();
+                fd.append('uploadId', uploadId);
+                fd.append('chunkIndex', i);
+                fd.append('totalChunks', totalChunks);
+                fd.append('filename', file.name);
+                fd.append('target', options && options.target ? options.target : 'temp');
+                fd.append('transport', transport || 'form');
+                fd.append('chunk', blob, file.name);
+                return fd;
             };
 
             let res;
@@ -658,15 +674,30 @@ try {
                     let attempt = 0;
                     let lastResp = null;
                     while (true) {
-                        const requestUrl = buildChunkUrl(url);
-                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt, transport: 'raw' });
+                        const transport = window.__chunkUploadTransport || 'raw';
+                        const requestUrl = transport === 'raw' ? buildChunkUrl(url, 'raw') : url;
+                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt, transport: transport });
                         try {
-                            lastResp = await fetch(requestUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/octet-stream' },
-                                body: blob
-                            });
+                            if (transport === 'raw') {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/octet-stream' },
+                                    body: blob
+                                });
+                            } else {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    body: buildFormData('form')
+                                });
+                            }
                             debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
+                            if (transport === 'raw' && (lastResp.status === 503 || lastResp.status === 415 || lastResp.status === 400)) {
+                                window.__chunkUploadTransport = 'form';
+                                attempt++;
+                                debug({ stage: 'transport_fallback', index: i, url: url, attempt: attempt, from: 'raw', to: 'form', status: lastResp.status });
+                                await sleep(Math.min(12000, 1500 * attempt));
+                                continue;
+                            }
                             if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
                                 return lastResp;
                             }
