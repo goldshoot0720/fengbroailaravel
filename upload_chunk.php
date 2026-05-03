@@ -91,16 +91,10 @@ function cleanupOldChunkArtifacts($stateDir, $ttlSeconds = 21600)
     }
 }
 
-function appendUploadedChunk($tmpPath, $partPath)
+function appendStreamToPart($in, $partPath)
 {
-    $in = fopen($tmpPath, 'rb');
-    if (!$in) {
-        return false;
-    }
-
     $out = fopen($partPath, 'ab');
     if (!$out) {
-        fclose($in);
         return false;
     }
 
@@ -113,8 +107,18 @@ function appendUploadedChunk($tmpPath, $partPath)
         }
     }
 
-    fclose($in);
     fclose($out);
+    return $ok;
+}
+
+function appendFileToPart($tmpPath, $partPath)
+{
+    $in = fopen($tmpPath, 'rb');
+    if (!$in) {
+        return false;
+    }
+    $ok = appendStreamToPart($in, $partPath);
+    fclose($in);
     return $ok;
 }
 
@@ -122,11 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     chunkJson(['error' => '請使用 POST 上傳'], 405);
 }
 
-$uploadId = cleanUploadId($_POST['uploadId'] ?? '');
-$chunkIndex = (int) ($_POST['chunkIndex'] ?? -1);
-$totalChunks = (int) ($_POST['totalChunks'] ?? 0);
-$filename = cleanFilename($_POST['filename'] ?? 'upload.bin');
-$target = strtolower((string) ($_POST['target'] ?? 'temp'));
+$uploadId = cleanUploadId($_POST['uploadId'] ?? $_GET['uploadId'] ?? '');
+$chunkIndex = (int) ($_POST['chunkIndex'] ?? $_GET['chunkIndex'] ?? -1);
+$totalChunks = (int) ($_POST['totalChunks'] ?? $_GET['totalChunks'] ?? 0);
+$filename = cleanFilename($_POST['filename'] ?? $_GET['filename'] ?? 'upload.bin');
+$target = strtolower((string) ($_POST['target'] ?? $_GET['target'] ?? 'temp'));
 $target = in_array($target, ['temp', 'file'], true) ? $target : 'temp';
 $ext = cleanExtension($filename);
 
@@ -189,13 +193,26 @@ if ($chunkIndex > (int) $state['nextIndex']) {
     chunkJson(['error' => "片段 {$chunkIndex} 太早抵達，缺少片段 {$state['nextIndex']}"], 409);
 }
 
-if (!isset($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
-    $errorCode = $_FILES['chunk']['error'] ?? -1;
-    chunkJson(['error' => "片段上傳失敗 (error={$errorCode}, chunkIndex={$chunkIndex})"], 400);
-}
+$transport = strtolower((string) ($_GET['transport'] ?? $_POST['transport'] ?? 'form'));
 
-if (!appendUploadedChunk($_FILES['chunk']['tmp_name'], $state['partPath'])) {
-    chunkJson(['error' => "無法寫入片段 {$chunkIndex}，請稍後重試"], 500);
+if ($transport === 'raw') {
+    $raw = fopen('php://input', 'rb');
+    if (!$raw) {
+        chunkJson(['error' => "無法讀取 raw 片段 {$chunkIndex}"], 400);
+    }
+    $ok = appendStreamToPart($raw, $state['partPath']);
+    fclose($raw);
+    if (!$ok) {
+        chunkJson(['error' => "無法寫入 raw 片段 {$chunkIndex}，請稍後重試"], 500);
+    }
+} else {
+    if (!isset($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
+        $errorCode = $_FILES['chunk']['error'] ?? -1;
+        chunkJson(['error' => "片段上傳失敗 (error={$errorCode}, chunkIndex={$chunkIndex})"], 400);
+    }
+    if (!appendFileToPart($_FILES['chunk']['tmp_name'], $state['partPath'])) {
+        chunkJson(['error' => "無法寫入片段 {$chunkIndex}，請稍後重試"], 500);
+    }
 }
 
 $state['nextIndex'] = (int) $state['nextIndex'] + 1;

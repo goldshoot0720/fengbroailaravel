@@ -636,13 +636,17 @@ try {
             const blob = file.slice(start, end);
             debug({ stage: 'chunk_start', index: i, start: start, end: end, size: end - start });
 
-            const fd = new FormData();
-            fd.append('uploadId', uploadId);
-            fd.append('chunkIndex', i);
-            fd.append('totalChunks', totalChunks);
-            fd.append('filename', file.name);
-            fd.append('target', options && options.target ? options.target : 'temp');
-            fd.append('chunk', blob, file.name);
+            const buildChunkUrl = function (url) {
+                const params = new URLSearchParams({
+                    uploadId: uploadId,
+                    chunkIndex: String(i),
+                    totalChunks: String(totalChunks),
+                    filename: file.name,
+                    target: options && options.target ? options.target : 'temp',
+                    transport: 'raw'
+                });
+                return url + (url.indexOf('?') === -1 ? '?' : '&') + params.toString();
+            };
 
             let res;
             try {
@@ -654,9 +658,14 @@ try {
                     let attempt = 0;
                     let lastResp = null;
                     while (true) {
-                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt });
+                        const requestUrl = buildChunkUrl(url);
+                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt, transport: 'raw' });
                         try {
-                            lastResp = await fetch(url, { method: 'POST', body: fd });
+                            lastResp = await fetch(requestUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/octet-stream' },
+                                body: blob
+                            });
                             debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
                             if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
                                 return lastResp;
