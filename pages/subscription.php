@@ -16,6 +16,39 @@ $existingNames = $pdo->query("SELECT DISTINCT name FROM subscription WHERE name 
 $existingSites = $pdo->query("SELECT DISTINCT site FROM subscription WHERE site IS NOT NULL AND site != '' ORDER BY site")->fetchAll(PDO::FETCH_COLUMN);
 $existingAccounts = $pdo->query("SELECT DISTINCT account FROM subscription WHERE account IS NOT NULL AND account != '' ORDER BY account")->fetchAll(PDO::FETCH_COLUMN);
 
+function normalizeSubscriptionDuplicateKey($value)
+{
+    $value = preg_replace('/\s+/u', ' ', trim((string) $value));
+    if ($value === '') {
+        return '';
+    }
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+$duplicateSubscriptionMap = [];
+foreach ($items as $item) {
+    if ((int) ($item['continue'] ?? 0) !== 1) {
+        continue;
+    }
+
+    $key = normalizeSubscriptionDuplicateKey($item['name'] ?? '');
+    if ($key === '') {
+        continue;
+    }
+
+    if (!isset($duplicateSubscriptionMap[$key])) {
+        $duplicateSubscriptionMap[$key] = [
+            'name' => trim((string) ($item['name'] ?? '')),
+            'items' => []
+        ];
+    }
+    $duplicateSubscriptionMap[$key]['items'][] = $item;
+}
+
+$duplicateSubscriptions = array_values(array_filter($duplicateSubscriptionMap, function ($group) {
+    return count($group['items']) > 1;
+}));
+
 // 匯率轉換 (轉為新台幣)
 $exchangeRates = [
     'TWD' => 1,
@@ -97,6 +130,35 @@ function getDaysUntil($date)
 
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
+    <?php if (!empty($duplicateSubscriptions)): ?>
+        <section class="duplicate-subscription-alert" role="alert">
+            <div class="duplicate-alert-heading">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div>
+                    <h3>重複訂閱提醒</h3>
+                    <p>發現 <?php echo count($duplicateSubscriptions); ?> 組仍在續訂的同名服務，請確認是否重複付款。</p>
+                </div>
+            </div>
+            <div class="duplicate-alert-list">
+                <?php foreach ($duplicateSubscriptions as $group): ?>
+                    <div class="duplicate-alert-item">
+                        <strong><?php echo htmlspecialchars($group['name']); ?></strong>
+                        <span><?php echo count($group['items']); ?> 筆續訂</span>
+                        <small>
+                            <?php
+                            $details = array_map(function ($duplicateItem) {
+                                $account = trim((string) ($duplicateItem['account'] ?? ''));
+                                $nextdate = !empty($duplicateItem['nextdate']) ? formatDate($duplicateItem['nextdate']) : '無日期';
+                                return ($account !== '' ? $account : '無帳號') . ' / ' . $nextdate;
+                            }, $group['items']);
+                            echo htmlspecialchars(implode('、', $details));
+                            ?>
+                        </small>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
     <div class="action-buttons-bar">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增訂閱"><i class="fas fa-plus"></i></button>
         <?php $csvTable = 'subscription';
@@ -403,6 +465,81 @@ function getDaysUntil($date)
 </div>
 
 <style>
+    .duplicate-subscription-alert {
+        margin-bottom: 18px;
+        padding: 18px;
+        border: 1px solid rgba(245, 158, 11, 0.36);
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
+        box-shadow: 0 14px 34px rgba(120, 53, 15, 0.12);
+        color: #78350f;
+    }
+
+    .duplicate-alert-heading {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .duplicate-alert-heading i {
+        margin-top: 2px;
+        color: #d97706;
+        font-size: 1.2rem;
+    }
+
+    .duplicate-alert-heading h3 {
+        margin: 0 0 4px;
+        font-size: 1.05rem;
+    }
+
+    .duplicate-alert-heading p {
+        margin: 0;
+        color: #92400e;
+    }
+
+    .duplicate-alert-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .duplicate-alert-item {
+        display: grid;
+        grid-template-columns: minmax(120px, 1fr) auto;
+        gap: 6px 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(245, 158, 11, 0.18);
+    }
+
+    .duplicate-alert-item span {
+        font-weight: 700;
+        color: #b45309;
+    }
+
+    .duplicate-alert-item small {
+        grid-column: 1 / -1;
+        color: #7c2d12;
+        line-height: 1.5;
+    }
+
+    [data-theme="dark"] .duplicate-subscription-alert {
+        background: linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(69, 26, 3, 0.82));
+        border-color: rgba(251, 191, 36, 0.32);
+        color: #fef3c7;
+    }
+
+    [data-theme="dark"] .duplicate-alert-heading p,
+    [data-theme="dark"] .duplicate-alert-item small {
+        color: #fde68a;
+    }
+
+    [data-theme="dark"] .duplicate-alert-item {
+        background: rgba(15, 23, 42, 0.42);
+        border-color: rgba(251, 191, 36, 0.18);
+    }
+
     .suggestions-dropdown {
         position: absolute;
         top: 100%;
@@ -810,6 +947,39 @@ function getDaysUntil($date)
     const allSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
     const allAccounts = <?php echo json_encode($existingAccounts, JSON_UNESCAPED_UNICODE); ?>;
 
+    function normalizeSubscriptionDuplicateName(value) {
+        return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function findDuplicateSubscriptionsByName(name, excludeId) {
+        const key = normalizeSubscriptionDuplicateName(name);
+        if (!key) return [];
+
+        return Array.from(document.querySelectorAll('table.desktop-only tbody tr[data-id]'))
+            .filter(row => row.dataset.id !== excludeId)
+            .filter(row => String(row.dataset.continue || '0') === '1')
+            .filter(row => normalizeSubscriptionDuplicateName(row.dataset.name) === key)
+            .map(row => ({
+                name: row.dataset.name || '',
+                account: row.dataset.account || '無帳號',
+                nextdate: row.dataset.nextdate ? row.dataset.nextdate.split(' ')[0] : '無日期'
+            }));
+    }
+
+    function confirmDuplicateSubscription(data, excludeId) {
+        if (String(data.continue || '0') !== '1') return true;
+
+        const duplicates = findDuplicateSubscriptionsByName(data.name, excludeId || '');
+        if (!duplicates.length) return true;
+
+        const detail = duplicates
+            .slice(0, 5)
+            .map(item => `- ${item.name} / ${item.account} / ${item.nextdate}`)
+            .join('\n');
+
+        return confirm(`重複訂閱提醒：${data.name} 已有 ${duplicates.length} 筆仍在續訂。\n${detail}\n\n仍要儲存嗎？`);
+    }
+
     // 服務名稱
     function showNameSuggestions() {
         if (allNames.length > 0) {
@@ -978,6 +1148,8 @@ function getDaysUntil($date)
             continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
         };
 
+        if (!confirmDuplicateSubscription(data)) return;
+
         fetch(`api.php?action=create&table=${TABLE}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1066,6 +1238,8 @@ function getDaysUntil($date)
             continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
         };
 
+        if (!confirmDuplicateSubscription(data, id)) return;
+
         fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1137,6 +1311,8 @@ function getDaysUntil($date)
             note: document.getElementById('note').value,
             continue: document.getElementById('continue').checked ? 1 : 0
         };
+
+        if (!confirmDuplicateSubscription(data, id)) return;
 
         fetch(url, {
             method: 'POST',
