@@ -603,9 +603,9 @@ try {
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
         function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-        chunkSize = chunkSize || (5 * 1024 * 1024); // 5 MB
+        chunkSize = chunkSize || (2 * 1024 * 1024); // 2 MB, safer for free hosts with 10MB request limits.
         options = options || {};
-        const maxRetries = 3;
+        const maxRetries = options.maxRetries || 5;
 
         const debug = function (payload) {
             try {
@@ -655,14 +655,35 @@ try {
                     let lastResp = null;
                     while (true) {
                         debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt });
-                        lastResp = await fetch(url, { method: 'POST', body: fd });
-                        debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
-                        if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
-                            return lastResp;
+                        try {
+                            lastResp = await fetch(url, { method: 'POST', body: fd });
+                            debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
+                            if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
+                                return lastResp;
+                            }
+                            attempt++;
+                            debug({ stage: 'retry', index: i, url: url, attempt: attempt, status: lastResp.status });
+                        } catch (networkError) {
+                            if (attempt >= maxRetries) {
+                                debug({
+                                    stage: 'network_error_final',
+                                    index: i,
+                                    url: url,
+                                    attempt: attempt,
+                                    message: networkError && networkError.message ? networkError.message : String(networkError)
+                                });
+                                throw networkError;
+                            }
+                            attempt++;
+                            debug({
+                                stage: 'network_retry',
+                                index: i,
+                                url: url,
+                                attempt: attempt,
+                                message: networkError && networkError.message ? networkError.message : String(networkError)
+                            });
                         }
-                        attempt++;
-                        debug({ stage: 'retry', index: i, url: url, attempt: attempt, status: lastResp.status });
-                        await sleep(1000 * attempt);
+                        await sleep(Math.min(12000, 1500 * attempt));
                     }
                 };
 
