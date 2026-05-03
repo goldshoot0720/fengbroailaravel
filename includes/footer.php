@@ -603,11 +603,11 @@ try {
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
         function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-        chunkSize = chunkSize || (128 * 1024); // 128 KB, safest for restrictive free hosts.
+        chunkSize = chunkSize || (64 * 1024); // 64 KB, safest for restrictive free hosts.
         options = options || {};
         const maxRetries = options.maxRetries || 8;
         if (!window.__chunkUploadTransport && /(^|\.)cloudaccess\.host$/i.test(window.location.hostname || '')) {
-            window.__chunkUploadTransport = 'form';
+            window.__chunkUploadTransport = 'base64';
         }
 
         const debug = function (payload) {
@@ -664,6 +664,29 @@ try {
                 return fd;
             };
 
+            const blobToBase64 = async function (chunkBlob) {
+                const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
+                let binary = '';
+                const batchSize = 0x8000;
+                for (let offset = 0; offset < bytes.length; offset += batchSize) {
+                    binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + batchSize));
+                }
+                return btoa(binary);
+            };
+
+            const buildBase64Body = async function () {
+                const params = new URLSearchParams({
+                    uploadId: uploadId,
+                    chunkIndex: String(i),
+                    totalChunks: String(totalChunks),
+                    filename: file.name,
+                    target: options && options.target ? options.target : 'temp',
+                    transport: 'base64',
+                    chunkData: await blobToBase64(blob)
+                });
+                return params.toString();
+            };
+
             let res;
             try {
                 let resp = null;
@@ -684,6 +707,12 @@ try {
                                     headers: { 'Content-Type': 'application/octet-stream' },
                                     body: blob
                                 });
+                            } else if (transport === 'base64') {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                                    body: await buildBase64Body()
+                                });
                             } else {
                                 lastResp = await fetch(requestUrl, {
                                     method: 'POST',
@@ -692,9 +721,9 @@ try {
                             }
                             debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
                             if (transport === 'raw' && (lastResp.status === 503 || lastResp.status === 415 || lastResp.status === 400)) {
-                                window.__chunkUploadTransport = 'form';
+                                window.__chunkUploadTransport = 'base64';
                                 attempt++;
-                                debug({ stage: 'transport_fallback', index: i, url: url, attempt: attempt, from: 'raw', to: 'form', status: lastResp.status });
+                                debug({ stage: 'transport_fallback', index: i, url: url, attempt: attempt, from: 'raw', to: 'base64', status: lastResp.status });
                                 await sleep(Math.min(12000, 1500 * attempt));
                                 continue;
                             }

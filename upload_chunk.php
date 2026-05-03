@@ -145,6 +145,22 @@ function copyFileToChunk($tmpPath, $chunkPath)
     return $ok;
 }
 
+function writeStringToFile($data, $path)
+{
+    $tmpPath = $path . '.tmp';
+    $out = fopen($tmpPath, 'wb');
+    if (!$out) {
+        return false;
+    }
+    $written = fwrite($out, $data);
+    fclose($out);
+    if ($written === false || $written !== strlen($data)) {
+        @unlink($tmpPath);
+        return false;
+    }
+    return @rename($tmpPath, $path);
+}
+
 function assembleChunks($state, $totalChunks)
 {
     $partPath = $state['partPath'];
@@ -271,6 +287,18 @@ if ($transport === 'raw') {
     fclose($raw);
     if (!$ok) {
         chunkJson(['error' => "無法寫入 raw 片段 {$chunkIndex}，請稍後重試"], 500);
+    }
+} elseif ($transport === 'base64') {
+    $encoded = (string) ($_POST['chunkData'] ?? '');
+    if ($encoded === '') {
+        chunkJson(['error' => "缺少 base64 片段 {$chunkIndex}"], 400);
+    }
+    $decoded = base64_decode($encoded, true);
+    if ($decoded === false) {
+        chunkJson(['error' => "base64 片段 {$chunkIndex} 解碼失敗"], 400);
+    }
+    if (!writeStringToFile($decoded, $chunkPath)) {
+        chunkJson(['error' => "無法寫入 base64 片段 {$chunkIndex}，請稍後重試"], 500);
     }
 } else {
     if (!isset($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
