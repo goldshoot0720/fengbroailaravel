@@ -1,7 +1,7 @@
 <!-- Upload Progress Modal -->
 <div id="uploadProgressModal"
     style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
-    <div style="background: #fff; padding: 30px; border-radius: 10px; min-width: 350px; text-align: center;">
+    <div style="background: #fff; padding: 30px; border-radius: 10px; min-width: 350px; max-width: min(92vw, 520px); text-align: center;">
         <h3 id="uploadProgressTitle" style="margin: 0 0 20px 0;">上傳中...</h3>
         <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 15px;">
             <div id="uploadProgressBar"
@@ -9,17 +9,22 @@
             </div>
         </div>
         <div id="uploadProgressText" style="color: #666;">0%</div>
-        <div id="uploadFileName" style="color: #999; font-size: 0.85rem; margin-top: 10px;"></div>
+        <div id="uploadFileName" style="color: #999; font-size: 0.85rem; margin-top: 10px; word-break: break-all;"></div>
     </div>
 </div>
 
 <script>
+    const LARGE_UPLOAD_THRESHOLD = 8 * 1024 * 1024;
+    const LARGE_UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024;
+
     function showUploadProgressModal(percent, text, fileLabel, title) {
         const modal = document.getElementById('uploadProgressModal');
         const progressTitle = document.getElementById('uploadProgressTitle');
         const progressBar = document.getElementById('uploadProgressBar');
         const progressText = document.getElementById('uploadProgressText');
         const fileName = document.getElementById('uploadFileName');
+
+        if (!modal || !progressBar || !progressText || !fileName) return;
 
         modal.style.display = 'flex';
         if (progressTitle) progressTitle.textContent = title || '上傳中...';
@@ -30,12 +35,18 @@
 
     function hideUploadProgressModal() {
         const modal = document.getElementById('uploadProgressModal');
-        modal.style.display = 'none';
+        if (modal) modal.style.display = 'none';
     }
 
     function uploadFileWithProgress(file, onSuccess, onError, options) {
         options = options || {};
         const shouldManageModal = options.showModal !== false;
+        const shouldUseChunked = options.chunked !== false && file && file.size > LARGE_UPLOAD_THRESHOLD;
+
+        if (shouldUseChunked) {
+            uploadFileWithChunkProgress(file, onSuccess, onError, options, shouldManageModal);
+            return;
+        }
 
         if (shouldManageModal) {
             showUploadProgressModal(0, '0%', file.name, options.title || '上傳中...');
@@ -81,7 +92,7 @@
                     onError(res.error || '上傳失敗');
                 }
             } catch (e) {
-                onError('回應格式錯誤 (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
+                onError('伺服器回應錯誤 (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
             }
         });
 
@@ -99,11 +110,64 @@
         xhr.send(formData);
     }
 
+    function uploadFileWithChunkProgress(file, onSuccess, onError, options, shouldManageModal) {
+        if (typeof uploadChunked !== 'function') {
+            onError('分段上傳功能尚未載入，請重新整理頁面');
+            return;
+        }
+
+        if (shouldManageModal) {
+            showUploadProgressModal(0, '0%', file.name, options.title || '分段上傳中...');
+        }
+
+        uploadChunked(
+            file,
+            function (done, total, percent) {
+                const uploadedBytes = Math.min(file.size, done * LARGE_UPLOAD_CHUNK_SIZE);
+                const label = file.name + ' (' + formatFileSize(uploadedBytes) + ' / ' + formatFileSize(file.size) + ')';
+
+                if (shouldManageModal) {
+                    showUploadProgressModal(
+                        percent,
+                        percent + '% (' + done + '/' + total + ')',
+                        label,
+                        options.title || '分段上傳中...'
+                    );
+                }
+
+                if (typeof options.onProgress === 'function') {
+                    options.onProgress({
+                        percent: percent,
+                        loaded: uploadedBytes,
+                        total: file.size,
+                        loadedText: formatFileSize(uploadedBytes),
+                        totalText: formatFileSize(file.size),
+                        file: file
+                    });
+                }
+            },
+            function (_path, res) {
+                if (shouldManageModal) hideUploadProgressModal();
+                if (res && res.success && res.file) {
+                    onSuccess(res);
+                } else {
+                    onError('分段合併失敗：未取得檔案路徑');
+                }
+            },
+            function (message) {
+                if (shouldManageModal) hideUploadProgressModal();
+                onError(message || '分段上傳失敗');
+            },
+            LARGE_UPLOAD_CHUNK_SIZE,
+            { target: 'file' }
+        );
+    }
+
     function formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
+        if (!bytes) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 </script>

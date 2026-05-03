@@ -600,10 +600,11 @@ try {
      * @param {Function} onError     (message) 發生錯誤時回呼
      * @param {number}   [chunkSize] 每片大小，預設 20MB
      */
-    async function uploadChunked(file, onProgress, onDone, onError, chunkSize) {
+    async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
         function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
         chunkSize = chunkSize || (5 * 1024 * 1024); // 5 MB
+        options = options || {};
         const maxRetries = 3;
 
         const debug = function (payload) {
@@ -640,6 +641,7 @@ try {
             fd.append('chunkIndex', i);
             fd.append('totalChunks', totalChunks);
             fd.append('filename', file.name);
+            fd.append('target', options && options.target ? options.target : 'temp');
             fd.append('chunk', blob, file.name);
 
             let res;
@@ -712,8 +714,8 @@ try {
 
             // 最後一片，server 回傳 assembled + tempFile
             if (res.status === 'assembled') {
-                debug({ stage: 'assembled', endpoint: chosenEndpoint || '', tempFile: res.tempFile || '', size: res.size || 0 });
-                if (onDone) onDone(res.tempFile);
+                debug({ stage: 'assembled', endpoint: chosenEndpoint || '', tempFile: res.tempFile || '', file: res.file || '', size: res.size || 0 });
+                if (onDone) onDone(res.tempFile || res.file, res);
                 return;
             }
         }

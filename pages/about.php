@@ -1,37 +1,42 @@
-﻿<?php $pageTitle = '?蝟餌絞'; ?>
+<?php $pageTitle = '鋒兄關於'; ?>
 
 <div class="content-header">
-    <h1>???</h1>
+    <h1>鋒兄關於</h1>
 </div>
 
 <div class="content-body">
     <div class="card">
-        <h3 class="card-title">蝟餌絞鞈?</h3>
+        <h3 class="card-title">系統資訊</h3>
         <table class="table">
             <tr>
-                <th style="width: 200px;">蝟餌絞?迂</th>
-                <td>??蝟餌絞</td>
+                <th style="width: 200px;">系統名稱</th>
+                <td>鋒兄 AI</td>
             </tr>
             <tr>
-                <th>?</th>
+                <th>版本</th>
                 <td>1.0.0</td>
             </tr>
             <tr>
-                <th>?隤?</th>
+                <th>技術架構</th>
                 <td>PHP + MySQL</td>
             </tr>
             <tr>
-                <th>PHP ?</th>
+                <th>PHP 版本</th>
                 <td><?php echo phpversion(); ?></td>
             </tr>
             <tr>
-                <th>?桀??啣?</th>
+                <th>執行環境</th>
                 <td><?php echo strtoupper($GLOBALS['ENV']); ?></td>
             </tr>
             <tr>
-                <th>蝔?蝣潸???/th>
+                <th>freehostia</th>
+                <td>hsihua19</td>
+            </tr>
+            <tr>
+                <th>程式碼統計</th>
                 <td>
-                    <strong>19,314</strong> 行                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
+                    <strong>19,314</strong> 行
+                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
                         (72 個檔案 .php: 16,015 &nbsp;|&nbsp; .css: 1,791 &nbsp;|&nbsp; .js: 1,216 &nbsp;|&nbsp; .sql: 292)
                     </span>
                     <br><small style="color:#aaa;">統計日期：2026-03-25</small>
@@ -41,82 +46,88 @@
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h3 class="card-title">?隤芣?</h3>
+        <h3 class="card-title">功能模組</h3>
         <table class="table">
             <tr>
-                <th style="width: 150px;">擐?</th>
-                <td>蝟餌絞蝮質汗嚗＊蝷箏???賊?蝯梯?</td>
+                <th style="width: 150px;">首頁</th>
+                <td>個人作業中樞，快速掌握重要狀態與提醒。</td>
             </tr>
             <tr>
-                <th>?銵冽</th>
-                <td>閰喟敦蝯梯?鞈???餈???/td>
+                <th>儀表板</th>
+                <td>整合訂閱、食品、工具與近期狀態摘要。</td>
             </tr>
             <tr>
-                <th>閮蝞∠?</th>
-                <td>蝞∠???閮??嚗蕭頩支?甈暹??鞎餌</td>
+                <th>訂閱管理</th>
+                <td>管理服務名稱、費用、付款日期、續訂狀態與重複訂閱提醒。</td>
             </tr>
             <tr>
-                <th>憌?蝞∠?</th>
-                <td>餈質馱憌?摮疏??潸?????</td>
+                <th>食品管理</th>
+                <td>追蹤食品、庫存、到期日與快速新增常用項目。</td>
             </tr>
             <tr>
-                <th>蝑???/th>
-                <td>閮???蝑???蝡??舀?????</td>
+                <th>筆記資料</th>
+                <td>整理筆記、文章與日常資料內容。</td>
             </tr>
             <tr>
-                <th>撣貊?</th>
-                <td>?脣?撣貊撣唾?鞈?嚗?憭??37 蝯?雿?/td>
+                <th>常用帳號</th>
+                <td>管理常用帳號資料，支援快速查找與整理。</td>
             </tr>
             <tr>
-                <th>??蝞∠?</th>
-                <td>蝞∠???瑼?????/td>
+                <th>圖片庫</th>
+                <td>管理圖片檔案與圖片資料。</td>
             </tr>
             <tr>
-                <th>敶梁?蝞∠?</th>
-                <td>蝞∠?敶梁?瑼?</td>
+                <th>影片庫</th>
+                <td>管理影片檔案、封面與播放資訊。</td>
             </tr>
             <tr>
-                <th>?單?蝞∠?</th>
-                <td>蝞∠??單?瑼?嚗?湔?閰摮?/td>
+                <th>音樂庫</th>
+                <td>管理音樂檔案、封面、歌詞與播放器。</td>
             </tr>
             <tr>
-                <th>?辣蝞∠?</th>
-                <td>蝞∠????辣瑼?</td>
+                <th>文件庫</th>
+                <td>管理文件檔案，支援多選上傳與預覽。</td>
             </tr>
             <tr>
-                <th>?剖恥蝞∠?</th>
-                <td>蝞∠??剖恥蝭??/td>
+                <th>播客庫</th>
+                <td>管理播客集數與音訊資料。</td>
             </tr>
             <tr>
-                <th>?銵恣??/th>
-                <td>餈質馱?銵董?嗚?甈整?甈曇?頧董</td>
+                <th>銀行資料</th>
+                <td>整理銀行、帳戶與金融相關資料。</td>
             </tr>
             <tr>
-                <th>靘?鈭?</th>
-                <td>蝞∠??望??找遙??閮??餈?甈∪銵???/td>
+                <th>例行事項</th>
+                <td>管理日常例行任務、提醒與狀態。</td>
             </tr>
             <tr>
-                <th>蝟餌絞閮剖?</th>
-                <td>?亦?蝟餌絞?蔭???澈蝯梯?</td>
+                <th>工具模組</th>
+                <td>提供比價等輔助工具。</td>
+            </tr>
+            <tr>
+                <th>系統設定</th>
+                <td>管理系統設定、儲存空間與維護工具。</td>
             </tr>
         </table>
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h3 class="card-title">鞈?銵函?瑽?/h3>
+        <h3 class="card-title">資料表結構</h3>
         <p style="line-height: 1.8;">
-            ?祉頂蝯曹蝙?其誑銝??”嚗?        </p>
+            目前系統主要使用下列資料表：
+        </p>
         <ul style="line-height: 2; padding-left: 20px; margin-top: 10px;">
-            <li><code>subscription</code> - 閮??</li>
-            <li><code>food</code> - 憌?蝝??/li>
-            <li><code>article</code> - 蝑?/??</li>
-            <li><code>commonaccount</code> - 撣貊撣唾? (37 蝯?雿?</li>
-            <li><code>image</code> - ??</li>
-            <li><code>music</code> - ?單? (?急?閰?</li>
-            <li><code>podcast</code> - ?剖恥</li>
-            <li><code>commondocument</code> - ?辣/敶梁?</li>
-            <li><code>bank</code> - ?銵董??/li>
-            <li><code>routine</code> - 靘?鈭?</li>
+            <li><code>subscription</code> - 訂閱管理</li>
+            <li><code>food</code> - 食品庫存</li>
+            <li><code>notes</code> / <code>article</code> - 筆記與文章</li>
+            <li><code>commonaccount</code> - 常用帳號</li>
+            <li><code>image</code> - 圖片資料</li>
+            <li><code>music</code> - 音樂資料</li>
+            <li><code>podcast</code> - 播客資料</li>
+            <li><code>commondocument</code> - 文件與影片資料</li>
+            <li><code>bank</code> - 銀行資料</li>
+            <li><code>routine</code> - 例行事項</li>
+            <li><code>tool_price_history</code> - 比價歷史</li>
         </ul>
     </div>
 </div>

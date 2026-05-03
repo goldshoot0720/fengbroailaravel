@@ -1,111 +1,153 @@
 <?php
 /**
- * upload_chunk.php - 分片上傳（Chunked Upload）伺服器端
- * 每片上傳後寫入暫存目錄，全部片段收齊後自動組裝成完整檔案
+ * upload_chunk.php - general chunked upload endpoint.
+ *
+ * Modes:
+ * - target=temp: assemble to uploads/temp/{uploadId}.{ext}, used by ZIP import preview.
+ * - target=file: assemble to uploads/{ext}/{uuid}.{ext}, used by media/document uploads.
  */
-ob_start(); // 緩衝所有輸出，防止 PHP notice/warning 污染 JSON
+ob_start();
 ini_set('memory_limit', '512M');
 set_time_limit(300);
-error_reporting(0);       // 關閉錯誤輸出（避免 warning 混入 JSON）
+error_reporting(0);
 ini_set('display_errors', 0);
 
-function jsonOut($data)
+require_once 'includes/functions.php';
+
+function chunkJson($data, $status = 200)
 {
-    ob_end_clean(); // 丟棄所有緩衝的非 JSON 輸出
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-require_once 'includes/functions.php';
+function cleanUploadId($value)
+{
+    return preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $value);
+}
+
+function cleanFilename($value)
+{
+    $filename = basename((string) $value);
+    return $filename !== '' ? $filename : 'upload.bin';
+}
+
+function removeChunkDirectory($dir)
+{
+    if (!is_dir($dir)) {
+        return;
+    }
+    foreach (glob($dir . '/chunk_*') ?: [] as $file) {
+        if (is_file($file)) {
+            @unlink($file);
+        }
+    }
+    @rmdir($dir);
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    jsonOut(['error' => '請使用 POST 方法']);
+    chunkJson(['error' => '請使用 POST 上傳'], 405);
 }
 
-$uploadId = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['uploadId'] ?? '');
-$chunkIndex = intval($_POST['chunkIndex'] ?? -1);
-$totalChunks = intval($_POST['totalChunks'] ?? 0);
-$filename = basename($_POST['filename'] ?? 'upload.zip');
+$uploadId = cleanUploadId($_POST['uploadId'] ?? '');
+$chunkIndex = (int) ($_POST['chunkIndex'] ?? -1);
+$totalChunks = (int) ($_POST['totalChunks'] ?? 0);
+$filename = cleanFilename($_POST['filename'] ?? 'upload.bin');
+$target = strtolower((string) ($_POST['target'] ?? 'temp'));
+$target = in_array($target, ['temp', 'file'], true) ? $target : 'temp';
 
-if (!$uploadId || $chunkIndex < 0 || $totalChunks <= 0) {
-    jsonOut(['error' => '缺少必要參數 (uploadId/chunkIndex/totalChunks)']);
+if ($uploadId === '' || $chunkIndex < 0 || $totalChunks <= 0) {
+    chunkJson(['error' => '缺少必要參數 uploadId/chunkIndex/totalChunks'], 400);
 }
 
-// 暫存片段目錄
-$chunkDir = 'uploads/temp/chunks/' . $uploadId;
-if (!is_dir($chunkDir)) {
-    if (!mkdir($chunkDir, 0755, true)) {
-        jsonOut(['error' => '無法建立暫存目錄']);
-    }
-}
-
-// 接收片段檔案
 if (!isset($_FILES['chunk']) || $_FILES['chunk']['error'] !== UPLOAD_ERR_OK) {
-    $errCode = $_FILES['chunk']['error'] ?? -1;
-    jsonOut(['error' => "片段上傳失敗 (error={$errCode}, chunkIndex={$chunkIndex})"]);
+    $errorCode = $_FILES['chunk']['error'] ?? -1;
+    chunkJson(['error' => "片段上傳失敗 (error={$errorCode}, chunkIndex={$chunkIndex})"], 400);
+}
+
+$chunkDir = 'uploads/temp/chunks/' . $uploadId;
+if (!is_dir($chunkDir) && !mkdir($chunkDir, 0755, true)) {
+    chunkJson(['error' => '無法建立片段暫存目錄'], 500);
 }
 
 $chunkFile = $chunkDir . '/chunk_' . sprintf('%05d', $chunkIndex);
 if (!move_uploaded_file($_FILES['chunk']['tmp_name'], $chunkFile)) {
-    jsonOut(['error' => "無法儲存片段 chunk_{$chunkIndex}"]);
+    chunkJson(['error' => "無法儲存片段 chunk_{$chunkIndex}"], 500);
 }
 
-// 確認是否全部片段都到齊
-$receivedChunks = glob($chunkDir . '/chunk_*');
+$receivedChunks = glob($chunkDir . '/chunk_*') ?: [];
 $receivedCount = count($receivedChunks);
 
 if ($receivedCount < $totalChunks) {
-    jsonOut([
+    chunkJson([
         'status' => 'chunk_received',
         'received' => $receivedCount,
         'total' => $totalChunks,
     ]);
 }
 
-// ===== 全部片段到齊，開始組裝 =====
-$tempDir = 'uploads/temp';
-if (!is_dir($tempDir))
-    mkdir($tempDir, 0755, true);
+$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+$ext = preg_replace('/[^a-z0-9]/', '', $ext);
+$ext = $ext !== '' ? $ext : 'bin';
 
-$assembledFile = $tempDir . '/' . $uploadId . '.zip';
+if ($target === 'temp') {
+    $outputDir = 'uploads/temp';
+    $outputName = $uploadId . '.' . $ext;
+} else {
+    $outputDir = 'uploads/' . $ext;
+    $outputName = generateUUID() . '.' . $ext;
+}
+
+if (!is_dir($outputDir) && !mkdir($outputDir, 0755, true)) {
+    chunkJson(['error' => '無法建立上傳目錄'], 500);
+}
+
+$assembledFile = $outputDir . '/' . $outputName;
 $out = fopen($assembledFile, 'wb');
 if (!$out) {
-    jsonOut(['error' => '無法建立組裝檔案']);
+    chunkJson(['error' => '無法建立合併檔案'], 500);
 }
 
-// 依序串接片段
 for ($i = 0; $i < $totalChunks; $i++) {
     $part = $chunkDir . '/chunk_' . sprintf('%05d', $i);
-    if (!file_exists($part)) {
+    if (!is_file($part)) {
         fclose($out);
-        jsonOut(['error' => "片段 {$i} 遺失，請重新上傳"]);
+        @unlink($assembledFile);
+        chunkJson(['error' => "片段 {$i} 缺失，請重新上傳"], 400);
     }
+
     $in = fopen($part, 'rb');
+    if (!$in) {
+        fclose($out);
+        @unlink($assembledFile);
+        chunkJson(['error' => "無法讀取片段 {$i}"], 500);
+    }
+
     while (!feof($in)) {
-        fwrite($out, fread($in, 1024 * 1024)); // 1MB block
+        fwrite($out, fread($in, 1024 * 1024));
     }
     fclose($in);
-    @unlink($part); // 清理片段
 }
 fclose($out);
+removeChunkDirectory($chunkDir);
 
-// 清理片段目錄
-@rmdir($chunkDir);
-
-// 驗證組裝後的 ZIP 魔術字節
-$fh = fopen($assembledFile, 'rb');
-$magic = bin2hex(fread($fh, 4));
-fclose($fh);
-
-if ($magic !== '504b0304') {
-    @unlink($assembledFile);
-    jsonOut(['error' => '組裝後的檔案不是有效的 ZIP (magic=' . $magic . ')']);
-}
-
-jsonOut([
+$response = [
+    'success' => true,
     'status' => 'assembled',
-    'tempFile' => $assembledFile,
+    'filename' => $filename,
+    'filetype' => '.' . $ext,
     'size' => filesize($assembledFile),
     'sizeMB' => round(filesize($assembledFile) / 1024 / 1024, 2),
-]);
+];
+
+if ($target === 'temp') {
+    $response['tempFile'] = $assembledFile;
+} else {
+    $response['file'] = $assembledFile;
+}
+
+chunkJson($response);
