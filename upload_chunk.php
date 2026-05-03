@@ -3,8 +3,8 @@
  * upload_chunk.php - general chunked upload endpoint.
  *
  * Modes:
- * - target=temp: append chunks to uploads/temp/{uploadId}.{ext}.part, then rename for ZIP import preview.
- * - target=file: append chunks to uploads/{ext}/{uuid}.{ext}.part, then rename for media/document uploads.
+ * - target=temp: save chunks under uploads/temp/chunks/{uploadId}/, then assemble for ZIP import preview.
+ * - target=file: save chunks under uploads/temp/chunks/{uploadId}/, then assemble for media/document uploads.
  */
 ob_start();
 ini_set('memory_limit', '512M');
@@ -62,6 +62,21 @@ function writeUploadState($statePath, $state)
     file_put_contents($statePath, json_encode($state, JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
+function rrmdir($dir)
+{
+    if (!is_dir($dir)) {
+        return;
+    }
+    foreach (glob($dir . '/*') ?: [] as $path) {
+        if (is_dir($path)) {
+            rrmdir($path);
+        } else {
+            @unlink($path);
+        }
+    }
+    @rmdir($dir);
+}
+
 function cleanupOldChunkArtifacts($stateDir, $ttlSeconds = 21600)
 {
     if (!is_dir($stateDir)) {
@@ -77,6 +92,9 @@ function cleanupOldChunkArtifacts($stateDir, $ttlSeconds = 21600)
         if ($state && !empty($state['partPath']) && is_file($state['partPath'])) {
             @unlink($state['partPath']);
         }
+        if ($state && !empty($state['chunkDir']) && is_dir($state['chunkDir'])) {
+            rrmdir($state['chunkDir']);
+        }
         @unlink($statePath);
     }
 
@@ -91,16 +109,17 @@ function cleanupOldChunkArtifacts($stateDir, $ttlSeconds = 21600)
     }
 }
 
-function appendStreamToPart($in, $partPath)
+function copyStreamToFile($in, $path)
 {
-    $out = fopen($partPath, 'ab');
+    $tmpPath = $path . '.tmp';
+    $out = fopen($tmpPath, 'wb');
     if (!$out) {
         return false;
     }
 
     $ok = true;
     while (!feof($in)) {
-        $bytes = fwrite($out, fread($in, 1024 * 1024));
+        $bytes = fwrite($out, fread($in, 64 * 1024));
         if ($bytes === false) {
             $ok = false;
             break;
@@ -108,18 +127,56 @@ function appendStreamToPart($in, $partPath)
     }
 
     fclose($out);
-    return $ok;
+    if (!$ok) {
+        @unlink($tmpPath);
+        return false;
+    }
+    return @rename($tmpPath, $path);
 }
 
-function appendFileToPart($tmpPath, $partPath)
+function copyFileToChunk($tmpPath, $chunkPath)
 {
     $in = fopen($tmpPath, 'rb');
     if (!$in) {
         return false;
     }
-    $ok = appendStreamToPart($in, $partPath);
+    $ok = copyStreamToFile($in, $chunkPath);
     fclose($in);
     return $ok;
+}
+
+function assembleChunks($state, $totalChunks)
+{
+    $partPath = $state['partPath'];
+    $out = fopen($partPath, 'wb');
+    if (!$out) {
+        return false;
+    }
+
+    $ok = true;
+    for ($i = 0; $i < $totalChunks; $i++) {
+        $chunkPath = $state['chunkDir'] . '/chunk_' . str_pad((string) $i, 6, '0', STR_PAD_LEFT);
+        $in = fopen($chunkPath, 'rb');
+        if (!$in) {
+            $ok = false;
+            break;
+        }
+        while (!feof($in)) {
+            $bytes = fwrite($out, fread($in, 64 * 1024));
+            if ($bytes === false) {
+                $ok = false;
+                break 2;
+            }
+        }
+        fclose($in);
+    }
+
+    fclose($out);
+    if (!$ok) {
+        @unlink($partPath);
+        return false;
+    }
+    return true;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -170,9 +227,18 @@ if (!$state) {
         'nextIndex' => 0,
         'finalPath' => $finalPath,
         'partPath' => $finalPath . '.part',
+        'chunkDir' => $stateDir . '/' . $uploadId,
         'createdAt' => time(),
     ];
     writeUploadState($statePath, $state);
+}
+
+if (empty($state['chunkDir'])) {
+    $state['chunkDir'] = $stateDir . '/' . $uploadId;
+}
+
+if (!ensureDir($state['chunkDir'])) {
+    chunkJson(['error' => '無法建立片段暫存資料夾'], 500);
 }
 
 if ((int) ($state['totalChunks'] ?? 0) !== $totalChunks) {
@@ -194,13 +260,14 @@ if ($chunkIndex > (int) $state['nextIndex']) {
 }
 
 $transport = strtolower((string) ($_GET['transport'] ?? $_POST['transport'] ?? 'form'));
+$chunkPath = $state['chunkDir'] . '/chunk_' . str_pad((string) $chunkIndex, 6, '0', STR_PAD_LEFT);
 
 if ($transport === 'raw') {
     $raw = fopen('php://input', 'rb');
     if (!$raw) {
         chunkJson(['error' => "無法讀取 raw 片段 {$chunkIndex}"], 400);
     }
-    $ok = appendStreamToPart($raw, $state['partPath']);
+    $ok = copyStreamToFile($raw, $chunkPath);
     fclose($raw);
     if (!$ok) {
         chunkJson(['error' => "無法寫入 raw 片段 {$chunkIndex}，請稍後重試"], 500);
@@ -210,7 +277,7 @@ if ($transport === 'raw') {
         $errorCode = $_FILES['chunk']['error'] ?? -1;
         chunkJson(['error' => "片段上傳失敗 (error={$errorCode}, chunkIndex={$chunkIndex})"], 400);
     }
-    if (!appendFileToPart($_FILES['chunk']['tmp_name'], $state['partPath'])) {
+    if (!copyFileToChunk($_FILES['chunk']['tmp_name'], $chunkPath)) {
         chunkJson(['error' => "無法寫入片段 {$chunkIndex}，請稍後重試"], 500);
     }
 }
@@ -227,9 +294,14 @@ if ($state['nextIndex'] < $totalChunks) {
     ]);
 }
 
+if (!assembleChunks($state, $totalChunks)) {
+    chunkJson(['error' => '無法合併片段，請稍後重試'], 500);
+}
+
 if (!@rename($state['partPath'], $state['finalPath'])) {
     chunkJson(['error' => '分段已收齊，但無法完成檔案合併'], 500);
 }
+rrmdir($state['chunkDir']);
 @unlink($statePath);
 
 $response = [
