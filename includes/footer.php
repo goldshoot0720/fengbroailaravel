@@ -603,9 +603,9 @@ try {
     async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
         function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-        chunkSize = chunkSize || (2 * 1024 * 1024); // 2 MB, safer for free hosts with 10MB request limits.
+        chunkSize = chunkSize || (512 * 1024); // 512 KB, safer for free hosts that reject larger POST bodies.
         options = options || {};
-        const maxRetries = options.maxRetries || 5;
+        const maxRetries = options.maxRetries || 8;
 
         const debug = function (payload) {
             try {
@@ -692,7 +692,10 @@ try {
                                 message: networkError && networkError.message ? networkError.message : String(networkError)
                             });
                         }
-                        await sleep(Math.min(12000, 1500 * attempt));
+                        const retryDelay = lastResp && lastResp.status === 503
+                            ? Math.min(30000, 5000 * attempt)
+                            : Math.min(12000, 1500 * attempt);
+                        await sleep(retryDelay);
                     }
                 };
 

@@ -125,7 +125,9 @@
             importUrl: importUrl || '',
             userAgent: navigator.userAgent
         });
+        let lastChunkActivityAt = Date.now();
         window.__zipDebugHook = function (entry) {
+            lastChunkActivityAt = Date.now();
             addZipDebug('chunk_' + (entry && entry.stage ? entry.stage : 'event'), entry || {});
         };
 
@@ -140,11 +142,18 @@
         actions.style.display = 'none';
         modal.style.display = 'flex';
         let hasProgress = false;
-        const stuckTimer = setTimeout(function () {
-            if (hasProgress) return;
-            addZipDebug('stuck_timeout', { message: '停留在準備分段上傳超過 60 秒' });
-            body.innerHTML = '<div style="text-align:center;padding:30px;color:#f39c12;"><i class="fa-solid fa-triangle-exclamation fa-2x"></i><br>卡在「準備分段上傳」超過 60 秒，請將以下 debug 提供給工程師。' + renderZipDebugBox() + '</div>';
-        }, 60000);
+        const stuckTimer = setInterval(function () {
+            if (hasProgress) {
+                clearInterval(stuckTimer);
+                return;
+            }
+            if (Date.now() - lastChunkActivityAt < 120000) {
+                return;
+            }
+            clearInterval(stuckTimer);
+            addZipDebug('stuck_timeout', { message: '分段上傳 120 秒沒有任何請求活動' });
+            body.innerHTML = '<div style="text-align:center;padding:30px;color:#f39c12;"><i class="fa-solid fa-triangle-exclamation fa-2x"></i><br>分段上傳 120 秒沒有任何請求活動，請將以下 debug 提供給工程師。' + renderZipDebugBox() + '</div>';
+        }, 30000);
 
         // Step 1: chunked upload to upload_chunk.php
         uploadChunked(
@@ -152,7 +161,7 @@
             // onProgress
             function (done, total, percent) {
                 hasProgress = true;
-                clearTimeout(stuckTimer);
+                clearInterval(stuckTimer);
                 body.innerHTML = '<div style="text-align:center;padding:30px;">' +
                     '<i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>' +
                     '上傳中... ' + percent + '% &nbsp;<small style="color:#aaa;">片段 ' + done + ' / ' + total + '</small>' +
@@ -161,7 +170,7 @@
             },
             // onDone: all chunks assembled, now preview
             function (tempFile) {
-                clearTimeout(stuckTimer);
+                clearInterval(stuckTimer);
                 body.innerHTML = '<div style="text-align:center;padding:30px;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>正在分析 ZIP 內容...</div>';
 
                 const finalType = String(type || _zipPreviewType || '').trim();
@@ -208,7 +217,7 @@
             },
             // onError
             function (errMsg) {
-                clearTimeout(stuckTimer);
+                clearInterval(stuckTimer);
                 const msg = String(errMsg || '');
                 if (msg.indexOf('HTTP 404') !== -1) {
                     addZipDebug('chunk_404_fallback', { error: msg });
