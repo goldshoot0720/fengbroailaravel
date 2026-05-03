@@ -7,6 +7,7 @@ $sleepWarningClass = '';
 $currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
 $currentHost = preg_replace('/:\d+$/', '', $currentHost);
 $serviceCountdown = null;
+$serviceNotice = null;
 
 if ($currentHour >= 0 && $currentHour <= 2) {
     $sleepWarningClass = 'sleep-warning-yellow';
@@ -27,6 +28,10 @@ $countdownTargets = [
     ],
 ];
 
+$noticeTargets = [
+    'tpe12thmayor2025to2038.cloudaccess.host' => '每月月底之前確認網站效期',
+];
+
 if (isset($countdownTargets[$currentHost])) {
     $targetConfig = $countdownTargets[$currentHost];
     $todayTaipei = $nowTaipei->setTime(0, 0);
@@ -39,12 +44,23 @@ if (isset($countdownTargets[$currentHost])) {
         'label' => $targetConfig['label'],
     ];
 }
+
+if (isset($noticeTargets[$currentHost])) {
+    $serviceNotice = $noticeTargets[$currentHost];
+}
 ?>
 
 <?php if ($sleepWarningClass): ?>
     <div class="sleep-warning <?= $sleepWarningClass ?>" role="alert">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <strong>請入睡</strong>
+    </div>
+<?php endif; ?>
+
+<?php if ($serviceNotice): ?>
+    <div class="service-notice" role="status">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <strong><?php echo htmlspecialchars($serviceNotice); ?></strong>
     </div>
 <?php endif; ?>
 
@@ -60,7 +76,6 @@ if (isset($countdownTargets[$currentHost])) {
         </div>
     </div>
 <?php endif; ?>
-
 <div class="content-header">
     <div class="page-intro">
         <span class="eyebrow">WELCOME</span>
@@ -151,6 +166,36 @@ if (isset($countdownTargets[$currentHost])) {
         background: linear-gradient(180deg, rgba(127, 29, 29, 0.78), rgba(153, 27, 27, 0.86));
         border-color: rgba(248, 113, 113, 0.4);
         color: #fee2e2;
+    }
+
+    .service-notice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid rgba(245, 158, 11, 0.36);
+        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
+        color: #78350f;
+        box-shadow: 0 16px 38px rgba(120, 53, 15, 0.12);
+        font-size: 1.05rem;
+    }
+
+    .service-notice i {
+        color: #d97706;
+        font-size: 1.2rem;
+    }
+
+    [data-theme="dark"] .service-notice {
+        background: linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(69, 26, 3, 0.82));
+        border-color: rgba(251, 191, 36, 0.32);
+        color: #fef3c7;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .service-notice i {
+        color: #fde68a;
     }
 
     .service-countdown {
