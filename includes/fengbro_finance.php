@@ -3,17 +3,19 @@
 function fengbroFinanceItems()
 {
     return [
-        ['name' => 'Nikkei 225 Index', 'symbol' => '.N225', 'url' => 'https://www.cnbc.com/quotes/.N225', 'group' => 'Asia'],
-        ['name' => 'KOSPI Index', 'symbol' => '.KS11', 'url' => 'https://www.cnbc.com/quotes/.KS11?qsearchterm=kospi', 'group' => 'Asia'],
-        ['name' => 'ICE Brent Crude', 'symbol' => '@LCO.1', 'url' => 'https://www.cnbc.com/quotes/@LCO.1', 'group' => 'Commodities'],
-        ['name' => 'U.S. 30 Year Treasury', 'symbol' => 'US30Y', 'url' => 'https://www.cnbc.com/quotes/US30Y', 'group' => 'Rates'],
-        ['name' => 'Gold COMEX', 'symbol' => '@GC.1', 'url' => 'https://www.cnbc.com/quotes/@GC.1', 'group' => 'Commodities'],
-        ['name' => 'Dow Jones Industrial Average', 'symbol' => '.DJI', 'url' => 'https://www.cnbc.com/quotes/.DJI', 'group' => 'US Index'],
-        ['name' => 'S&P 500 Index', 'symbol' => '.SPX', 'url' => 'https://www.cnbc.com/quotes/.SPX', 'group' => 'US Index'],
-        ['name' => 'NASDAQ Composite', 'symbol' => '.IXIC', 'url' => 'https://www.cnbc.com/quotes/.IXIC', 'group' => 'US Index'],
-        ['name' => 'CBOE Volatility Index', 'symbol' => 'VIX', 'url' => 'https://www.cnbc.com/quotes/VIX', 'group' => 'Volatility'],
-        ['name' => 'Bitcoin/USD Coin Metrics', 'symbol' => 'BTC.CM=', 'url' => 'https://www.cnbc.com/quotes/BTC.CM=', 'group' => 'Crypto'],
-        ['name' => 'Ether/USD Coin Metrics', 'symbol' => 'ETH.CM=', 'url' => 'https://www.cnbc.com/quotes/ETH.CM=', 'group' => 'Crypto'],
+        ['name' => '加權指數', 'symbol' => '^TWII', 'url' => 'https://tw.stock.yahoo.com/s/tse.php', 'group' => 'Taiwan', 'source' => 'Yahoo股市', 'parser' => 'yahoo_tw', 'apiSymbol' => '^TWII'],
+        ['name' => '台積電', 'symbol' => '2330.TW', 'url' => 'https://tw.stock.yahoo.com/quote/2330.TW', 'group' => 'Taiwan', 'source' => 'Yahoo股市', 'parser' => 'yahoo_tw', 'apiSymbol' => '2330.TW'],
+        ['name' => 'Nikkei 225 Index', 'symbol' => '.N225', 'url' => 'https://www.cnbc.com/quotes/.N225', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'KOSPI Index', 'symbol' => '.KS11', 'url' => 'https://www.cnbc.com/quotes/.KS11?qsearchterm=kospi', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'ICE Brent Crude', 'symbol' => '@LCO.1', 'url' => 'https://www.cnbc.com/quotes/@LCO.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'U.S. 30 Year Treasury', 'symbol' => 'US30Y', 'url' => 'https://www.cnbc.com/quotes/US30Y', 'group' => 'Rates', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'Gold COMEX', 'symbol' => '@GC.1', 'url' => 'https://www.cnbc.com/quotes/@GC.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'Dow Jones Industrial Average', 'symbol' => '.DJI', 'url' => 'https://www.cnbc.com/quotes/.DJI', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'S&P 500 Index', 'symbol' => '.SPX', 'url' => 'https://www.cnbc.com/quotes/.SPX', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'NASDAQ Composite', 'symbol' => '.IXIC', 'url' => 'https://www.cnbc.com/quotes/.IXIC', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'CBOE Volatility Index', 'symbol' => 'VIX', 'url' => 'https://www.cnbc.com/quotes/VIX', 'group' => 'Volatility', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'Bitcoin/USD Coin Metrics', 'symbol' => 'BTC.CM=', 'url' => 'https://www.cnbc.com/quotes/BTC.CM=', 'group' => 'Crypto', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'Ether/USD Coin Metrics', 'symbol' => 'ETH.CM=', 'url' => 'https://www.cnbc.com/quotes/ETH.CM=', 'group' => 'Crypto', 'source' => 'CNBC', 'parser' => 'cnbc'],
     ];
 }
 
@@ -52,7 +54,11 @@ function fengbroFinanceFetchUrl($url, $timeout = 8)
             CURLOPT_CONNECTTIMEOUT => $timeout,
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_USERAGENT => 'Mozilla/5.0 FengbroAI/1.0',
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 FengbroAI/1.0',
+            CURLOPT_HTTPHEADER => [
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+                'Accept-Language: zh-TW,zh;q=0.9,en;q=0.8',
+            ],
         ]);
         $body = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -63,7 +69,7 @@ function fengbroFinanceFetchUrl($url, $timeout = 8)
     $context = stream_context_create([
         'http' => [
             'timeout' => $timeout,
-            'header' => "User-Agent: Mozilla/5.0 FengbroAI/1.0\r\n",
+            'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) FengbroAI/1.0\r\nAccept-Language: zh-TW,zh;q=0.9,en;q=0.8\r\n",
         ],
     ]);
     $body = @file_get_contents($url, false, $context);
@@ -79,8 +85,18 @@ function fengbroFinanceText($html)
 
 function fengbroFinanceNumber($value)
 {
-    $clean = str_replace([',', '%'], '', (string) $value);
+    $clean = str_replace([',', '%', '−', '－'], ['', '', '-', '-'], (string) $value);
     return is_numeric($clean) ? (float) $clean : null;
+}
+
+function fengbroFinanceFormatNumber($value, $decimals = 2)
+{
+    if ($value === null || $value === '') {
+        return '';
+    }
+    $number = (float) $value;
+    $fixed = number_format($number, $decimals);
+    return rtrim(rtrim($fixed, '0'), '.');
 }
 
 function fengbroFinanceFindNumber($text, $labels)
@@ -114,7 +130,7 @@ function fengbroFinanceFindMainValue($text, $label)
     return fengbroFinanceFindNumber($text, [$label]);
 }
 
-function fengbroFinanceParseQuote($item)
+function fengbroFinanceParseCnbcQuote($item)
 {
     $html = fengbroFinanceFetchUrl($item['url']);
     $text = fengbroFinanceText($html);
@@ -155,6 +171,7 @@ function fengbroFinanceParseQuote($item)
         'name' => $item['name'],
         'symbol' => $item['symbol'],
         'group' => $item['group'],
+        'source' => $item['source'] ?? 'CNBC',
         'url' => $item['url'],
         'valueLabel' => $valueLabel,
         'value' => $value,
@@ -169,6 +186,144 @@ function fengbroFinanceParseQuote($item)
         'status' => $status,
         'error' => $value === '' ? '暫時抓不到 CNBC 報價' : '',
     ];
+}
+
+function fengbroFinanceFindTwNumber($text, $labels)
+{
+    foreach ((array) $labels as $label) {
+        if (preg_match('/' . preg_quote($label, '/') . '\s*([+-]?\d[\d,]*(?:\.\d+)?%?)/u', $text, $m)) {
+            return $m[1];
+        }
+    }
+    return '';
+}
+
+function fengbroFinanceYahooChart($symbol)
+{
+    if (!$symbol) {
+        return [];
+    }
+
+    $url = 'https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($symbol) . '?range=1y&interval=1d';
+    $json = fengbroFinanceFetchUrl($url);
+    $data = json_decode($json, true);
+    $result = $data['chart']['result'][0] ?? null;
+    if (!$result) {
+        return [];
+    }
+
+    $meta = $result['meta'] ?? [];
+    $quote = $result['indicators']['quote'][0] ?? [];
+    $highs = array_values(array_filter($quote['high'] ?? [], 'is_numeric'));
+    $lows = array_values(array_filter($quote['low'] ?? [], 'is_numeric'));
+    $closes = array_values(array_filter($quote['close'] ?? [], 'is_numeric'));
+    $marketPrice = $meta['regularMarketPrice'] ?? null;
+    $prevClose = $meta['regularMarketPreviousClose'] ?? null;
+    if ($prevClose === null && $closes) {
+        $lastIndex = count($closes) - 1;
+        $lastClose = (float) $closes[$lastIndex];
+        if ($marketPrice !== null && abs($lastClose - (float) $marketPrice) < 0.01 && $lastIndex > 0) {
+            $prevClose = $closes[$lastIndex - 1];
+        } else {
+            $prevClose = $lastClose;
+        }
+    }
+
+    return [
+        'value' => $marketPrice,
+        'open' => $meta['regularMarketOpen'] ?? null,
+        'dayHigh' => $meta['regularMarketDayHigh'] ?? null,
+        'dayLow' => $meta['regularMarketDayLow'] ?? null,
+        'prevClose' => $prevClose,
+        'high52' => $meta['fiftyTwoWeekHigh'] ?? ($highs ? max($highs) : null),
+        'low52' => $meta['fiftyTwoWeekLow'] ?? ($lows ? min($lows) : null),
+    ];
+}
+
+function fengbroFinanceParseYahooTwQuote($item)
+{
+    $html = fengbroFinanceFetchUrl($item['url']);
+    $text = fengbroFinanceText($html);
+    $chart = fengbroFinanceYahooChart($item['apiSymbol'] ?? $item['symbol']);
+
+    $value = '';
+    if (($item['symbol'] ?? '') === '2330.TW') {
+        $value = fengbroFinanceFindTwNumber($text, ['成交']);
+    } elseif (preg_match('/加權指數\s+([+-]?\d[\d,]*(?:\.\d+)?)/u', $text, $m)) {
+        $value = $m[1] !== '-' ? $m[1] : '';
+    }
+    if ($value === '' && isset($chart['value'])) {
+        $value = fengbroFinanceFormatNumber($chart['value'], 2);
+    }
+
+    $open = fengbroFinanceFindTwNumber($text, ['開盤']);
+    $dayHigh = fengbroFinanceFindTwNumber($text, ['最高']);
+    $dayLow = fengbroFinanceFindTwNumber($text, ['最低']);
+    $prevClose = fengbroFinanceFindTwNumber($text, ['昨收']);
+    $change = fengbroFinanceFindTwNumber($text, ['漲跌']);
+    $changePercent = fengbroFinanceFindTwNumber($text, ['漲跌幅']);
+
+    if ($open === '' && isset($chart['open'])) {
+        $open = fengbroFinanceFormatNumber($chart['open'], 2);
+    }
+    if ($dayHigh === '' && isset($chart['dayHigh'])) {
+        $dayHigh = fengbroFinanceFormatNumber($chart['dayHigh'], 2);
+    }
+    if ($dayLow === '' && isset($chart['dayLow'])) {
+        $dayLow = fengbroFinanceFormatNumber($chart['dayLow'], 2);
+    }
+    if ($prevClose === '' && isset($chart['prevClose'])) {
+        $prevClose = fengbroFinanceFormatNumber($chart['prevClose'], 2);
+    }
+
+    $valueNumber = fengbroFinanceNumber($value);
+    $prevCloseNumber = fengbroFinanceNumber($prevClose);
+    if ($change === '' && $valueNumber !== null && $prevCloseNumber !== null) {
+        $change = fengbroFinanceFormatNumber($valueNumber - $prevCloseNumber, 2);
+    }
+    if ($changePercent === '' && $valueNumber !== null && $prevCloseNumber !== null && $prevCloseNumber != 0.0) {
+        $changePercent = fengbroFinanceFormatNumber((($valueNumber - $prevCloseNumber) / $prevCloseNumber) * 100, 2) . '%';
+    }
+
+    $high52 = isset($chart['high52']) ? fengbroFinanceFormatNumber($chart['high52'], 2) : '';
+    $low52 = isset($chart['low52']) ? fengbroFinanceFormatNumber($chart['low52'], 2) : '';
+    $highNumber = fengbroFinanceNumber($high52);
+    $lowNumber = fengbroFinanceNumber($low52);
+    $status = '';
+    if ($valueNumber !== null && $highNumber !== null && $valueNumber >= $highNumber) {
+        $status = '創新高';
+    } elseif ($valueNumber !== null && $lowNumber !== null && $valueNumber <= $lowNumber) {
+        $status = '創新低';
+    }
+
+    return [
+        'name' => $item['name'],
+        'symbol' => $item['symbol'],
+        'group' => $item['group'],
+        'source' => $item['source'] ?? 'Yahoo股市',
+        'url' => $item['url'],
+        'valueLabel' => '成交',
+        'value' => $value,
+        'change' => $change,
+        'changePercent' => $changePercent,
+        'open' => $open,
+        'dayHigh' => $dayHigh,
+        'dayLow' => $dayLow,
+        'prevClose' => $prevClose,
+        'high52' => $high52,
+        'low52' => $low52,
+        'status' => $status,
+        'error' => $value === '' ? '暫時抓不到 Yahoo 台股報價' : '',
+    ];
+}
+
+function fengbroFinanceParseQuote($item)
+{
+    if (($item['parser'] ?? 'cnbc') === 'yahoo_tw') {
+        return fengbroFinanceParseYahooTwQuote($item);
+    }
+
+    return fengbroFinanceParseCnbcQuote($item);
 }
 
 function fengbroFinanceGetData($force = false)
@@ -187,7 +342,7 @@ function fengbroFinanceGetData($force = false)
     $data = [
         'checkedAt' => date('Y-m-d H:i:s'),
         'quotes' => $quotes,
-        'source' => 'CNBC',
+        'source' => 'CNBC / Yahoo股市',
     ];
     $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
     fengbroFinanceWriteCache($cache);
