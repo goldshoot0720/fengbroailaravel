@@ -1814,3 +1814,205 @@ table.desktop-only {
         flex: 1 1 calc(50% - 6px);
     }
 }
+
+.voice-fab {
+    position: fixed;
+    right: 18px;
+    bottom: 86px;
+    z-index: 99990;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    color: #fff;
+    box-shadow: 0 18px 38px rgba(37, 99, 235, 0.28);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.voice-fab i {
+    font-size: 1.05rem;
+}
+
+.voice-fab.listening {
+    background: linear-gradient(135deg, #dc2626, #f97316);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.12), 0 18px 38px rgba(220, 38, 38, 0.26);
+}
+
+.voice-panel {
+    position: fixed;
+    right: 18px;
+    bottom: 144px;
+    z-index: 99991;
+    width: min(420px, calc(100vw - 32px));
+    max-height: min(72vh, 620px);
+    overflow: auto;
+    display: none;
+    padding: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #0f172a;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+    backdrop-filter: blur(18px);
+}
+
+[data-theme="dark"] .voice-panel {
+    background: rgba(15, 23, 42, 0.94);
+    color: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
+.voice-panel.show {
+    display: block;
+}
+
+.voice-panel-head,
+.voice-confirm-actions,
+.voice-manual {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.voice-panel-head {
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.voice-panel-head strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+}
+
+.voice-icon-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.18);
+    color: inherit;
+    cursor: pointer;
+}
+
+.voice-status,
+.voice-transcript,
+.voice-confirm {
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+
+.voice-status {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
+[data-theme="dark"] .voice-status {
+    color: #bfdbfe;
+}
+
+.voice-status[data-kind="active"] {
+    background: rgba(14, 165, 233, 0.16);
+}
+
+.voice-status[data-kind="success"] {
+    background: rgba(16, 185, 129, 0.14);
+    color: #047857;
+}
+
+.voice-status[data-kind="error"] {
+    background: rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+}
+
+.voice-status[data-kind="confirm"] {
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+}
+
+.voice-transcript {
+    min-height: 42px;
+    background: rgba(148, 163, 184, 0.12);
+    color: inherit;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.voice-confirm {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.voice-confirm-actions {
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.voice-hints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 12px;
+}
+
+.voice-chip {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: rgba(248, 250, 252, 0.85);
+    color: #0f172a;
+    padding: 7px 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+[data-theme="dark"] .voice-chip {
+    background: rgba(30, 41, 59, 0.88);
+    color: #f8fafc;
+}
+
+.voice-manual input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    padding: 10px 13px;
+    background: rgba(255, 255, 255, 0.9);
+    color: inherit;
+}
+
+[data-theme="dark"] .voice-manual input {
+    background: rgba(15, 23, 42, 0.9);
+}
+
+@media (max-width: 768px) {
+    .voice-fab {
+        right: 12px;
+        bottom: 86px;
+        min-height: 44px;
+        padding: 0 14px;
+    }
+
+    .voice-panel {
+        right: 12px;
+        left: 12px;
+        bottom: 138px;
+        width: auto;
+        max-height: 66vh;
+    }
+
+    .voice-manual {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
