@@ -1,10 +1,12 @@
 <?php
 $pageTitle = '鋒兄工具';
 require_once __DIR__ . '/../includes/fengbro_tube.php';
+require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $toolSubpage = $_GET['tool'] ?? 'price';
-$toolSubpage = in_array($toolSubpage, ['price', 'tube'], true) ? $toolSubpage : 'price';
+$toolSubpage = in_array($toolSubpage, ['price', 'tube', 'finance'], true) ? $toolSubpage : 'price';
 $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])) : null;
+$financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['refresh'])) : null;
 ?>
 
 <div class="content-header">
@@ -21,6 +23,9 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
         </a>
         <a class="tools-subnav-link <?php echo $toolSubpage === 'tube' ? 'active' : ''; ?>" href="index.php?page=tools&tool=tube">
             <i class="fa-brands fa-youtube"></i> 鋒兄tube
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'finance' ? 'active' : ''; ?>" href="index.php?page=tools&tool=finance">
+            <i class="fa-solid fa-chart-line"></i> 鋒兄金融
         </a>
     </div>
 
@@ -51,7 +56,17 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
                 <section class="card tube-channel-card">
                     <div class="tube-channel-head">
                         <div>
-                            <h3 class="card-title"><?php echo $channel['name']; ?></h3>
+                            <h3 class="card-title tube-channel-title">
+                                <span><?php echo $channel['name']; ?></span>
+                                <?php if (!empty($channel['updateBadge']['label'])): ?>
+                                    <span class="tube-update-badge" title="<?php echo htmlspecialchars($channel['updateBadge']['title'] ?? ''); ?>">
+                                        <?php echo htmlspecialchars($channel['updateBadge']['label']); ?>
+                                        <?php if (!empty($channel['updateBadge']['value'])): ?>
+                                            <?php echo htmlspecialchars($channel['updateBadge']['value']); ?>
+                                        <?php endif; ?>
+                                    </span>
+                                <?php endif; ?>
+                            </h3>
                             <a href="<?php echo htmlspecialchars($channel['url']); ?>" target="_blank" rel="noopener">開啟頻道</a>
                         </div>
                         <span><?php echo count($channel['videos'] ?? []); ?> 部</span>
@@ -73,6 +88,61 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
                                     </span>
                                 </a>
                             <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endforeach; ?>
+        </div>
+    <?php elseif ($toolSubpage === 'finance'): ?>
+        <section class="card finance-overview">
+            <div class="finance-overview-copy">
+                <h3 class="card-title"><i class="fa-solid fa-chart-line"></i> 鋒兄金融</h3>
+                <p>集中追蹤 CNBC 參考來源的主要市場指標，若目前值觸及 52 週高低點會標註創新高或創新低。</p>
+                <span>最後檢查：<?php echo htmlspecialchars($financeData['checkedAt'] ?? '-'); ?> · 來源：CNBC</span>
+            </div>
+            <a class="btn btn-ghost" href="index.php?page=tools&tool=finance&refresh=1">
+                <i class="fa-solid fa-rotate-right"></i> 重新檢查
+            </a>
+        </section>
+
+        <div class="finance-grid">
+            <?php foreach (($financeData['quotes'] ?? []) as $quote): ?>
+                <?php
+                $changeText = trim(($quote['change'] ?? '') . ' ' . ($quote['changePercent'] ?? ''));
+                $changeNumber = isset($quote['change']) ? (float) str_replace(',', '', (string) $quote['change']) : 0;
+                $tone = $changeNumber > 0 ? 'up' : ($changeNumber < 0 ? 'down' : 'flat');
+                ?>
+                <section class="finance-card <?php echo $tone; ?>">
+                    <div class="finance-card-head">
+                        <div>
+                            <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?></span>
+                            <h3><?php echo htmlspecialchars($quote['name']); ?></h3>
+                            <a href="<?php echo htmlspecialchars($quote['url']); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($quote['symbol']); ?></a>
+                        </div>
+                        <?php if (!empty($quote['status'])): ?>
+                            <strong class="finance-status <?php echo $quote['status'] === '創新高' ? 'high' : 'low'; ?>">
+                                <?php echo htmlspecialchars($quote['status']); ?>
+                            </strong>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php if (!empty($quote['error'])): ?>
+                        <p class="finance-empty"><?php echo htmlspecialchars($quote['error']); ?></p>
+                    <?php else: ?>
+                        <div class="finance-value-row">
+                            <span><?php echo htmlspecialchars($quote['valueLabel']); ?></span>
+                            <strong><?php echo htmlspecialchars($quote['value']); ?></strong>
+                        </div>
+                        <div class="finance-change <?php echo $tone; ?>">
+                            <?php echo $changeText !== '' ? htmlspecialchars($changeText) : '變動暫無資料'; ?>
+                        </div>
+                        <div class="finance-stats">
+                            <span>Open <b><?php echo htmlspecialchars($quote['open'] ?: '-'); ?></b></span>
+                            <span>Day High <b><?php echo htmlspecialchars($quote['dayHigh'] ?: '-'); ?></b></span>
+                            <span>Day Low <b><?php echo htmlspecialchars($quote['dayLow'] ?: '-'); ?></b></span>
+                            <span>Prev Close <b><?php echo htmlspecialchars($quote['prevClose'] ?: '-'); ?></b></span>
+                            <span>52W High <b><?php echo htmlspecialchars($quote['high52'] ?: '-'); ?></b></span>
+                            <span>52W Low <b><?php echo htmlspecialchars($quote['low52'] ?: '-'); ?></b></span>
                         </div>
                     <?php endif; ?>
                 </section>
@@ -256,6 +326,13 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
         text-decoration: none;
     }
 
+    .tube-channel-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
     .tube-channel-head span {
         flex: 0 0 auto;
         padding: 6px 10px;
@@ -263,6 +340,24 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
         background: var(--accent-soft);
         color: var(--accent);
         font-weight: 800;
+    }
+
+    .tube-update-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+        font-size: 0.8rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    [data-theme="dark"] .tube-update-badge {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
     }
 
     .tube-video-list {
@@ -311,10 +406,158 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
         font-weight: 700;
     }
 
+    .finance-overview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+    }
+
+    .finance-overview-copy {
+        display: grid;
+        gap: 6px;
+    }
+
+    .finance-overview-copy p,
+    .finance-overview-copy span,
+    .finance-empty {
+        color: var(--muted-text);
+    }
+
+    .finance-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .finance-card {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        background: var(--card-bg);
+        box-shadow: 0 12px 26px var(--shadow);
+    }
+
+    .finance-card.up {
+        border-color: rgba(16, 185, 129, 0.26);
+    }
+
+    .finance-card.down {
+        border-color: rgba(239, 68, 68, 0.24);
+    }
+
+    .finance-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .finance-card-head h3 {
+        margin: 4px 0;
+        font-size: 1rem;
+        line-height: 1.35;
+    }
+
+    .finance-card-head a {
+        color: var(--accent);
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .finance-group {
+        display: inline-flex;
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 900;
+    }
+
+    .finance-status {
+        flex: 0 0 auto;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .finance-status.high {
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+    }
+
+    .finance-status.low {
+        background: rgba(239, 68, 68, 0.14);
+        color: #b91c1c;
+    }
+
+    .finance-value-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: var(--input-bg);
+    }
+
+    .finance-value-row span {
+        color: var(--muted-text);
+        font-weight: 800;
+    }
+
+    .finance-value-row strong {
+        font-size: 1.65rem;
+        line-height: 1;
+    }
+
+    .finance-change {
+        font-weight: 900;
+    }
+
+    .finance-change.up {
+        color: #059669;
+    }
+
+    .finance-change.down {
+        color: #dc2626;
+    }
+
+    .finance-change.flat {
+        color: var(--muted-text);
+    }
+
+    .finance-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .finance-stats span {
+        display: grid;
+        gap: 3px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: var(--input-bg);
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .finance-stats b {
+        color: var(--text-color);
+        font-size: 0.9rem;
+    }
+
     @media (max-width: 560px) {
         .tube-overview,
         .tube-channel-head,
-        .tube-new-alert {
+        .tube-new-alert,
+        .finance-overview,
+        .finance-card-head {
             align-items: flex-start;
             flex-direction: column;
         }
@@ -325,6 +568,15 @@ $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])
 
         .tube-video-item img {
             width: 100%;
+        }
+
+        .finance-value-row {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .finance-stats {
+            grid-template-columns: 1fr;
         }
     }
 </style>

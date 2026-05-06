@@ -4,7 +4,7 @@ function fengbroTubeChannels()
 {
     return [
         ['name' => 'SJdiao', 'url' => 'https://www.youtube.com/@SJdiao/videos'],
-        ['name' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
+        ['name' => '一个狠人', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
         ['name' => 'libertas1984', 'url' => 'https://www.youtube.com/@libertas1984/videos'],
         ['name' => 'sunlao', 'url' => 'https://www.youtube.com/@sunlao/videos'],
         ['name' => 'Torontobigface', 'url' => 'https://www.youtube.com/@Torontobigface/videos'],
@@ -155,6 +155,27 @@ function fengbroTubeParseFeed($xmlText, $limit = 10)
     return $videos;
 }
 
+function fengbroTubeExtractUpdateBadge($channel, $videos)
+{
+    $handle = strtolower((string) ($channel['handle'] ?? ''));
+    if ($handle !== 'henren778') {
+        return [];
+    }
+
+    foreach ($videos as $video) {
+        $title = (string) ($video['title'] ?? '');
+        if (preg_match('/倒台指[數数]\D*(\d+(?:\.\d+)?)/u', $title, $m)) {
+            return [
+                'label' => '更新',
+                'value' => $m[1],
+                'title' => $title,
+            ];
+        }
+    }
+
+    return [];
+}
+
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
@@ -185,12 +206,15 @@ function fengbroTubeGetData($force = false)
                 ];
             }
         }
+        $updateBadge = fengbroTubeExtractUpdateBadge($channel, $videos);
         $channels[] = [
             'name' => $channel['name'],
+            'handle' => $channel['handle'] ?? '',
             'url' => $channel['url'],
             'channelId' => $channelId,
             'videos' => $videos,
             'error' => $error,
+            'updateBadge' => $updateBadge,
         ];
     }
 
