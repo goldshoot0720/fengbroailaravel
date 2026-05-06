@@ -1,4 +1,11 @@
-<?php $pageTitle = '鋒兄工具'; ?>
+<?php
+$pageTitle = '鋒兄工具';
+require_once __DIR__ . '/../includes/fengbro_tube.php';
+
+$toolSubpage = $_GET['tool'] ?? 'price';
+$toolSubpage = in_array($toolSubpage, ['price', 'tube'], true) ? $toolSubpage : 'price';
+$tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])) : null;
+?>
 
 <div class="content-header">
     <div>
@@ -8,6 +15,70 @@
 </div>
 
 <div class="content-body">
+    <div class="tools-subnav">
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'price' ? 'active' : ''; ?>" href="index.php?page=tools&tool=price">
+            <i class="fa-solid fa-tags"></i> 鋒兄比價
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'tube' ? 'active' : ''; ?>" href="index.php?page=tools&tool=tube">
+            <i class="fa-brands fa-youtube"></i> 鋒兄tube
+        </a>
+    </div>
+
+    <?php if ($toolSubpage === 'tube'): ?>
+        <section class="card tube-overview">
+            <div class="tube-overview-copy">
+                <h3 class="card-title"><i class="fa-brands fa-youtube"></i> 鋒兄tube</h3>
+                <p>集中查看指定 YouTube 頻道最新影片，每個頻道最多顯示 10 部。首頁會提示 3 天內的新影片。</p>
+                <span>最後檢查：<?php echo htmlspecialchars($tubeData['checkedAt'] ?? '-'); ?></span>
+            </div>
+            <a class="btn btn-ghost" href="index.php?page=tools&tool=tube&refresh=1">
+                <i class="fa-solid fa-rotate-right"></i> 重新檢查
+            </a>
+        </section>
+
+        <?php if (!empty($tubeData['newVideos'])): ?>
+            <section class="tube-new-alert">
+                <i class="fa-solid fa-bell"></i>
+                <div>
+                    <strong>3 天內有 <?php echo count($tubeData['newVideos']); ?> 部新影片</strong>
+                    <p>首頁也會顯示這個提醒。</p>
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <div class="tube-channel-grid">
+            <?php foreach (($tubeData['channels'] ?? []) as $channel): ?>
+                <section class="card tube-channel-card">
+                    <div class="tube-channel-head">
+                        <div>
+                            <h3 class="card-title"><?php echo $channel['name']; ?></h3>
+                            <a href="<?php echo htmlspecialchars($channel['url']); ?>" target="_blank" rel="noopener">開啟頻道</a>
+                        </div>
+                        <span><?php echo count($channel['videos'] ?? []); ?> 部</span>
+                    </div>
+                    <?php if (!empty($channel['error'])): ?>
+                        <p class="tube-empty"><?php echo htmlspecialchars($channel['error']); ?></p>
+                    <?php elseif (empty($channel['videos'])): ?>
+                        <p class="tube-empty">暫時抓不到影片，稍後可重新檢查。</p>
+                    <?php else: ?>
+                        <div class="tube-video-list">
+                            <?php foreach ($channel['videos'] as $video): ?>
+                                <a class="tube-video-item <?php echo !empty($video['isNew']) ? 'is-new' : ''; ?>" href="<?php echo htmlspecialchars($video['url']); ?>" target="_blank" rel="noopener">
+                                    <?php if (!empty($video['thumbnail'])): ?>
+                                        <img src="<?php echo htmlspecialchars($video['thumbnail']); ?>" alt="">
+                                    <?php endif; ?>
+                                    <span>
+                                        <strong><?php echo htmlspecialchars($video['title']); ?></strong>
+                                        <small><?php echo htmlspecialchars($video['publishedText']); ?><?php echo !empty($video['isNew']) ? ' · 新影片' : ''; ?></small>
+                                    </span>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </section>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
         <section class="card">
             <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;">
@@ -80,6 +151,7 @@
             <p style="color: var(--muted-text);">查詢後會在這裡顯示目前解析到的價格、外部來源與歷史快照。</p>
         </div>
     </section>
+    <?php endif; ?>
 </div>
 
 <style>
@@ -104,6 +176,156 @@
 
     .food-stat-card strong {
         font-size: 1.25rem;
+    }
+
+    .tools-subnav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .tools-subnav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 999px;
+        background: var(--input-bg);
+        color: var(--text-color);
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .tools-subnav-link.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+    }
+
+    .tube-overview,
+    .tube-channel-head,
+    .tube-new-alert {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+    }
+
+    .tube-overview-copy {
+        display: grid;
+        gap: 6px;
+    }
+
+    .tube-overview-copy p,
+    .tube-overview-copy span,
+    .tube-empty,
+    .tube-new-alert p {
+        color: var(--muted-text);
+    }
+
+    .tube-new-alert {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid rgba(245, 158, 11, 0.38);
+        border-radius: 18px;
+        background: rgba(254, 243, 199, 0.68);
+        color: #92400e;
+    }
+
+    .tube-new-alert i {
+        font-size: 1.25rem;
+    }
+
+    .tube-channel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+    }
+
+    .tube-channel-card {
+        display: grid;
+        gap: 14px;
+    }
+
+    .tube-channel-head a {
+        color: var(--accent);
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .tube-channel-head span {
+        flex: 0 0 auto;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 800;
+    }
+
+    .tube-video-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .tube-video-item {
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        color: var(--text-color);
+        text-decoration: none;
+        background: var(--input-bg);
+    }
+
+    .tube-video-item.is-new {
+        border-color: rgba(245, 158, 11, 0.48);
+        background: rgba(254, 243, 199, 0.44);
+    }
+
+    .tube-video-item img {
+        width: 112px;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 10px;
+        background: var(--border-color);
+    }
+
+    .tube-video-item strong {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.35;
+    }
+
+    .tube-video-item small {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted-text);
+        font-weight: 700;
+    }
+
+    @media (max-width: 560px) {
+        .tube-overview,
+        .tube-channel-head,
+        .tube-new-alert {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .tube-video-item {
+            grid-template-columns: 1fr;
+        }
+
+        .tube-video-item img {
+            width: 100%;
+        }
     }
 </style>
 

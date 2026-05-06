@@ -1,5 +1,6 @@
 <?php
 $pageTitle = '鋒兄首頁';
+require_once __DIR__ . '/../includes/fengbro_tube.php';
 
 $nowTaipei = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
 $currentHour = (int) $nowTaipei->format('G');
@@ -8,6 +9,7 @@ $currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
 $currentHost = preg_replace('/:\d+$/', '', $currentHost);
 $serviceCountdown = null;
 $serviceNotice = null;
+$tubeNewVideos = [];
 
 if ($currentHour >= 0 && $currentHour <= 2) {
     $sleepWarningClass = 'sleep-warning-yellow';
@@ -48,6 +50,9 @@ if (isset($countdownTargets[$currentHost])) {
 if (isset($noticeTargets[$currentHost])) {
     $serviceNotice = $noticeTargets[$currentHost];
 }
+
+$tubeData = fengbroTubeGetData(false);
+$tubeNewVideos = $tubeData['newVideos'] ?? [];
 ?>
 
 <?php if ($sleepWarningClass): ?>
@@ -75,6 +80,17 @@ if (isset($noticeTargets[$currentHost])) {
             <small>天</small>
         </div>
     </div>
+<?php endif; ?>
+
+<?php if (!empty($tubeNewVideos)): ?>
+    <a class="tube-home-notice" href="index.php?page=tools&tool=tube" role="status">
+        <i class="fa-brands fa-youtube"></i>
+        <span>
+            <strong>鋒兄tube 有 <?php echo count($tubeNewVideos); ?> 部 3 天內新影片</strong>
+            <small><?php echo htmlspecialchars($tubeNewVideos[0]['channel'] ?? 'YouTube'); ?>：<?php echo htmlspecialchars($tubeNewVideos[0]['title'] ?? '最新影片'); ?></small>
+        </span>
+        <i class="fa-solid fa-arrow-right"></i>
+    </a>
 <?php endif; ?>
 <div class="content-header">
     <div class="page-intro">
@@ -249,6 +265,49 @@ if (isset($noticeTargets[$currentHost])) {
     .service-countdown-days small {
         font-size: 0.9rem;
         font-weight: 700;
+    }
+
+    .tube-home-notice {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid rgba(239, 68, 68, 0.26);
+        background: linear-gradient(180deg, rgba(254, 226, 226, 0.94), rgba(255, 247, 237, 0.76));
+        color: #7f1d1d;
+        text-decoration: none;
+        box-shadow: 0 16px 38px rgba(185, 28, 28, 0.12);
+    }
+
+    .tube-home-notice > i:first-child {
+        color: #dc2626;
+        font-size: 1.4rem;
+    }
+
+    .tube-home-notice span {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .tube-home-notice small {
+        color: #991b1b;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .tube-home-notice {
+        background: linear-gradient(180deg, rgba(127, 29, 29, 0.76), rgba(69, 26, 3, 0.76));
+        border-color: rgba(248, 113, 113, 0.32);
+        color: #fee2e2;
+    }
+
+    [data-theme="dark"] .tube-home-notice small {
+        color: #fecaca;
     }
 
     [data-theme="dark"] .service-countdown {
