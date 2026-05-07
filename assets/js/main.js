@@ -44,6 +44,9 @@ function initFengbroVoiceInput() {
     let recognition = null;
     let listening = false;
     let pendingAction = null;
+    let continuousMode = false;
+    let recognitionLanguage = localStorage.getItem('fengbro_voice_lang') || 'zh-TW';
+    let manualStop = false;
 
     const pageProfiles = {
         home: {
@@ -79,13 +82,17 @@ function initFengbroVoiceInput() {
             fields: {
                 name: ['食品', '商品', '名稱', '品名'],
                 store: ['商店', '店家'],
+                shop: ['商店', '店家'],
                 quantity: ['數量', '庫存'],
+                amount: ['數量', '庫存'],
                 price: ['價格', '金額'],
                 expiry_date: ['到期', '有效日期', '日期'],
+                todate: ['到期', '有效日期', '日期'],
                 category: ['分類', '類別'],
-                note: ['備註', '筆記']
+                note: ['備註', '筆記'],
+                photo: ['圖片', '照片', '圖片網址']
             },
-            examples: ['新增食品 牛奶 數量 2 到期 7 天', '搜尋 雞蛋', '低庫存', '已過期', '儲存']
+            examples: ['新增食品 牛奶 數量 2 到期 7 天', '搜尋 雞蛋', '低庫存', '已過期', '編輯第一筆', '儲存']
         },
         notes: {
             title: '鋒兄筆記',
@@ -354,6 +361,9 @@ function initFengbroVoiceInput() {
             '儲存',
             '下一個選單',
             '打開選單',
+            '連續聆聽',
+            '下一欄',
+            '編輯第一筆',
             '在名稱輸入 範例'
         ].concat(menuExamples).concat(pageButtons).concat(profile.examples || []);
         hints.innerHTML = unique(examples).slice(0, 18).map(function (item) {
@@ -385,19 +395,30 @@ function initFengbroVoiceInput() {
     function setupRecognition() {
         if (!SpeechRecognition || recognition) return;
         recognition = new SpeechRecognition();
-        recognition.lang = 'zh-TW';
-        recognition.continuous = false;
+        recognition.lang = recognitionLanguage;
+        recognition.continuous = continuousMode;
         recognition.interimResults = true;
         recognition.maxAlternatives = 3;
         recognition.onstart = function () {
             listening = true;
+            manualStop = false;
             updateFab();
             setPanelVisible(true);
-            setStatus('正在聽，請說出指令。', 'active');
+            setStatus(continuousMode ? '連續聆聽中，會持續接收語音指令。' : '正在聽，請說出指令。', 'active');
         };
         recognition.onend = function () {
             listening = false;
             updateFab();
+            if (continuousMode && !manualStop) {
+                setStatus('連續聆聽暫停，正在自動恢復。', 'info');
+                window.setTimeout(function () {
+                    if (!continuousMode || manualStop || listening) return;
+                    try {
+                        recognition.start();
+                    } catch (error) {}
+                }, 450);
+                return;
+            }
             setStatus('語音已停止。可再按一次繼續。', 'info');
         };
         recognition.onerror = function (event) {
@@ -434,6 +455,7 @@ function initFengbroVoiceInput() {
             return;
         }
         try {
+            manualStop = false;
             recognition.start();
         } catch (error) {
             setStatus('語音已在準備中，請稍候再試。', 'info');
@@ -441,11 +463,30 @@ function initFengbroVoiceInput() {
     }
 
     function stopListening() {
+        manualStop = true;
         if (recognition && listening) {
             recognition.stop();
         }
         listening = false;
         updateFab();
+    }
+
+    function rebuildRecognition() {
+        const wasListening = listening;
+        if (recognition) {
+            try {
+                recognition.onend = null;
+                recognition.stop();
+            } catch (error) {}
+        }
+        recognition = null;
+        setupRecognition();
+        if (wasListening && recognition) {
+            try {
+                manualStop = false;
+                recognition.start();
+            } catch (error) {}
+        }
     }
 
     function stageAction(label, callback) {
@@ -511,6 +552,7 @@ function initFengbroVoiceInput() {
 
         if (handleMenuCommand(text)) return;
         if (handleFieldCommand(text)) return;
+        if (handleItemCommand(text)) return;
         if (handlePageCommand(text)) return;
         if (handleGlobalCommand(text)) return;
         if (fillFromSpeech(text)) return;
@@ -542,6 +584,31 @@ function initFengbroVoiceInput() {
     }
 
     function handleVoicePanelCommand(text) {
+        if (/停止連續聆聽|關閉連續聆聽|停止連續|不要一直聽/.test(text)) {
+            continuousMode = false;
+            stopListening();
+            rebuildRecognition();
+            setStatus('已關閉連續聆聽。', 'success');
+            return true;
+        }
+        if (/連續聆聽|連續聽|持續聽|一直聽|免按語音/.test(text)) {
+            continuousMode = true;
+            rebuildRecognition();
+            setStatus('已開啟連續聆聽。說「停止連續聆聽」可關閉。', 'success');
+            return true;
+        }
+        if (/中文語音|切換中文|繁體中文/.test(text)) {
+            setVoiceLanguage('zh-TW', '繁體中文');
+            return true;
+        }
+        if (/英文語音|切換英文|英語/.test(text)) {
+            setVoiceLanguage('en-US', '英文');
+            return true;
+        }
+        if (/日文語音|日語|切換日文/.test(text)) {
+            setVoiceLanguage('ja-JP', '日文');
+            return true;
+        }
         if (/打開.*語音|開啟.*語音|語音面板|語音輸入/.test(text)) {
             setPanelVisible(true);
             updateHints();
@@ -558,6 +625,13 @@ function initFengbroVoiceInput() {
             return true;
         }
         return false;
+    }
+
+    function setVoiceLanguage(lang, label) {
+        recognitionLanguage = lang;
+        localStorage.setItem('fengbro_voice_lang', lang);
+        rebuildRecognition();
+        setStatus('語音辨識語言已切換為' + label + '。', 'success');
     }
 
     function handleMenuCommand(text) {
@@ -663,13 +737,49 @@ function initFengbroVoiceInput() {
     }
 
     function handleFieldCommand(text) {
+        if (/下一欄|下一個欄位|下一格|下一個輸入/.test(text)) {
+            if (focusRelativeField(1)) return true;
+        }
+        if (/上一欄|上一個欄位|上一格|上一個輸入/.test(text)) {
+            if (focusRelativeField(-1)) return true;
+        }
+        if (/清空目前欄位|清除目前欄位|清空這欄|清除這欄/.test(text)) {
+            const active = getWritableActiveElement();
+            if (active && setElementValue(active, '')) {
+                setStatus('已清空目前欄位。', 'success');
+                return true;
+            }
+        }
         const fillMatch = text.match(/^(?:在|把)?(.{1,18}?)(?:輸入|填入|填上|改成|設為|設定為|等於|是)\s*(.+)$/);
         if (fillMatch) {
             const label = fillMatch[1].replace(/欄位|輸入框|表單/g, '').trim();
-            const value = fillMatch[2].trim();
+            let value = fillMatch[2].trim();
             const field = findFieldByLabel(label);
+            if (field && /date/i.test(field.type + ' ' + field.name + ' ' + field.id + ' ' + (field.dataset ? field.dataset.field : ''))) {
+                value = parseSpokenDate(value) || value;
+            }
             if (field && setElementValue(field, value)) {
                 setStatus('已在「' + label + '」填入：' + value, 'success');
+                return true;
+            }
+        }
+
+        const appendMatch = text.match(/^(?:在)?(.{1,18}?)(?:追加|加上|補上)\s*(.+)$/);
+        if (appendMatch) {
+            const label = appendMatch[1].replace(/欄位|輸入框|表單/g, '').trim();
+            const field = findFieldByLabel(label);
+            if (field && appendToField(field, appendMatch[2].trim())) {
+                setStatus('已追加到「' + label + '」。', 'success');
+                return true;
+            }
+        }
+
+        const clearMatch = text.match(/^清(?:空|除)\s*(.+)$/);
+        if (clearMatch) {
+            const label = clearMatch[1].replace(/欄位|輸入框|表單/g, '').trim();
+            const field = findFieldByLabel(label);
+            if (field && setElementValue(field, '')) {
+                setStatus('已清空欄位：' + label, 'success');
                 return true;
             }
         }
@@ -705,6 +815,43 @@ function initFengbroVoiceInput() {
         if (/勾選|打勾|啟用|開啟/.test(text)) {
             const label = text.replace(/勾選|打勾|啟用|開啟/g, '').trim();
             if (toggleCheckboxByLabel(label, true)) return true;
+        }
+        return false;
+    }
+
+    function handleItemCommand(text) {
+        const ordinalInfo = parseOrdinal(text);
+        if (!ordinalInfo) return false;
+        const action = parseItemAction(text);
+        if (!action) return false;
+        const item = getActionableItem(ordinalInfo.index);
+        if (!item) {
+            setStatus('找不到指定的項目。', 'error');
+            return true;
+        }
+        const label = itemLabel(item) || ordinalInfo.label + '項目';
+        if (action === 'delete') {
+            stageAction('刪除 ' + label, function () { clickItemAction(item, ['刪除', 'delete', '移除']); });
+            return true;
+        }
+        if (action === 'edit') {
+            clickItemAction(item, ['編輯', 'edit', '修改']);
+            setStatus('已開啟編輯：' + label, 'success');
+            return true;
+        }
+        if (action === 'open') {
+            clickItemAction(item, ['開啟', '查看', '預覽', '連結', '播放', '下載']);
+            setStatus('已開啟：' + label, 'success');
+            return true;
+        }
+        if (action === 'select') {
+            const box = item.querySelector('input[type="checkbox"]');
+            if (box) {
+                box.checked = true;
+                box.dispatchEvent(new Event('change', { bubbles: true }));
+                setStatus('已選取：' + label, 'success');
+                return true;
+            }
         }
         return false;
     }
@@ -847,6 +994,15 @@ function initFengbroVoiceInput() {
                 return true;
             }
         }
+        const volumeMatch = text.match(/音量\s*(\d{1,3})/);
+        if (volumeMatch && setMediaVolume(Number(volumeMatch[1]))) return true;
+        if (/靜音|關靜音/.test(text) && setMediaVolume(0)) return true;
+        if (/最大聲|音量最大/.test(text) && setMediaVolume(100)) return true;
+        if (/收合播放器|縮小播放器/.test(text) && window.FengbroMedia && window.FengbroMedia.toggleCollapse) {
+            window.FengbroMedia.toggleCollapse();
+            setStatus('已切換播放器收合。', 'success');
+            return true;
+        }
         if (/播放/.test(text)) {
             if (window.FengbroMedia && window.FengbroMedia.toggle) {
                 window.FengbroMedia.toggle();
@@ -876,6 +1032,18 @@ function initFengbroVoiceInput() {
             return true;
         }
         return false;
+    }
+
+    function setMediaVolume(value) {
+        const volume = Math.max(0, Math.min(100, value)) / 100;
+        const media = Array.from(document.querySelectorAll('audio, video')).find(function (el) {
+            return !el.paused || el.currentTime > 0;
+        }) || document.querySelector('audio, video');
+        if (!media) return false;
+        media.volume = volume;
+        media.muted = volume === 0;
+        setStatus('已設定音量 ' + Math.round(volume * 100) + '。', 'success');
+        return true;
     }
 
     function handlePageCommand(text) {
@@ -914,6 +1082,32 @@ function initFengbroVoiceInput() {
             if (/推播|通知/.test(text)) return clickByText(['傳送測試推播', '傳送推播']);
             if (/金鑰|VAPID/i.test(text)) {
                 stageAction('產生 VAPID 金鑰', function () { clickByText(['產生 VAPID 金鑰', '產生金鑰']); });
+                return true;
+            }
+        }
+        if (page === 'tools') {
+            const priceMatch = text.match(/(?:比價|查價格|價格查詢)\s*(.+)$/);
+            if (priceMatch && setFieldValue('priceQuery', priceMatch[1].trim())) {
+                stageAction('查詢價格：' + priceMatch[1].trim(), function () {
+                    if (typeof window.runBigGoLookup === 'function') window.runBigGoLookup();
+                    else clickByText(['查詢價格']);
+                });
+                return true;
+            }
+            const phoneMatch = text.match(/(?:手機比價|查手機|手機查詢|通路查詢)\s*(.+)$/);
+            if (phoneMatch && setFieldValue('phoneQuery', phoneMatch[1].trim())) {
+                stageAction('查詢手機通路：' + phoneMatch[1].trim(), function () {
+                    if (typeof window.runPhoneCompare === 'function') window.runPhoneCompare();
+                    else clickByText(['查詢通路']);
+                });
+                return true;
+            }
+            if (/鋒兄tube|youtube|頻道/.test(text)) {
+                stageAction('開啟鋒兄 tube', function () { window.location.href = 'index.php?page=tools&tool=tube'; });
+                return true;
+            }
+            if (/金融|股價|匯率/.test(text)) {
+                stageAction('開啟鋒兄金融', function () { window.location.href = 'index.php?page=tools&tool=finance'; });
                 return true;
             }
         }
@@ -985,7 +1179,9 @@ function initFengbroVoiceInput() {
             const number = raw.match(/-?\d+(\.\d+)?/);
             return number ? number[0] : raw;
         }
-        if (/date|expiry|nextdate/i.test(field)) {
+        if (/date|expiry|nextdate|todate/i.test(field)) {
+            const parsed = parseSpokenDate(raw + ' ' + fullText);
+            if (parsed) return parsed;
             if (/明天/.test(raw + fullText)) return addDays(1);
             const days = (raw + fullText).match(/(\d+)\s*天/);
             if (days) return addDays(parseInt(days[1], 10));
@@ -1025,20 +1221,97 @@ function initFengbroVoiceInput() {
 
     function bestDateField(page) {
         if (page === 'subscription') return 'nextdate';
-        if (page === 'food') return 'expiry_date';
+        if (page === 'food') return 'todate';
         return 'date';
     }
 
     function addDays(days) {
         const date = new Date();
         date.setDate(date.getDate() + Number(days || 0));
-        return date.toISOString().slice(0, 10);
+        return formatLocalDate(date);
     }
 
     function addMonths(months) {
         const date = new Date();
         date.setMonth(date.getMonth() + Number(months || 0));
-        return date.toISOString().slice(0, 10);
+        return formatLocalDate(date);
+    }
+
+    function formatLocalDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+
+    function parseSpokenDate(text) {
+        const raw = normalize(text);
+        const now = new Date();
+        if (/大後天/.test(raw)) return addDays(3);
+        if (/後天/.test(raw)) return addDays(2);
+        if (/明天/.test(raw)) return addDays(1);
+        if (/今天/.test(raw)) return addDays(0);
+        if (/昨天/.test(raw)) return addDays(-1);
+        if (/月底|本月底/.test(raw)) return formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+        if (/下月底|下個月底/.test(raw)) return formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
+
+        const yearMonthDay = raw.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|號)?/);
+        if (yearMonthDay) return formatLocalDate(new Date(Number(yearMonthDay[1]), Number(yearMonthDay[2]) - 1, Number(yearMonthDay[3])));
+
+        const nextMonthDay = raw.match(/下(?:個)?月\s*(\d{1,2}|[一二三四五六七八九十兩]+)\s*(?:日|號)/);
+        if (nextMonthDay) return formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, spokenNumber(nextMonthDay[1])));
+
+        const monthDay = raw.match(/(\d{1,2}|[一二三四五六七八九十兩]+)\s*月\s*(\d{1,2}|[一二三四五六七八九十兩]+)\s*(?:日|號)?/);
+        if (monthDay) {
+            const month = spokenNumber(monthDay[1]);
+            const day = spokenNumber(monthDay[2]);
+            const date = new Date(now.getFullYear(), month - 1, day);
+            if (date < stripTime(now)) date.setFullYear(date.getFullYear() + 1);
+            return formatLocalDate(date);
+        }
+
+        const dayOnly = raw.match(/(?:本月|這個月)?\s*(\d{1,2}|[一二三四五六七八九十兩]+)\s*(?:日|號)/);
+        if (dayOnly) {
+            const date = new Date(now.getFullYear(), now.getMonth(), spokenNumber(dayOnly[1]));
+            if (date < stripTime(now)) date.setMonth(date.getMonth() + 1);
+            return formatLocalDate(date);
+        }
+
+        const dayOffset = raw.match(/(\d+|[一二三四五六七八九十兩]+)\s*天(?:後|內)?/);
+        if (dayOffset) return addDays(spokenNumber(dayOffset[1]));
+        const weekOffset = raw.match(/(\d+|[一二三四五六七八九十兩]+)\s*(?:週|周|星期)(?:後|內)/);
+        if (weekOffset) return addDays(spokenNumber(weekOffset[1]) * 7);
+        if (/下週|下周|下星期/.test(raw)) return addDays(7);
+        if (/下月|下個月/.test(raw)) return addMonths(1);
+        if (/明年|下一年/.test(raw)) {
+            const date = new Date();
+            date.setFullYear(date.getFullYear() + 1);
+            return formatLocalDate(date);
+        }
+
+        const weekdayMatch = raw.match(/下?(?:週|周|星期|禮拜)([一二三四五六日天])/);
+        if (weekdayMatch) {
+            const weekdays = { 日: 0, 天: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
+            const target = weekdays[weekdayMatch[1]];
+            let delta = (target - now.getDay() + 7) % 7;
+            if (delta === 0 || raw.indexOf('下') !== -1) delta += 7;
+            return addDays(delta);
+        }
+        return '';
+    }
+
+    function stripTime(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function spokenNumber(value) {
+        const text = String(value || '').trim();
+        if (/^\d+$/.test(text)) return Number(text);
+        const digits = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+        if (text === '十') return 10;
+        const ten = text.match(/^([一二三四五六七八九兩])?十([一二三四五六七八九])?$/);
+        if (ten) return (ten[1] ? digits[ten[1]] : 1) * 10 + (ten[2] ? digits[ten[2]] : 0);
+        return digits[text] || Number(text) || 0;
     }
 
     function setFieldValue(field, value) {
@@ -1154,6 +1427,124 @@ function initFengbroVoiceInput() {
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         el.focus({ preventScroll: true });
+        return true;
+    }
+
+    function appendToField(el, value) {
+        if (!el || el.type === 'checkbox' || el.tagName === 'SELECT') return false;
+        const prefix = el.value && !/\s$/.test(el.value) ? ' ' : '';
+        el.value = (el.value || '') + prefix + value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.focus({ preventScroll: true });
+        return true;
+    }
+
+    function focusRelativeField(delta) {
+        const fields = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="file"]), textarea, select')).filter(isUsableField);
+        if (!fields.length) return false;
+        const active = document.activeElement;
+        const current = Math.max(0, fields.indexOf(active));
+        const next = fields[(current + delta + fields.length) % fields.length];
+        next.focus();
+        next.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        setStatus(delta > 0 ? '已移到下一欄。' : '已移到上一欄。', 'success');
+        return true;
+    }
+
+    function parseOrdinal(text) {
+        if (/最後|最後一/.test(text)) return { index: -1, label: '最後一個' };
+        const compactText = compact(text);
+        const map = [
+            ['第一', 0], ['第1', 0], ['一號', 0],
+            ['第二', 1], ['第2', 1], ['二號', 1],
+            ['第三', 2], ['第3', 2], ['三號', 2],
+            ['第四', 3], ['第4', 3], ['四號', 3],
+            ['第五', 4], ['第5', 4], ['五號', 4],
+            ['第六', 5], ['第6', 5],
+            ['第七', 6], ['第7', 6],
+            ['第八', 7], ['第8', 7],
+            ['第九', 8], ['第9', 8],
+            ['第十', 9], ['第10', 9]
+        ];
+        const found = map.find(function (item) { return compactText.indexOf(item[0]) !== -1; });
+        if (found) return { index: found[1], label: found[0] };
+        const numeric = compactText.match(/第(\d+)(筆|個|項|列|張|首|部)?/);
+        if (numeric) return { index: Math.max(0, Number(numeric[1]) - 1), label: '第' + numeric[1] + '個' };
+        return null;
+    }
+
+    function parseItemAction(text) {
+        if (/刪除|移除|丟掉/.test(text)) return 'delete';
+        if (/編輯|修改|更改/.test(text)) return 'edit';
+        if (/選取|勾選|選擇/.test(text)) return 'select';
+        if (/開啟|打開|查看|預覽|播放|下載|進入/.test(text)) return 'open';
+        return null;
+    }
+
+    function getActionableItem(index) {
+        const selectors = [
+            'tr[data-id]',
+            '[data-food-item]',
+            '.sub-card',
+            '.mobile-card',
+            '.note-card',
+            '.image-card',
+            '.video-card',
+            '.music-card',
+            '.document-card',
+            '.podcast-card',
+            '.metric-card',
+            '.finance-card',
+            '.tube-channel-card',
+            '.card'
+        ];
+        const items = uniqueElements(Array.from(document.querySelectorAll(selectors.join(','))).filter(function (el) {
+            return !isHidden(el) && !el.classList.contains('inline-add-row') && !el.closest('#fengbroVoicePanel');
+        }));
+        if (!items.length) return null;
+        return index === -1 ? items[items.length - 1] : items[index] || null;
+    }
+
+    function uniqueElements(items) {
+        const seen = new Set();
+        return items.filter(function (item) {
+            if (seen.has(item)) return false;
+            seen.add(item);
+            return true;
+        });
+    }
+
+    function itemLabel(item) {
+        return (item.getAttribute('data-name') ||
+            textFromSelector(item, '.card-title, .mobile-card-title, .sub-card-title, h3, h4, strong') ||
+            (item.textContent || '').trim().slice(0, 24)).replace(/\s+/g, ' ');
+    }
+
+    function textFromSelector(root, selector) {
+        const el = root.querySelector(selector);
+        return el ? (el.textContent || '').trim() : '';
+    }
+
+    function clickItemAction(item, labels) {
+        const controls = Array.from(item.querySelectorAll('button, a, [role="button"], .card-edit-btn, .card-delete-btn, span[onclick]'));
+        const found = controls.find(function (control) {
+            if (isHidden(control)) return false;
+            const haystack = compact(elementVoiceLabel(control) + ' ' + (control.getAttribute('onclick') || '') + ' ' + control.className);
+            return labels.some(function (label) { return haystack.indexOf(compact(label)) !== -1; });
+        }) || controls.find(function (control) { return !isHidden(control); });
+        if (found) {
+            found.click();
+            return true;
+        }
+        if (labels.some(function (label) { return /開啟|查看|預覽|播放|下載/.test(label); })) {
+            const link = item.matches('a[href]') ? item : item.querySelector('a[href]');
+            if (link) {
+                link.click();
+                return true;
+            }
+        }
+        item.click();
         return true;
     }
 
