@@ -162,6 +162,27 @@ body::before {
     color: rgba(226, 232, 240, 0.45);
 }
 
+.sidebar-voice-btn {
+    width: calc(100% - 36px);
+    min-height: 42px;
+    margin: 0 18px 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    border-radius: 12px;
+    background: rgba(14, 165, 233, 0.12);
+    color: #e0f2fe;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.sidebar-voice-btn:hover {
+    background: rgba(14, 165, 233, 0.22);
+    color: #fff;
+}
+
 .menu {
     list-style: none;
     padding: 6px 12px 18px;

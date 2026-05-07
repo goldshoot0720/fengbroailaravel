@@ -43,7 +43,7 @@
     </div>
     <pre id="globalLyricsContent" class="global-lyrics-content"></pre>
 </div>
-<script src="assets/js/main.js"></script>
+<script src="assets/js/main.js?v=20260508voice"></script>
 <script src="assets/js/inline-edit.js"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->

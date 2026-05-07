@@ -37,15 +37,19 @@ $currentPage = $_GET['page'] ?? 'home';
             <h2><i class="fa-solid fa-dragon"></i> Fengbro AI</h2>
             <p>Laravel + MySQL workspace</p>
         </div>
-        <button id="darkModeToggle" class="dark-mode-btn" onclick="toggleDarkMode()">
+        <button id="darkModeToggle" class="dark-mode-btn" onclick="toggleDarkMode()" title="切換深色模式">
             <i class="fa-solid fa-moon"></i>
         </button>
     </div>
+    <button type="button" class="sidebar-voice-btn" onclick="window.FengbroVoiceInput ? window.FengbroVoiceInput.open() : document.getElementById('fengbroVoiceFab')?.click()" title="用語音操作所有選單">
+        <i class="fa-solid fa-microphone-lines"></i>
+        <span>語音操作選單</span>
+    </button>
     <div class="sidebar-section-label">Workspace</div>
     <ul class="menu">
         <?php foreach ($menuItems as $key => $item): ?>
             <li class="menu-item <?php echo $currentPage === $key ? 'active' : ''; ?>">
-                <a href="index.php?page=<?php echo $key; ?>" onclick="closeMobileMenu()">
+                <a href="index.php?page=<?php echo $key; ?>" data-voice-menu="<?php echo $key; ?>" data-voice-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>" onclick="closeMobileMenu()">
                     <i class="fa-solid <?php echo $item['icon']; ?>"></i>
                     <span class="menu-label">
                         <span class="menu-label-main"><?php echo $item['label']; ?></span>

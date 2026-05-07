@@ -228,6 +228,11 @@ function initFengbroVoiceInput() {
     };
 
     const pageOrder = Object.keys(pageProfiles);
+    const commandVerbs = ['前往', '打開', '開啟', '切換到', '切換', '去', '到', '點擊', '按下', '按', '選擇', '選取', '進入'];
+    const commonActionLabels = [
+        '新增', '儲存', '取消', '刪除', '編輯', '查看', '下載', '匯入', '匯出', '上傳',
+        '搜尋', '篩選', '重新整理', '卡片', '列表', '清單', '播放', '暫停', '關閉'
+    ];
 
     function currentPage() {
         const params = new URLSearchParams(window.location.search);
@@ -239,6 +244,18 @@ function initFengbroVoiceInput() {
             .replace(/[，。！？、,.!?]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    function compact(text) {
+        return normalize(text).toLowerCase().replace(/\s+/g, '').replace(/[()（）＋+·・_-]/g, '');
+    }
+
+    function stripCommandVerb(text) {
+        let cleaned = normalize(text);
+        commandVerbs.forEach(function (verb) {
+            if (cleaned.indexOf(verb) === 0) cleaned = cleaned.slice(verb.length).trim();
+        });
+        return cleaned;
     }
 
     function createUI() {
@@ -325,21 +342,37 @@ function initFengbroVoiceInput() {
         const hints = document.getElementById('fengbroVoiceHints');
         if (!hints) return;
         const profile = pageProfiles[currentPage()] || pageProfiles.home;
+        const menuExamples = getVoiceMenuItems().slice(0, 4).map(function (item) {
+            return '前往 ' + item.label;
+        });
+        const pageButtons = getVisibleActionLabels().slice(0, 6);
         const examples = [
             '確認',
             '取消',
             '搜尋 關鍵字',
             '新增',
             '儲存',
-            '前往鋒兄訂閱'
-        ].concat(profile.examples || []);
-        hints.innerHTML = examples.slice(0, 12).map(function (item) {
+            '下一個選單',
+            '打開選單',
+            '在名稱輸入 範例'
+        ].concat(menuExamples).concat(pageButtons).concat(profile.examples || []);
+        hints.innerHTML = unique(examples).slice(0, 18).map(function (item) {
             return '<button type="button" class="voice-chip">' + escapeHtml(item) + '</button>';
         }).join('');
         hints.querySelectorAll('.voice-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 handleCommand(chip.textContent || '');
             });
+        });
+    }
+
+    function unique(items) {
+        const seen = new Set();
+        return items.filter(function (item) {
+            const key = compact(item);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
         });
     }
 
@@ -466,6 +499,8 @@ function initFengbroVoiceInput() {
             return;
         }
 
+        if (handleVoicePanelCommand(text)) return;
+
         const navTarget = findPageTarget(text);
         if (navTarget) {
             stageAction('前往 ' + pageProfiles[navTarget].title, function () {
@@ -474,6 +509,8 @@ function initFengbroVoiceInput() {
             return;
         }
 
+        if (handleMenuCommand(text)) return;
+        if (handleFieldCommand(text)) return;
         if (handlePageCommand(text)) return;
         if (handleGlobalCommand(text)) return;
         if (fillFromSpeech(text)) return;
@@ -489,19 +526,225 @@ function initFengbroVoiceInput() {
     }
 
     function findPageTarget(text) {
-        if (!/(前往|打開|開啟|切換|去|到)/.test(text)) return null;
+        const stripped = stripCommandVerb(text);
+        const needsVerb = !/(前往|打開|開啟|切換|去|到|進入)/.test(text);
         for (const page of pageOrder) {
             const profile = pageProfiles[page];
-            if ((profile.aliases || []).some(function (alias) { return text.indexOf(alias) !== -1; })) {
+            if ((profile.aliases || []).some(function (alias) {
+                const aliasKey = compact(alias);
+                const textKey = compact(stripped);
+                return textKey === aliasKey || (!needsVerb && textKey.indexOf(aliasKey) !== -1);
+            })) {
                 return page;
             }
         }
         return null;
     }
 
+    function handleVoicePanelCommand(text) {
+        if (/打開.*語音|開啟.*語音|語音面板|語音輸入/.test(text)) {
+            setPanelVisible(true);
+            updateHints();
+            setStatus('語音面板已開啟。', 'success');
+            return true;
+        }
+        if (/關閉.*語音|收起.*語音|隱藏.*語音/.test(text)) {
+            setPanelVisible(false);
+            stopListening();
+            return true;
+        }
+        if (/開始聽|開始語音|聽我說/.test(text)) {
+            toggleListening();
+            return true;
+        }
+        return false;
+    }
+
+    function handleMenuCommand(text) {
+        if (/打開選單|開啟選單|顯示選單|展開選單|側邊選單/.test(text)) {
+            if (typeof window.toggleMobileMenu === 'function') window.toggleMobileMenu();
+            else document.querySelector('.sidebar')?.classList.add('open');
+            setStatus('已開啟選單。', 'success');
+            return true;
+        }
+        if (/關閉選單|收起選單|隱藏選單/.test(text)) {
+            if (typeof window.closeMobileMenu === 'function') window.closeMobileMenu();
+            setStatus('已關閉選單。', 'success');
+            return true;
+        }
+        if (/下一(個)?(選單|頁|頁面)|下個(選單|頁面)/.test(text)) {
+            navigateRelativePage(1);
+            return true;
+        }
+        if (/上一(個)?(選單|頁|頁面)|上個(選單|頁面)/.test(text)) {
+            navigateRelativePage(-1);
+            return true;
+        }
+
+        const menuItem = findMenuItemByVoice(text);
+        if (menuItem && /(前往|打開|開啟|切換|去|到|進入|選單)/.test(text)) {
+            stageAction('前往 ' + menuItem.label, function () {
+                window.location.href = menuItem.href;
+            });
+            return true;
+        }
+
+        const subnav = findSubnavByVoice(text);
+        if (subnav) {
+            stageAction('開啟 ' + subnav.label, function () { subnav.element.click(); });
+            return true;
+        }
+
+        if (/^(點擊|按下|按|開啟|打開|選擇|選取)/.test(text)) {
+            const label = stripCommandVerb(text);
+            if (clickByTextLoose([label].concat(expandActionLabels(label)))) {
+                setStatus('已操作：' + label, 'success');
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function navigateRelativePage(delta) {
+        const page = currentPage();
+        const idx = Math.max(0, pageOrder.indexOf(page));
+        const next = pageOrder[(idx + delta + pageOrder.length) % pageOrder.length];
+        stageAction('前往 ' + pageProfiles[next].title, function () {
+            window.location.href = 'index.php?page=' + encodeURIComponent(next);
+        });
+    }
+
+    function getVoiceMenuItems() {
+        const sidebarItems = Array.from(document.querySelectorAll('[data-voice-menu]')).map(function (el) {
+            const key = el.getAttribute('data-voice-menu') || '';
+            const profile = pageProfiles[key] || {};
+            return {
+                key: key,
+                label: el.getAttribute('data-voice-label') || (el.textContent || '').trim(),
+                aliases: unique([key, profile.title].concat(profile.aliases || [])),
+                href: el.getAttribute('href') || ('index.php?page=' + key),
+                element: el
+            };
+        });
+        if (sidebarItems.length) return sidebarItems;
+        return pageOrder.map(function (key) {
+            const profile = pageProfiles[key];
+            return {
+                key: key,
+                label: profile.title,
+                aliases: unique([key, profile.title].concat(profile.aliases || [])),
+                href: 'index.php?page=' + key,
+                element: null
+            };
+        });
+    }
+
+    function findMenuItemByVoice(text) {
+        const stripped = compact(stripCommandVerb(text));
+        return getVoiceMenuItems().find(function (item) {
+            return item.aliases.some(function (alias) {
+                const key = compact(alias);
+                return stripped === key || stripped.indexOf(key) !== -1;
+            });
+        }) || null;
+    }
+
+    function findSubnavByVoice(text) {
+        const stripped = compact(stripCommandVerb(text));
+        const links = Array.from(document.querySelectorAll('.tools-subnav-link, [role="tab"], .tabs a, .tab-button, .filter-btn, .btn'));
+        const found = links.find(function (el) {
+            if (isHidden(el)) return false;
+            const label = elementVoiceLabel(el);
+            if (!label) return false;
+            const key = compact(label);
+            return key && (stripped === key || stripped.indexOf(key) !== -1);
+        });
+        return found ? { label: elementVoiceLabel(found), element: found } : null;
+    }
+
+    function handleFieldCommand(text) {
+        const fillMatch = text.match(/^(?:在|把)?(.{1,18}?)(?:輸入|填入|填上|改成|設為|設定為|等於|是)\s*(.+)$/);
+        if (fillMatch) {
+            const label = fillMatch[1].replace(/欄位|輸入框|表單/g, '').trim();
+            const value = fillMatch[2].trim();
+            const field = findFieldByLabel(label);
+            if (field && setElementValue(field, value)) {
+                setStatus('已在「' + label + '」填入：' + value, 'success');
+                return true;
+            }
+        }
+
+        const focusMatch = text.match(/^(?:聚焦|移到|跳到|選到|編輯)\s*(.+)$/);
+        if (focusMatch) {
+            const label = focusMatch[1].replace(/欄位|輸入框|表單/g, '').trim();
+            const field = findFieldByLabel(label);
+            if (field) {
+                field.focus();
+                field.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                setStatus('已移到欄位：' + label, 'success');
+                return true;
+            }
+        }
+
+        const selectMatch = text.match(/^(?:選擇|選取)\s*(.+?)\s*(?:為|是|選項)?\s*(.+)?$/);
+        if (selectMatch) {
+            const field = findFieldByLabel(selectMatch[1]);
+            const value = (selectMatch[2] || selectMatch[1] || '').trim();
+            if (field && field.tagName === 'SELECT') {
+                selectOptionByText(field, value);
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+                setStatus('已選擇：' + value, 'success');
+                return true;
+            }
+        }
+
+        if (/取消勾選|取消打勾|停用|關閉/.test(text)) {
+            const label = text.replace(/取消勾選|取消打勾|停用|關閉/g, '').trim();
+            if (toggleCheckboxByLabel(label, false)) return true;
+        }
+        if (/勾選|打勾|啟用|開啟/.test(text)) {
+            const label = text.replace(/勾選|打勾|啟用|開啟/g, '').trim();
+            if (toggleCheckboxByLabel(label, true)) return true;
+        }
+        return false;
+    }
+
+    function toggleCheckboxByLabel(label, checked) {
+        const field = findFieldByLabel(label);
+        if (!field || field.type !== 'checkbox') return false;
+        field.checked = checked;
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        setStatus((checked ? '已勾選：' : '已取消勾選：') + label, 'success');
+        return true;
+    }
+
     function handleGlobalCommand(text) {
         if (/重新整理|刷新|重整/.test(text)) {
             stageAction('重新整理頁面', function () { window.location.reload(); });
+            return true;
+        }
+        if (/上一頁|返回|回上一頁/.test(text)) {
+            stageAction('返回上一頁', function () { window.history.back(); });
+            return true;
+        }
+        if (/往下|下滑|向下|捲下/.test(text)) {
+            window.scrollBy({ top: Math.round(window.innerHeight * 0.75), behavior: 'smooth' });
+            setStatus('已往下捲動。', 'success');
+            return true;
+        }
+        if (/往上|上滑|向上|捲上/.test(text)) {
+            window.scrollBy({ top: -Math.round(window.innerHeight * 0.75), behavior: 'smooth' });
+            setStatus('已往上捲動。', 'success');
+            return true;
+        }
+        if (/到頂部|回頂端|最上面/.test(text)) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setStatus('已回到頂端。', 'success');
+            return true;
+        }
+        if (/到底部|最下面/.test(text)) {
+            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+            setStatus('已移到底部。', 'success');
             return true;
         }
         if (/深色|暗色|夜間/.test(text)) {
@@ -513,6 +756,12 @@ function initFengbroVoiceInput() {
             if (document.documentElement.getAttribute('data-theme') === 'dark') toggleDarkMode();
             setStatus('已切換淺色模式。', 'success');
             return true;
+        }
+        if (/清空搜尋|清除搜尋/.test(text)) {
+            if (fillSearch('')) {
+                setStatus('已清空搜尋。', 'success');
+                return true;
+            }
         }
         if (/搜尋|查詢|找/.test(text)) {
             const keyword = text.replace(/^(搜尋|查詢|找)\s*/, '').trim();
@@ -599,6 +848,11 @@ function initFengbroVoiceInput() {
             }
         }
         if (/播放/.test(text)) {
+            if (window.FengbroMedia && window.FengbroMedia.toggle) {
+                window.FengbroMedia.toggle();
+                setStatus('已切換播放狀態。', 'success');
+                return true;
+            }
             const btn = document.querySelector('[onclick*="play"], [onclick*="togglePlay"]');
             if (btn) {
                 btn.click();
@@ -607,8 +861,18 @@ function initFengbroVoiceInput() {
             }
         }
         if (/暫停|停止播放/.test(text)) {
+            if (window.FengbroMedia && window.FengbroMedia.stop && /停止播放/.test(text)) {
+                window.FengbroMedia.stop();
+                setStatus('已停止媒體播放。', 'success');
+                return true;
+            }
             document.querySelectorAll('audio, video').forEach(function (media) { media.pause(); });
             setStatus('已暫停媒體。', 'success');
+            return true;
+        }
+        if (/歌詞/.test(text) && window.FengbroMedia && window.FengbroMedia.toggleLyricsPanel) {
+            window.FengbroMedia.toggleLyricsPanel();
+            setStatus('已切換歌詞。', 'success');
             return true;
         }
         return false;
@@ -833,6 +1097,66 @@ function initFengbroVoiceInput() {
         return true;
     }
 
+    function findFieldByLabel(label) {
+        const wanted = compact(label);
+        if (!wanted) return null;
+        const fields = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="file"]), textarea, select')).filter(isUsableField);
+        const direct = fields.find(function (field) {
+            return getFieldAliases(field).some(function (alias) {
+                const key = compact(alias);
+                return key && (key === wanted || key.indexOf(wanted) !== -1 || wanted.indexOf(key) !== -1);
+            });
+        });
+        if (direct) return direct;
+        const pageFields = (pageProfiles[currentPage()] || {}).fields || {};
+        const fieldName = Object.keys(pageFields).find(function (name) {
+            return pageFields[name].some(function (alias) { return compact(alias) === wanted || compact(alias).indexOf(wanted) !== -1; });
+        });
+        return fieldName ? fields.find(function (field) {
+            return field.name === fieldName || field.id === fieldName || field.dataset.field === fieldName;
+        }) || null : null;
+    }
+
+    function getFieldAliases(field) {
+        const aliases = [
+            field.name,
+            field.id,
+            field.dataset ? field.dataset.field : '',
+            field.placeholder,
+            field.getAttribute('aria-label'),
+            field.getAttribute('title')
+        ];
+        if (field.id) {
+            const label = document.querySelector('label[for="' + cssEscape(field.id) + '"]');
+            if (label) aliases.push(label.textContent);
+        }
+        const wrappingLabel = field.closest('label');
+        if (wrappingLabel) aliases.push(wrappingLabel.textContent);
+        const formGroup = field.closest('.form-group, .inline-field, .field, td, .modal-body, .card');
+        if (formGroup) {
+            const nearLabel = formGroup.querySelector('label, .field-label, .form-label, th');
+            if (nearLabel) aliases.push(nearLabel.textContent);
+        }
+        return aliases.filter(Boolean).map(function (alias) {
+            return String(alias).replace(/[*：:]/g, '').trim();
+        });
+    }
+
+    function setElementValue(el, value) {
+        if (!el) return false;
+        if (el.type === 'checkbox') {
+            el.checked = /^(是|要|勾選|開|true|1|yes)$/i.test(value);
+        } else if (el.tagName === 'SELECT') {
+            selectOptionByText(el, value);
+        } else {
+            el.value = value;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.focus({ preventScroll: true });
+        return true;
+    }
+
     function getWritableActiveElement() {
         const el = document.activeElement;
         if (!el) return null;
@@ -879,10 +1203,66 @@ function initFengbroVoiceInput() {
         return false;
     }
 
+    function clickByTextLoose(labels) {
+        const candidates = Array.from(document.querySelectorAll('button, a, label, [role="button"], [role="tab"], summary'));
+        for (const label of labels) {
+            const key = compact(label);
+            if (!key) continue;
+            const found = candidates.find(function (el) {
+                if (isHidden(el)) return false;
+                const text = compact(elementVoiceLabel(el));
+                return text && (text === key || text.indexOf(key) !== -1 || key.indexOf(text) !== -1);
+            });
+            if (found) {
+                found.click();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function elementVoiceLabel(el) {
+        return [
+            el.getAttribute('data-voice-label'),
+            el.getAttribute('aria-label'),
+            el.getAttribute('title'),
+            el.getAttribute('value'),
+            el.textContent
+        ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function expandActionLabels(label) {
+        const base = [label];
+        commonActionLabels.forEach(function (action) {
+            if (label.indexOf(action) !== -1) base.push(action);
+        });
+        return base;
+    }
+
+    function getVisibleActionLabels() {
+        return unique(Array.from(document.querySelectorAll('button, a, [role="button"], [role="tab"]')).filter(function (el) {
+            return !isHidden(el);
+        }).map(elementVoiceLabel).filter(function (label) {
+            return label && label.length <= 16 && !/^https?:/i.test(label);
+        })).slice(0, 12);
+    }
+
     function isHidden(el) {
         const rect = el.getBoundingClientRect();
         return rect.width === 0 || rect.height === 0 || getComputedStyle(el).visibility === 'hidden' || getComputedStyle(el).display === 'none';
     }
+
+    window.FengbroVoiceInput = {
+        open: function () {
+            createUI();
+            setPanelVisible(true);
+            updateHints();
+            setStatus('可以直接說「前往訂閱」、「搜尋牛奶」、「新增食品」或「在名稱輸入牛奶」。', 'info');
+        },
+        listen: toggleListening,
+        run: handleCommand,
+        stop: stopListening
+    };
 
     createUI();
 }
