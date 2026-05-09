@@ -122,7 +122,7 @@ usort($years, function ($a, $b) use ($currentYear) {
     </div>
 
     <div class="action-buttons-bar">
-        <button class="btn btn-primary" onclick="handleAdd()" title="新增食品"><i class="fas fa-plus"></i></button>
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增食品(或商品)"><i class="fas fa-plus"></i> 新增食品(或商品)</button>
         <?php $csvTable = 'food';
         include 'includes/csv_buttons.php'; ?>
         <?php include 'includes/batch-delete.php'; ?>
@@ -280,10 +280,6 @@ usort($years, function ($a, $b) use ($currentYear) {
                         </td>
                         <td>
                             <span class="inline-view"><?php echo formatDate($item['todate']); ?></span>
-                            <div class="food-quick-actions inline-view">
-                                <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'eat')">吃完</button>
-                                <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'discard')">丟棄</button>
-                            </div>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="todate">
                             </div>
@@ -358,10 +354,6 @@ usort($years, function ($a, $b) use ($currentYear) {
                             </span>
                         </div>
                     </div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-                        <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'eat')">吃完</button>
-                        <button type="button" class="btn btn-sm" onclick="cleanupFood('<?php echo $item['id']; ?>', 'discard')">丟棄</button>
-                    </div>
                 </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -371,7 +363,7 @@ usort($years, function ($a, $b) use ($currentYear) {
 <div id="modal" class="modal">
     <div class="modal-content">
         <span class="modal-close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle">新增食品</h2>
+        <h2 id="modalTitle">新增食品(或商品)</h2>
         <form id="itemForm">
             <input type="hidden" id="itemId" name="id">
             <div class="form-group">
@@ -648,12 +640,6 @@ usort($years, function ($a, $b) use ($currentYear) {
             });
     }
 
-    function cleanupFood(id, action) {
-        const label = action === 'eat' ? '標記吃完' : '標記丟棄';
-        if (!confirm(`確定要${label}並移除這筆食品嗎？`)) return;
-        deleteItem(id);
-    }
-
     function startInlineAdd() {
         const row = document.getElementById('inlineAddRow');
         if (!row) {
@@ -772,7 +758,7 @@ usort($years, function ($a, $b) use ($currentYear) {
 
     function openModal() {
         document.getElementById('modal').style.display = 'flex';
-        document.getElementById('modalTitle').textContent = '新增食品';
+        document.getElementById('modalTitle').textContent = '新增食品(或商品)';
         document.getElementById('itemForm').reset();
         document.getElementById('itemId').value = '';
         document.getElementById('photoPreview').innerHTML = '';

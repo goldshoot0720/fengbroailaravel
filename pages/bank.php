@@ -74,7 +74,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons-bar">
-        <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行"><i class="fas fa-plus"></i></button>
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行(或電子票證)"><i class="fas fa-plus"></i> 新增銀行(或電子票證)</button>
         <button class="btn btn-success" type="button" onclick="openTransactionModal('income')">新增收入</button>
         <button class="btn btn-danger" type="button" onclick="openTransactionModal('expense')">新增支出</button>
         <?php $csvTable = 'bank';
