@@ -2,8 +2,7 @@
 $pageTitle = '銀行管理';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM bank ORDER BY deposit DESC")->fetchAll();
-$totalDeposit = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
-$totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank")->fetchColumn();
+$totalDeposit = (int) $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 
 function bankNormalizeText($value)
 {
@@ -38,7 +37,7 @@ function isTaiwanBankAccount($item)
         '匯豐銀行', '瑞興銀行', '華泰銀行', '新光銀行', '陽信銀行', '板信銀行', '三信銀行',
         '聯邦銀行', '遠東銀行', '元大銀行', '永豐銀行', '玉山銀行', '凱基銀行', '星展銀行',
         '台新銀行', '安泰銀行', '中國信託', '中信銀行', '將來銀行', '連線銀行', 'line bank',
-        '樂天銀行', '郵局', '中華郵政', '農會', '漁會', '信用合作社'
+        '樂天銀行', '郵局', '郵政', '中華郵政', '農會', '漁會', '信用合作社'
     ];
 
     foreach ($bankKeywords as $keyword) {
@@ -56,10 +55,16 @@ $eTicketItems = array_values(array_filter($items, function ($item) {
 }));
 $bankAccountCount = count($bankAccountItems);
 $eTicketCount = count($eTicketItems);
+$bankTotalAsset = array_reduce($bankAccountItems, function ($sum, $item) {
+    return $sum + (int) ($item['deposit'] ?? 0);
+}, 0);
+$eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
+    return $sum + (int) ($item['deposit'] ?? 0);
+}, 0);
 ?>
 
 <div class="content-header">
-    <h1>鋒兄銀行 <span
+    <h1>鋒兄銀行 (+電子票證) <span
             style="font-size:0.55em;background:#27ae60;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">銀行帳戶 <?php echo $bankAccountCount; ?></span>
         <span
             style="font-size:0.55em;background:#8e44ad;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">電子票證 <?php echo $eTicketCount; ?></span>
@@ -79,12 +84,16 @@ $eTicketCount = count($eTicketItems);
     <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
         <div class="card" style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff;">
-            <h3>總存款</h3>
+            <h3>所有資產</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($totalDeposit); ?></p>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff;">
-            <h3>總提款</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($totalWithdrawals); ?></p>
+        <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
+            <h3>銀行總資產</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($bankTotalAsset); ?></p>
+        </div>
+        <div class="card" style="background: linear-gradient(135deg, #8e44ad, #6c3483); color: #fff;">
+            <h3>電子票證總資產</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($eTicketTotalAsset); ?></p>
         </div>
         <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
             <h3>銀行帳戶總數</h3>
