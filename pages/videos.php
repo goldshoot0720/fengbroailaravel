@@ -1198,7 +1198,8 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                     if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
                 }
             },
-            function (error) { alert('上傳失敗: ' + error); }
+            function (error) { alert('上傳失敗: ' + error); },
+            { title: '影片上傳中...', completeTitle: '影片上傳完成' }
         );
         fileInput.value = '';
     }
@@ -1250,7 +1251,8 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             },
             function (error) {
                 alert('上傳失敗: ' + error);
-            }
+            },
+            { title: '影片上傳中...', completeTitle: '影片上傳完成' }
         );
         input.value = '';
     }
@@ -1343,6 +1345,13 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             }
         }
 
+        showUploadProgressModal(
+            100,
+            `100% (${successCount}/${files.length})`,
+            failedFiles.length ? `完成，失敗 ${failedFiles.length} 部` : `全部完成 ${successCount} / ${files.length} 部`,
+            '多影片上傳完成'
+        );
+        await new Promise(resolve => setTimeout(resolve, 450));
         hideUploadProgressModal();
 
         triggerInputs.forEach(id => {

@@ -478,7 +478,8 @@ function uploadInlineImage(fileInput) {
                 if (nameInput && !nameInput.value) nameInput.value = res.filename || '';
             }
         },
-        function (error) { alert('上傳失敗: ' + error); }
+        function (error) { alert('上傳失敗: ' + error); },
+        { title: '圖片上傳中...', completeTitle: '圖片上傳完成' }
     );
     fileInput.value = '';
 }
@@ -507,7 +508,8 @@ function uploadImage() {
         },
         function(error) {
             alert('上傳失敗: ' + error);
-        }
+        },
+        { title: '圖片上傳中...', completeTitle: '圖片上傳完成' }
     );
     input.value = '';
 }
@@ -600,6 +602,13 @@ async function uploadMultipleImages(fileList) {
         }
     }
 
+    showUploadProgressModal(
+        100,
+        `100% (${successCount}/${files.length})`,
+        failedFiles.length ? `完成，失敗 ${failedFiles.length} 張` : `全部完成 ${successCount} / ${files.length} 張`,
+        '多圖片上傳完成'
+    );
+    await new Promise(resolve => setTimeout(resolve, 450));
     hideUploadProgressModal();
 
     triggerInputs.forEach(id => {

@@ -38,6 +38,14 @@
         if (modal) modal.style.display = 'none';
     }
 
+    function completeUploadProgressModal(fileLabel, title, callback) {
+        showUploadProgressModal(100, '100% 完成', fileLabel || '上傳完成', title || '上傳完成');
+        window.setTimeout(function () {
+            hideUploadProgressModal();
+            if (typeof callback === 'function') callback();
+        }, 450);
+    }
+
     function uploadFileWithProgress(file, onSuccess, onError, options) {
         options = options || {};
         const shouldManageModal = options.showModal !== false;
@@ -83,15 +91,22 @@
         });
 
         xhr.addEventListener('load', function () {
-            if (shouldManageModal) hideUploadProgressModal();
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
-                    onSuccess(res);
+                    if (shouldManageModal) {
+                        completeUploadProgressModal(file.name, options.completeTitle || '上傳完成', function () {
+                            onSuccess(res);
+                        });
+                    } else {
+                        onSuccess(res);
+                    }
                 } else {
+                    if (shouldManageModal) hideUploadProgressModal();
                     onError(res.error || '上傳失敗');
                 }
             } catch (e) {
+                if (shouldManageModal) hideUploadProgressModal();
                 onError('伺服器回應錯誤 (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
             }
         });
@@ -147,10 +162,16 @@
                 }
             },
             function (_path, res) {
-                if (shouldManageModal) hideUploadProgressModal();
                 if (res && res.success && res.file) {
-                    onSuccess(res);
+                    if (shouldManageModal) {
+                        completeUploadProgressModal(file.name, options.completeTitle || '分段上傳完成', function () {
+                            onSuccess(res);
+                        });
+                    } else {
+                        onSuccess(res);
+                    }
                 } else {
+                    if (shouldManageModal) hideUploadProgressModal();
                     onError('分段合併失敗：未取得檔案路徑');
                 }
             },

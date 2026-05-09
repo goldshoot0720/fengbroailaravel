@@ -4,11 +4,65 @@ $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM bank ORDER BY deposit DESC")->fetchAll();
 $totalDeposit = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank")->fetchColumn();
+
+function bankNormalizeText($value)
+{
+    return function_exists('mb_strtolower')
+        ? mb_strtolower((string) $value, 'UTF-8')
+        : strtolower((string) $value);
+}
+
+function bankTextContains($haystack, $needle)
+{
+    if ($needle === '') {
+        return false;
+    }
+
+    return function_exists('mb_strpos')
+        ? mb_strpos($haystack, bankNormalizeText($needle)) !== false
+        : strpos($haystack, bankNormalizeText($needle)) !== false;
+}
+
+function isTaiwanBankAccount($item)
+{
+    $haystack = bankNormalizeText(
+        ($item['name'] ?? '') . ' ' .
+        ($item['site'] ?? '') . ' ' .
+        ($item['account'] ?? '') . ' ' .
+        ($item['card'] ?? '')
+    );
+    $bankKeywords = [
+        '臺灣銀行', '台灣銀行', '土地銀行', '合作金庫', '合庫', '第一銀行', '華南銀行', '彰化銀行',
+        '上海商銀', '台北富邦', '富邦銀行', '國泰世華', '高雄銀行', '兆豐銀行', '花旗銀行',
+        '王道銀行', '臺灣企銀', '台灣企銀', '渣打銀行', '台中銀行', '京城銀行', '滙豐銀行',
+        '匯豐銀行', '瑞興銀行', '華泰銀行', '新光銀行', '陽信銀行', '板信銀行', '三信銀行',
+        '聯邦銀行', '遠東銀行', '元大銀行', '永豐銀行', '玉山銀行', '凱基銀行', '星展銀行',
+        '台新銀行', '安泰銀行', '中國信託', '中信銀行', '將來銀行', '連線銀行', 'line bank',
+        '樂天銀行', '郵局', '中華郵政', '農會', '漁會', '信用合作社'
+    ];
+
+    foreach ($bankKeywords as $keyword) {
+        if (bankTextContains($haystack, $keyword)) {
+            return true;
+        }
+    }
+
+    return preg_match('/銀行|bank/u', $haystack) === 1;
+}
+
+$bankAccountItems = array_values(array_filter($items, 'isTaiwanBankAccount'));
+$eTicketItems = array_values(array_filter($items, function ($item) {
+    return !isTaiwanBankAccount($item);
+}));
+$bankAccountCount = count($bankAccountItems);
+$eTicketCount = count($eTicketItems);
 ?>
 
 <div class="content-header">
     <h1>鋒兄銀行 <span
-            style="font-size:0.55em;background:#27ae60;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+            style="font-size:0.55em;background:#27ae60;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">銀行帳戶 <?php echo $bankAccountCount; ?></span>
+        <span
+            style="font-size:0.55em;background:#8e44ad;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">電子票證 <?php echo $eTicketCount; ?></span>
     </h1>
 </div>
 
@@ -33,8 +87,12 @@ $totalWithdrawals = $pdo->query("SELECT COALESCE(SUM(withdrawals), 0) FROM bank"
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($totalWithdrawals); ?></p>
         </div>
         <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
-            <h3>銀行數量</h3>
-            <p style="font-size: 2rem; margin-top: 10px;"><?php echo count($items); ?></p>
+            <h3>銀行帳戶總數</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $bankAccountCount; ?></p>
+        </div>
+        <div class="card" style="background: linear-gradient(135deg, #8e44ad, #6c3483); color: #fff;">
+            <h3>電子票證總數</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $eTicketCount; ?></p>
         </div>
     </div>
 

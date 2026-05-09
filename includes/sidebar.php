@@ -11,7 +11,7 @@ $menuItems = [
     'music' => ['label' => '鋒兄音樂', 'icon' => 'fa-music'],
     'documents' => ['label' => '鋒兄文件', 'icon' => 'fa-folder-open'],
     'podcast' => ['label' => '鋒兄播客', 'icon' => 'fa-podcast'],
-    'bank' => ['label' => '鋒兄銀行', 'icon' => 'fa-building-columns'],
+    'bank' => ['label' => '鋒兄銀行', 'hint' => '電子票證', 'icon' => 'fa-building-columns'],
     'routine' => ['label' => '鋒兄例行', 'icon' => 'fa-clock-rotate-left'],
     'tools' => ['label' => '鋒兄工具', 'hint' => '（＋比價）', 'icon' => 'fa-wrench'],
     'settings' => ['label' => '鋒兄設定', 'icon' => 'fa-gear'],
