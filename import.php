@@ -17,6 +17,31 @@ set_exception_handler(function ($e) {
 
 require_once 'includes/functions.php';
 
+function detectCsvDelimiter(string $line): string {
+    $delimiters = [',', "\t", ';'];
+    $bestDelimiter = ',';
+    $bestCount = 0;
+    foreach ($delimiters as $delimiter) {
+        $count = count(str_getcsv($line, $delimiter, '"', ''));
+        if ($count > $bestCount) {
+            $bestCount = $count;
+            $bestDelimiter = $delimiter;
+        }
+    }
+    return $bestDelimiter;
+}
+
+function normalizeImportMoney($value) {
+    if ($value === null || $value === '') {
+        return 0;
+    }
+    $clean = preg_replace('/[^\d\-.]/u', '', (string) $value);
+    if ($clean === '' || $clean === '-' || $clean === '.') {
+        return 0;
+    }
+    return (int) round((float) $clean);
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['error' => '請使用 POST 方法'], 400);
 }
@@ -39,6 +64,21 @@ $fieldMapping = [
     '$id' => 'id',
     '$createdAt' => 'created_at',
     '$updatedAt' => 'updated_at',
+    '名稱' => 'name',
+    '銀行' => 'name',
+    '銀行名稱' => 'name',
+    '電子票證' => 'name',
+    '存款' => 'deposit',
+    '餘額' => 'deposit',
+    '金額' => 'deposit',
+    '提款' => 'withdrawals',
+    '支出' => 'withdrawals',
+    '轉帳' => 'transfer',
+    '帳號' => 'account',
+    '卡號' => 'card',
+    '地址' => 'address',
+    '網站' => 'site',
+    '活動網址' => 'activity',
 ];
 // Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
 
@@ -47,20 +87,41 @@ $ignoredColumns = ['$permissions', '$databaseId', '$collectionId', '$tenant'];
 
 $pdo = getConnection();
 
-// 讀取 CSV
-$handle = fopen($file, 'r');
-
-// 檢測 BOM 並跳過
-$bom = fread($handle, 3);
-if ($bom !== "\xEF\xBB\xBF") {
-    rewind($handle);
+$csvContent = file_get_contents($file);
+if ($csvContent === false || trim($csvContent) === '') {
+    jsonResponse(['error' => 'CSV 格式錯誤：檔案為空或無法讀取'], 400);
 }
 
-// 讀取標頭
-$headers = fgetcsv($handle, 0, ',', '"', '');
-if (!$headers) {
-    jsonResponse(['error' => 'CSV 格式錯誤'], 400);
+if (substr($csvContent, 0, 2) === "\xFF\xFE") {
+    $csvContent = mb_convert_encoding(substr($csvContent, 2), 'UTF-8', 'UTF-16LE');
+} elseif (substr($csvContent, 0, 2) === "\xFE\xFF") {
+    $csvContent = mb_convert_encoding(substr($csvContent, 2), 'UTF-8', 'UTF-16BE');
+} else {
+    $csvContent = preg_replace('/^\xEF\xBB\xBF/', '', $csvContent);
+    if (function_exists('mb_check_encoding') && !mb_check_encoding($csvContent, 'UTF-8')) {
+        $csvContent = mb_convert_encoding($csvContent, 'UTF-8', 'CP950, BIG5, UTF-8');
+    }
 }
+
+$lines = preg_split('/\r\n|\n|\r/', $csvContent);
+$lines = array_values(array_filter($lines, function ($line) {
+    return trim($line) !== '';
+}));
+if (!$lines) {
+    jsonResponse(['error' => 'CSV 格式錯誤：找不到欄位列'], 400);
+}
+
+$delimiter = detectCsvDelimiter($lines[0]);
+$headers = str_getcsv($lines[0], $delimiter, '"', '');
+if (!$headers || count(array_filter($headers, 'strlen')) === 0) {
+    jsonResponse(['error' => 'CSV 格式錯誤：無法解析欄位列'], 400);
+}
+
+$csvContent = implode("\n", $lines);
+$handle = fopen('php://temp', 'r+');
+fwrite($handle, $csvContent);
+rewind($handle);
+fgetcsv($handle, 0, $delimiter, '"', '');
 
 // 轉換標頭名稱 (支援 LaravelMySQL 和 Appwrite 雙格式)
 $headers = array_map(function ($h) use ($fieldMapping) {
@@ -99,13 +160,16 @@ foreach ($ignoredIndexes as $i) {
 }
 $headers = array_values($headers);
 $headerCount = count($headers);
+if ($headerCount === 0) {
+    jsonResponse(['error' => 'CSV 格式錯誤：找不到可匯入欄位，請確認欄位名稱是否正確'], 400);
+}
 
 $imported = 0;
 $skipped = 0;
 $errors = [];
 $lineNum = 1;
 
-while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
     $lineNum++;
 
     // 移除被忽略的欄位值
@@ -137,6 +201,14 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     foreach ($data as $key => $value) {
         if ($value === '' || $value === 'null') {
             $data[$key] = null;
+        }
+    }
+
+    if ($table === 'bank') {
+        foreach (['deposit', 'withdrawals', 'transfer'] as $moneyColumn) {
+            if (array_key_exists($moneyColumn, $data)) {
+                $data[$moneyColumn] = normalizeImportMoney($data[$moneyColumn]);
+            }
         }
     }
 
