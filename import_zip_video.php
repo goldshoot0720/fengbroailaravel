@@ -149,7 +149,8 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
+        $hasSourceId = !empty($data['id']);
+        if (!$hasSourceId) {
             $data['id'] = generateUUID();
         }
         $currentId = $data['id'];
@@ -230,6 +231,14 @@ if ($hasCsv) {
             }
         }
 
+        if (!$hasSourceId) {
+            $duplicateId = findExistingImportRecordId($pdo, 'video', $data);
+            if ($duplicateId) {
+                $currentId = $duplicateId;
+                $data['id'] = $duplicateId;
+            }
+        }
+
         $stmt = $pdo->prepare("SELECT id FROM video WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
@@ -283,6 +292,11 @@ if ($hasCsv) {
         // Skip non-video files
         if (!in_array($ext, $videoExtensions))
             continue;
+
+        $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'video', ['name' => $originalName, 'filetype' => $ext, 'category' => 'video'])) {
+            continue;
+        }
 
         // Copy to uploads
         $destPath = $uploadDir . '/' . $fileName;

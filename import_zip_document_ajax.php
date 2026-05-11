@@ -143,9 +143,10 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
-            $data['id'] = generateUUID();
-        }
+            $hasSourceId = !empty($data['id']);
+            if (!$hasSourceId) {
+                $data['id'] = generateUUID();
+            }
         $currentId = $data['id'];
 
         unset($data['created_at']);
@@ -199,6 +200,14 @@ if ($hasCsv) {
         foreach ($data as $key => $value) {
             if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
                 $data[$key] = substr($value, 0, 10);
+            }
+        }
+
+        if (!$hasSourceId) {
+            $duplicateId = findExistingImportRecordId($pdo, 'commondocument', $data);
+            if ($duplicateId) {
+                $currentId = $duplicateId;
+                $data['id'] = $duplicateId;
             }
         }
 
@@ -257,6 +266,11 @@ if ($hasCsv) {
         // Skip non-document files
         if (!in_array($ext, $validExtensions))
             continue;
+
+        $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'commondocument', ['name' => $originalName])) {
+            continue;
+        }
 
         // Copy to uploads
         $destPath = $uploadDir . '/' . $fileName;

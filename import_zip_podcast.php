@@ -157,7 +157,8 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
+        $hasSourceId = !empty($data['id']);
+        if (!$hasSourceId) {
             $data['id'] = generateUUID();
         }
         $currentId = $data['id'];
@@ -235,6 +236,14 @@ if ($hasCsv) {
             }
         }
 
+        if (!$hasSourceId) {
+            $duplicateId = findExistingImportRecordId($pdo, 'podcast', $data);
+            if ($duplicateId) {
+                $currentId = $duplicateId;
+                $data['id'] = $duplicateId;
+            }
+        }
+
         $stmt = $pdo->prepare("SELECT id FROM podcast WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
@@ -287,6 +296,11 @@ if ($hasCsv) {
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         if (!in_array($ext, $podcastExtensions))
             continue;
+
+        $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'podcast', ['name' => $originalName, 'filetype' => $ext])) {
+            continue;
+        }
 
         $destPath = $uploadDir . '/' . $fileName;
         if (file_exists($destPath)) {

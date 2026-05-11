@@ -124,7 +124,8 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     $recordName = $data['name'] ?? '未知';
 
     // 處理 ID
-    if (empty($data['id'])) {
+    $hasSourceId = !empty($data['id']);
+    if (!$hasSourceId) {
         $data['id'] = generateUUID();
     }
     $currentId = $data['id'];
@@ -157,6 +158,14 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
         $data['continue'] = filter_var($data['continue'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
     } elseif (array_key_exists('continue', $data)) {
         $data['continue'] = 1; // 預設為 true
+    }
+
+    if (!$hasSourceId) {
+        $duplicateId = findExistingImportRecordId($pdo, $table, $data);
+        if ($duplicateId) {
+            $currentId = $duplicateId;
+            $data['id'] = $duplicateId;
+        }
     }
 
     // 檢查是否已存在

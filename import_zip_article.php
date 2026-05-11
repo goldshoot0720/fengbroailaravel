@@ -149,7 +149,8 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     $data = array_combine($headers, $row);
 
     // 處理 ID
-    if (empty($data['id'])) {
+    $hasSourceId = !empty($data['id']);
+    if (!$hasSourceId) {
         $data['id'] = generateUUID();
     }
     $currentId = $data['id'];
@@ -221,6 +222,14 @@ while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
     foreach ($data as $key => $value) {
         if ($value !== null && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
             $data[$key] = substr($value, 0, 10);
+        }
+    }
+
+    if (!$hasSourceId) {
+        $duplicateId = findExistingImportRecordId($pdo, 'article', $data);
+        if ($duplicateId) {
+            $currentId = $duplicateId;
+            $data['id'] = $duplicateId;
         }
     }
 

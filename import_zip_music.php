@@ -516,6 +516,11 @@ if ($hasCsv) {
         if (!in_array($ext, $musicExtensions))
             continue;
 
+        $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'music', ['name' => $originalName, 'filetype' => $ext])) {
+            continue;
+        }
+
         // Copy to uploads
         $destPath = $uploadDir . '/' . $fileName;
         if (file_exists($destPath)) {

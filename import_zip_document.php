@@ -160,9 +160,10 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
-            $data['id'] = generateUUID();
-        }
+            $hasSourceId = !empty($data['id']);
+            if (!$hasSourceId) {
+                $data['id'] = generateUUID();
+            }
         $currentId = $data['id'];
 
         // Appwrite 時間戳保留（不再删除，讓 DB 保留原始記錄時間）
@@ -245,6 +246,14 @@ if ($hasCsv) {
             }
         }
 
+        if (!$hasSourceId) {
+            $duplicateId = findExistingImportRecordId($pdo, 'commondocument', $data);
+            if ($duplicateId) {
+                $currentId = $duplicateId;
+                $data['id'] = $duplicateId;
+            }
+        }
+
         $stmt = $pdo->prepare("SELECT id FROM commondocument WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
@@ -296,6 +305,11 @@ if ($hasCsv) {
             continue;
         if (strpos($fileName, '__MACOSX') !== false)
             continue;
+
+        $originalName = pathinfo($baseName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'commondocument', ['name' => $originalName])) {
+            continue;
+        }
 
         $targetPath = $uploadDir . '/' . $baseName;
 

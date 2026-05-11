@@ -230,7 +230,8 @@ if ($hasCsv) {
 
         $data = array_combine($headers, $row);
 
-        if (empty($data['id'])) {
+        $hasSourceId = !empty($data['id']);
+        if (!$hasSourceId) {
             $data['id'] = generateUUID();
         }
         $currentId = $data['id'];
@@ -331,6 +332,14 @@ if ($hasCsv) {
             }
         }
 
+        if (!$hasSourceId) {
+            $duplicateId = findExistingImportRecordId($pdo, 'image', $data);
+            if ($duplicateId) {
+                $currentId = $duplicateId;
+                $data['id'] = $duplicateId;
+            }
+        }
+
 $stmt = $pdo->prepare("SELECT id FROM image WHERE id = ?");
         $stmt->execute([$currentId]);
         $exists = $stmt->fetch();
@@ -381,6 +390,11 @@ $stmt = $pdo->prepare("SELECT id FROM image WHERE id = ?");
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         if (!in_array($ext, $imageExtensions))
             continue;
+
+        $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+        if (importRecordExists($pdo, 'image', ['name' => $originalName, 'filetype' => $ext])) {
+            continue;
+        }
 
         $destPath = $uploadDir . '/' . $fileName;
         if (file_exists($destPath)) {

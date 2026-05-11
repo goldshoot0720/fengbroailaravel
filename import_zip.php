@@ -66,6 +66,11 @@ foreach ($files as $file) {
     // Skip non-image files
     if (!in_array($ext, $imageExtensions)) continue;
 
+    $originalName = pathinfo($fileName, PATHINFO_FILENAME);
+    if (importRecordExists($pdo, $table, ['name' => $originalName])) {
+        continue;
+    }
+
     // Copy to uploads
     $destPath = $uploadDir . $fileName;
 
