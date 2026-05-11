@@ -44,9 +44,12 @@ function initFengbroVoiceInput() {
     let recognition = null;
     let listening = false;
     let pendingAction = null;
-    let continuousMode = false;
     let recognitionLanguage = localStorage.getItem('fengbro_voice_lang') || 'zh-TW';
     let manualStop = false;
+    const MIN_RECORDING_MS = 10000;
+    let recordingStartedAt = 0;
+    let stopAfterMinimumTimer = null;
+    let stopRequestedAfterMinimum = false;
 
     const pageProfiles = {
         home: {
@@ -285,6 +288,11 @@ function initFengbroVoiceInput() {
             '<button type="button" id="fengbroVoiceClose" class="voice-icon-btn" title="關閉"><i class="fa-solid fa-xmark"></i></button>',
             '</div>',
             '<div id="fengbroVoiceStatus" class="voice-status">按下語音，說出要做的事。</div>',
+            '<div class="voice-record-actions">',
+            '<button type="button" id="fengbroVoiceStart" class="btn btn-primary btn-sm"><i class="fa-solid fa-microphone"></i> 開始錄音</button>',
+            '<button type="button" id="fengbroVoiceStop" class="btn btn-sm"><i class="fa-solid fa-stop"></i> 結束錄音</button>',
+            '<span id="fengbroVoiceMinimum" class="voice-minimum">最低錄音 10 秒</span>',
+            '</div>',
             '<div id="fengbroVoiceTranscript" class="voice-transcript"></div>',
             '<div id="fengbroVoiceConfirm" class="voice-confirm" style="display:none;">',
             '<div id="fengbroVoiceConfirmText"></div>',
@@ -305,8 +313,10 @@ function initFengbroVoiceInput() {
 
         document.getElementById('fengbroVoiceClose').addEventListener('click', function () {
             panel.classList.remove('show');
-            stopListening();
+            requestStopListening();
         });
+        document.getElementById('fengbroVoiceStart').addEventListener('click', startListening);
+        document.getElementById('fengbroVoiceStop').addEventListener('click', requestStopListening);
         document.getElementById('fengbroVoiceConfirmYes').addEventListener('click', runPendingAction);
         document.getElementById('fengbroVoiceConfirmNo').addEventListener('click', clearPendingAction);
         document.getElementById('fengbroVoiceManualRun').addEventListener('click', function () {
@@ -342,7 +352,48 @@ function initFengbroVoiceInput() {
 
     function updateFab() {
         const fab = document.getElementById('fengbroVoiceFab');
-        if (fab) fab.classList.toggle('listening', listening);
+        if (fab) {
+            fab.classList.toggle('listening', listening || stopRequestedAfterMinimum);
+            fab.title = (listening || stopRequestedAfterMinimum) ? '結束錄音' : '開始錄音';
+            fab.innerHTML = (listening || stopRequestedAfterMinimum)
+                ? '<i class="fa-solid fa-stop"></i><span>結束</span>'
+                : '<i class="fa-solid fa-microphone"></i><span>語音</span>';
+        }
+        updateRecordingControls();
+    }
+
+    function updateRecordingControls() {
+        const startBtn = document.getElementById('fengbroVoiceStart');
+        const stopBtn = document.getElementById('fengbroVoiceStop');
+        const minimum = document.getElementById('fengbroVoiceMinimum');
+        if (startBtn) startBtn.disabled = listening || stopRequestedAfterMinimum;
+        if (stopBtn) stopBtn.disabled = !listening && !stopRequestedAfterMinimum;
+        if (minimum) {
+            const remaining = getRemainingRecordingMs();
+            minimum.textContent = remaining > 0 && listening
+                ? '最低錄音 10 秒，還剩 ' + Math.ceil(remaining / 1000) + ' 秒'
+                : '最低錄音 10 秒';
+        }
+    }
+
+    function getRemainingRecordingMs() {
+        if (!recordingStartedAt) return 0;
+        return Math.max(0, MIN_RECORDING_MS - (Date.now() - recordingStartedAt));
+    }
+
+    function clearMinimumStopTimer() {
+        if (stopAfterMinimumTimer) {
+            window.clearTimeout(stopAfterMinimumTimer);
+            stopAfterMinimumTimer = null;
+        }
+    }
+
+    function scheduleMinimumStop(remainingMs) {
+        clearMinimumStopTimer();
+        stopAfterMinimumTimer = window.setTimeout(function () {
+            stopAfterMinimumTimer = null;
+            if (stopRequestedAfterMinimum) forceStopListening();
+        }, Math.max(0, remainingMs));
     }
 
     function updateHints() {
@@ -361,7 +412,8 @@ function initFengbroVoiceInput() {
             '儲存',
             '下一個選單',
             '打開選單',
-            '連續聆聽',
+            '開始錄音',
+            '結束錄音',
             '下一欄',
             '編輯第一筆',
             '在名稱輸入 範例'
@@ -396,33 +448,53 @@ function initFengbroVoiceInput() {
         if (!SpeechRecognition || recognition) return;
         recognition = new SpeechRecognition();
         recognition.lang = recognitionLanguage;
-        recognition.continuous = continuousMode;
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.maxAlternatives = 3;
         recognition.onstart = function () {
             listening = true;
             manualStop = false;
+            if (!recordingStartedAt) recordingStartedAt = Date.now();
             updateFab();
             setPanelVisible(true);
-            setStatus(continuousMode ? '連續聆聽中，會持續接收語音指令。' : '正在聽，請說出指令。', 'active');
+            setStatus('錄音中。請手動按「結束錄音」，最低錄音 10 秒。', 'active');
         };
         recognition.onend = function () {
             listening = false;
             updateFab();
-            if (continuousMode && !manualStop) {
-                setStatus('連續聆聽暫停，正在自動恢復。', 'info');
+            if (!manualStop) {
+                setStatus('錄音仍在進行，正在恢復收音。', 'info');
                 window.setTimeout(function () {
-                    if (!continuousMode || manualStop || listening) return;
+                    if (manualStop || listening) return;
                     try {
                         recognition.start();
                     } catch (error) {}
                 }, 450);
                 return;
             }
-            setStatus('語音已停止。可再按一次繼續。', 'info');
+            recordingStartedAt = 0;
+            stopRequestedAfterMinimum = false;
+            clearMinimumStopTimer();
+            updateFab();
+            setStatus('錄音已停止。可按「開始錄音」繼續。', 'info');
         };
         recognition.onerror = function (event) {
+            const recoverable = !manualStop && ['no-speech', 'aborted', 'network'].indexOf(event.error) !== -1;
             listening = false;
+            if (recoverable) {
+                updateFab();
+                setStatus('錄音仍在進行，正在恢復收音。', 'info');
+                window.setTimeout(function () {
+                    if (manualStop || listening || !recognition) return;
+                    try {
+                        recognition.start();
+                    } catch (error) {}
+                }, 450);
+                return;
+            }
+            recordingStartedAt = 0;
+            stopRequestedAfterMinimum = false;
+            clearMinimumStopTimer();
             updateFab();
             setStatus('語音辨識失敗：' + (event.error || '未知錯誤') + '。可改用文字指令。', 'error');
         };
@@ -443,6 +515,14 @@ function initFengbroVoiceInput() {
     }
 
     function toggleListening() {
+        if (listening || stopRequestedAfterMinimum) {
+            requestStopListening();
+            return;
+        }
+        startListening();
+    }
+
+    function startListening() {
         createUI();
         setPanelVisible(true);
         if (!SpeechRecognition) {
@@ -450,12 +530,13 @@ function initFengbroVoiceInput() {
             return;
         }
         setupRecognition();
-        if (listening) {
-            stopListening();
-            return;
-        }
+        if (listening) return;
         try {
             manualStop = false;
+            stopRequestedAfterMinimum = false;
+            clearMinimumStopTimer();
+            recordingStartedAt = Date.now();
+            updateFab();
             recognition.start();
         } catch (error) {
             setStatus('語音已在準備中，請稍候再試。', 'info');
@@ -463,7 +544,26 @@ function initFengbroVoiceInput() {
     }
 
     function stopListening() {
+        requestStopListening();
+    }
+
+    function requestStopListening() {
+        if (!listening && !stopRequestedAfterMinimum) return;
+        const remaining = getRemainingRecordingMs();
+        if (remaining > 0) {
+            stopRequestedAfterMinimum = true;
+            setStatus('已收到結束錄音，滿 10 秒後停止。還剩 ' + Math.ceil(remaining / 1000) + ' 秒。', 'info');
+            updateFab();
+            scheduleMinimumStop(remaining);
+            return;
+        }
+        forceStopListening();
+    }
+
+    function forceStopListening() {
         manualStop = true;
+        stopRequestedAfterMinimum = false;
+        clearMinimumStopTimer();
         if (recognition && listening) {
             recognition.stop();
         }
@@ -584,17 +684,13 @@ function initFengbroVoiceInput() {
     }
 
     function handleVoicePanelCommand(text) {
-        if (/停止連續聆聽|關閉連續聆聽|停止連續|不要一直聽/.test(text)) {
-            continuousMode = false;
-            stopListening();
-            rebuildRecognition();
-            setStatus('已關閉連續聆聽。', 'success');
+        if (/結束錄音|停止錄音|停止連續聆聽|關閉連續聆聽|停止連續|不要一直聽/.test(text)) {
+            requestStopListening();
             return true;
         }
-        if (/連續聆聽|連續聽|持續聽|一直聽|免按語音/.test(text)) {
-            continuousMode = true;
-            rebuildRecognition();
-            setStatus('已開啟連續聆聽。說「停止連續聆聽」可關閉。', 'success');
+        if (/開始錄音|開始收音|連續聆聽|連續聽|持續聽|一直聽|免按語音/.test(text)) {
+            startListening();
+            setStatus('已開始手動錄音。請手動按「結束錄音」，最低錄音 10 秒。', 'success');
             return true;
         }
         if (/中文語音|切換中文|繁體中文/.test(text)) {
@@ -617,11 +713,11 @@ function initFengbroVoiceInput() {
         }
         if (/關閉.*語音|收起.*語音|隱藏.*語音/.test(text)) {
             setPanelVisible(false);
-            stopListening();
+            requestStopListening();
             return true;
         }
         if (/開始聽|開始語音|聽我說/.test(text)) {
-            toggleListening();
+            startListening();
             return true;
         }
         return false;
@@ -1650,9 +1746,10 @@ function initFengbroVoiceInput() {
             updateHints();
             setStatus('可以直接說「前往訂閱」、「搜尋牛奶」、「新增食品」或「在名稱輸入牛奶」。', 'info');
         },
-        listen: toggleListening,
+        listen: startListening,
+        toggle: toggleListening,
         run: handleCommand,
-        stop: stopListening
+        stop: requestStopListening
     };
 
     createUI();

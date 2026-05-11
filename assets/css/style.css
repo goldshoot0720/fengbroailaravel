@@ -1962,6 +1962,34 @@ table.desktop-only {
     color: #92400e;
 }
 
+.voice-record-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.voice-record-actions .btn {
+    min-height: 38px;
+}
+
+.voice-minimum {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+[data-theme="dark"] .voice-minimum {
+    color: #fde68a;
+}
+
 .voice-transcript {
     min-height: 42px;
     background: rgba(148, 163, 184, 0.12);
@@ -2032,8 +2060,15 @@ table.desktop-only {
         max-height: 66vh;
     }
 
+    .voice-record-actions,
     .voice-manual {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .voice-record-actions .btn,
+    .voice-minimum {
+        justify-content: center;
+        width: 100%;
     }
 }
