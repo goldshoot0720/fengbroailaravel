@@ -121,6 +121,13 @@ function getDaysUntil($date)
                 <option value="<?php echo str_pad((string) $month, 2, '0', STR_PAD_LEFT); ?>"><?php echo $month; ?> 月</option>
             <?php endfor; ?>
         </select>
+        <label class="subscription-search-box">
+            <i class="fas fa-search"></i>
+            <input type="search" id="subscriptionSearchInput" class="form-control form-control-sm"
+                placeholder="搜尋訂閱、網站、帳號、備註..." oninput="applyFilters()"
+                onchange="saveSubscriptionSearchFromInput()" onkeydown="handleSubscriptionSearchKey(event)">
+        </label>
+        <div id="subscriptionSearchHistory" class="subscription-search-history" aria-label="最近搜尋紀錄"></div>
         <button class="btn btn-sm filter-btn" id="within7Btn" onclick="toggleWithin7()" data-within="7">&#55;&#32;&#22825;&#20839;</button>
         <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">&#20840;&#37096;</button>
         <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">&#32396;&#35330;</button>
@@ -328,6 +335,10 @@ function getDaysUntil($date)
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
+                    data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
                     data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>"
                     data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
                     data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
@@ -835,6 +846,63 @@ function getDaysUntil($date)
         background: rgba(255, 255, 255, 0.88);
     }
 
+    .subscription-search-box {
+        flex: 1 1 260px;
+        min-width: 220px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.88);
+        color: #64748b;
+    }
+
+    .subscription-search-box input {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        min-width: 0;
+        padding: 10px 0;
+    }
+
+    .subscription-search-box input:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .subscription-search-history {
+        flex: 1 1 100%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        min-height: 0;
+    }
+
+    .subscription-search-history:empty {
+        display: none;
+    }
+
+    .subscription-search-chip {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--text-color);
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .subscription-search-history-label {
+        align-self: center;
+        color: var(--muted-text);
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
     .sub-card {
         border-radius: 20px;
         padding: 18px;
@@ -861,8 +929,13 @@ function getDaysUntil($date)
         }
 
         .subscription-select-filter,
+        .subscription-search-box,
         .subscription-filters .btn {
             flex: 1 1 120px;
+        }
+
+        .subscription-search-history {
+            justify-content: flex-start;
         }
 
         .subscription-filters .btn {
@@ -903,9 +976,14 @@ function getDaysUntil($date)
         }
 
         .subscription-select-filter,
+        .subscription-search-box,
         .subscription-filters .btn {
             width: 100%;
             min-width: 0;
+        }
+
+        .subscription-search-history {
+            grid-column: 1 / -1;
         }
 
         .sub-card {
@@ -946,6 +1024,71 @@ function getDaysUntil($date)
     const allNames = <?php echo json_encode($existingNames, JSON_UNESCAPED_UNICODE); ?>;
     const allSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
     const allAccounts = <?php echo json_encode($existingAccounts, JSON_UNESCAPED_UNICODE); ?>;
+    const SUBSCRIPTION_SEARCH_HISTORY_KEY = 'fengbro_subscription_search_history';
+
+    function getSubscriptionSearchHistory() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(SUBSCRIPTION_SEARCH_HISTORY_KEY) || '[]');
+            return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, 8) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function setSubscriptionSearchHistory(items) {
+        localStorage.setItem(SUBSCRIPTION_SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
+    }
+
+    function renderSubscriptionSearchHistory() {
+        const container = document.getElementById('subscriptionSearchHistory');
+        if (!container) return;
+        const items = getSubscriptionSearchHistory();
+        container.innerHTML = '';
+        if (items.length) {
+            const label = document.createElement('span');
+            label.className = 'subscription-search-history-label';
+            label.textContent = '最近搜尋紀錄';
+            container.appendChild(label);
+        }
+        items.forEach(item => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'subscription-search-chip';
+            button.textContent = item;
+            button.addEventListener('click', function () {
+                useSubscriptionSearchHistory(item);
+            });
+            container.appendChild(button);
+        });
+    }
+
+    function saveSubscriptionSearchTerm(term) {
+        const value = String(term || '').trim();
+        if (!value) return;
+        const history = getSubscriptionSearchHistory();
+        const next = [value].concat(history.filter(item => item !== value));
+        setSubscriptionSearchHistory(next);
+        renderSubscriptionSearchHistory();
+    }
+
+    function saveSubscriptionSearchFromInput() {
+        const input = document.getElementById('subscriptionSearchInput');
+        if (input) saveSubscriptionSearchTerm(input.value);
+    }
+
+    function useSubscriptionSearchHistory(term) {
+        const input = document.getElementById('subscriptionSearchInput');
+        if (!input) return;
+        input.value = term;
+        saveSubscriptionSearchTerm(term);
+        applyFilters();
+        input.focus();
+    }
+
+    function handleSubscriptionSearchKey(event) {
+        if (event.key !== 'Enter') return;
+        saveSubscriptionSearchFromInput();
+    }
 
     function normalizeSubscriptionDuplicateName(value) {
         return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -1067,7 +1210,7 @@ function getDaysUntil($date)
         return activeButton ? activeButton.dataset.continue : '';
     }
 
-    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue, within7Only) {
+    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue, within7Only, searchValue) {
         const matchesContinue = !continueValue || element.dataset.continue === continueValue;
         const isNoMonth = monthValue === '__none';
         const isNoYear = yearValue === '__none';
@@ -1079,7 +1222,14 @@ function getDaysUntil($date)
             : (!monthValue || element.dataset.month === monthValue);
         const daysValue = parseInt(element.dataset.days || '', 10);
         const matchesWithin7 = !within7Only || (!Number.isNaN(daysValue) && daysValue >= 0 && daysValue <= 7);
-        return matchesContinue && matchesYear && matchesMonth && matchesWithin7;
+        const haystack = [
+            element.dataset.name || '',
+            element.dataset.site || '',
+            element.dataset.account || '',
+            element.dataset.note || ''
+        ].join(' ').toLowerCase();
+        const matchesSearch = !searchValue || haystack.includes(searchValue);
+        return matchesContinue && matchesYear && matchesMonth && matchesWithin7 && matchesSearch;
     }
 
     function applyFilters() {
@@ -1087,14 +1237,15 @@ function getDaysUntil($date)
         const yearValue = document.getElementById('yearFilter')?.value || '';
         const monthValue = document.getElementById('monthFilter')?.value || '';
         const within7Only = document.getElementById('within7Btn')?.classList.contains('active');
+        const searchValue = (document.getElementById('subscriptionSearchInput')?.value || '').trim().toLowerCase();
 
         document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(row => {
-            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue, within7Only);
+            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue, within7Only, searchValue);
             row.style.display = match ? '' : 'none';
         });
 
         document.querySelectorAll('.mobile-cards .sub-card').forEach(card => {
-            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue, within7Only);
+            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue, within7Only, searchValue);
             card.style.display = match ? '' : 'none';
         });
     }
@@ -1324,5 +1475,10 @@ function getDaysUntil($date)
                 if (res.success) location.reload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderSubscriptionSearchHistory();
+        applyFilters();
     });
 </script>
