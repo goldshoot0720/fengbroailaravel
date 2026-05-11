@@ -73,7 +73,7 @@ function initFengbroVoiceInput() {
                 account: ['帳號', '使用者'],
                 price: ['價格', '金額', '費用'],
                 currency: ['幣別', '貨幣'],
-                nextdate: ['下次付款', '付款日期', '日期', '到期'],
+                nextdate: ['下次付款', '付款日期', '日期', '時間', '到期'],
                 note: ['備註', '筆記', '說明'],
                 continue: ['續訂', '不續訂']
             },
@@ -642,12 +642,18 @@ function initFengbroVoiceInput() {
 
         if (handleVoicePanelCommand(text)) return;
 
+        if (handleCrossPageSubscriptionCommand(text)) return;
+
         const navTarget = findPageTarget(text);
         if (navTarget) {
+            if (navTarget === currentPage() && /(新增|建立|加入|新增一筆|一筆資料|名稱|服務名稱|日期|時間)/.test(text)) {
+                // Stay on the current page so the command can open the add form and fill fields.
+            } else {
             stageAction('前往 ' + pageProfiles[navTarget].title, function () {
                 window.location.href = 'index.php?page=' + encodeURIComponent(navTarget);
             });
             return;
+            }
         }
 
         if (handleMenuCommand(text)) return;
@@ -1216,6 +1222,10 @@ function initFengbroVoiceInput() {
         const fields = profile.fields || {};
         let changed = false;
 
+        if (page === 'subscription' && fillSubscriptionVoicePayload(text)) {
+            return true;
+        }
+
         Object.keys(fields).forEach(function (field) {
             const aliases = fields[field];
             for (const alias of aliases) {
@@ -1254,13 +1264,93 @@ function initFengbroVoiceInput() {
         return changed;
     }
 
+    function handleCrossPageSubscriptionCommand(text) {
+        if (currentPage() === 'subscription') return false;
+        if (!/(新增|建立|加入|新增一筆|一筆資料)/.test(text)) return false;
+        if (!isSubscriptionVoiceTarget(text)) return false;
+        if (!extractSubscriptionServiceName(text) && !parseSpokenDate(text)) return false;
+
+        stageAction('前往鋒兄訂閱並新增資料', function () {
+            try {
+                sessionStorage.setItem('fengbro_pending_subscription_voice', text);
+            } catch (error) {}
+            window.location.href = 'index.php?page=subscription';
+        });
+        return true;
+    }
+
+    function isSubscriptionVoiceTarget(text) {
+        const profile = pageProfiles.subscription || {};
+        return unique(['鋒兄訂閱', '訂閱', 'subscription'].concat(profile.aliases || [])).some(function (alias) {
+            const key = compact(alias);
+            const source = compact(text);
+            return key && source.indexOf(key) !== -1;
+        });
+    }
+
+    function processPendingSubscriptionVoice() {
+        if (currentPage() !== 'subscription') return;
+        let text = '';
+        try {
+            text = sessionStorage.getItem('fengbro_pending_subscription_voice') || '';
+            if (text) sessionStorage.removeItem('fengbro_pending_subscription_voice');
+        } catch (error) {}
+        if (!text) return;
+
+        const added = invokeFirst(['handleAdd', 'startInlineAdd', 'openModal']) || clickByText(['新增', '新增訂閱']);
+        window.setTimeout(function () {
+            if (added) fillFromSpeech(text);
+            else setStatus('已到鋒兄訂閱，請先按新增後再說一次資料內容。', 'info');
+        }, added ? 120 : 0);
+    }
+
+    function fillSubscriptionVoicePayload(text) {
+        if (!/(新增|建立|加入|新增一筆|一筆資料)/.test(text)) return false;
+
+        const serviceName = extractSubscriptionServiceName(text);
+        const spokenDate = parseSpokenDate(text);
+        const timeWord = extractSubscriptionTimeWord(text);
+        let changed = false;
+
+        if (!serviceName && !spokenDate) return false;
+        if (serviceName) changed = setFieldValue('name', serviceName) || changed;
+        if (spokenDate) changed = setFieldValue('nextdate', spokenDate) || changed;
+        if (timeWord) changed = setFieldValue('note', '鋒兄語音 ' + timeWord) || changed;
+
+        if (changed) {
+            setStatus('已解析訂閱語音：服務名稱、日期與備註已填入。請確認後再儲存。', 'success');
+        }
+        return changed;
+    }
+
+    function extractSubscriptionServiceName(text) {
+        const match = text.match(/(?:服務名稱|服務|名稱|叫做|名叫|叫)\s*(?:是|為|:|：)?\s*([\s\S]+?)(?=\s*(?:日期|時間|下次付款|付款日期|到期|備註|價格|金額|網站|網址|帳號)|$)/);
+        if (!match) return '';
+        return cleanupSubscriptionServiceName(match[1]);
+    }
+
+    function cleanupSubscriptionServiceName(value) {
+        return String(value || '')
+            .replace(/^(?:一筆)?(?:資料|訂閱)\s*/, '')
+            .replace(/^(?:是|為|叫做|名叫|叫|:|：)\s*/, '')
+            .replace(/\s*(?:上午|早上|中午|下午|晚上|晚間|凌晨)\s*$/, '')
+            .replace(/[，,。.\s]+$/g, '')
+            .trim();
+    }
+
+    function extractSubscriptionTimeWord(text) {
+        const match = text.match(/(上午|早上|中午|下午|晚上|晚間|凌晨)/);
+        if (!match) return '';
+        return match[1] === '早上' ? '上午' : match[1];
+    }
+
     function extractValueAfterAlias(text, alias) {
         const idx = text.indexOf(alias);
         if (idx === -1) return null;
         let rest = text.slice(idx + alias.length).trim();
         rest = rest.replace(/^(是|為|等於|:|：)/, '').trim();
         if (!rest) return '';
-        const stopWords = ['服務', '服務名稱', '名稱', '網站', '網址', '帳號', '價格', '金額', '費用', '幣別', '貨幣', '日期', '到期', '備註', '筆記', '分類', '類別', '數量', '庫存', '商店', '店家', '內容', '標題', '歌詞', '語言', '封面', '參考', '來源', '地址', '卡號', '存款', '提款', '轉帳'];
+        const stopWords = ['服務', '服務名稱', '名稱', '網站', '網址', '帳號', '價格', '金額', '費用', '幣別', '貨幣', '日期', '時間', '到期', '備註', '筆記', '分類', '類別', '數量', '庫存', '商店', '店家', '內容', '標題', '歌詞', '語言', '封面', '參考', '來源', '地址', '卡號', '存款', '提款', '轉帳'];
         let end = rest.length;
         stopWords.forEach(function (word) {
             const pos = rest.indexOf(word);
@@ -1302,7 +1392,7 @@ function initFengbroVoiceInput() {
     }
 
     function extractUntilFieldWord(value) {
-        const markers = ['價格', '金額', '數量', '到期', '日期', '分類', '備註', '內容', '網站', '帳號', '語言', '檔案', '封面', '參考'];
+        const markers = ['價格', '金額', '數量', '到期', '日期', '時間', '分類', '備註', '內容', '網站', '帳號', '語言', '檔案', '封面', '參考'];
         let end = value.length;
         markers.forEach(function (marker) {
             const pos = value.indexOf(marker);
@@ -1353,6 +1443,9 @@ function initFengbroVoiceInput() {
 
         const yearMonthDay = raw.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*(?:日|號)?/);
         if (yearMonthDay) return formatLocalDate(new Date(Number(yearMonthDay[1]), Number(yearMonthDay[2]) - 1, Number(yearMonthDay[3])));
+
+        const slashDate = raw.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+        if (slashDate) return formatLocalDate(new Date(Number(slashDate[1]), Number(slashDate[2]) - 1, Number(slashDate[3])));
 
         const nextMonthDay = raw.match(/下(?:個)?月\s*(\d{1,2}|[一二三四五六七八九十兩]+)\s*(?:日|號)/);
         if (nextMonthDay) return formatLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, spokenNumber(nextMonthDay[1])));
@@ -1753,6 +1846,7 @@ function initFengbroVoiceInput() {
     };
 
     createUI();
+    window.setTimeout(processPendingSubscriptionVoice, 120);
 }
 
 function initHeaderRefreshButtons() {

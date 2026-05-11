@@ -886,14 +886,46 @@ function getDaysUntil($date)
     }
 
     .subscription-search-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         border: 1px solid rgba(148, 163, 184, 0.35);
         border-radius: 999px;
-        padding: 6px 10px;
+        padding: 4px 6px 4px 10px;
         background: rgba(255, 255, 255, 0.78);
         color: var(--text-color);
         font-size: 0.82rem;
         font-weight: 700;
+    }
+
+    .subscription-search-chip-term,
+    .subscription-search-chip-remove {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
         cursor: pointer;
+    }
+
+    .subscription-search-chip-term {
+        padding: 2px 0;
+    }
+
+    .subscription-search-chip-remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        line-height: 1;
+    }
+
+    .subscription-search-chip-remove:hover {
+        background: rgba(239, 68, 68, 0.14);
+        color: #dc2626;
     }
 
     .subscription-search-history-label {
@@ -1025,18 +1057,19 @@ function getDaysUntil($date)
     const allSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
     const allAccounts = <?php echo json_encode($existingAccounts, JSON_UNESCAPED_UNICODE); ?>;
     const SUBSCRIPTION_SEARCH_HISTORY_KEY = 'fengbro_subscription_search_history';
+    const SUBSCRIPTION_SEARCH_HISTORY_LIMIT = 37;
 
     function getSubscriptionSearchHistory() {
         try {
             const parsed = JSON.parse(localStorage.getItem(SUBSCRIPTION_SEARCH_HISTORY_KEY) || '[]');
-            return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, 8) : [];
+            return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, SUBSCRIPTION_SEARCH_HISTORY_LIMIT) : [];
         } catch (error) {
             return [];
         }
     }
 
     function setSubscriptionSearchHistory(items) {
-        localStorage.setItem(SUBSCRIPTION_SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
+        localStorage.setItem(SUBSCRIPTION_SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, SUBSCRIPTION_SEARCH_HISTORY_LIMIT)));
     }
 
     function renderSubscriptionSearchHistory() {
@@ -1051,14 +1084,32 @@ function getDaysUntil($date)
             container.appendChild(label);
         }
         items.forEach(item => {
+            const chip = document.createElement('span');
+            chip.className = 'subscription-search-chip';
+
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'subscription-search-chip';
+            button.className = 'subscription-search-chip-term';
             button.textContent = item;
+            button.title = '使用搜尋：' + item;
             button.addEventListener('click', function () {
                 useSubscriptionSearchHistory(item);
             });
-            container.appendChild(button);
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'subscription-search-chip-remove';
+            remove.textContent = 'X';
+            remove.setAttribute('aria-label', '清除搜尋紀錄：' + item);
+            remove.title = '清除';
+            remove.addEventListener('click', function (event) {
+                event.stopPropagation();
+                removeSubscriptionSearchHistory(item);
+            });
+
+            chip.appendChild(button);
+            chip.appendChild(remove);
+            container.appendChild(chip);
         });
     }
 
@@ -1068,6 +1119,13 @@ function getDaysUntil($date)
         const history = getSubscriptionSearchHistory();
         const next = [value].concat(history.filter(item => item !== value));
         setSubscriptionSearchHistory(next);
+        renderSubscriptionSearchHistory();
+    }
+
+    function removeSubscriptionSearchHistory(term) {
+        const value = String(term || '').trim();
+        if (!value) return;
+        setSubscriptionSearchHistory(getSubscriptionSearchHistory().filter(item => item !== value));
         renderSubscriptionSearchHistory();
     }
 
