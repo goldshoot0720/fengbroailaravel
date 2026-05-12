@@ -813,33 +813,18 @@ usort($years, function ($a, $b) use ($currentYear) {
                 }
 
                 const d = res.data;
-                const data = {
-                    name: d.name || '',
-                    amount: d.amount || 0,
-                    price: d.price || 0,
-                    shop: d.shop || '',
-                    todate: d.todate ? String(d.todate).split(' ')[0] : null,
-                    photo: d.photo || ''
-                };
-
-                if (!data.name) {
-                    alert('複製失敗：缺少食品名稱');
-                    return;
-                }
-
-                if (!confirm(`確定要複製「${data.name}」嗎？`)) return;
-
-                fetch(`api.php?action=create&table=${TABLE}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                })
-                    .then(r => r.json())
-                    .then(createRes => {
-                        if (createRes.success) location.reload();
-                        else alert('複製失敗: ' + (createRes.error || createRes.message || ''));
-                    })
-                    .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
+                openModal();
+                document.getElementById('itemId').value = '';
+                document.getElementById('name').value = d.name || '';
+                document.getElementById('amount').value = d.amount || '';
+                document.getElementById('price').value = d.price || '';
+                document.getElementById('shop').value = d.shop || '';
+                document.getElementById('todate').value = d.todate ? String(d.todate).split(' ')[0] : '';
+                document.getElementById('photo').value = d.photo || '';
+                updatePhotoPreview();
+                document.getElementById('modalTitle').textContent = '複製食品後手動新增';
+                const nameInput = document.getElementById('name');
+                if (nameInput) nameInput.focus();
             })
             .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
     }

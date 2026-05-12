@@ -1519,36 +1519,19 @@ function getDaysUntil($date)
                 }
 
                 const d = res.data;
-                const data = {
-                    name: d.name || '',
-                    site: d.site || '',
-                    price: d.price || 0,
-                    currency: d.currency || 'TWD',
-                    nextdate: d.nextdate ? String(d.nextdate).split(' ')[0] : null,
-                    account: d.account || '',
-                    note: d.note || '',
-                    continue: Number(d.continue) === 1 ? 1 : 0
-                };
-
-                if (!data.name) {
-                    alert('複製失敗：缺少服務名稱');
-                    return;
-                }
-
-                if (!confirmDuplicateSubscription(data)) return;
-                if (!confirm(`確定要複製「${data.name}」嗎？`)) return;
-
-                fetch(`api.php?action=create&table=${TABLE}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                })
-                    .then(r => r.json())
-                    .then(createRes => {
-                        if (createRes.success) location.reload();
-                        else alert('複製失敗: ' + (createRes.error || createRes.message || ''));
-                    })
-                    .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
+                openModal();
+                document.getElementById('itemId').value = '';
+                document.getElementById('name').value = d.name || '';
+                document.getElementById('site').value = d.site || '';
+                document.getElementById('price').value = d.price || '';
+                document.getElementById('currency').value = d.currency || 'TWD';
+                document.getElementById('nextdate').value = d.nextdate ? String(d.nextdate).split(' ')[0] : '';
+                document.getElementById('account').value = d.account || '';
+                document.getElementById('note').value = d.note || '';
+                document.getElementById('continue').checked = Number(d.continue) === 1;
+                document.getElementById('modalTitle').textContent = '複製訂閱後手動新增';
+                const nameInput = document.getElementById('name');
+                if (nameInput) nameInput.focus();
             })
             .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
     }
