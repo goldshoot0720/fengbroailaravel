@@ -571,8 +571,7 @@ usort($years, function ($a, $b) use ($currentYear) {
     initBatchDelete(TABLE);
 
     function handleAdd() {
-        // Use inline editing for all screen sizes
-        startInlineAdd();
+        openModal();
     }
 
     function addDays(days) {
@@ -583,14 +582,14 @@ usort($years, function ($a, $b) use ($currentYear) {
     }
 
     function applyFoodPreset(name, amount, days, shop) {
-        startInlineAdd();
-        const row = document.getElementById('inlineAddRow');
-        if (!row) return;
-        row.querySelector('[data-field="name"]').value = name;
-        row.querySelector('[data-field="amount"]').value = amount || 1;
-        row.querySelector('[data-field="price"]').value = 0;
-        row.querySelector('[data-field="shop"]').value = shop || '';
-        row.querySelector('[data-field="todate"]').value = addDays(days);
+        openModal();
+        document.getElementById('name').value = name || '';
+        document.getElementById('amount').value = amount || 1;
+        document.getElementById('price').value = 0;
+        document.getElementById('shop').value = shop || '';
+        document.getElementById('todate').value = addDays(days);
+        const nameInput = document.getElementById('name');
+        if (nameInput) nameInput.focus();
     }
 
     function filterFoods() {
