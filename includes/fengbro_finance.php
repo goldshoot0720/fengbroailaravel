@@ -14,6 +14,7 @@ function fengbroFinanceItems()
         ['name' => 'S&P 500 Index', 'symbol' => '.SPX', 'url' => 'https://www.cnbc.com/quotes/.SPX', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'NASDAQ Composite', 'symbol' => '.IXIC', 'url' => 'https://www.cnbc.com/quotes/.IXIC', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'CBOE Volatility Index', 'symbol' => 'VIX', 'url' => 'https://www.cnbc.com/quotes/VIX', 'group' => 'Volatility', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'Shiller PE Ratio', 'symbol' => 'SHILLER_PE', 'url' => 'https://www.multpl.com/shiller-pe', 'group' => 'Valuation', 'source' => 'Multpl', 'parser' => 'multpl_shiller', 'recordHigh' => 44.19, 'recordHighDate' => 'Dec 1999'],
         ['name' => 'Bitcoin/USD Coin Metrics', 'symbol' => 'BTC.CM=', 'url' => 'https://www.cnbc.com/quotes/BTC.CM=', 'group' => 'Crypto', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'Ether/USD Coin Metrics', 'symbol' => 'ETH.CM=', 'url' => 'https://www.cnbc.com/quotes/ETH.CM=', 'group' => 'Crypto', 'source' => 'CNBC', 'parser' => 'cnbc'],
     ];
@@ -317,10 +318,66 @@ function fengbroFinanceParseYahooTwQuote($item)
     ];
 }
 
+function fengbroFinanceParseMultplShiller($item)
+{
+    $html = fengbroFinanceFetchUrl($item['url']);
+    $text = fengbroFinanceText($html);
+    $value = '';
+
+    $patterns = [
+        '/current level of\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/Shiller PE Ratio\s*[:|]?\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/S&P 500 Shiller CAPE Ratio\s*[:|]?\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+    ];
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $text, $m)) {
+            $value = $m[1];
+            break;
+        }
+    }
+
+    if ($value === '' && preg_match_all('/\b\d{1,3}(?:\.\d+)?\b/', $text, $numbers)) {
+        foreach ($numbers[0] as $number) {
+            $numeric = (float) $number;
+            if ($numeric > 5 && $numeric < 100) {
+                $value = $number;
+                break;
+            }
+        }
+    }
+
+    $valueNumber = fengbroFinanceNumber($value);
+    $recordHigh = (float) ($item['recordHigh'] ?? 44.19);
+    $status = ($valueNumber !== null && $valueNumber >= $recordHigh) ? '創新高' : '';
+
+    return [
+        'name' => $item['name'],
+        'symbol' => $item['symbol'],
+        'group' => $item['group'],
+        'source' => $item['source'] ?? 'Multpl',
+        'url' => $item['url'],
+        'valueLabel' => 'Ratio',
+        'value' => $value,
+        'change' => '',
+        'changePercent' => '',
+        'open' => '',
+        'dayHigh' => '',
+        'dayLow' => '',
+        'prevClose' => '',
+        'high52' => fengbroFinanceFormatNumber($recordHigh, 2) . ' (' . ($item['recordHighDate'] ?? 'Dec 1999') . ')',
+        'low52' => '',
+        'status' => $status,
+        'error' => $value === '' ? '無法讀取 Multpl Shiller PE Ratio' : '',
+    ];
+}
+
 function fengbroFinanceParseQuote($item)
 {
     if (($item['parser'] ?? 'cnbc') === 'yahoo_tw') {
         return fengbroFinanceParseYahooTwQuote($item);
+    }
+    if (($item['parser'] ?? 'cnbc') === 'multpl_shiller') {
+        return fengbroFinanceParseMultplShiller($item);
     }
 
     return fengbroFinanceParseCnbcQuote($item);
@@ -342,7 +399,7 @@ function fengbroFinanceGetData($force = false)
     $data = [
         'checkedAt' => date('Y-m-d H:i:s'),
         'quotes' => $quotes,
-        'source' => 'CNBC / Yahoo股市',
+        'source' => 'CNBC / Yahoo股市 / Multpl',
     ];
     $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
     fengbroFinanceWriteCache($cache);

@@ -22,6 +22,18 @@ function bankTextContains($haystack, $needle)
         : strpos($haystack, bankNormalizeText($needle)) !== false;
 }
 
+function bankDisplayUrl($url)
+{
+    $url = trim((string) $url);
+    if ($url === '') {
+        return '';
+    }
+    if (!preg_match('#^https?://#i', $url)) {
+        $url = 'https://' . $url;
+    }
+    return $url;
+}
+
 function isTaiwanBankAccount($item)
 {
     $haystack = bankNormalizeText(
@@ -165,6 +177,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                 </tr>
             <?php else: ?>
                 <?php foreach ($items as $item): ?>
+                    <?php $bankSiteUrl = bankDisplayUrl($item['site'] ?? ''); ?>
                     <tr data-id="<?php echo $item['id']; ?>"
                         data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
                         data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
@@ -179,12 +192,18 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
                             <div class="inline-view">
-                                <?php if ($item['site']): ?>
-                                    <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                                <?php if ($bankSiteUrl): ?>
+                                    <?php $domain = parse_url($bankSiteUrl, PHP_URL_HOST); ?>
                                     <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=16"
                                         style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;">
                                 <?php endif; ?>
-                                <?php echo htmlspecialchars($item['name']); ?>
+                                <?php if ($bankSiteUrl): ?>
+                                    <a href="<?php echo htmlspecialchars($bankSiteUrl); ?>" target="_blank" rel="noopener" class="bank-name-link">
+                                        <?php echo htmlspecialchars($item['name']); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars($item['name']); ?>
+                                <?php endif; ?>
                                 <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
                                     style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
                                 <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
@@ -231,8 +250,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                             <span class="inline-view"><?php echo htmlspecialchars($item['card'] ?? '-'); ?></span>
                         </td>
                         <td>
-                            <span
-                                class="inline-view"><?php echo $item['site'] ? '<a href="' . htmlspecialchars($item['site']) . '" target="_blank">連結</a>' : '-'; ?></span>
+                            <span class="inline-view"><?php echo $bankSiteUrl ? '已合併至名稱' : '-'; ?></span>
                         </td>
                         <td>
                             <div class="inline-view"></div>
@@ -249,6 +267,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無銀行資料</div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
+                <?php $bankSiteUrl = bankDisplayUrl($item['site'] ?? ''); ?>
                 <div class="mobile-card" style="border-left: 4px solid #3498db;">
                     <div class="mobile-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
@@ -256,19 +275,23 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                     </div>
                     <div class="mobile-card-header">
-                        <?php if ($item['site']): ?>
-                            <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                        <?php if ($bankSiteUrl): ?>
+                            <?php $domain = parse_url($bankSiteUrl, PHP_URL_HOST); ?>
                             <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=32"
                                 style="width: 32px; height: 32px; border-radius: 6px;">
                         <?php else: ?>
                             <i class="fas fa-university" style="font-size: 1.5rem; color: #3498db;"></i>
                         <?php endif; ?>
-                        <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
+                        <div class="mobile-card-title">
+                            <?php if ($bankSiteUrl): ?>
+                                <a href="<?php echo htmlspecialchars($bankSiteUrl); ?>" target="_blank" rel="noopener" class="bank-name-link">
+                                    <?php echo htmlspecialchars($item['name']); ?>
+                                </a>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($item['name']); ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                    <?php if ($item['site']): ?>
-                        <div style="margin-bottom: 8px;"><a href="<?php echo htmlspecialchars($item['site']); ?>" target="_blank"
-                                style="color: #3498db; font-size: 0.85rem;"><i class="fas fa-external-link-alt"></i> 前往網站</a></div>
-                    <?php endif; ?>
                     <div class="mobile-card-info">
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">存款</span>

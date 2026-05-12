@@ -1,6 +1,7 @@
 <?php
 $pageTitle = '鋒兄首頁';
 require_once __DIR__ . '/../includes/fengbro_tube.php';
+require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $nowTaipei = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
 $currentHour = (int) $nowTaipei->format('G');
@@ -10,6 +11,7 @@ $currentHost = preg_replace('/:\d+$/', '', $currentHost);
 $serviceCountdown = null;
 $serviceNotice = null;
 $tubeNewVideos = [];
+$financeHighNotices = [];
 
 if ($currentHour >= 0 && $currentHour <= 2) {
     $sleepWarningClass = 'sleep-warning-yellow';
@@ -53,6 +55,12 @@ if (isset($noticeTargets[$currentHost])) {
 
 $tubeData = fengbroTubeGetData(false);
 $tubeNewVideos = $tubeData['newVideos'] ?? [];
+$financeData = fengbroFinanceGetData(false);
+foreach (($financeData['quotes'] ?? []) as $quote) {
+    if (($quote['name'] ?? '') === 'Shiller PE Ratio' && ($quote['status'] ?? '') === '創新高') {
+        $financeHighNotices[] = $quote;
+    }
+}
 ?>
 
 <?php if ($sleepWarningClass): ?>
@@ -88,6 +96,18 @@ $tubeNewVideos = $tubeData['newVideos'] ?? [];
         <span>
             <strong>鋒兄tube 有 <?php echo count($tubeNewVideos); ?> 部 3 天內新影片</strong>
             <small><?php echo htmlspecialchars($tubeNewVideos[0]['channel'] ?? 'YouTube'); ?>：<?php echo htmlspecialchars($tubeNewVideos[0]['title'] ?? '最新影片'); ?></small>
+        </span>
+        <i class="fa-solid fa-arrow-right"></i>
+    </a>
+<?php endif; ?>
+
+<?php if (!empty($financeHighNotices)): ?>
+    <?php $shillerNotice = $financeHighNotices[0]; ?>
+    <a class="tube-home-notice finance-home-notice" href="index.php?page=tools&tool=finance" role="status">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>
+            <strong>Shiller PE Ratio 創新高</strong>
+            <small>目前 <?php echo htmlspecialchars($shillerNotice['value'] ?? '-'); ?>，歷史高點 <?php echo htmlspecialchars($shillerNotice['high52'] ?? '44.19 (Dec 1999)'); ?></small>
         </span>
         <i class="fa-solid fa-arrow-right"></i>
     </a>
@@ -308,6 +328,27 @@ $tubeNewVideos = $tubeData['newVideos'] ?? [];
 
     [data-theme="dark"] .tube-home-notice small {
         color: #fecaca;
+    }
+
+    .finance-home-notice {
+        border-color: rgba(245, 158, 11, 0.32);
+        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
+        color: #78350f;
+        box-shadow: 0 16px 38px rgba(180, 83, 9, 0.12);
+    }
+
+    .finance-home-notice > i:first-child {
+        color: #d97706;
+    }
+
+    .finance-home-notice small {
+        color: #92400e;
+    }
+
+    [data-theme="dark"] .finance-home-notice {
+        background: linear-gradient(180deg, rgba(120, 53, 15, 0.76), rgba(69, 26, 3, 0.76));
+        border-color: rgba(251, 191, 36, 0.34);
+        color: #fef3c7;
     }
 
     [data-theme="dark"] .service-countdown {

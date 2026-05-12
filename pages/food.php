@@ -245,6 +245,8 @@ usort($years, function ($a, $b) use ($currentYear) {
                                 <?php echo htmlspecialchars($item['name']); ?>
                                 <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
                                     style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')"
+                                    title="複製項目" style="cursor: pointer; margin-left: 6px;"><i class="fas fa-copy"></i></span>
                                 <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
                                     style="margin-left: 6px; cursor: pointer;">&times;</span>
                             </div>
@@ -310,6 +312,8 @@ usort($years, function ($a, $b) use ($currentYear) {
                     <div class="mobile-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
+                        <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" title="複製項目"><i
+                                class="fas fa-copy"></i></span>
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                     </div>
                     <div class="mobile-card-header">
@@ -797,6 +801,47 @@ usort($years, function ($a, $b) use ($currentYear) {
                     else alert('刪除失敗');
                 });
         }
+    }
+
+    function duplicateItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success || !res.data) {
+                    alert('無法讀取要複製的食品項目');
+                    return;
+                }
+
+                const d = res.data;
+                const data = {
+                    name: d.name || '',
+                    amount: d.amount || 0,
+                    price: d.price || 0,
+                    shop: d.shop || '',
+                    todate: d.todate ? String(d.todate).split(' ')[0] : null,
+                    photo: d.photo || ''
+                };
+
+                if (!data.name) {
+                    alert('複製失敗：缺少食品名稱');
+                    return;
+                }
+
+                if (!confirm(`確定要複製「${data.name}」嗎？`)) return;
+
+                fetch(`api.php?action=create&table=${TABLE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                    .then(r => r.json())
+                    .then(createRes => {
+                        if (createRes.success) location.reload();
+                        else alert('複製失敗: ' + (createRes.error || createRes.message || ''));
+                    })
+                    .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
+            })
+            .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
     }
 
     document.getElementById('itemForm').addEventListener('submit', function (e) {

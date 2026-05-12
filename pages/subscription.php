@@ -263,6 +263,8 @@ function getDaysUntil($date)
                                 <?php endif; ?>
                                 <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
                                     style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')"
+                                    title="複製項目" style="cursor: pointer; margin-left: 6px;"><i class="fas fa-copy"></i></span>
                                 <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
                                     style="margin-left: 6px; cursor: pointer;">&times;</span>
                                 <?php if (!empty($item['account'])): ?>
@@ -346,6 +348,8 @@ function getDaysUntil($date)
                     <div class="sub-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
+                        <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" title="複製項目"><i
+                                class="fas fa-copy"></i></span>
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                     </div>
                     <div class="sub-card-header">
@@ -685,6 +689,7 @@ function getDaysUntil($date)
     }
 
     .sub-card-actions .card-edit-btn,
+    .sub-card-actions .card-copy-btn,
     .sub-card-actions .card-delete-btn {
         font-size: 18px;
         padding: 5px;
@@ -1502,6 +1507,50 @@ function getDaysUntil($date)
                     else alert('刪除失敗');
                 });
         }
+    }
+
+    function duplicateItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success || !res.data) {
+                    alert('無法讀取要複製的訂閱');
+                    return;
+                }
+
+                const d = res.data;
+                const data = {
+                    name: d.name || '',
+                    site: d.site || '',
+                    price: d.price || 0,
+                    currency: d.currency || 'TWD',
+                    nextdate: d.nextdate ? String(d.nextdate).split(' ')[0] : null,
+                    account: d.account || '',
+                    note: d.note || '',
+                    continue: Number(d.continue) === 1 ? 1 : 0
+                };
+
+                if (!data.name) {
+                    alert('複製失敗：缺少服務名稱');
+                    return;
+                }
+
+                if (!confirmDuplicateSubscription(data)) return;
+                if (!confirm(`確定要複製「${data.name}」嗎？`)) return;
+
+                fetch(`api.php?action=create&table=${TABLE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                    .then(r => r.json())
+                    .then(createRes => {
+                        if (createRes.success) location.reload();
+                        else alert('複製失敗: ' + (createRes.error || createRes.message || ''));
+                    })
+                    .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
+            })
+            .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
     }
 
     document.getElementById('itemForm').addEventListener('submit', function (e) {
