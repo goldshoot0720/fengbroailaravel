@@ -30,10 +30,14 @@ $countdownTargets = [
         'prefix' => '暫定至',
         'label' => '網站終止服務'
     ],
+    'tpe12thmayor2025to2038.cloudaccess.host' => [
+        'date' => '2026-06-02',
+        'prefix' => '至',
+        'label' => '網站終止服務'
+    ],
 ];
 
 $noticeTargets = [
-    'tpe12thmayor2025to2038.cloudaccess.host' => '每月月底之前確認網站效期',
 ];
 
 if (isset($countdownTargets[$currentHost])) {
