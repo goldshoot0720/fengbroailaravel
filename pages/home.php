@@ -6,8 +6,24 @@ require_once __DIR__ . '/../includes/fengbro_finance.php';
 $nowTaipei = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
 $currentHour = (int) $nowTaipei->format('G');
 $sleepWarningClass = '';
-$currentHost = strtolower($_SERVER['HTTP_HOST'] ?? '');
-$currentHost = preg_replace('/:\d+$/', '', $currentHost);
+$rawHostCandidates = array_filter([
+    $_SERVER['HTTP_HOST'] ?? '',
+    $_SERVER['SERVER_NAME'] ?? '',
+    $_SERVER['HTTP_X_FORWARDED_HOST'] ?? '',
+]);
+$hostCandidates = [];
+foreach ($rawHostCandidates as $rawHost) {
+    foreach (explode(',', $rawHost) as $hostPart) {
+        $host = strtolower(trim($hostPart));
+        $host = preg_replace('/:\d+$/', '', $host);
+        $host = preg_replace('/^www\./', '', $host);
+        if ($host !== '') {
+            $hostCandidates[] = $host;
+        }
+    }
+}
+$hostCandidates = array_values(array_unique($hostCandidates));
+$currentHost = $hostCandidates[0] ?? '';
 $serviceCountdown = null;
 $serviceNotice = null;
 $tubeNewVideos = [];
@@ -45,8 +61,11 @@ $countdownTargets = [
 $noticeTargets = [
 ];
 
-if (isset($countdownTargets[$currentHost])) {
-    $targetConfig = $countdownTargets[$currentHost];
+foreach ($hostCandidates as $candidateHost) {
+    if (!isset($countdownTargets[$candidateHost])) {
+        continue;
+    }
+    $targetConfig = $countdownTargets[$candidateHost];
     $todayTaipei = $nowTaipei->setTime(0, 0);
     $targetDate = new DateTimeImmutable($targetConfig['date'], new DateTimeZone('Asia/Taipei'));
     $daysRemaining = (int) $todayTaipei->diff($targetDate)->format('%r%a');
@@ -56,10 +75,14 @@ if (isset($countdownTargets[$currentHost])) {
         'prefix' => $targetConfig['prefix'],
         'label' => $targetConfig['label'],
     ];
+    break;
 }
 
-if (isset($noticeTargets[$currentHost])) {
-    $serviceNotice = $noticeTargets[$currentHost];
+foreach ($hostCandidates as $candidateHost) {
+    if (isset($noticeTargets[$candidateHost])) {
+        $serviceNotice = $noticeTargets[$candidateHost];
+        break;
+    }
 }
 
 $tubeData = fengbroTubeGetData(false);
