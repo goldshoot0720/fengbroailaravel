@@ -35,6 +35,11 @@ $countdownTargets = [
         'prefix' => '至',
         'label' => '網站終止服務'
     ],
+    'tpe12thmayor2038from2025.cloudaccess.host' => [
+        'date' => '2026-06-11',
+        'prefix' => '至',
+        'label' => '網站終止服務'
+    ],
 ];
 
 $noticeTargets = [
