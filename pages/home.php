@@ -21,7 +21,7 @@ if ($currentHour >= 0 && $currentHour <= 2) {
 
 $countdownTargets = [
     'laravel.tpe12thmayor2025to2038.com' => [
-        'date' => '2026-05-14',
+        'date' => '2026-05-13',
         'prefix' => '至',
         'label' => '網站終止服務'
     ],
