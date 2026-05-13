@@ -122,6 +122,45 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     </div>
 <?php endif; ?>
 
+<script>
+    (function () {
+        if (document.querySelector('.service-countdown')) return;
+
+        const countdownTargets = <?php echo json_encode($countdownTargets, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+        const host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
+        const target = countdownTargets[host];
+        if (!target || !target.date) return;
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const targetDate = new Date(target.date + 'T00:00:00');
+        if (Number.isNaN(targetDate.getTime())) return;
+
+        const days = Math.max(0, Math.ceil((targetDate - today) / 86400000));
+        const dateText = `${targetDate.getFullYear()}年${String(targetDate.getMonth() + 1).padStart(2, '0')}月${String(targetDate.getDate()).padStart(2, '0')}日`;
+        const countdown = document.createElement('div');
+        countdown.className = 'service-countdown';
+        countdown.setAttribute('role', 'status');
+        countdown.innerHTML = `
+            <div class="service-countdown-copy">
+                <span class="service-countdown-label">服務倒數</span>
+                <strong>${target.prefix || '至'} ${dateText}${target.label || '網站終止服務'}</strong>
+            </div>
+            <div class="service-countdown-days">
+                <span>${days}</span>
+                <small>天</small>
+            </div>
+        `;
+
+        const firstNotice = document.querySelector('.tube-home-notice, .finance-home-notice, .content-header');
+        if (firstNotice && firstNotice.parentNode) {
+            firstNotice.parentNode.insertBefore(countdown, firstNotice);
+        } else {
+            document.body.prepend(countdown);
+        }
+    })();
+</script>
+
 <?php if (!empty($tubeNewVideos)): ?>
     <a class="tube-home-notice" href="index.php?page=tools&tool=tube" role="status">
         <i class="fa-brands fa-youtube"></i>
