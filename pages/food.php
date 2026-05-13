@@ -259,7 +259,7 @@ usort($years, function ($a, $b) use ($currentYear) {
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo $item['amount'] ?? 0; ?></span>
+                            <span class="inline-view food-amount-value"><?php echo $item['amount'] ?? 0; ?></span>
                             <div class="food-amount-controls inline-view">
                                 <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', -1)" title="減少數量">-</button>
                                 <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', 1)" title="增加數量">+</button>
@@ -337,8 +337,8 @@ usort($years, function ($a, $b) use ($currentYear) {
                     <div class="mobile-card-info">
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">數量</span>
-                            <span class="mobile-card-value">
-                                <?php echo $item['amount'] ?? 0; ?>
+                            <span class="mobile-card-value food-amount-value-wrap">
+                                <span class="food-amount-value"><?php echo $item['amount'] ?? 0; ?></span>
                                 <span class="food-amount-controls">
                                     <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', -1)">-</button>
                                     <button type="button" onclick="adjustFoodAmount('<?php echo $item['id']; ?>', 1)">+</button>
@@ -628,9 +628,14 @@ usort($years, function ($a, $b) use ($currentYear) {
     }
 
     function adjustFoodAmount(id, delta) {
+        const items = document.querySelectorAll(`[data-food-item][data-id="${id}"]`);
         const row = getRowById(id);
-        const current = row ? parseInt(row.dataset.amount || '0', 10) || 0 : 0;
+        const source = row || items[0];
+        const current = source ? parseInt(source.dataset.amount || '0', 10) || 0 : 0;
         const nextAmount = Math.max(0, current + delta);
+        items.forEach(item => {
+            item.querySelectorAll('.food-amount-controls button').forEach(btn => btn.disabled = true);
+        });
         fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -638,8 +643,25 @@ usort($years, function ($a, $b) use ($currentYear) {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
-                else alert('更新數量失敗: ' + (res.error || ''));
+                if (!res.success) {
+                    alert('更新數量失敗: ' + (res.error || ''));
+                    return;
+                }
+
+                items.forEach(item => {
+                    item.dataset.amount = String(nextAmount);
+                    item.querySelectorAll('.food-amount-value').forEach(el => {
+                        el.textContent = String(nextAmount);
+                    });
+                    const amountInput = item.querySelector('[data-field="amount"]');
+                    if (amountInput) amountInput.value = String(nextAmount);
+                });
+            })
+            .catch(err => alert('更新數量失敗: ' + (err.message || '網路錯誤')))
+            .finally(() => {
+                items.forEach(item => {
+                    item.querySelectorAll('.food-amount-controls button').forEach(btn => btn.disabled = false);
+                });
             });
     }
 
