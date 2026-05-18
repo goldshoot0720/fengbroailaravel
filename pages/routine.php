@@ -16,6 +16,21 @@ function getRoutineDaysDiff(array $item): array
 
     return ['text' => $days . ' 天', 'days' => $days];
 }
+
+function getRoutineDateGapText($dateA, $dateB): string
+{
+    if (empty($dateA) || empty($dateB)) {
+        return '';
+    }
+
+    try {
+        $first = new DateTime($dateA);
+        $second = new DateTime($dateB);
+        return '相差 ' . $first->diff($second)->days . ' 天';
+    } catch (Exception $e) {
+        return '';
+    }
+}
 ?>
 
 <div class="content-header">
@@ -116,6 +131,8 @@ function getRoutineDaysDiff(array $item): array
                     <?php
                     $routineDaysDiff = getRoutineDaysDiff($item);
                     $daysDiff = $routineDaysDiff['text'];
+                    $dateGap12 = getRoutineDateGapText($item['lastdate1'] ?? '', $item['lastdate2'] ?? '');
+                    $dateGap23 = getRoutineDateGapText($item['lastdate2'] ?? '', $item['lastdate3'] ?? '');
                     ?>
                     <tr data-id="<?php echo $item['id']; ?>"
                         data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
@@ -173,13 +190,23 @@ function getRoutineDaysDiff(array $item): array
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo formatDate($item['lastdate1']); ?></span>
+                            <span class="inline-view routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate1']); ?></span>
+                                <?php if ($dateGap12 !== ''): ?>
+                                    <small>與例行之二<?php echo htmlspecialchars($dateGap12); ?></small>
+                                <?php endif; ?>
+                            </span>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="lastdate1">
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo formatDate($item['lastdate2']); ?></span>
+                            <span class="inline-view routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate2']); ?></span>
+                                <?php if ($dateGap23 !== ''): ?>
+                                    <small>與例行之三<?php echo htmlspecialchars($dateGap23); ?></small>
+                                <?php endif; ?>
+                            </span>
                             <div class="inline-edit inline-edit-row">
                                 <input type="date" class="form-control inline-input" data-field="lastdate2">
                             </div>
@@ -214,6 +241,8 @@ function getRoutineDaysDiff(array $item): array
                 $routineDaysDiff = getRoutineDaysDiff($item);
                 $daysDiff = $routineDaysDiff['text'];
                 $daysDiffNum = $routineDaysDiff['days'];
+                $dateGap12 = getRoutineDateGapText($item['lastdate1'] ?? '', $item['lastdate2'] ?? '');
+                $dateGap23 = getRoutineDateGapText($item['lastdate2'] ?? '', $item['lastdate3'] ?? '');
                 ?>
                 <div class="mobile-card routine-mobile-card" style="border-left: 4px solid #9b59b6;">
                     <div class="mobile-card-actions routine-mobile-actions">
@@ -248,11 +277,21 @@ function getRoutineDaysDiff(array $item): array
                     <div class="mobile-card-info" style="margin-top: 12px;">
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">例行之一</span>
-                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate1']) ?: '-'; ?></span>
+                            <span class="mobile-card-value routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate1']) ?: '-'; ?></span>
+                                <?php if ($dateGap12 !== ''): ?>
+                                    <small>與例行之二<?php echo htmlspecialchars($dateGap12); ?></small>
+                                <?php endif; ?>
+                            </span>
                         </div>
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">例行之二</span>
-                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate2']) ?: '-'; ?></span>
+                            <span class="mobile-card-value routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate2']) ?: '-'; ?></span>
+                                <?php if ($dateGap23 !== ''): ?>
+                                    <small>與例行之三<?php echo htmlspecialchars($dateGap23); ?></small>
+                                <?php endif; ?>
+                            </span>
                         </div>
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">例行之三</span>
@@ -285,6 +324,20 @@ function getRoutineDaysDiff(array $item): array
         overflow-wrap: anywhere;
         word-break: break-word;
         max-width: 100%;
+    }
+
+    .routine-date-stack {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 3px;
+        line-height: 1.45;
+    }
+
+    .routine-date-stack small {
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 500;
+        white-space: normal;
     }
 
     .routine-mobile-note {
