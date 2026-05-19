@@ -1,7 +1,14 @@
 ﻿<?php
 $pageTitle = '例行事項';
 $pdo = getConnection();
-$items = $pdo->query("SELECT * FROM routine ORDER BY created_at DESC")->fetchAll();
+$items = $pdo->query("
+    SELECT *
+    FROM routine
+    ORDER BY
+        CASE WHEN lastdate1 IS NULL OR lastdate1 = '' THEN 1 ELSE 0 END ASC,
+        lastdate1 DESC,
+        created_at DESC
+")->fetchAll();
 
 function getRoutineDaysDiff(array $item): array
 {
