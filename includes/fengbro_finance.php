@@ -84,6 +84,19 @@ function fengbroFinanceText($html)
     return preg_replace('/\s+/u', ' ', $text);
 }
 
+function fengbroFinanceMetaContent($html, $name)
+{
+    $html = (string) $html;
+    $name = preg_quote((string) $name, '/');
+    if (preg_match('/<meta\b(?=[^>]*\bname=["\']' . $name . '["\'])(?=[^>]*\bcontent=["\']([^"\']*)["\'])[^>]*>/i', $html, $m)) {
+        return html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    if (preg_match('/<meta\b(?=[^>]*\bcontent=["\']([^"\']*)["\'])(?=[^>]*\bname=["\']' . $name . '["\'])[^>]*>/i', $html, $m)) {
+        return html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return '';
+}
+
 function fengbroFinanceNumber($value)
 {
     $clean = str_replace([',', '%', '−', '－'], ['', '', '-', '-'], (string) $value);
@@ -322,27 +335,40 @@ function fengbroFinanceParseMultplShiller($item)
 {
     $html = fengbroFinanceFetchUrl($item['url']);
     $text = fengbroFinanceText($html);
+    $description = fengbroFinanceMetaContent($html, 'description');
+    $currentText = '';
+    if (preg_match('/<div\s+id=["\']current["\'][^>]*>(.*?)<\/div>/is', $html, $m)) {
+        $currentText = fengbroFinanceText($m[1]);
+    }
+    $searchText = trim($description . ' ' . $currentText . ' ' . $text);
     $value = '';
+    $change = '';
+    $changePercent = '';
 
     $patterns = [
+        '/Current\s+Shiller\s+PE\s+Ratio\s+is\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/Current\s+Shiller\s+PE\s+Ratio\s*:\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/Current\s+S&P\s*500\s+Shiller\s+CAPE\s+Ratio\s+(?:is|:)\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
         '/current level of\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
-        '/Shiller PE Ratio\s*[:|]?\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
-        '/S&P 500 Shiller CAPE Ratio\s*[:|]?\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/Shiller\s+PE\s+Ratio\s*(?:is|:|\|)\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
+        '/S&P\s*500\s+Shiller\s+CAPE\s+Ratio\s*(?:is|:|\|)\s*([+-]?\d[\d,]*(?:\.\d+)?)/iu',
     ];
     foreach ($patterns as $pattern) {
-        if (preg_match($pattern, $text, $m)) {
+        if (preg_match($pattern, $searchText, $m)) {
             $value = $m[1];
             break;
         }
     }
 
-    if ($value === '' && preg_match_all('/\b\d{1,3}(?:\.\d+)?\b/', $text, $numbers)) {
-        foreach ($numbers[0] as $number) {
-            $numeric = (float) $number;
-            if ($numeric > 5 && $numeric < 100) {
-                $value = $number;
-                break;
-            }
+    if ($value === '' && $currentText !== '' && preg_match('/:\s*([+-]?\d[\d,]*(?:\.\d+)?)/', $currentText, $m)) {
+        $value = $m[1];
+    }
+
+    if ($value !== '') {
+        $changeText = trim($currentText . ' ' . $description);
+        if (preg_match('/' . preg_quote($value, '/') . '\s*([+-]\d[\d,]*(?:\.\d+)?)\s*\(([+-]?\d[\d,]*(?:\.\d+)?%)\)/', $changeText, $m)) {
+            $change = $m[1];
+            $changePercent = $m[2];
         }
     }
 
@@ -358,8 +384,8 @@ function fengbroFinanceParseMultplShiller($item)
         'url' => $item['url'],
         'valueLabel' => 'Ratio',
         'value' => $value,
-        'change' => '',
-        'changePercent' => '',
+        'change' => $change,
+        'changePercent' => $changePercent,
         'open' => '',
         'dayHigh' => '',
         'dayLow' => '',
@@ -386,7 +412,7 @@ function fengbroFinanceParseQuote($item)
 function fengbroFinanceGetData($force = false)
 {
     $cache = fengbroFinanceReadCache();
-    $dataKey = 'finance_data';
+    $dataKey = 'finance_data_v2';
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 900) {
         return $cache[$dataKey]['value'];
     }
