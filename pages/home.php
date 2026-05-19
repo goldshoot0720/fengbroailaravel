@@ -178,7 +178,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         <i class="fa-solid fa-chart-line"></i>
         <span>
             <strong>Shiller PE Ratio 創新高</strong>
-            <small>目前 <?php echo htmlspecialchars($shillerNotice['value'] ?? '-'); ?>，歷史高點 <?php echo htmlspecialchars($shillerNotice['high52'] ?? '44.19 (Dec 1999)'); ?></small>
+            <small>目前 <?php echo htmlspecialchars($shillerNotice['value'] ?? '-'); ?>，<?php echo htmlspecialchars($shillerNotice['high52'] ?? 'Max: 44.19 (Dec 1999)'); ?></small>
         </span>
         <i class="fa-solid fa-arrow-right"></i>
     </a>

@@ -364,7 +364,7 @@ function fengbroFinanceParseMultplShiller($item)
         'dayHigh' => '',
         'dayLow' => '',
         'prevClose' => '',
-        'high52' => fengbroFinanceFormatNumber($recordHigh, 2) . ' (' . ($item['recordHighDate'] ?? 'Dec 1999') . ')',
+        'high52' => 'Max: ' . fengbroFinanceFormatNumber($recordHigh, 2) . ' (' . ($item['recordHighDate'] ?? 'Dec 1999') . ')',
         'low52' => '',
         'status' => $status,
         'error' => $value === '' ? '無法讀取 Multpl Shiller PE Ratio' : '',

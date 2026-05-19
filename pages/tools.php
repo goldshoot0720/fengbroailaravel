@@ -97,8 +97,8 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         <section class="card finance-overview">
             <div class="finance-overview-copy">
                 <h3 class="card-title"><i class="fa-solid fa-chart-line"></i> 鋒兄金融</h3>
-                <p>集中追蹤 CNBC 與 Yahoo 股市參考來源的主要市場指標，若目前值觸及近一年高低點會標註創新高或創新低。</p>
-                <span>最後檢查：<?php echo htmlspecialchars($financeData['checkedAt'] ?? '-'); ?> · 來源：<?php echo htmlspecialchars($financeData['source'] ?? 'CNBC / Yahoo股市'); ?></span>
+                <p>集中追蹤 CNBC、Yahoo 股市與 Multpl 參考來源的主要市場指標，若目前值觸及高低點會標註創新高或創新低。</p>
+                <span>最後檢查：<?php echo htmlspecialchars($financeData['checkedAt'] ?? '-'); ?> · 來源：<?php echo htmlspecialchars($financeData['source'] ?? 'CNBC / Yahoo股市 / Multpl'); ?></span>
             </div>
             <a class="btn btn-ghost" href="index.php?page=tools&tool=finance&refresh=1">
                 <i class="fa-solid fa-rotate-right"></i> 重新檢查
