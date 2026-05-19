@@ -146,7 +146,7 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
     $recipient = fengbroResendDefaultRecipient($pdo);
     $from = trim(fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>'));
     if ($apiKey === '') {
-        return ['success' => true, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'message' => 'RESEND API Key not configured', 'details' => []];
+        return ['success' => true, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'message' => '請先在瀏覽器開啟「鋒兄設定」並輸入 RESEND_API_KEY', 'details' => []];
     }
     if ($recipient === '') {
         return ['success' => false, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'error' => 'Recipient email not configured', 'details' => []];

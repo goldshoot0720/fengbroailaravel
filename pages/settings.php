@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
         }
         fengbroResendSaveSetting($pdo, 'resend_to_email', trim((string) ($_POST['resend_to_email'] ?? '')));
         fengbroResendSaveSetting($pdo, 'resend_from_email', trim((string) ($_POST['resend_from_email'] ?? 'Fengbro AI <onboarding@resend.dev>')));
-        $resendSettingsMessage = 'RESEND 設定已儲存';
+        $resendSettingsMessage = 'RESEND 設定已儲存。RESEND_API_KEY 會從瀏覽器設定頁讀取。';
     } catch (Throwable $e) {
         $resendSettingsError = $e->getMessage();
     }
@@ -95,17 +95,21 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
             <input type="hidden" name="settings_action" value="save_resend">
             <table class="table">
                 <tr>
-                    <th style="width: 200px;">RESEND API Key</th>
+                    <th style="width: 200px;">RESEND_API_KEY</th>
                     <td>
-                        <input type="password" class="form-control" name="resend_api_key" placeholder="<?php echo $resendApiKeySet ? '已設定，留空保留既有 Key' : 're_...'; ?>" autocomplete="off">
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input id="resendApiKeyInput" type="password" class="form-control" name="resend_api_key" data-field="resend_api_key" placeholder="<?php echo $resendApiKeySet ? '已設定，留空保留既有 RESEND_API_KEY' : '請在瀏覽器輸入 re_...'; ?>" autocomplete="off" autocapitalize="off" spellcheck="false" <?php echo $resendApiKeySet ? '' : 'required'; ?> style="flex:1 1 320px;">
+                            <button type="button" class="btn btn-sm" onclick="toggleResendApiKeyVisibility()">顯示/隱藏</button>
+                        </div>
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:6px;">請由使用者在瀏覽器輸入 RESEND_API_KEY 後按「儲存 RESEND 設定」。此欄位不會顯示既有 Key；留空會保留目前設定。</div>
                         <div style="margin-top:8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
                             <?php if ($resendApiKeySet): ?>
-                                <span class="badge badge-success">已設定</span>
+                                <span class="badge badge-success">RESEND_API_KEY 已設定</span>
                                 <label style="display:flex; gap:6px; align-items:center; color:var(--muted-text);">
                                     <input type="checkbox" name="clear_resend_api_key" value="1"> 清除 API Key
                                 </label>
                             <?php else: ?>
-                                <span class="badge badge-danger">未設定</span>
+                                <span class="badge badge-danger">RESEND_API_KEY 未設定，請先在瀏覽器輸入</span>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -211,6 +215,13 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
     </div>
 
     <script>
+        function toggleResendApiKeyVisibility() {
+            const input = document.getElementById('resendApiKeyInput');
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            input.focus();
+        }
+
         function runResendNotify() {
             const result = document.getElementById('resendNotifyResult');
             result.textContent = '檢查中...';

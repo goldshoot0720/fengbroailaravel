@@ -226,8 +226,12 @@ function initFengbroVoiceInput() {
         settings: {
             title: '鋒兄設定',
             aliases: ['設定', '鋒兄設定', 'settings'],
-            fields: {},
-            examples: ['掃描儲存空間', '傳送推播', '產生金鑰', '刪除未引用檔案']
+            fields: {
+                resend_api_key: ['RESEND_API_KEY', 'RESEND API KEY', 'resend key', '郵件金鑰', '寄信金鑰'],
+                resend_to_email: ['收件 Email', '收件信箱', '收件者'],
+                resend_from_email: ['寄件 Email', '寄件信箱', '寄件者']
+            },
+            examples: ['在 RESEND_API_KEY 輸入 re_...', '儲存 RESEND 設定', '掃描儲存空間', '傳送推播', '產生金鑰']
         },
         about: {
             title: '鋒兄關於',
