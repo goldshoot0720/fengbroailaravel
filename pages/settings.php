@@ -9,11 +9,13 @@ $resendSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
         if (!empty($_POST['clear_resend_api_key'])) {
+            fengbroResendSaveSetting($pdo, 'RESEND_API_KEY', '');
             fengbroResendSaveSetting($pdo, 'resend_api_key', '');
         } else {
             $newKey = trim((string) ($_POST['resend_api_key'] ?? ''));
             if ($newKey !== '') {
-                fengbroResendSaveSetting($pdo, 'resend_api_key', $newKey);
+                fengbroResendSaveSetting($pdo, 'RESEND_API_KEY', $newKey);
+                fengbroResendSaveSetting($pdo, 'resend_api_key', '');
             }
         }
         fengbroResendSaveSetting($pdo, 'resend_to_email', trim((string) ($_POST['resend_to_email'] ?? '')));
@@ -24,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
     }
 }
 
-$resendApiKeySet = trim(fengbroResendGetSetting($pdo, 'resend_api_key')) !== '';
+$resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
 $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
@@ -95,7 +97,7 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
             <input type="hidden" name="settings_action" value="save_resend">
             <table class="table">
                 <tr>
-                    <th style="width: 200px;">RESEND_API_KEY</th>
+                    <th style="width: 200px;"><code>RESEND_API_KEY</code></th>
                     <td>
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <input id="resendApiKeyInput" type="password" class="form-control" name="resend_api_key" data-field="resend_api_key" placeholder="<?php echo $resendApiKeySet ? '已設定，留空保留既有 RESEND_API_KEY' : '請在瀏覽器輸入 re_...'; ?>" autocomplete="off" autocapitalize="off" spellcheck="false" <?php echo $resendApiKeySet ? '' : 'required'; ?> style="flex:1 1 320px;">

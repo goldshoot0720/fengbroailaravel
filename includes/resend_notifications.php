@@ -50,6 +50,22 @@ function fengbroResendSaveSetting(PDO $pdo, string $key, string $value): void
     $insert->execute([$key, $value]);
 }
 
+function fengbroResendApiKey(PDO $pdo): string
+{
+    $apiKey = trim(fengbroResendGetSetting($pdo, 'RESEND_API_KEY'));
+    if ($apiKey !== '') {
+        return $apiKey;
+    }
+
+    $legacyKey = trim(fengbroResendGetSetting($pdo, 'resend_api_key'));
+    if ($legacyKey !== '') {
+        return $legacyKey;
+    }
+
+    $envKey = getenv('RESEND_API_KEY');
+    return is_string($envKey) ? trim($envKey) : '';
+}
+
 function fengbroResendDefaultRecipient(PDO $pdo): string
 {
     $configured = trim(fengbroResendGetSetting($pdo, 'resend_to_email'));
@@ -142,7 +158,7 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
 {
     fengbroResendEnsureTables($pdo);
 
-    $apiKey = trim(fengbroResendGetSetting($pdo, 'resend_api_key'));
+    $apiKey = fengbroResendApiKey($pdo);
     $recipient = fengbroResendDefaultRecipient($pdo);
     $from = trim(fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>'));
     if ($apiKey === '') {
