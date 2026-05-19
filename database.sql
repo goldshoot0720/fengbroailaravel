@@ -178,6 +178,18 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- 通用文件資料表 (從 Appwrite 轉換)
+CREATE TABLE IF NOT EXISTS resend_notification_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_key VARCHAR(191) NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    table_name VARCHAR(50) NOT NULL,
+    record_id VARCHAR(64) NOT NULL,
+    target_date DATE NOT NULL,
+    recipient_email VARCHAR(191) NOT NULL,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_resend_event (event_key)
+);
+
 CREATE TABLE IF NOT EXISTS commondocument (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,

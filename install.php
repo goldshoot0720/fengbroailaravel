@@ -166,6 +166,28 @@ try {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
 
+        "settings" => "CREATE TABLE IF NOT EXISTS settings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            setting_key VARCHAR(50) NOT NULL,
+            setting_value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_user_setting (user_id, setting_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "resend_notification_log" => "CREATE TABLE IF NOT EXISTS resend_notification_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            event_key VARCHAR(191) NOT NULL,
+            event_type VARCHAR(50) NOT NULL,
+            table_name VARCHAR(50) NOT NULL,
+            record_id VARCHAR(64) NOT NULL,
+            target_date DATE NOT NULL,
+            recipient_email VARCHAR(191) NOT NULL,
+            sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_resend_event (event_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "push_subscriptions" => "CREATE TABLE IF NOT EXISTS push_subscriptions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             endpoint TEXT NOT NULL,

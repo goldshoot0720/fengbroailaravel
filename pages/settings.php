@@ -1,4 +1,34 @@
-<?php $pageTitle = '系統設定'; ?>
+<?php
+$pageTitle = '系統設定';
+$pdo = getConnection();
+require_once __DIR__ . '/../includes/resend_notifications.php';
+fengbroResendEnsureTables($pdo);
+
+$resendSettingsMessage = '';
+$resendSettingsError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
+    try {
+        if (!empty($_POST['clear_resend_api_key'])) {
+            fengbroResendSaveSetting($pdo, 'resend_api_key', '');
+        } else {
+            $newKey = trim((string) ($_POST['resend_api_key'] ?? ''));
+            if ($newKey !== '') {
+                fengbroResendSaveSetting($pdo, 'resend_api_key', $newKey);
+            }
+        }
+        fengbroResendSaveSetting($pdo, 'resend_to_email', trim((string) ($_POST['resend_to_email'] ?? '')));
+        fengbroResendSaveSetting($pdo, 'resend_from_email', trim((string) ($_POST['resend_from_email'] ?? 'Fengbro AI <onboarding@resend.dev>')));
+        $resendSettingsMessage = 'RESEND 設定已儲存';
+    } catch (Throwable $e) {
+        $resendSettingsError = $e->getMessage();
+    }
+}
+
+$resendApiKeySet = trim(fengbroResendGetSetting($pdo, 'resend_api_key')) !== '';
+$resendToEmail = fengbroResendDefaultRecipient($pdo);
+$resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
+$resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
+?>
 
 <div class="content-header">
     <h1>鋒兄設定</h1>
@@ -51,6 +81,79 @@
                 <td><?php echo date('Y-m-d H:i:s'); ?></td>
             </tr>
         </table>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">RESEND Email 通知</h3>
+        <?php if ($resendSettingsMessage): ?>
+            <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsMessage); ?></div>
+        <?php endif; ?>
+        <?php if ($resendSettingsError): ?>
+            <div class="alert alert-danger" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsError); ?></div>
+        <?php endif; ?>
+        <form method="post">
+            <input type="hidden" name="settings_action" value="save_resend">
+            <table class="table">
+                <tr>
+                    <th style="width: 200px;">RESEND API Key</th>
+                    <td>
+                        <input type="password" class="form-control" name="resend_api_key" placeholder="<?php echo $resendApiKeySet ? '已設定，留空保留既有 Key' : 're_...'; ?>" autocomplete="off">
+                        <div style="margin-top:8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                            <?php if ($resendApiKeySet): ?>
+                                <span class="badge badge-success">已設定</span>
+                                <label style="display:flex; gap:6px; align-items:center; color:var(--muted-text);">
+                                    <input type="checkbox" name="clear_resend_api_key" value="1"> 清除 API Key
+                                </label>
+                            <?php else: ?>
+                                <span class="badge badge-danger">未設定</span>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>收件 Email</th>
+                    <td>
+                        <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
+                    </td>
+                </tr>
+                <tr>
+                    <th>寄件 Email</th>
+                    <td>
+                        <input type="text" class="form-control" name="resend_from_email" value="<?php echo htmlspecialchars($resendFromEmail); ?>" placeholder="Fengbro AI <onboarding@resend.dev>">
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:4px;">正式寄送建議改成 Resend 已驗證網域，例如 Fengbro AI &lt;notify@example.com&gt;。</div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>通知規則</th>
+                    <td>
+                        <div>鋒兄訂閱：到期前一天通知一次。</div>
+                        <div>鋒兄食品：到期前一周通知一次。</div>
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:4px;">成功寄出後會寫入 resend_notification_log，避免同一筆項目重複寄送。</div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Cron 指令</th>
+                    <td>
+                        <code style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
+                            CRON_TZ=Asia/Taipei<br>
+                            0 9 * * * php <?php echo htmlspecialchars($resendScriptPath); ?> &gt;&gt; /var/log/fengbro_resend.log 2&gt;&amp;1
+                        </code>
+                    </td>
+                </tr>
+                <tr>
+                    <th>手動檢查</th>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-warning" onclick="runResendNotify()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                            執行 RESEND 通知
+                        </button>
+                        <span id="resendNotifyResult" style="margin-left:12px; font-size:0.9em;"></span>
+                    </td>
+                </tr>
+            </table>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> 儲存 RESEND 設定
+            </button>
+        </form>
     </div>
 
     <?php
@@ -108,6 +211,23 @@
     </div>
 
     <script>
+        function runResendNotify() {
+            const result = document.getElementById('resendNotifyResult');
+            result.textContent = '檢查中...';
+            fetch('resend_notify.php', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        result.innerHTML = '<span style="color:green;">已寄出 ' + (d.sent || 0) + ' 筆，略過 ' + (d.skipped || 0) + ' 筆。</span>';
+                    } else {
+                        result.innerHTML = '<span style="color:red;">失敗：' + (d.error || 'RESEND 通知失敗') + '</span>';
+                    }
+                })
+                .catch(() => {
+                    result.innerHTML = '<span style="color:red;">請求失敗</span>';
+                });
+        }
+
         function initVapid() {
             if (!confirm('確定要產生 VAPID 金鑰？這將覆蓋現有金鑰（若有），已訂閱裝置需重新訂閱。')) return;
             fetch('push_send.php?action=init_vapid&force=1')
