@@ -132,6 +132,12 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             <button type="button" class="btn btn-primary" onclick="submitBankBatchAdjust()">套用調整</button>
         </div>
     </div>
+    <style>
+        .bank-select-checkbox {
+            display: inline-block !important;
+            accent-color: #f39c12;
+        }
+    </style>
     <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
         <div class="card" style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff;">
@@ -160,7 +166,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     <table class="table desktop-only" style="margin-top: 20px;">
         <thead>
             <tr>
-                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox bank-select-checkbox"
                         onchange="toggleSelectAll(this)"></th>
                 <th>名稱</th>
                 <th>存款</th>
@@ -227,7 +233,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         data-address="<?php echo htmlspecialchars($item['address'] ?? '', ENT_QUOTES); ?>"
                         data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
                         data-activity="<?php echo htmlspecialchars($item['activity'] ?? '', ENT_QUOTES); ?>">
-                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                        <td><input type="checkbox" class="select-checkbox item-checkbox bank-select-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
                             <div class="inline-view">
@@ -313,7 +319,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                     data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
                     data-withdrawals="<?php echo htmlspecialchars($item['withdrawals'] ?? '', ENT_QUOTES); ?>">
                     <div class="mobile-card-actions">
-                        <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                        <input type="checkbox" class="select-checkbox item-checkbox bank-select-checkbox" data-id="<?php echo $item['id']; ?>"
                             onchange="toggleSelectItem(this)" style="margin-right: 8px;">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -597,9 +603,6 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     function openBankBatchAdjust() {
         const panel = document.getElementById('bankBatchAdjustPanel');
         if (panel) panel.style.display = 'block';
-        if (!document.body.classList.contains('select-mode') && typeof toggleSelectMode === 'function') {
-            toggleSelectMode();
-        }
         renderBankBatchAdjust();
         panel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
