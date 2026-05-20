@@ -89,9 +89,47 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行(或電子票證)"><i class="fas fa-plus"></i> 新增銀行(或電子票證)</button>
         <button class="btn btn-success" type="button" onclick="openTransactionModal('income')">新增收入</button>
         <button class="btn btn-danger" type="button" onclick="openTransactionModal('expense')">新增支出</button>
+        <button class="btn btn-warning" type="button" onclick="openBankBatchAdjust()">
+            <i class="fas fa-layer-group"></i> 多選調整金額
+        </button>
         <?php $csvTable = 'bank';
         include 'includes/csv_buttons.php'; ?>
         <?php include 'includes/batch-delete.php'; ?>
+    </div>
+    <div id="bankBatchAdjustPanel" class="card" style="display:none; margin-bottom: 24px; border-left: 4px solid #f39c12;">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+            <div>
+                <h3 class="card-title" style="margin-bottom:6px;">多選銀行金額調整</h3>
+                <p style="color:var(--muted-text); margin:0;">先勾選銀行，再選擇固定金額或分別輸入各銀行金額。</p>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="closeBankBatchAdjust()">關閉</button>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;">
+            <label style="display:grid; gap:6px; font-weight:700;">
+                加減方向
+                <select id="bankBatchDirection" class="form-control" onchange="renderBankBatchAdjust()">
+                    <option value="plus">＋ 增加金額</option>
+                    <option value="minus">－ 扣除金額</option>
+                </select>
+            </label>
+            <label style="display:grid; gap:6px; font-weight:700;">
+                金額模式
+                <select id="bankBatchMode" class="form-control" onchange="renderBankBatchAdjust()">
+                    <option value="fixed">固定金額</option>
+                    <option value="separate">分別輸入</option>
+                </select>
+            </label>
+            <label style="display:grid; gap:6px; font-weight:700;">
+                固定金額
+                <input id="bankBatchFixedAmount" type="number" min="0" step="1" class="form-control" placeholder="例如 1000" oninput="renderBankBatchAdjust()">
+            </label>
+        </div>
+        <div id="bankBatchSelectedList" style="display:grid; gap:10px; margin-top:16px;"></div>
+        <div id="bankBatchPreview" style="margin-top:14px; padding:12px 14px; border-radius:8px; background:var(--table-header-bg); color:var(--text-color);">尚未選擇銀行。</div>
+        <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px;">
+            <button type="button" class="btn" onclick="renderBankBatchAdjust()">重新整理選取</button>
+            <button type="button" class="btn btn-primary" onclick="submitBankBatchAdjust()">套用調整</button>
+        </div>
     </div>
     <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
@@ -268,8 +306,14 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <?php $bankSiteUrl = bankDisplayUrl($item['site'] ?? ''); ?>
-                <div class="mobile-card" style="border-left: 4px solid #3498db;">
+                <div class="mobile-card" style="border-left: 4px solid #3498db;"
+                    data-id="<?php echo $item['id']; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
+                    data-withdrawals="<?php echo htmlspecialchars($item['withdrawals'] ?? '', ENT_QUOTES); ?>">
                     <div class="mobile-card-actions">
+                        <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                            onchange="toggleSelectItem(this)" style="margin-right: 8px;">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
                         <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
@@ -378,6 +422,11 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         ];
     }, $items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     initBatchDelete(TABLE);
+    document.addEventListener('change', function (event) {
+        if (event.target && event.target.matches('.item-checkbox, #selectAllCheckbox, #batchSelectAllCb')) {
+            window.setTimeout(renderBankBatchAdjust, 0);
+        }
+    });
 
     function handleAdd() {
         // Use inline editing for all screen sizes
@@ -532,6 +581,166 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 
     function getBankById(id) {
         return BANK_ITEMS.find(item => item.id === id) || null;
+    }
+
+    function getSelectedBankIds() {
+        return Array.from(document.querySelectorAll('.item-checkbox:checked'))
+            .filter(cb => {
+                const holder = cb.closest('tr, .mobile-card, .card, [data-id]');
+                return !holder || holder.offsetParent !== null;
+            })
+            .map(cb => cb.dataset.id)
+            .filter((id, index, ids) => id && ids.indexOf(id) === index);
+    }
+
+    function openBankBatchAdjust() {
+        const panel = document.getElementById('bankBatchAdjustPanel');
+        if (panel) panel.style.display = 'block';
+        if (!document.body.classList.contains('select-mode') && typeof toggleSelectMode === 'function') {
+            toggleSelectMode();
+        }
+        renderBankBatchAdjust();
+        panel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function closeBankBatchAdjust() {
+        const panel = document.getElementById('bankBatchAdjustPanel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    function renderBankBatchAdjust() {
+        const list = document.getElementById('bankBatchSelectedList');
+        const preview = document.getElementById('bankBatchPreview');
+        if (!list || !preview) return;
+
+        const ids = getSelectedBankIds();
+        const direction = document.getElementById('bankBatchDirection')?.value || 'plus';
+        const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
+        const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
+        const sign = direction === 'minus' ? -1 : 1;
+
+        if (!ids.length) {
+            list.innerHTML = '<div style="color:var(--muted-text);">請先在表格或手機卡片勾選銀行。</div>';
+            preview.textContent = '尚未選擇銀行。';
+            return;
+        }
+
+        list.innerHTML = ids.map(id => {
+            const bank = getBankById(id);
+            if (!bank) return '';
+            const current = Number(bank.deposit) || 0;
+            const savedInput = document.querySelector(`.bank-batch-amount[data-id="${cssEscapeBank(id)}"]`);
+            const value = savedInput ? savedInput.value : '';
+            const inputStyle = mode === 'fixed' ? 'display:none;' : '';
+            return `
+                <div class="bank-batch-row" data-id="${escapeHtmlBank(id)}" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; align-items:center; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px;">
+                    <div>
+                        <strong>${escapeHtmlBank(bank.name || '')}</strong>
+                        <div style="font-size:0.85rem; color:var(--muted-text);">目前 ${formatAmount(current)}</div>
+                    </div>
+                    <div style="color:${direction === 'minus' ? '#e74c3c' : '#27ae60'}; font-weight:800;">${direction === 'minus' ? '－扣除' : '＋增加'}</div>
+                    <input class="form-control bank-batch-amount" data-id="${escapeHtmlBank(id)}" type="number" min="0" step="1" placeholder="分別金額" value="${escapeHtmlBank(value)}" oninput="renderBankBatchPreview()" style="${inputStyle}">
+                </div>
+            `;
+        }).join('');
+
+        renderBankBatchPreview();
+        if (mode === 'fixed' && fixedAmount <= 0) {
+            preview.textContent = '已選擇 ' + ids.length + ' 家銀行。請輸入固定金額。';
+        }
+    }
+
+    function renderBankBatchPreview() {
+        const preview = document.getElementById('bankBatchPreview');
+        if (!preview) return;
+        const ids = getSelectedBankIds();
+        const direction = document.getElementById('bankBatchDirection')?.value || 'plus';
+        const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
+        const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
+        const sign = direction === 'minus' ? -1 : 1;
+
+        if (!ids.length) {
+            preview.textContent = '尚未選擇銀行。';
+            return;
+        }
+
+        const lines = ids.map(id => {
+            const bank = getBankById(id);
+            if (!bank) return '';
+            const input = document.querySelector(`.bank-batch-amount[data-id="${cssEscapeBank(id)}"]`);
+            const amount = mode === 'fixed' ? fixedAmount : Number(input?.value || 0);
+            const current = Number(bank.deposit) || 0;
+            const next = current + sign * amount;
+            return `${bank.name}: ${formatAmount(current)} ${direction === 'minus' ? '-' : '+'} ${formatAmount(amount)} = ${formatAmount(next)}`;
+        }).filter(Boolean);
+
+        preview.innerHTML = '<strong>預覽</strong><br>' + lines.map(escapeHtmlBank).join('<br>');
+    }
+
+    function submitBankBatchAdjust() {
+        const ids = getSelectedBankIds();
+        const direction = document.getElementById('bankBatchDirection')?.value || 'plus';
+        const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
+        const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
+        const sign = direction === 'minus' ? -1 : 1;
+
+        if (!ids.length) {
+            alert('請先選擇銀行');
+            return;
+        }
+        if (mode === 'fixed' && (!fixedAmount || fixedAmount <= 0)) {
+            alert('請輸入固定金額');
+            return;
+        }
+
+        const updates = ids.map(id => {
+            const bank = getBankById(id);
+            const input = document.querySelector(`.bank-batch-amount[data-id="${cssEscapeBank(id)}"]`);
+            const amount = mode === 'fixed' ? fixedAmount : Number(input?.value || 0);
+            if (!bank || !amount || amount <= 0) return null;
+            const currentDeposit = Number(bank.deposit) || 0;
+            const currentWithdrawals = Number(bank.withdrawals) || 0;
+            return {
+                id,
+                name: bank.name,
+                amount,
+                data: {
+                    deposit: currentDeposit + sign * amount,
+                    withdrawals: direction === 'minus' ? currentWithdrawals + amount : currentWithdrawals
+                }
+            };
+        }).filter(Boolean);
+
+        if (!updates.length) {
+            alert('請輸入每家銀行的調整金額');
+            return;
+        }
+
+        const confirmText = updates.map(item => `${item.name}: ${direction === 'minus' ? '-' : '+'}${formatAmount(item.amount)}`).join('\n');
+        if (!confirm('確定套用以下調整？\n\n' + confirmText)) return;
+
+        Promise.all(updates.map(item =>
+            fetch(`api.php?action=update&table=${TABLE}&id=${encodeURIComponent(item.id)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item.data)
+            }).then(r => r.json())
+        )).then(results => {
+            const failed = results.filter(res => !res.success).length;
+            if (failed) {
+                alert(`批次調整完成，但有 ${failed} 筆失敗。`);
+            }
+            location.reload();
+        }).catch(err => alert('批次調整失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function escapeHtmlBank(value) {
+        return String(value || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
+    }
+
+    function cssEscapeBank(value) {
+        if (window.CSS && CSS.escape) return CSS.escape(String(value));
+        return String(value || '').replace(/"/g, '\\"');
     }
 
     function openTransactionModal(defaultType = 'income') {
