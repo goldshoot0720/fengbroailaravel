@@ -90,7 +90,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         <button class="btn btn-success" type="button" onclick="openTransactionModal('income')">新增收入</button>
         <button class="btn btn-danger" type="button" onclick="openTransactionModal('expense')">新增支出</button>
         <button class="btn btn-warning" type="button" onclick="openBankBatchAdjust()">
-            <i class="fas fa-layer-group"></i> 多選調整金額
+            <i class="fas fa-layer-group"></i> 多選設定存款
         </button>
         <?php $csvTable = 'bank';
         include 'includes/csv_buttons.php'; ?>
@@ -99,29 +99,30 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     <div id="bankBatchAdjustPanel" class="card" style="display:none; margin-bottom: 24px; border-left: 4px solid #f39c12;">
         <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
             <div>
-                <h3 class="card-title" style="margin-bottom:6px;">多選銀行金額調整</h3>
-                <p style="color:var(--muted-text); margin:0;">先勾選銀行，再選擇固定金額或分別輸入各銀行金額。</p>
+                <h3 class="card-title" style="margin-bottom:6px;">多選銀行存款數字</h3>
+                <p style="color:var(--muted-text); margin:0;">先勾選銀行，可用固定存款數字套用全部，也可分別輸入每家銀行的存款數字。</p>
             </div>
             <button type="button" class="btn btn-sm" onclick="closeBankBatchAdjust()">關閉</button>
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:16px;">
             <label style="display:grid; gap:6px; font-weight:700;">
-                加減方向
+                調整方式
                 <select id="bankBatchDirection" class="form-control" onchange="renderBankBatchAdjust()">
-                    <option value="plus">＋ 增加金額</option>
-                    <option value="minus">－ 扣除金額</option>
+                    <option value="set">設定存款數字</option>
+                    <option value="plus">＋ 增加存款</option>
+                    <option value="minus">－ 扣除存款</option>
                 </select>
             </label>
             <label style="display:grid; gap:6px; font-weight:700;">
-                金額模式
+                數字模式
                 <select id="bankBatchMode" class="form-control" onchange="renderBankBatchAdjust()">
-                    <option value="fixed">固定金額</option>
+                    <option value="fixed">固定存款數字</option>
                     <option value="separate">分別輸入</option>
                 </select>
             </label>
             <label style="display:grid; gap:6px; font-weight:700;">
-                固定金額
-                <input id="bankBatchFixedAmount" type="number" min="0" step="1" class="form-control" placeholder="例如 1000" oninput="renderBankBatchAdjust()">
+                固定存款數字
+                <input id="bankBatchFixedAmount" type="number" min="0" step="1" class="form-control" placeholder="例如 10000" oninput="renderBankBatchAdjust()">
             </label>
         </div>
         <div id="bankBatchSelectedList" style="display:grid; gap:10px; margin-top:16px;"></div>
@@ -618,6 +619,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
         const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
         const sign = direction === 'minus' ? -1 : 1;
+        const actionLabel = getBankBatchActionLabel(direction);
 
         if (!ids.length) {
             list.innerHTML = '<div style="color:var(--muted-text);">請先在表格或手機卡片勾選銀行。</div>';
@@ -638,15 +640,15 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <strong>${escapeHtmlBank(bank.name || '')}</strong>
                         <div style="font-size:0.85rem; color:var(--muted-text);">目前 ${formatAmount(current)}</div>
                     </div>
-                    <div style="color:${direction === 'minus' ? '#e74c3c' : '#27ae60'}; font-weight:800;">${direction === 'minus' ? '－扣除' : '＋增加'}</div>
-                    <input class="form-control bank-batch-amount" data-id="${escapeHtmlBank(id)}" type="number" min="0" step="1" placeholder="分別金額" value="${escapeHtmlBank(value)}" oninput="renderBankBatchPreview()" style="${inputStyle}">
+                    <div style="color:${direction === 'minus' ? '#e74c3c' : '#27ae60'}; font-weight:800;">${actionLabel}</div>
+                    <input class="form-control bank-batch-amount" data-id="${escapeHtmlBank(id)}" type="number" min="0" step="1" placeholder="${direction === 'set' ? '存款數字' : '調整金額'}" value="${escapeHtmlBank(value)}" oninput="renderBankBatchPreview()" style="${inputStyle}">
                 </div>
             `;
         }).join('');
 
         renderBankBatchPreview();
         if (mode === 'fixed' && fixedAmount <= 0) {
-            preview.textContent = '已選擇 ' + ids.length + ' 家銀行。請輸入固定金額。';
+            preview.textContent = '已選擇 ' + ids.length + ' 家銀行。請輸入固定存款數字。';
         }
     }
 
@@ -658,6 +660,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
         const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
         const sign = direction === 'minus' ? -1 : 1;
+        const actionLabel = getBankBatchActionLabel(direction);
 
         if (!ids.length) {
             preview.textContent = '尚未選擇銀行。';
@@ -670,8 +673,9 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             const input = document.querySelector(`.bank-batch-amount[data-id="${cssEscapeBank(id)}"]`);
             const amount = mode === 'fixed' ? fixedAmount : Number(input?.value || 0);
             const current = Number(bank.deposit) || 0;
-            const next = current + sign * amount;
-            return `${bank.name}: ${formatAmount(current)} ${direction === 'minus' ? '-' : '+'} ${formatAmount(amount)} = ${formatAmount(next)}`;
+            const next = direction === 'set' ? amount : current + sign * amount;
+            const operator = direction === 'set' ? '=>' : (direction === 'minus' ? '-' : '+');
+            return `${bank.name}: ${formatAmount(current)} ${operator} ${formatAmount(amount)} = ${formatAmount(next)}（${actionLabel}）`;
         }).filter(Boolean);
 
         preview.innerHTML = '<strong>預覽</strong><br>' + lines.map(escapeHtmlBank).join('<br>');
@@ -683,13 +687,14 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         const mode = document.getElementById('bankBatchMode')?.value || 'fixed';
         const fixedAmount = Number(document.getElementById('bankBatchFixedAmount')?.value || 0);
         const sign = direction === 'minus' ? -1 : 1;
+        const actionLabel = getBankBatchActionLabel(direction);
 
         if (!ids.length) {
             alert('請先選擇銀行');
             return;
         }
         if (mode === 'fixed' && (!fixedAmount || fixedAmount <= 0)) {
-            alert('請輸入固定金額');
+            alert('請輸入固定存款數字');
             return;
         }
 
@@ -700,23 +705,24 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             if (!bank || !amount || amount <= 0) return null;
             const currentDeposit = Number(bank.deposit) || 0;
             const currentWithdrawals = Number(bank.withdrawals) || 0;
+            const nextDeposit = direction === 'set' ? amount : currentDeposit + sign * amount;
             return {
                 id,
                 name: bank.name,
                 amount,
                 data: {
-                    deposit: currentDeposit + sign * amount,
+                    deposit: nextDeposit,
                     withdrawals: direction === 'minus' ? currentWithdrawals + amount : currentWithdrawals
                 }
             };
         }).filter(Boolean);
 
         if (!updates.length) {
-            alert('請輸入每家銀行的調整金額');
+            alert('請輸入每家銀行的存款數字');
             return;
         }
 
-        const confirmText = updates.map(item => `${item.name}: ${direction === 'minus' ? '-' : '+'}${formatAmount(item.amount)}`).join('\n');
+        const confirmText = updates.map(item => `${item.name}: ${actionLabel} ${formatAmount(item.amount)}`).join('\n');
         if (!confirm('確定套用以下調整？\n\n' + confirmText)) return;
 
         Promise.all(updates.map(item =>
@@ -741,6 +747,12 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     function cssEscapeBank(value) {
         if (window.CSS && CSS.escape) return CSS.escape(String(value));
         return String(value || '').replace(/"/g, '\\"');
+    }
+
+    function getBankBatchActionLabel(direction) {
+        if (direction === 'set') return '設定存款';
+        if (direction === 'minus') return '－扣除存款';
+        return '＋增加存款';
     }
 
     function openTransactionModal(defaultType = 'income') {

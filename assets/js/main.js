@@ -200,7 +200,7 @@ function initFengbroVoiceInput() {
                 transfer: ['轉帳'],
                 transactionAmount: ['交易金額', '金額']
             },
-            examples: ['新增銀行 台新 帳號 123', '新增收入 1000', '新增支出 200', '多選調整金額', '儲存']
+            examples: ['新增銀行 台新 帳號 123', '新增收入 1000', '新增支出 200', '多選設定存款', '儲存']
         },
         routine: {
             title: '鋒兄例行',
@@ -1170,10 +1170,10 @@ function initFengbroVoiceInput() {
             if (/低庫存/.test(text) && clickByText(['低庫存'])) return true;
         }
         if (page === 'bank') {
-            if (/多選.*(金額|調整)|批次.*(金額|調整)|多家銀行/.test(text)) {
+            if (/多選.*(金額|調整|存款)|批次.*(金額|調整|存款)|多家銀行|設定.*存款/.test(text)) {
                 if (typeof window.openBankBatchAdjust === 'function') {
                     window.openBankBatchAdjust();
-                    setStatus('已開啟多選銀行金額調整。', 'success');
+                    setStatus('已開啟多選銀行存款數字設定。', 'success');
                     return true;
                 }
             }
