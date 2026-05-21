@@ -511,14 +511,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 
 
     function deleteItem(id) {
-        if (confirm('確定要刪除嗎？')) {
-            fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) location.reload();
-                    else alert('刪除失敗');
-                });
-        }
+        deleteInlineItem(id, { table: TABLE });
     }
 
     function formatAmount(amount) {

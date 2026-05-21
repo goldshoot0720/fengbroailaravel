@@ -10,6 +10,33 @@ const INLINE_EDIT_CONFIG = {
     MOBILE_BREAKPOINT: 768
 };
 
+function deleteInlineItem(id, options = {}) {
+    const table = options.table || INLINE_EDIT_CONFIG.TABLE_NAME;
+    const endpoint = options.endpoint || INLINE_EDIT_CONFIG.API_ENDPOINT;
+    const confirmMessage = options.confirmMessage || '確定要刪除嗎？';
+    const failureMessage = options.failureMessage || '刪除失敗';
+    const onSuccess = options.onSuccess || function () { location.reload(); };
+
+    if (!table) {
+        alert('刪除功能尚未設定資料表');
+        return;
+    }
+    if (!confirm(confirmMessage)) return;
+
+    fetch(`${endpoint}?action=delete&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`)
+        .then(response => response.json())
+        .then(res => {
+            if (res.success) {
+                onSuccess(res);
+            } else {
+                alert(failureMessage + (res.error ? ': ' + res.error : ''));
+            }
+        })
+        .catch(error => {
+            alert(failureMessage + ': ' + (error.message || '網路錯誤'));
+        });
+}
+
 /**
  * Initialize inline editing for a page
  */
