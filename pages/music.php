@@ -733,20 +733,15 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     }
 
     function deleteItem(id) {
-        if (confirm('確定要刪除這個音樂嗎？')) {
-            fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        // 加 _t 參數繞過 Service Worker 快取
-                        const url = new URL(location.href);
-                        url.searchParams.set('_t', Date.now());
-                        location.replace(url.toString());
-                    } else {
-                        alert('刪除失敗: ' + (res.error || ''));
-                    }
-                });
-        }
+        deleteInlineItem(id, {
+            table: TABLE,
+            confirmMessage: '確定要刪除這個音樂嗎？',
+            onSuccess: function () {
+                const url = new URL(location.href);
+                url.searchParams.set('_t', Date.now());
+                location.replace(url.toString());
+            }
+        });
     }
 
     function importZIP(input) {

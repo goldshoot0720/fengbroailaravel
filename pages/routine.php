@@ -556,17 +556,10 @@ function getRoutineDateGapText($dateA, $dateB): string
     }
 
     function deleteItem(id) {
-        if (confirm('確定要刪除這筆例行事項嗎？')) {
-            fetch(`api.php?action=delete&table=${TABLE}&id=${id}`)
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        location.reload();
-                    } else {
-                        alert('刪除失敗');
-                    }
-                });
-        }
+        deleteInlineItem(id, {
+            table: TABLE,
+            confirmMessage: '確定要刪除這筆例行事項嗎？'
+        });
     }
 
     // 圖片上傳功能
