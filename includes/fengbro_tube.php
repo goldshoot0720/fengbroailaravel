@@ -13,6 +13,16 @@ function fengbroTubeChannels()
         ['name' => 'quedaren', 'url' => 'https://www.youtube.com/@quedaren/videos'],
         ['name' => '夸克说', 'url' => 'https://www.youtube.com/@%E5%A4%B8%E5%85%8B%E8%AF%B4'],
         ['name' => '喵喵看一看', 'url' => 'https://www.youtube.com/@%E5%96%B5%E5%96%B5%E7%9C%8B%E4%B8%80%E7%9C%8B/videos'],
+        ['name' => '马司库', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
+        ['name' => '怪獸崛起 MONSTERISE', 'url' => 'https://www.youtube.com/@monsterise/videos'],
+        ['name' => '线人频道Informant', 'url' => 'https://www.youtube.com/@informant510/videos'],
+        ['name' => '吉利小师妹', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
+        ['name' => 'Sun Channel', 'url' => 'https://www.youtube.com/@SunChannelHK/videos'],
+        ['name' => '夏河東渡', 'url' => 'https://www.youtube.com/@jlaw/videos'],
+        ['name' => '張内咸脫口秀', 'url' => 'https://www.youtube.com/@NeixianZhang/videos'],
+        ['name' => '修仙者小烨', 'url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos'],
+        ['name' => '修炼者小烨', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
+        ['name' => 'cheap', 'url' => 'https://www.youtube.com/@cheapaoe/videos'],
     ];
 }
 
