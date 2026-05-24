@@ -23,8 +23,6 @@ foreach ($rawHostCandidates as $rawHost) {
     }
 }
 $hostCandidates = array_values(array_unique($hostCandidates));
-$currentHost = $hostCandidates[0] ?? '';
-$serviceCountdown = null;
 $serviceNotice = null;
 $tubeNewVideos = [];
 $financeHighNotices = [];
@@ -35,48 +33,8 @@ if ($currentHour >= 0 && $currentHour <= 2) {
     $sleepWarningClass = 'sleep-warning-red';
 }
 
-$countdownTargets = [
-    'laravel.tpe12thmayor2025to2038.com' => [
-        'date' => '2026-05-13',
-        'prefix' => '至',
-        'label' => '網站終止服務'
-    ],
-    'fengbroailaravel.tpe12thmayor2038from2025.com' => [
-        'date' => '2026-06-15',
-        'prefix' => '暫定至',
-        'label' => '網站終止服務'
-    ],
-    'tpe12thmayor2025to2038.cloudaccess.host' => [
-        'date' => '2026-06-02',
-        'prefix' => '至',
-        'label' => '網站終止服務'
-    ],
-    'tpe12thmayor2038from2025.cloudaccess.host' => [
-        'date' => '2026-06-11',
-        'prefix' => '至',
-        'label' => '網站終止服務'
-    ],
-];
-
 $noticeTargets = [
 ];
-
-foreach ($hostCandidates as $candidateHost) {
-    if (!isset($countdownTargets[$candidateHost])) {
-        continue;
-    }
-    $targetConfig = $countdownTargets[$candidateHost];
-    $todayTaipei = $nowTaipei->setTime(0, 0);
-    $targetDate = new DateTimeImmutable($targetConfig['date'], new DateTimeZone('Asia/Taipei'));
-    $daysRemaining = (int) $todayTaipei->diff($targetDate)->format('%r%a');
-    $serviceCountdown = [
-        'days' => max(0, $daysRemaining),
-        'dateText' => $targetDate->format('Y年m月d日'),
-        'prefix' => $targetConfig['prefix'],
-        'label' => $targetConfig['label'],
-    ];
-    break;
-}
 
 foreach ($hostCandidates as $candidateHost) {
     if (isset($noticeTargets[$candidateHost])) {
@@ -108,58 +66,6 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         <strong><?php echo htmlspecialchars($serviceNotice); ?></strong>
     </div>
 <?php endif; ?>
-
-<?php if ($serviceCountdown): ?>
-    <div class="service-countdown" role="status">
-        <div class="service-countdown-copy">
-            <span class="service-countdown-label">服務倒數</span>
-            <strong><?php echo $serviceCountdown['prefix']; ?> <?php echo $serviceCountdown['dateText']; ?><?php echo $serviceCountdown['label']; ?></strong>
-        </div>
-        <div class="service-countdown-days">
-            <span><?php echo $serviceCountdown['days']; ?></span>
-            <small>天</small>
-        </div>
-    </div>
-<?php endif; ?>
-
-<script>
-    (function () {
-        if (document.querySelector('.service-countdown')) return;
-
-        const countdownTargets = <?php echo json_encode($countdownTargets, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
-        const host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
-        const target = countdownTargets[host];
-        if (!target || !target.date) return;
-
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const targetDate = new Date(target.date + 'T00:00:00');
-        if (Number.isNaN(targetDate.getTime())) return;
-
-        const days = Math.max(0, Math.ceil((targetDate - today) / 86400000));
-        const dateText = `${targetDate.getFullYear()}年${String(targetDate.getMonth() + 1).padStart(2, '0')}月${String(targetDate.getDate()).padStart(2, '0')}日`;
-        const countdown = document.createElement('div');
-        countdown.className = 'service-countdown';
-        countdown.setAttribute('role', 'status');
-        countdown.innerHTML = `
-            <div class="service-countdown-copy">
-                <span class="service-countdown-label">服務倒數</span>
-                <strong>${target.prefix || '至'} ${dateText}${target.label || '網站終止服務'}</strong>
-            </div>
-            <div class="service-countdown-days">
-                <span>${days}</span>
-                <small>天</small>
-            </div>
-        `;
-
-        const firstNotice = document.querySelector('.tube-home-notice, .finance-home-notice, .content-header');
-        if (firstNotice && firstNotice.parentNode) {
-            firstNotice.parentNode.insertBefore(countdown, firstNotice);
-        } else {
-            document.body.prepend(countdown);
-        }
-    })();
-</script>
 
 <?php if (!empty($tubeNewVideos)): ?>
     <a class="tube-home-notice" href="index.php?page=tools&tool=tube" role="status">
@@ -305,59 +211,6 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         color: #fde68a;
     }
 
-    .service-countdown {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 18px;
-        margin-bottom: 18px;
-        padding: 18px 22px;
-        border-radius: 22px;
-        border: 1px solid rgba(14, 165, 233, 0.28);
-        background: linear-gradient(180deg, rgba(224, 242, 254, 0.94), rgba(240, 249, 255, 0.76));
-        color: #0f172a;
-        box-shadow: 0 16px 38px rgba(14, 116, 144, 0.12);
-    }
-
-    .service-countdown-copy {
-        display: grid;
-        gap: 4px;
-    }
-
-    .service-countdown-label {
-        color: #0369a1;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0;
-    }
-
-    .service-countdown-copy strong {
-        font-size: 1.05rem;
-        line-height: 1.45;
-    }
-
-    .service-countdown-days {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        padding: 8px 16px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.72);
-        color: #075985;
-        flex: 0 0 auto;
-    }
-
-    .service-countdown-days span {
-        font-size: 2rem;
-        font-weight: 900;
-        line-height: 1;
-    }
-
-    .service-countdown-days small {
-        font-size: 0.9rem;
-        font-weight: 700;
-    }
-
     .tube-home-notice {
         display: flex;
         align-items: center;
@@ -420,34 +273,6 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         background: linear-gradient(180deg, rgba(120, 53, 15, 0.76), rgba(69, 26, 3, 0.76));
         border-color: rgba(251, 191, 36, 0.34);
         color: #fef3c7;
-    }
-
-    [data-theme="dark"] .service-countdown {
-        background: linear-gradient(180deg, rgba(12, 74, 110, 0.82), rgba(8, 47, 73, 0.76));
-        border-color: rgba(125, 211, 252, 0.28);
-        color: #e0f2fe;
-        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
-    }
-
-    [data-theme="dark"] .service-countdown-label,
-    [data-theme="dark"] .service-countdown-days {
-        color: #bae6fd;
-    }
-
-    [data-theme="dark"] .service-countdown-days {
-        background: rgba(15, 23, 42, 0.44);
-    }
-
-    @media (max-width: 640px) {
-        .service-countdown {
-            align-items: flex-start;
-            flex-direction: column;
-        }
-
-        .service-countdown-days {
-            width: 100%;
-            justify-content: center;
-        }
     }
 
     .ascii-fengbro {
