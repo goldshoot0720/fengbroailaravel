@@ -50,27 +50,49 @@ function fengbroResendSaveSetting(PDO $pdo, string $key, string $value): void
     $insert->execute([$key, $value]);
 }
 
-function fengbroResendApiKey(PDO $pdo): string
+function fengbroResendSlotSuffix(int $slot): string
 {
-    $apiKey = trim(fengbroResendGetSetting($pdo, 'RESEND_API_KEY'));
+    return $slot <= 1 ? '' : (string) $slot;
+}
+
+function fengbroResendSettingOrEnv(PDO $pdo, string $key): string
+{
+    $value = trim(fengbroResendGetSetting($pdo, $key));
+    if ($value !== '') {
+        return $value;
+    }
+
+    $envValue = getenv($key);
+    return is_string($envValue) ? trim($envValue) : '';
+}
+
+function fengbroResendApiKey(PDO $pdo, int $slot = 1): string
+{
+    $suffix = fengbroResendSlotSuffix($slot);
+    $apiKey = fengbroResendSettingOrEnv($pdo, 'RESEND_API_KEY' . $suffix);
     if ($apiKey !== '') {
         return $apiKey;
     }
 
-    $legacyKey = trim(fengbroResendGetSetting($pdo, 'resend_api_key'));
-    if ($legacyKey !== '') {
-        return $legacyKey;
-    }
-
-    $envKey = getenv('RESEND_API_KEY');
-    return is_string($envKey) ? trim($envKey) : '';
+    $legacyKey = $slot === 1 ? trim(fengbroResendGetSetting($pdo, 'resend_api_key')) : '';
+    return $legacyKey !== '' ? $legacyKey : '';
 }
 
-function fengbroResendDefaultRecipient(PDO $pdo): string
+function fengbroResendRecipient(PDO $pdo, int $slot = 1): string
 {
-    $configured = trim(fengbroResendGetSetting($pdo, 'resend_to_email'));
-    if ($configured !== '') {
-        return $configured;
+    $suffix = fengbroResendSlotSuffix($slot);
+    $recipient = fengbroResendSettingOrEnv($pdo, 'RESEND_TO_EMAIL' . $suffix);
+    if ($recipient !== '') {
+        return $recipient;
+    }
+
+    if ($slot !== 1) {
+        return '';
+    }
+
+    $legacy = trim(fengbroResendGetSetting($pdo, 'resend_to_email'));
+    if ($legacy !== '') {
+        return $legacy;
     }
 
     try {
@@ -79,6 +101,28 @@ function fengbroResendDefaultRecipient(PDO $pdo): string
     } catch (Throwable $e) {
         return '';
     }
+}
+
+function fengbroResendDefaultRecipient(PDO $pdo): string
+{
+    return fengbroResendRecipient($pdo, 1);
+}
+
+function fengbroResendCredentialSlots(PDO $pdo): array
+{
+    $slots = [];
+    for ($slot = 1; $slot <= 3; $slot++) {
+        $suffix = fengbroResendSlotSuffix($slot);
+        $slots[] = [
+            'slot' => $slot,
+            'suffix' => $suffix,
+            'api_key_name' => 'RESEND_API_KEY' . $suffix,
+            'to_email_name' => 'RESEND_TO_EMAIL' . $suffix,
+            'api_key' => fengbroResendApiKey($pdo, $slot),
+            'recipient' => fengbroResendRecipient($pdo, $slot),
+        ];
+    }
+    return $slots;
 }
 
 function fengbroResendBuildBaseUrl(): string
@@ -154,18 +198,71 @@ function fengbroResendMarkSent(PDO $pdo, string $eventKey, string $eventType, st
     $stmt->execute([$eventKey, $eventType, $table, $recordId, $targetDate, $recipient]);
 }
 
+function fengbroResendSendTestEmail(PDO $pdo): array
+{
+    fengbroResendEnsureTables($pdo);
+
+    $slots = array_values(array_filter(fengbroResendCredentialSlots($pdo), function ($slot) {
+        return $slot['api_key'] !== '' && $slot['recipient'] !== '';
+    }));
+    $from = trim(fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>'));
+
+    if (!$slots) {
+        return [
+            'success' => false,
+            'sent' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+            'error' => '請先設定 RESEND_API_KEY / RESEND_TO_EMAIL',
+            'details' => [],
+        ];
+    }
+
+    $subject = 'Fengbro AI Resend 測試寄發';
+    $html = '<h2>Fengbro AI Resend 測試寄發</h2><p>這是一封測試信，用來確認 RESEND API Key 與收件信箱可正常使用。</p>';
+    $text = "Fengbro AI Resend 測試寄發\n這是一封測試信，用來確認 RESEND API Key 與收件信箱可正常使用。";
+    $sent = 0;
+    $failed = 0;
+    $details = [];
+
+    foreach ($slots as $slot) {
+        $result = fengbroResendSendEmail($slot['api_key'], $from, $slot['recipient'], $subject, $html, $text);
+        if ($result['success']) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+        $details[] = [
+            'slot' => $slot['slot'],
+            'recipient' => $slot['recipient'],
+            'success' => $result['success'],
+            'http_code' => $result['http_code'] ?? 0,
+            'error' => $result['error'] ?? '',
+        ];
+    }
+
+    return [
+        'success' => $failed === 0,
+        'sent' => $sent,
+        'failed' => $failed,
+        'skipped' => 0,
+        'recipient' => implode(', ', array_column($details, 'recipient')),
+        'error' => $failed > 0 ? '部分測試信寄送失敗' : '',
+        'details' => $details,
+    ];
+}
+
 function fengbroResendRunDueNotifications(PDO $pdo): array
 {
     fengbroResendEnsureTables($pdo);
 
-    $apiKey = fengbroResendApiKey($pdo);
-    $recipient = fengbroResendDefaultRecipient($pdo);
+    $slots = array_values(array_filter(fengbroResendCredentialSlots($pdo), function ($slot) {
+        return $slot['api_key'] !== '' && $slot['recipient'] !== '';
+    }));
     $from = trim(fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>'));
-    if ($apiKey === '') {
-        return ['success' => true, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'message' => '請先在瀏覽器開啟「鋒兄設定」並輸入 RESEND_API_KEY', 'details' => []];
-    }
-    if ($recipient === '') {
-        return ['success' => false, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'error' => 'Recipient email not configured', 'details' => []];
+
+    if (!$slots) {
+        return ['success' => true, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'message' => '請先在鋒兄設定輸入 RESEND_API_KEY / RESEND_TO_EMAIL', 'details' => []];
     }
 
     $baseUrl = fengbroResendBuildBaseUrl();
@@ -207,14 +304,24 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
     foreach ($rules as $rule) {
         $rows = $pdo->query($rule['sql'])->fetchAll(PDO::FETCH_ASSOC);
         $pending = [];
+
         foreach ($rows as $row) {
             $targetDate = date('Y-m-d', strtotime((string) $row['target_date']));
-            $eventKey = $rule['type'] . ':' . $row['id'] . ':' . $targetDate;
-            if (fengbroResendLogExists($pdo, $eventKey)) {
-                $skipped++;
+            $row['_event_keys'] = [];
+
+            foreach ($slots as $slot) {
+                $eventKey = $rule['type'] . ':' . $row['id'] . ':' . $targetDate . ':' . sha1(strtolower($slot['recipient']));
+                if (fengbroResendLogExists($pdo, $eventKey)) {
+                    $skipped++;
+                    continue;
+                }
+                $row['_event_keys'][$slot['slot']] = $eventKey;
+            }
+
+            if (!$row['_event_keys']) {
                 continue;
             }
-            $row['_event_key'] = $eventKey;
+
             $row['_target_date'] = $targetDate;
             $pending[] = $row;
         }
@@ -223,62 +330,67 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
             continue;
         }
 
-        $lines = [];
-        foreach ($pending as $row) {
-            $extra = [];
-            if (!empty($row['account'])) {
-                $extra[] = '帳號：' . $row['account'];
+        $pageUrl = $baseUrl !== '' ? $baseUrl . '/index.php?page=' . ($rule['table'] === 'food' ? 'food' : 'subscription') : '';
+
+        foreach ($slots as $slot) {
+            $slotPending = array_values(array_filter($pending, function ($row) use ($slot) {
+                return isset($row['_event_keys'][$slot['slot']]);
+            }));
+            if (!$slotPending) {
+                continue;
             }
-            if (!empty($row['amount'])) {
-                $extra[] = '數量：' . $row['amount'];
+
+            $htmlItems = '';
+            $textItems = '';
+            foreach ($slotPending as $row) {
+                $extra = [];
+                if (!empty($row['account'])) {
+                    $extra[] = '帳號：' . $row['account'];
+                }
+                if (!empty($row['amount'])) {
+                    $extra[] = '數量：' . $row['amount'];
+                }
+                if (!empty($row['shop'])) {
+                    $extra[] = '商店：' . $row['shop'];
+                }
+                if (!empty($row['note'])) {
+                    $extra[] = '備註：' . $row['note'];
+                }
+
+                $htmlItems .= '<li><strong>' . htmlspecialchars((string) $row['name'], ENT_QUOTES, 'UTF-8') . '</strong> - ' . htmlspecialchars($row['_target_date'], ENT_QUOTES, 'UTF-8');
+                if ($extra) {
+                    $htmlItems .= '<br><small>' . htmlspecialchars(implode(' / ', $extra), ENT_QUOTES, 'UTF-8') . '</small>';
+                }
+                $htmlItems .= '</li>';
+                $textItems .= '- ' . $row['name'] . ' - ' . $row['_target_date'] . ($extra ? ' (' . implode(' / ', $extra) . ')' : '') . "\n";
             }
-            if (!empty($row['shop'])) {
-                $extra[] = '商店：' . $row['shop'];
+
+            $html = '<h2>' . htmlspecialchars($rule['subject'], ENT_QUOTES, 'UTF-8') . '</h2><p>' . htmlspecialchars($rule['label'], ENT_QUOTES, 'UTF-8') . ' 有 ' . count($slotPending) . ' 筆需要提醒。</p><ul>' . $htmlItems . '</ul>';
+            if ($pageUrl !== '') {
+                $html .= '<p><a href="' . htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') . '">開啟 Fengbro AI</a></p>';
             }
-            if (!empty($row['note'])) {
-                $extra[] = '備註：' . $row['note'];
+            $text = $rule['subject'] . "\n\n" . $textItems . ($pageUrl !== '' ? "\n" . $pageUrl : '');
+
+            $result = fengbroResendSendEmail($slot['api_key'], $from, $slot['recipient'], $rule['subject'], $html, $text);
+            if ($result['success']) {
+                foreach ($slotPending as $row) {
+                    fengbroResendMarkSent($pdo, $row['_event_keys'][$slot['slot']], $rule['type'], $rule['table'], (string) $row['id'], $row['_target_date'], $slot['recipient']);
+                }
+                $sent += count($slotPending);
+            } else {
+                $failed += count($slotPending);
             }
-            $lines[] = [
-                'name' => (string) $row['name'],
-                'date' => $row['_target_date'],
-                'extra' => implode(' / ', $extra),
+
+            $details[] = [
+                'type' => $rule['type'],
+                'slot' => $slot['slot'],
+                'recipient' => $slot['recipient'],
+                'count' => count($slotPending),
+                'success' => $result['success'],
+                'http_code' => $result['http_code'] ?? 0,
+                'error' => $result['error'] ?? '',
             ];
         }
-
-        $pageUrl = $baseUrl !== '' ? $baseUrl . '/index.php?page=' . ($rule['table'] === 'food' ? 'food' : 'subscription') : '';
-        $htmlItems = '';
-        $textItems = '';
-        foreach ($lines as $line) {
-            $htmlItems .= '<li><strong>' . htmlspecialchars($line['name'], ENT_QUOTES, 'UTF-8') . '</strong> - ' . htmlspecialchars($line['date'], ENT_QUOTES, 'UTF-8');
-            if ($line['extra'] !== '') {
-                $htmlItems .= '<br><small>' . htmlspecialchars($line['extra'], ENT_QUOTES, 'UTF-8') . '</small>';
-            }
-            $htmlItems .= '</li>';
-            $textItems .= '- ' . $line['name'] . ' - ' . $line['date'] . ($line['extra'] !== '' ? ' (' . $line['extra'] . ')' : '') . "\n";
-        }
-        $html = '<h2>' . htmlspecialchars($rule['subject'], ENT_QUOTES, 'UTF-8') . '</h2><p>' . htmlspecialchars($rule['label'], ENT_QUOTES, 'UTF-8') . ' 有 ' . count($pending) . ' 筆需要提醒。</p><ul>' . $htmlItems . '</ul>';
-        if ($pageUrl !== '') {
-            $html .= '<p><a href="' . htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') . '">開啟 Fengbro AI</a></p>';
-        }
-        $text = $rule['subject'] . "\n\n" . $textItems . ($pageUrl !== '' ? "\n" . $pageUrl : '');
-
-        $result = fengbroResendSendEmail($apiKey, $from, $recipient, $rule['subject'], $html, $text);
-        if ($result['success']) {
-            foreach ($pending as $row) {
-                fengbroResendMarkSent($pdo, $row['_event_key'], $rule['type'], $rule['table'], (string) $row['id'], $row['_target_date'], $recipient);
-            }
-            $sent += count($pending);
-        } else {
-            $failed += count($pending);
-        }
-
-        $details[] = [
-            'type' => $rule['type'],
-            'count' => count($pending),
-            'success' => $result['success'],
-            'http_code' => $result['http_code'] ?? 0,
-            'error' => $result['error'] ?? '',
-        ];
     }
 
     return [

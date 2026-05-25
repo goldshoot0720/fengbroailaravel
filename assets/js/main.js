@@ -1154,6 +1154,7 @@ function initFengbroVoiceInput() {
 
     function handlePageCommand(text) {
         const page = currentPage();
+        if (handleFoodVoiceCrud(text)) return true;
         if (page === 'subscription') {
             if (/7\s*天|七天|一週|續訂|不續/.test(text)) {
                 if (/7\s*天|七天|一週/.test(text) && window.toggleWithin7) window.toggleWithin7();
@@ -1273,6 +1274,228 @@ function initFengbroVoiceInput() {
             setStatus('已填入語音內容。請確認後再儲存。', 'success');
         }
         return changed;
+    }
+
+    function handleFoodVoiceCrud(text) {
+        const page = currentPage();
+        const targetsFood = /鋒兄食品|食品|食材|商品庫存|商品|庫存/.test(text);
+        if (page !== 'food' && targetsFood && /新增|加入|建立|記錄|搜尋|查詢|找/.test(text)) {
+            stageAction('前往鋒兄食品處理語音指令', function () {
+                try {
+                    sessionStorage.setItem('fengbro_pending_food_voice', text);
+                } catch (error) {}
+                window.location.href = 'index.php?page=food';
+            });
+            return true;
+        }
+        if (page !== 'food') return false;
+        if (!targetsFood && !/新增|加入|建立|搜尋|查詢|找|刪除|移除|複製|編輯|修改|更新|數量|加|減|補貨|用掉/.test(text)) return false;
+
+        if (/搜尋|查詢|找/.test(text)) {
+            const query = extractFoodName(text) || text.replace(/鋒兄食品|食品|食材|商品庫存|商品|搜尋|查詢|找/g, '').trim();
+            if (query && voiceFoodSetSearch(query)) {
+                setStatus('已搜尋食品：' + query, 'success');
+                return true;
+            }
+        }
+
+        if (/新增|加入|建立|記錄|買了|補一筆|新增一筆/.test(text)) {
+            const name = extractFoodName(text);
+            if (!name) {
+                setStatus('請說出要新增的食品名稱，例如：新增食品牛奶數量2到期7天後。', 'info');
+                return true;
+            }
+            stageAction('新增食品：' + name, function () {
+                fillFoodModalFromVoice(text, null);
+                submitFoodModal();
+            });
+            return true;
+        }
+
+        const item = findFoodItemByVoice(text, extractFoodName(text));
+        if (!item) return false;
+        const id = item.dataset.id;
+        const label = item.dataset.name || itemLabel(item);
+
+        if (/刪除|移除|清除/.test(text)) {
+            stageAction('刪除食品：' + label, function () {
+                if (typeof window.deleteItem === 'function') window.deleteItem(id);
+                else clickItemAction(item, ['刪除', '移除']);
+            });
+            return true;
+        }
+
+        if (/複製|拷貝|再來一筆/.test(text)) {
+            stageAction('複製食品並進入編輯：' + label, function () {
+                if (typeof window.duplicateItem === 'function') window.duplicateItem(id);
+                else clickItemAction(item, ['複製']);
+            });
+            return true;
+        }
+
+        const delta = extractFoodAmountDelta(text);
+        if (delta !== 0 && typeof window.adjustFoodAmount === 'function') {
+            stageAction((delta > 0 ? '增加' : '減少') + '食品數量：' + label + ' ' + Math.abs(delta), function () {
+                window.adjustFoodAmount(id, delta);
+            });
+            return true;
+        }
+
+        if (/編輯|修改|更新|改成|改為|設定|變成/.test(text)) {
+            stageAction('更新食品：' + label, function () {
+                fillFoodModalFromVoice(text, id);
+                submitFoodModal();
+            });
+            return true;
+        }
+
+        return false;
+    }
+
+    function processPendingFoodVoice() {
+        if (currentPage() !== 'food') return;
+        let text = '';
+        try {
+            text = sessionStorage.getItem('fengbro_pending_food_voice') || '';
+            if (text) sessionStorage.removeItem('fengbro_pending_food_voice');
+        } catch (error) {}
+        if (text) window.setTimeout(function () { handleFoodVoiceCrud(text); }, 120);
+    }
+
+    function fillFoodModalFromVoice(text, id) {
+        if (id && typeof window.editItem === 'function') window.editItem(id);
+        else if (typeof window.openModal === 'function') window.openModal();
+        else if (typeof window.handleAdd === 'function') window.handleAdd();
+
+        window.setTimeout(function () {
+            const payload = extractFoodVoicePayload(text);
+            if (id) setFieldValue('id', id);
+            if (payload.name) setFieldValue('name', payload.name);
+            if (payload.amount !== null) setFieldValue('amount', payload.amount);
+            if (payload.price !== null) setFieldValue('price', payload.price);
+            if (payload.shop) setFieldValue('shop', payload.shop);
+            if (payload.todate) setFieldValue('todate', payload.todate);
+            if (payload.photo) setFieldValue('photo', payload.photo);
+        }, id ? 260 : 80);
+    }
+
+    function submitFoodModal() {
+        window.setTimeout(function () {
+            const form = document.getElementById('itemForm');
+            if (!form) return;
+            if (typeof form.requestSubmit === 'function') form.requestSubmit();
+            else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }, 420);
+    }
+
+    function extractFoodVoicePayload(text) {
+        return {
+            name: extractFoodName(text),
+            amount: extractFoodAmount(text),
+            price: extractFoodPrice(text),
+            shop: extractFoodShop(text),
+            todate: extractFoodDate(text),
+            photo: extractFoodPhoto(text)
+        };
+    }
+
+    function extractFoodName(text) {
+        const match = text.match(/(?:叫做|名稱是|名字是|品名是|食品是|商品是|新增(?:食品|商品)?|加入(?:食品|商品)?|建立(?:食品|商品)?|搜尋|查詢|找)\s*([\s\S]+?)(?=\s*(?:數量|庫存|價格|價錢|金額|商店|店家|店名|到期|有效|日期|時間|圖片|照片|連結|網址|加|減|改成|改為|設定|變成|$))/);
+        if (match && match[1]) return cleanupFoodText(match[1]);
+
+        const datasetName = (text.match(/(?:刪除|移除|複製|編輯|修改|更新)\s*([\s\S]+?)(?=\s*(?:數量|庫存|價格|商店|到期|$))/) || [])[1];
+        return cleanupFoodText(datasetName || '');
+    }
+
+    function cleanupFoodText(value) {
+        return String(value || '')
+            .replace(/鋒兄食品|食品|食材|商品庫存|商品/g, '')
+            .replace(/^(一筆|一個|這個|那個)\s*/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function extractFoodAmount(text) {
+        const match = text.match(/(?:數量|庫存|還有|有)\s*([0-9一二三四五六七八九十兩]+)/);
+        if (!match) return null;
+        return voiceNumberToValue(match[1]);
+    }
+
+    function extractFoodAmountDelta(text) {
+        const match = text.match(/(?:數量)?\s*(加|增加|補貨|減|減少|用掉)\s*([0-9一二三四五六七八九十兩]+)?/);
+        if (!match) return 0;
+        const amount = match[2] ? voiceNumberToValue(match[2]) : 1;
+        return /減|用掉/.test(match[1]) ? -amount : amount;
+    }
+
+    function extractFoodPrice(text) {
+        const match = text.match(/(?:價格|價錢|金額|單價)\s*([0-9]+)/);
+        return match ? Number(match[1]) : null;
+    }
+
+    function extractFoodShop(text) {
+        const match = text.match(/(?:商店|店家|店名|購買於|買自)\s*([\s\S]+?)(?=\s*(?:數量|庫存|價格|到期|有效|日期|圖片|照片|$))/);
+        return match ? cleanupFoodText(match[1]) : '';
+    }
+
+    function extractFoodPhoto(text) {
+        const match = text.match(/(?:圖片|照片|圖檔|網址|連結)\s*(https?:\/\/\S+)/i);
+        return match ? match[1] : '';
+    }
+
+    function extractFoodDate(text) {
+        const dayMatch = text.match(/(?:到期|有效期限|保存|日期|時間).*?([0-9一二三四五六七八九十兩]+)\s*天(?:後|內)?/);
+        if (dayMatch) return addDays(voiceNumberToValue(dayMatch[1]));
+        const parsed = parseSpokenDate(text);
+        return parsed || '';
+    }
+
+    function voiceNumberToValue(value) {
+        const raw = String(value || '').trim();
+        if (/^\d+$/.test(raw)) return Number(raw);
+        const map = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+        if (raw === '十') return 10;
+        const ten = raw.match(/^([一二兩三四五六七八九])?十([一二兩三四五六七八九])?$/);
+        if (ten) return (ten[1] ? map[ten[1]] : 1) * 10 + (ten[2] ? map[ten[2]] : 0);
+        return map[raw] || spokenNumber(raw) || 0;
+    }
+
+    function findFoodItemByVoice(text, wantedName) {
+        const items = uniqueElements(Array.from(document.querySelectorAll('[data-food-item]')).filter(function (item) {
+            return !isHidden(item) && item.dataset && item.dataset.id;
+        }));
+        if (!items.length) return null;
+
+        const ordinal = parseOrdinal(text);
+        if (ordinal) return ordinal.index === -1 ? items[items.length - 1] : items[ordinal.index] || null;
+
+        const wanted = compact(wantedName || '');
+        if (wanted) {
+            const exact = items.find(function (item) { return compact(item.dataset.name || '') === wanted; });
+            if (exact) return exact;
+            const partial = items.find(function (item) { return compact(item.dataset.name || '').indexOf(wanted) !== -1 || wanted.indexOf(compact(item.dataset.name || '')) !== -1; });
+            if (partial) return partial;
+        }
+
+        const source = compact(text);
+        const mentioned = items.find(function (item) {
+            const name = compact(item.dataset.name || '');
+            return name && source.indexOf(name) !== -1;
+        });
+        if (mentioned) return mentioned;
+
+        return null;
+    }
+
+    function voiceFoodSetSearch(query) {
+        const search = document.getElementById('foodSearchInput') || document.querySelector('input[type="search"], input[id*="food"][id*="Search" i]');
+        if (!search) return false;
+        search.value = query;
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        search.dispatchEvent(new Event('change', { bubbles: true }));
+        if (typeof window.filterFoods === 'function') window.filterFoods();
+        search.focus();
+        return true;
     }
 
     function handleCrossPageSubscriptionCommand(text) {
@@ -1858,6 +2081,7 @@ function initFengbroVoiceInput() {
 
     createUI();
     window.setTimeout(processPendingSubscriptionVoice, 120);
+    window.setTimeout(processPendingFoodVoice, 160);
 }
 
 function initHeaderRefreshButtons() {

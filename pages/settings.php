@@ -8,17 +8,27 @@ $resendSettingsMessage = '';
 $resendSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
-        if (!empty($_POST['clear_resend_api_key'])) {
-            fengbroResendSaveSetting($pdo, 'RESEND_API_KEY', '');
-            fengbroResendSaveSetting($pdo, 'resend_api_key', '');
-        } else {
-            $newKey = trim((string) ($_POST['resend_api_key'] ?? ''));
-            if ($newKey !== '') {
-                fengbroResendSaveSetting($pdo, 'RESEND_API_KEY', $newKey);
-                fengbroResendSaveSetting($pdo, 'resend_api_key', '');
+        for ($slot = 1; $slot <= 3; $slot++) {
+            $suffix = $slot <= 1 ? '' : (string) $slot;
+            $apiSetting = 'RESEND_API_KEY' . $suffix;
+            $toSetting = 'RESEND_TO_EMAIL' . $suffix;
+            if (!empty($_POST['clear_resend_api_key' . $suffix])) {
+                fengbroResendSaveSetting($pdo, $apiSetting, '');
+                if ($slot === 1) {
+                    fengbroResendSaveSetting($pdo, 'resend_api_key', '');
+                }
+            } else {
+                $newKey = trim((string) ($_POST['resend_api_key' . $suffix] ?? ''));
+                if ($newKey !== '') {
+                    fengbroResendSaveSetting($pdo, $apiSetting, $newKey);
+                    if ($slot === 1) {
+                        fengbroResendSaveSetting($pdo, 'resend_api_key', '');
+                    }
+                }
             }
+            fengbroResendSaveSetting($pdo, $toSetting, trim((string) ($_POST['resend_to_email' . $suffix] ?? '')));
         }
-        fengbroResendSaveSetting($pdo, 'resend_to_email', trim((string) ($_POST['resend_to_email'] ?? '')));
+        fengbroResendSaveSetting($pdo, 'resend_to_email', '');
         fengbroResendSaveSetting($pdo, 'resend_from_email', trim((string) ($_POST['resend_from_email'] ?? 'Fengbro AI <onboarding@resend.dev>')));
         $resendSettingsMessage = 'RESEND 設定已儲存。RESEND_API_KEY 會從瀏覽器設定頁讀取。';
     } catch (Throwable $e) {
@@ -28,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
 
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
+$resendSlots = fengbroResendCredentialSlots($pdo);
 $resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
 $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
 ?>
@@ -116,12 +127,43 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
                         </div>
                     </td>
                 </tr>
+                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                    <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
+                    <tr>
+                        <th style="width: 200px;"><code>RESEND_API_KEY<?php echo $resendSuffix; ?></code></th>
+                        <td>
+                            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                                <input id="resendApiKeyInput<?php echo $resendSuffix; ?>" type="password" class="form-control" name="resend_api_key<?php echo $resendSuffix; ?>" placeholder="<?php echo $resendSlotData['api_key'] !== '' ? '已設定，留空保留既有 Key' : 're_...'; ?>" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1 1 320px;">
+                                <button type="button" class="btn btn-sm" onclick="toggleResendApiKeyVisibility('resendApiKeyInput<?php echo $resendSuffix; ?>')">顯示/隱藏</button>
+                            </div>
+                            <div style="margin-top:8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                                <?php if ($resendSlotData['api_key'] !== ''): ?>
+                                    <span class="badge badge-success">RESEND_API_KEY<?php echo $resendSuffix; ?> 已設定</span>
+                                    <label style="display:flex; gap:6px; align-items:center; color:var(--muted-text);">
+                                        <input type="checkbox" name="clear_resend_api_key<?php echo $resendSuffix; ?>" value="1"> 清除 API Key
+                                    </label>
+                                <?php else: ?>
+                                    <span class="badge badge-danger">RESEND_API_KEY<?php echo $resendSuffix; ?> 未設定</span>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endfor; ?>
                 <tr>
-                    <th>收件 Email</th>
+                    <th><code>RESEND_TO_EMAIL</code></th>
                     <td>
                         <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
                     </td>
                 </tr>
+                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                    <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
+                    <tr>
+                        <th><code>RESEND_TO_EMAIL<?php echo $resendSuffix; ?></code></th>
+                        <td>
+                            <input type="email" class="form-control" name="resend_to_email<?php echo $resendSuffix; ?>" value="<?php echo htmlspecialchars($resendSlotData['recipient']); ?>" placeholder="you<?php echo $resendSuffix; ?>@example.com">
+                        </td>
+                    </tr>
+                <?php endfor; ?>
                 <tr>
                     <th>寄件 Email</th>
                     <td>
@@ -151,6 +193,9 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
                     <td>
                         <button type="button" class="btn btn-sm btn-warning" onclick="runResendNotify()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
                             執行 RESEND 通知
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="sendResendTestEmail()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                            測試寄發
                         </button>
                         <span id="resendNotifyResult" style="margin-left:12px; font-size:0.9em;"></span>
                     </td>
@@ -217,8 +262,8 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
     </div>
 
     <script>
-        function toggleResendApiKeyVisibility() {
-            const input = document.getElementById('resendApiKeyInput');
+        function toggleResendApiKeyVisibility(id) {
+            const input = document.getElementById(id || 'resendApiKeyInput');
             if (!input) return;
             input.type = input.type === 'password' ? 'text' : 'password';
             input.focus();
@@ -238,6 +283,23 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
                 })
                 .catch(() => {
                     result.innerHTML = '<span style="color:red;">請求失敗</span>';
+                });
+        }
+
+        function sendResendTestEmail() {
+            const result = document.getElementById('resendNotifyResult');
+            result.textContent = '測試寄發中...';
+            fetch('resend_notify.php?action=test', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        result.innerHTML = '<span style="color:green;">測試信已寄出 ' + (d.sent || 0) + ' 封' + (d.recipient ? '：' + d.recipient : '') + '。</span>';
+                    } else {
+                        result.innerHTML = '<span style="color:red;">測試寄發失敗：' + (d.error || 'RESEND 測試寄發失敗') + '</span>';
+                    }
+                })
+                .catch(() => {
+                    result.innerHTML = '<span style="color:red;">測試寄發請求失敗</span>';
                 });
         }
 

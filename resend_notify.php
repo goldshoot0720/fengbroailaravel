@@ -25,7 +25,10 @@ if (!$isCli) {
 
 try {
     $pdo = getConnection();
-    $result = fengbroResendRunDueNotifications($pdo);
+    $action = $isCli ? ($argv[1] ?? '') : ($_GET['action'] ?? ($_POST['action'] ?? ''));
+    $result = $action === 'test'
+        ? fengbroResendSendTestEmail($pdo)
+        : fengbroResendRunDueNotifications($pdo);
 } catch (Throwable $e) {
     $result = [
         'success' => false,

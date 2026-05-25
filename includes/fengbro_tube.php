@@ -1,34 +1,49 @@
 <?php
 
-function fengbroTubeChannels()
+function fengbroTubeDefaultChannels()
 {
     return [
-        ['name' => 'SJdiao', 'url' => 'https://www.youtube.com/@SJdiao/videos'],
-        ['name' => '一个狠人', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
-        ['name' => 'libertas1984', 'url' => 'https://www.youtube.com/@libertas1984/videos'],
-        ['name' => 'sunlao', 'url' => 'https://www.youtube.com/@sunlao/videos'],
-        ['name' => 'Torontobigface', 'url' => 'https://www.youtube.com/@Torontobigface/videos'],
-        ['name' => 'junyulan', 'url' => 'https://www.youtube.com/@junyulan/videos'],
-        ['name' => 'blackwhite_raven', 'url' => 'https://www.youtube.com/@blackwhite_raven/videos'],
-        ['name' => 'quedaren', 'url' => 'https://www.youtube.com/@quedaren/videos'],
-        ['name' => '夸克说', 'url' => 'https://www.youtube.com/@%E5%A4%B8%E5%85%8B%E8%AF%B4'],
-        ['name' => '喵喵看一看', 'url' => 'https://www.youtube.com/@%E5%96%B5%E5%96%B5%E7%9C%8B%E4%B8%80%E7%9C%8B/videos'],
-        ['name' => '马司库', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
-        ['name' => '怪獸崛起 MONSTERISE', 'url' => 'https://www.youtube.com/@monsterise/videos'],
-        ['name' => '线人频道Informant', 'url' => 'https://www.youtube.com/@informant510/videos'],
-        ['name' => '吉利小师妹', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
-        ['name' => 'Sun Channel', 'url' => 'https://www.youtube.com/@SunChannelHK/videos'],
-        ['name' => '夏河東渡', 'url' => 'https://www.youtube.com/@jlaw/videos'],
-        ['name' => '張内咸脫口秀', 'url' => 'https://www.youtube.com/@NeixianZhang/videos'],
-        ['name' => '修仙者小烨', 'url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos'],
-        ['name' => '修炼者小烨', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
-        ['name' => 'cheap', 'url' => 'https://www.youtube.com/@cheapaoe/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@SJdiao/videos'],
+        ['name' => '', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@libertas1984/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@sunlao/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@Torontobigface/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@junyulan/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@blackwhite_raven/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@quedaren/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@%E5%A4%B8%E5%85%8B%E8%AF%B4'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@%E5%96%B5%E5%96%B5%E7%9C%8B%E4%B8%80%E7%9C%8B/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@monsterise/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@informant510/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@SunChannelHK/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@jlaw/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@NeixianZhang/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@cheapaoe/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@StorytellerHK/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@mrshenofficial/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@jiangtaigong/videos'],
+        ['name' => '', 'url' => 'https://www.youtube.com/@GC%E8%B6%99%E6%B0%8F%E8%AE%80%E6%9B%B8%E7%94%9F%E6%B4%BB'],
     ];
+}
+
+function fengbroTubeChannels()
+{
+    $custom = fengbroTubeReadChannelsFile();
+    return $custom !== null ? $custom : fengbroTubeDefaultChannels();
 }
 
 function fengbroTubeCachePath()
 {
     return __DIR__ . '/../uploads/temp/fengbro_tube_cache.json';
+}
+
+function fengbroTubeChannelsPath()
+{
+    return __DIR__ . '/../uploads/temp/fengbro_tube_channels.json';
 }
 
 function fengbroTubeReadCache()
@@ -49,6 +64,95 @@ function fengbroTubeWriteCache($cache)
         @mkdir($dir, 0755, true);
     }
     @file_put_contents($path, json_encode($cache, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+
+function fengbroTubeClearDataCache()
+{
+    $cache = fengbroTubeReadCache();
+    unset($cache['tube_data'], $cache['tube_data_v2']);
+    fengbroTubeWriteCache($cache);
+}
+
+function fengbroTubeReadChannelsFile()
+{
+    $path = fengbroTubeChannelsPath();
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $data = json_decode((string) @file_get_contents($path), true);
+    if (!is_array($data)) {
+        return null;
+    }
+
+    $channels = [];
+    foreach ($data as $channel) {
+        $normalized = fengbroTubeNormalizeChannel($channel);
+        if ($normalized !== null) {
+            $channels[] = $normalized;
+        }
+    }
+
+    return $channels;
+}
+
+function fengbroTubeSaveChannels($channels)
+{
+    $normalized = [];
+    foreach ($channels as $channel) {
+        $item = fengbroTubeNormalizeChannel($channel);
+        if ($item !== null) {
+            $normalized[] = $item;
+        }
+    }
+
+    $path = fengbroTubeChannelsPath();
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    @file_put_contents($path, json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    fengbroTubeClearDataCache();
+}
+
+function fengbroTubeResetChannels()
+{
+    $path = fengbroTubeChannelsPath();
+    if (is_file($path)) {
+        @unlink($path);
+    }
+    fengbroTubeClearDataCache();
+}
+
+function fengbroTubeNormalizeChannel($channel)
+{
+    $url = trim((string) ($channel['url'] ?? ''));
+    if ($url === '') {
+        return null;
+    }
+    if (!preg_match('~^https?://~i', $url)) {
+        $url = 'https://www.youtube.com/' . ltrim($url, '/');
+    }
+
+    $name = trim((string) ($channel['name'] ?? ''));
+    $handle = trim((string) ($channel['handle'] ?? ''));
+    if ($handle === '') {
+        $handle = fengbroTubeExtractHandleFromUrl($url);
+    }
+
+    $item = ['name' => $name, 'url' => $url];
+    if ($handle !== '') {
+        $item['handle'] = $handle;
+    }
+    return $item;
+}
+
+function fengbroTubeExtractHandleFromUrl($url)
+{
+    if (preg_match('~/@([^/?#]+)~', (string) $url, $m)) {
+        return rawurldecode($m[1]);
+    }
+    return '';
 }
 
 function fengbroTubeFetchUrl($url, $timeout = 8)
@@ -119,10 +223,7 @@ function fengbroTubeResolveChannelId($channel, &$cache)
 
 function fengbroTubeParseFeed($xmlText, $limit = 10)
 {
-    if ($xmlText === '') {
-        return [];
-    }
-    if (!function_exists('simplexml_load_string')) {
+    if ($xmlText === '' || !function_exists('simplexml_load_string')) {
         return [];
     }
 
@@ -165,6 +266,79 @@ function fengbroTubeParseFeed($xmlText, $limit = 10)
     return $videos;
 }
 
+function fengbroTubeExtractFeedChannelName($xmlText)
+{
+    if ($xmlText === '' || !function_exists('simplexml_load_string')) {
+        return '';
+    }
+
+    $previous = libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($xmlText);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous);
+    if (!$xml) {
+        return '';
+    }
+
+    $name = trim((string) ($xml->author->name ?? ''));
+    if ($name === '') {
+        $name = trim((string) ($xml->title ?? ''));
+    }
+    return $name;
+}
+
+function fengbroTubeExtractHtmlChannelName($html)
+{
+    if ($html === '') {
+        return '';
+    }
+
+    $patterns = [
+        '/<meta\s+property="og:title"\s+content="([^"]+)"/i',
+        '/<meta\s+name="title"\s+content="([^"]+)"/i',
+        '/"title"\s*:\s*{\s*"simpleText"\s*:\s*"([^"]+)"/',
+        '/"channelMetadataRenderer"\s*:\s*{[^}]*"title"\s*:\s*"([^"]+)"/',
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $html, $m)) {
+            $name = html_entity_decode(stripslashes($m[1]), ENT_QUOTES, 'UTF-8');
+            $name = preg_replace('/\s*-\s*YouTube$/i', '', $name);
+            $name = trim($name);
+            if ($name !== '') {
+                return $name;
+            }
+        }
+    }
+    return '';
+}
+
+function fengbroTubeResolveChannelName($channel, $channelId, $feedXml, &$cache)
+{
+    $url = fengbroTubeNormalizeUrl($channel['url'] ?? '');
+    $key = 'channel_name:' . ($channelId ?: $url);
+    if (!empty($cache[$key]['value']) && !empty($cache[$key]['checkedAt']) && time() - (int) $cache[$key]['checkedAt'] < 604800) {
+        return $cache[$key]['value'];
+    }
+
+    $name = fengbroTubeExtractFeedChannelName($feedXml);
+    if ($name === '') {
+        $name = fengbroTubeExtractHtmlChannelName(fengbroTubeFetchUrl($url));
+    }
+    if ($name === '') {
+        $name = trim((string) ($channel['name'] ?? ''));
+    }
+    if ($name === '') {
+        $name = trim((string) ($channel['handle'] ?? ''));
+    }
+    if ($name === '') {
+        $name = 'YouTube';
+    }
+
+    $cache[$key] = ['value' => $name, 'checkedAt' => time()];
+    return $name;
+}
+
 function fengbroTubeExtractUpdateBadge($channel, $videos)
 {
     $handle = strtolower((string) ($channel['handle'] ?? ''));
@@ -189,7 +363,7 @@ function fengbroTubeExtractUpdateBadge($channel, $videos)
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
-    $dataKey = 'tube_data';
+    $dataKey = 'tube_data_v2';
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
@@ -200,16 +374,19 @@ function fengbroTubeGetData($force = false)
         $channelId = fengbroTubeResolveChannelId($channel, $cache);
         $videos = [];
         $error = '';
+        $feedXml = '';
         if ($channelId) {
             $feedUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($channelId);
-            $videos = fengbroTubeParseFeed(fengbroTubeFetchUrl($feedUrl), 10);
+            $feedXml = fengbroTubeFetchUrl($feedUrl);
+            $videos = fengbroTubeParseFeed($feedXml, 10);
         } else {
             $error = '無法解析頻道 ID';
         }
+        $channelName = fengbroTubeResolveChannelName($channel, $channelId, $feedXml, $cache);
         foreach ($videos as $video) {
             if (!empty($video['isNew'])) {
                 $newVideos[] = [
-                    'channel' => $channel['name'],
+                    'channel' => $channelName,
                     'title' => $video['title'],
                     'url' => $video['url'],
                     'publishedText' => $video['publishedText'],
@@ -218,7 +395,8 @@ function fengbroTubeGetData($force = false)
         }
         $updateBadge = fengbroTubeExtractUpdateBadge($channel, $videos);
         $channels[] = [
-            'name' => $channel['name'],
+            'name' => $channelName,
+            'defaultName' => $channel['name'],
             'handle' => $channel['handle'] ?? '',
             'url' => $channel['url'],
             'channelId' => $channelId,

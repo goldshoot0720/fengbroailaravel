@@ -5,7 +5,34 @@ require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $toolSubpage = $_GET['tool'] ?? 'price';
 $toolSubpage = in_array($toolSubpage, ['price', 'tube', 'finance'], true) ? $toolSubpage : 'price';
+if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['tube_action'] ?? '') !== '') {
+    $channels = fengbroTubeChannels();
+    $action = (string) ($_POST['tube_action'] ?? '');
+    $index = isset($_POST['channel_index']) ? (int) $_POST['channel_index'] : -1;
+    $channel = [
+        'name' => trim((string) ($_POST['channel_name'] ?? '')),
+        'url' => trim((string) ($_POST['channel_url'] ?? '')),
+    ];
+
+    if ($action === 'reset') {
+        fengbroTubeResetChannels();
+    } elseif ($action === 'delete' && isset($channels[$index])) {
+        array_splice($channels, $index, 1);
+        fengbroTubeSaveChannels($channels);
+    } elseif ($action === 'save' && $channel['url'] !== '') {
+        if ($index >= 0 && isset($channels[$index])) {
+            $channels[$index] = $channel;
+        } else {
+            $channels[] = $channel;
+        }
+        fengbroTubeSaveChannels($channels);
+    }
+
+    header('Location: index.php?page=tools&tool=tube&refresh=1#tube-channel-manager');
+    exit;
+}
 $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])) : null;
+$tubeChannels = $toolSubpage === 'tube' ? fengbroTubeChannels() : [];
 $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['refresh'])) : null;
 ?>
 
@@ -50,6 +77,50 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 </div>
             </section>
         <?php endif; ?>
+
+        <section id="tube-channel-manager" class="card tube-channel-manager">
+            <div class="tube-manager-head">
+                <div>
+                    <h3 class="card-title">頻道管理</h3>
+                    <p>可編輯頻道別名與網址。別名留空時，預設使用 YouTube 原頻道名稱。</p>
+                </div>
+                <form method="post" onsubmit="return confirm('還原預設頻道？目前自訂清單會被清除。');">
+                    <input type="hidden" name="tube_action" value="reset">
+                    <button type="submit" class="btn btn-ghost">
+                        <i class="fa-solid fa-rotate-left"></i> 還原預設
+                    </button>
+                </form>
+            </div>
+            <form method="post" class="tube-channel-form">
+                <input type="hidden" name="tube_action" value="save">
+                <input type="hidden" id="tubeChannelIndex" name="channel_index" value="-1">
+                <input id="tubeChannelName" type="text" name="channel_name" class="form-control" placeholder="頻道別名（留空使用原頻道名稱）">
+                <input id="tubeChannelUrl" type="text" name="channel_url" class="form-control" placeholder="頻道網址 / @handle" required>
+                <button id="tubeChannelSubmit" type="submit" class="btn btn-danger">
+                    <i class="fa-solid fa-plus"></i> 儲存頻道
+                </button>
+                <button id="tubeChannelCancel" type="button" class="btn btn-ghost" style="display:none;" onclick="cancelTubeChannelEdit()">取消編輯</button>
+            </form>
+            <div class="tube-channel-admin-list">
+                <?php foreach ($tubeChannels as $idx => $adminChannel): ?>
+                    <?php $displayName = trim((string) ($adminChannel['name'] ?? '')); ?>
+                    <div class="tube-channel-admin-item">
+                        <div>
+                            <strong><?php echo htmlspecialchars($displayName !== '' ? $displayName : '使用原頻道名稱'); ?></strong>
+                            <span><?php echo htmlspecialchars($adminChannel['url'] ?? ''); ?></span>
+                        </div>
+                        <div class="tube-channel-admin-actions">
+                            <button type="button" class="btn btn-sm" onclick="editTubeChannel(<?php echo (int) $idx; ?>, <?php echo json_encode($displayName, JSON_UNESCAPED_UNICODE); ?>, <?php echo json_encode($adminChannel['url'] ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>)">編輯</button>
+                            <form method="post" onsubmit="return confirm('刪除此頻道？');">
+                                <input type="hidden" name="tube_action" value="delete">
+                                <input type="hidden" name="channel_index" value="<?php echo (int) $idx; ?>">
+                                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
 
         <div class="tube-channel-grid">
             <?php foreach (($tubeData['channels'] ?? []) as $channel): ?>
@@ -306,6 +377,68 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
 
     .tube-new-alert i {
         font-size: 1.25rem;
+    }
+
+    .tube-channel-manager {
+        display: grid;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .tube-manager-head,
+    .tube-channel-form,
+    .tube-channel-admin-item,
+    .tube-channel-admin-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .tube-manager-head,
+    .tube-channel-admin-item {
+        justify-content: space-between;
+    }
+
+    .tube-manager-head p,
+    .tube-channel-admin-item span {
+        color: var(--muted-text);
+    }
+
+    .tube-channel-form {
+        flex-wrap: wrap;
+    }
+
+    .tube-channel-form input:first-of-type {
+        flex: 1 1 260px;
+    }
+
+    .tube-channel-form input:nth-of-type(2) {
+        flex: 2 1 420px;
+    }
+
+    .tube-channel-admin-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 10px;
+    }
+
+    .tube-channel-admin-item {
+        padding: 12px 14px;
+        border: 1px solid rgba(239, 68, 68, 0.18);
+        border-radius: 16px;
+        background: rgba(254, 242, 242, 0.58);
+    }
+
+    .tube-channel-admin-item > div:first-child {
+        min-width: 0;
+    }
+
+    .tube-channel-admin-item strong,
+    .tube-channel-admin-item span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .tube-channel-grid {
@@ -724,6 +857,35 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 `);
             })
             .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
+    }
+
+    function editTubeChannel(index, name, url) {
+        const indexInput = document.getElementById('tubeChannelIndex');
+        const nameInput = document.getElementById('tubeChannelName');
+        const urlInput = document.getElementById('tubeChannelUrl');
+        const submit = document.getElementById('tubeChannelSubmit');
+        const cancel = document.getElementById('tubeChannelCancel');
+        if (!indexInput || !nameInput || !urlInput) return;
+        indexInput.value = String(index);
+        nameInput.value = name || '';
+        urlInput.value = url || '';
+        if (submit) submit.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> 儲存頻道';
+        if (cancel) cancel.style.display = '';
+        nameInput.focus();
+        document.getElementById('tube-channel-manager')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
+    function cancelTubeChannelEdit() {
+        const indexInput = document.getElementById('tubeChannelIndex');
+        const nameInput = document.getElementById('tubeChannelName');
+        const urlInput = document.getElementById('tubeChannelUrl');
+        const submit = document.getElementById('tubeChannelSubmit');
+        const cancel = document.getElementById('tubeChannelCancel');
+        if (indexInput) indexInput.value = '-1';
+        if (nameInput) nameInput.value = '';
+        if (urlInput) urlInput.value = '';
+        if (submit) submit.innerHTML = '<i class="fa-solid fa-plus"></i> 儲存頻道';
+        if (cancel) cancel.style.display = 'none';
     }
 
     document.addEventListener('keydown', function (event) {
