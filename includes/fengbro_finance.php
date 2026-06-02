@@ -7,8 +7,8 @@ function fengbroFinanceItems()
         ['name' => '台積電', 'symbol' => '2330.TW', 'url' => 'https://tw.stock.yahoo.com/quote/2330.TW', 'group' => 'Taiwan', 'source' => 'Yahoo股市', 'parser' => 'yahoo_tw', 'apiSymbol' => '2330.TW'],
         ['name' => 'Nikkei 225 Index', 'symbol' => '.N225', 'url' => 'https://www.cnbc.com/quotes/.N225', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'KOSPI Index', 'symbol' => '.KS11', 'url' => 'https://www.cnbc.com/quotes/.KS11?qsearchterm=kospi', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 12682, 'breakoutLabel' => '好想贏韓國'],
-        ['name' => 'SK Hynix', 'symbol' => '000660.KS', 'url' => 'https://tw.stock.yahoo.com/quote/000660.KS', 'group' => 'Korea', 'source' => 'Yahoo股市', 'parser' => 'yahoo_quote', 'apiSymbol' => '000660.KS', 'breakoutValue' => 11110000, 'breakoutLabel' => '8位數'],
-        ['name' => 'Samsung Electronics', 'symbol' => '005930.KS', 'url' => 'https://hk.finance.yahoo.com/quote/005930.KS/', 'group' => 'Korea', 'source' => 'Yahoo Finance HK', 'parser' => 'yahoo_quote', 'apiSymbol' => '005930.KS', 'breakoutValue' => 1110000, 'breakoutLabel' => '7位數'],
+        ['name' => 'SK 海力士', 'symbol' => '000660.KS', 'url' => 'https://tw.stock.yahoo.com/quote/000660.KS', 'group' => 'Korea', 'source' => 'Yahoo股市', 'parser' => 'yahoo_quote', 'apiSymbol' => '000660.KS', 'breakoutValue' => 11110000, 'breakoutLabel' => '8位數'],
+        ['name' => '三星電子', 'symbol' => '005930.KS', 'url' => 'https://tw.stock.yahoo.com/quote/005930.KS', 'group' => 'Korea', 'source' => 'Yahoo股市', 'parser' => 'yahoo_quote', 'apiSymbol' => '005930.KS', 'breakoutValue' => 1110000, 'breakoutLabel' => '7位數'],
         ['name' => 'ICE Brent Crude', 'symbol' => '@LCO.1', 'url' => 'https://www.cnbc.com/quotes/@LCO.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'U.S. 30 Year Treasury', 'symbol' => 'US30Y', 'url' => 'https://www.cnbc.com/quotes/US30Y', 'group' => 'Rates', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'Gold COMEX', 'symbol' => '@GC.1', 'url' => 'https://www.cnbc.com/quotes/@GC.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
@@ -482,7 +482,7 @@ function fengbroFinanceParseQuote($item)
 function fengbroFinanceGetData($force = false)
 {
     $cache = fengbroFinanceReadCache();
-    $dataKey = 'finance_data_v2';
+    $dataKey = 'finance_data_v3';
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 900) {
         return $cache[$dataKey]['value'];
     }
