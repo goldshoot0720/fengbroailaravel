@@ -182,6 +182,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 $changeText = trim(($quote['change'] ?? '') . ' ' . ($quote['changePercent'] ?? ''));
                 $changeNumber = isset($quote['change']) ? (float) str_replace(',', '', (string) $quote['change']) : 0;
                 $tone = $changeNumber > 0 ? 'up' : ($changeNumber < 0 ? 'down' : 'flat');
+                $statusClass = ($quote['status'] ?? '') === '創新高' ? 'high' : ((($quote['status'] ?? '') === '創新低') ? 'low' : 'breakout');
                 ?>
                 <section class="finance-card <?php echo $tone; ?>">
                     <div class="finance-card-head">
@@ -191,7 +192,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                             <a href="<?php echo htmlspecialchars($quote['url']); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($quote['symbol']); ?> · <?php echo htmlspecialchars($quote['source'] ?? ''); ?></a>
                         </div>
                         <?php if (!empty($quote['status'])): ?>
-                            <strong class="finance-status <?php echo $quote['status'] === '創新高' ? 'high' : 'low'; ?>">
+                            <strong class="finance-status <?php echo $statusClass; ?>">
                                 <?php echo htmlspecialchars($quote['status']); ?>
                             </strong>
                         <?php endif; ?>
@@ -625,6 +626,11 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
     .finance-status.low {
         background: rgba(239, 68, 68, 0.14);
         color: #b91c1c;
+    }
+
+    .finance-status.breakout {
+        background: rgba(245, 158, 11, 0.16);
+        color: #b45309;
     }
 
     .finance-value-row {

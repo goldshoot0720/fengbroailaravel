@@ -6,7 +6,9 @@ function fengbroFinanceItems()
         ['name' => '加權指數', 'symbol' => '^TWII', 'url' => 'https://tw.stock.yahoo.com/s/tse.php', 'group' => 'Taiwan', 'source' => 'Yahoo股市', 'parser' => 'yahoo_tw', 'apiSymbol' => '^TWII'],
         ['name' => '台積電', 'symbol' => '2330.TW', 'url' => 'https://tw.stock.yahoo.com/quote/2330.TW', 'group' => 'Taiwan', 'source' => 'Yahoo股市', 'parser' => 'yahoo_tw', 'apiSymbol' => '2330.TW'],
         ['name' => 'Nikkei 225 Index', 'symbol' => '.N225', 'url' => 'https://www.cnbc.com/quotes/.N225', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc'],
-        ['name' => 'KOSPI Index', 'symbol' => '.KS11', 'url' => 'https://www.cnbc.com/quotes/.KS11?qsearchterm=kospi', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc'],
+        ['name' => 'KOSPI Index', 'symbol' => '.KS11', 'url' => 'https://www.cnbc.com/quotes/.KS11?qsearchterm=kospi', 'group' => 'Asia', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 12682, 'breakoutLabel' => '好想贏韓國'],
+        ['name' => 'SK Hynix', 'symbol' => '000660.KS', 'url' => 'https://tw.stock.yahoo.com/quote/000660.KS', 'group' => 'Korea', 'source' => 'Yahoo股市', 'parser' => 'yahoo_quote', 'apiSymbol' => '000660.KS', 'breakoutValue' => 11110000, 'breakoutLabel' => '8位數'],
+        ['name' => 'Samsung Electronics', 'symbol' => '005930.KS', 'url' => 'https://hk.finance.yahoo.com/quote/005930.KS/', 'group' => 'Korea', 'source' => 'Yahoo Finance HK', 'parser' => 'yahoo_quote', 'apiSymbol' => '005930.KS', 'breakoutValue' => 1110000, 'breakoutLabel' => '7位數'],
         ['name' => 'ICE Brent Crude', 'symbol' => '@LCO.1', 'url' => 'https://www.cnbc.com/quotes/@LCO.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'U.S. 30 Year Treasury', 'symbol' => 'US30Y', 'url' => 'https://www.cnbc.com/quotes/US30Y', 'group' => 'Rates', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'Gold COMEX', 'symbol' => '@GC.1', 'url' => 'https://www.cnbc.com/quotes/@GC.1', 'group' => 'Commodities', 'source' => 'CNBC', 'parser' => 'cnbc'],
@@ -123,6 +125,15 @@ function fengbroFinanceFindNumber($text, $labels)
     return '';
 }
 
+function fengbroFinanceApplyBreakoutStatus($item, $valueNumber, $defaultStatus)
+{
+    $breakoutValue = $item['breakoutValue'] ?? null;
+    if ($valueNumber !== null && is_numeric($breakoutValue) && $valueNumber >= (float) $breakoutValue) {
+        return (string) ($item['breakoutLabel'] ?? $defaultStatus);
+    }
+    return $defaultStatus;
+}
+
 function fengbroFinanceFindMainValue($text, $label)
 {
     if (preg_match('/' . preg_quote($label, '/') . '\s*\|\s*(.{0,220})/iu', $text, $m)) {
@@ -180,6 +191,7 @@ function fengbroFinanceParseCnbcQuote($item)
     } elseif ($valueNumber !== null && $lowNumber !== null && $valueNumber <= $lowNumber) {
         $status = '創新低';
     }
+    $status = fengbroFinanceApplyBreakoutStatus($item, $valueNumber, $status);
 
     return [
         'name' => $item['name'],
@@ -309,6 +321,7 @@ function fengbroFinanceParseYahooTwQuote($item)
     } elseif ($valueNumber !== null && $lowNumber !== null && $valueNumber <= $lowNumber) {
         $status = '創新低';
     }
+    $status = fengbroFinanceApplyBreakoutStatus($item, $valueNumber, $status);
 
     return [
         'name' => $item['name'],
@@ -328,6 +341,59 @@ function fengbroFinanceParseYahooTwQuote($item)
         'low52' => $low52,
         'status' => $status,
         'error' => $value === '' ? '暫時抓不到 Yahoo 台股報價' : '',
+    ];
+}
+
+function fengbroFinanceParseYahooQuote($item)
+{
+    $chart = fengbroFinanceYahooChart($item['apiSymbol'] ?? $item['symbol']);
+    $value = isset($chart['value']) ? fengbroFinanceFormatNumber($chart['value'], 2) : '';
+    $open = isset($chart['open']) ? fengbroFinanceFormatNumber($chart['open'], 2) : '';
+    $dayHigh = isset($chart['dayHigh']) ? fengbroFinanceFormatNumber($chart['dayHigh'], 2) : '';
+    $dayLow = isset($chart['dayLow']) ? fengbroFinanceFormatNumber($chart['dayLow'], 2) : '';
+    $prevClose = isset($chart['prevClose']) ? fengbroFinanceFormatNumber($chart['prevClose'], 2) : '';
+    $high52 = isset($chart['high52']) ? fengbroFinanceFormatNumber($chart['high52'], 2) : '';
+    $low52 = isset($chart['low52']) ? fengbroFinanceFormatNumber($chart['low52'], 2) : '';
+
+    $valueNumber = fengbroFinanceNumber($value);
+    $prevCloseNumber = fengbroFinanceNumber($prevClose);
+    $change = '';
+    $changePercent = '';
+    if ($valueNumber !== null && $prevCloseNumber !== null) {
+        $change = fengbroFinanceFormatNumber($valueNumber - $prevCloseNumber, 2);
+    }
+    if ($valueNumber !== null && $prevCloseNumber !== null && $prevCloseNumber != 0.0) {
+        $changePercent = fengbroFinanceFormatNumber((($valueNumber - $prevCloseNumber) / $prevCloseNumber) * 100, 2) . '%';
+    }
+
+    $highNumber = fengbroFinanceNumber($high52);
+    $lowNumber = fengbroFinanceNumber($low52);
+    $status = '';
+    if ($valueNumber !== null && $highNumber !== null && $valueNumber >= $highNumber) {
+        $status = '創新高';
+    } elseif ($valueNumber !== null && $lowNumber !== null && $valueNumber <= $lowNumber) {
+        $status = '創新低';
+    }
+    $status = fengbroFinanceApplyBreakoutStatus($item, $valueNumber, $status);
+
+    return [
+        'name' => $item['name'],
+        'symbol' => $item['symbol'],
+        'group' => $item['group'],
+        'source' => $item['source'] ?? 'Yahoo Finance',
+        'url' => $item['url'],
+        'valueLabel' => '成交',
+        'value' => $value,
+        'change' => $change,
+        'changePercent' => $changePercent,
+        'open' => $open,
+        'dayHigh' => $dayHigh,
+        'dayLow' => $dayLow,
+        'prevClose' => $prevClose,
+        'high52' => $high52,
+        'low52' => $low52,
+        'status' => $status,
+        'error' => $value === '' ? '暫時抓不到 Yahoo 報價' : '',
     ];
 }
 
@@ -375,6 +441,7 @@ function fengbroFinanceParseMultplShiller($item)
     $valueNumber = fengbroFinanceNumber($value);
     $recordHigh = (float) ($item['recordHigh'] ?? 44.19);
     $status = ($valueNumber !== null && $valueNumber >= $recordHigh) ? '創新高' : '';
+    $status = fengbroFinanceApplyBreakoutStatus($item, $valueNumber, $status);
 
     return [
         'name' => $item['name'],
@@ -401,6 +468,9 @@ function fengbroFinanceParseQuote($item)
 {
     if (($item['parser'] ?? 'cnbc') === 'yahoo_tw') {
         return fengbroFinanceParseYahooTwQuote($item);
+    }
+    if (($item['parser'] ?? 'cnbc') === 'yahoo_quote') {
+        return fengbroFinanceParseYahooQuote($item);
     }
     if (($item['parser'] ?? 'cnbc') === 'multpl_shiller') {
         return fengbroFinanceParseMultplShiller($item);
