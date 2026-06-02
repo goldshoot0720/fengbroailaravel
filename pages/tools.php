@@ -740,6 +740,22 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             : 'NT$ ' + Number(value).toLocaleString('zh-TW');
     }
 
+    function escapeToolHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function (char) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char];
+        });
+    }
+
+    function escapeToolAttr(value) {
+        return escapeToolHtml(value).replace(/`/g, '&#96;');
+    }
+
     function renderToolHistory(history) {
         if (!history || history.length === 0) return '<p style="color: var(--muted-text);">尚無歷史快照。</p>';
         const points = history
@@ -747,8 +763,8 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .map(item => Number(item.current_price));
         const list = history.slice(-8).reverse().map(item => `
             <tr>
-                <td>${item.created_at || ''}</td>
-                <td>${item.source || ''}</td>
+                <td>${escapeToolHtml(item.created_at || '')}</td>
+                <td>${escapeToolHtml(item.source || '')}</td>
                 <td>${formatToolMoney(item.current_price)}</td>
                 <td>${formatToolMoney(item.low_price)}</td>
                 <td>${formatToolMoney(item.high_price)}</td>
@@ -801,14 +817,21 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .then(res => {
                 if (!res.success) throw new Error(res.error || '查詢失敗');
                 const s = res.snapshot;
+                const modeLabel = s.lookup_mode === 'parsed' ? '已解析價格' : '可行連結方案';
+                const modeColor = s.lookup_mode === 'parsed' ? '#16a34a' : '#b45309';
                 setToolResult(`
                     <div style="display:grid;gap:12px;">
                         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                             <div>
-                                <h4>${s.title || query}</h4>
-                                <p style="color:var(--muted-text);">${s.notice || '已儲存本次查詢快照。'}</p>
+                                <h4>${escapeToolHtml(s.title || query)}</h4>
+                                <p style="color:var(--muted-text);">${escapeToolHtml(s.notice || '已儲存本次查詢快照。')}</p>
+                                <p style="margin-top:6px;color:${modeColor};font-weight:800;">
+                                    ${modeLabel} · BigGo 關鍵字：${escapeToolHtml(s.lookup_keyword || query)}
+                                </p>
                             </div>
-                            <a class="btn btn-ghost" href="${s.result_url}" target="_blank" rel="noopener">開啟來源</a>
+                            <a class="btn btn-ghost" href="${escapeToolAttr(s.result_url)}" target="_blank" rel="noopener">
+                                開啟 BigGo 查價
+                            </a>
                         </div>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
                             <div class="food-stat-card"><span>目前價格</span><strong>${formatToolMoney(s.current_price)}</strong></div>

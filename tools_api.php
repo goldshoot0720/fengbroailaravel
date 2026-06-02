@@ -30,20 +30,47 @@ function readJsonInput() {
     return is_array($data) ? $data : [];
 }
 
+function buildBigGoSearchUrl($query) {
+    return 'https://biggo.com.tw/s/' . rawurlencode($query) . '/';
+}
+
+function extractLookupKeyword($query) {
+    $query = trim($query);
+    if (filter_var($query, FILTER_VALIDATE_URL)) {
+        $parts = parse_url($query);
+        $path = isset($parts['path']) ? urldecode($parts['path']) : '';
+        $path = preg_replace('/\.(html?|php|aspx?)$/i', '', $path);
+        $path = preg_replace('/[-_\/]+/u', ' ', $path);
+        $path = trim($path);
+        if ($path !== '' && preg_match('/[\p{L}\p{N}]/u', $path)) {
+            return mb_substr($path, 0, 120);
+        }
+    }
+    return mb_substr($query, 0, 120);
+}
+
 function fetchUrlForTool($url) {
     $context = stream_context_create([
         'http' => [
             'timeout' => 8,
-            'header' => "User-Agent: Mozilla/5.0 FengbroTools/1.0\r\nAccept-Language: zh-TW,zh;q=0.9,en;q=0.8\r\n"
+            'ignore_errors' => true,
+            'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 FengbroTools/1.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: zh-TW,zh;q=0.9,en;q=0.8\r\n"
         ]
     ]);
     $html = @file_get_contents($url, false, $context);
-    return is_string($html) ? $html : '';
+    $status = 0;
+    if (!empty($http_response_header) && preg_match('/\s(\d{3})\s/', $http_response_header[0] ?? '', $m)) {
+        $status = (int) $m[1];
+    }
+    return [
+        'html' => is_string($html) ? $html : '',
+        'status' => $status,
+    ];
 }
 
 function extractPrices($html) {
     $prices = [];
-    if (preg_match_all('/(?:NT\\$|\\$|售價|價格)[^0-9]{0,12}([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{4,7})/u', $html, $matches)) {
+    if (preg_match_all('/(?:NT\\$|\\$|售價|價格|price["\']?\\s*[:=])[^0-9]{0,20}([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{3,7})/iu', $html, $matches)) {
         foreach ($matches[1] as $raw) {
             $price = (int) str_replace(',', '', $raw);
             if ($price >= 10 && $price <= 500000) {
@@ -87,18 +114,26 @@ if ($action === 'price_lookup') {
         jsonResponse(['success' => false, 'error' => '請輸入商品關鍵字或網址'], 400);
     }
 
-    $searchUrl = 'https://biggo.com.tw/s/' . rawurlencode($query) . '/';
-    $html = fetchUrlForTool($searchUrl);
+    $lookupKeyword = extractLookupKeyword($query);
+    $searchUrl = buildBigGoSearchUrl($lookupKeyword);
+    $fetchResult = fetchUrlForTool($searchUrl);
+    $html = $fetchResult['html'];
     $prices = $html ? extractPrices($html) : [];
-    $title = $query;
-    $notice = '';
+    $title = $lookupKeyword;
+    $lookupMode = 'link';
+    $notice = 'BigGo 目前沒有穩定公開價格 API；本功能採用可行性方案：保留 BigGo 查詢連結與歷史快照，價格解析僅作輔助。';
 
     if ($html && preg_match('/<title[^>]*>(.*?)<\/title>/isu', $html, $m)) {
-        $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')) ?: $query;
+        $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')) ?: $lookupKeyword;
     }
 
-    if (empty($prices)) {
-        $notice = 'PHP 伺服器無法穩定解析 BigGo 價格，已保留查詢快照與外部連結。';
+    if (!empty($prices)) {
+        $lookupMode = 'parsed';
+        $notice = '已從 BigGo 頁面解析到價格；請仍以 BigGo 開啟頁面的即時結果為準。';
+    } elseif (($fetchResult['status'] ?? 0) >= 400) {
+        $notice = 'BigGo 回應 HTTP ' . $fetchResult['status'] . '；已保留可直接開啟的 BigGo 查詢連結。';
+    } elseif ($html === '') {
+        $notice = '伺服器無法連線到 BigGo；已保留可直接開啟的 BigGo 查詢連結。';
     }
 
     $snapshot = [
@@ -111,6 +146,10 @@ if ($action === 'price_lookup') {
         'low_price' => !empty($prices) ? min($prices) : null,
         'result_url' => $searchUrl,
         'notice' => $notice,
+        'lookup_keyword' => $lookupKeyword,
+        'lookup_mode' => $lookupMode,
+        'source_status' => $fetchResult['status'] ?? 0,
+        'external_link_required' => empty($prices),
     ];
     saveSnapshot($pdo, $snapshot);
     jsonResponse(['success' => true, 'snapshot' => $snapshot, 'history' => loadHistory($pdo, 'biggo', $query)]);
