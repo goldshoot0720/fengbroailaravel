@@ -5,9 +5,23 @@ header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? '';
 $pdo = getConnection();
+ensureToolSettingsTable($pdo);
 ensureToolPriceHistory($pdo);
 
-function ensureToolPriceHistory(PDO $pdo) {
+function ensureToolSettingsTable(PDO $pdo): void
+{
+    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+        id VARCHAR(36) PRIMARY KEY,
+        user_id VARCHAR(36) NULL,
+        setting_key VARCHAR(50) NOT NULL,
+        setting_value TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_setting (user_id, setting_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function ensureToolPriceHistory(PDO $pdo): void
+{
     $pdo->exec("CREATE TABLE IF NOT EXISTS tool_price_history (
         id VARCHAR(36) PRIMARY KEY,
         tool_type VARCHAR(30) NOT NULL,
@@ -24,56 +38,54 @@ function ensureToolPriceHistory(PDO $pdo) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
-function readJsonInput() {
+function readJsonInput(): array
+{
     $raw = file_get_contents('php://input');
     $data = $raw ? json_decode($raw, true) : [];
     return is_array($data) ? $data : [];
 }
 
-function buildBigGoSearchUrl($query) {
-    return 'https://biggo.com.tw/s/' . rawurlencode($query) . '/';
-}
-
-function extractLookupKeyword($query) {
-    $query = trim($query);
-    if (filter_var($query, FILTER_VALIDATE_URL)) {
-        $parts = parse_url($query);
-        $path = isset($parts['path']) ? urldecode($parts['path']) : '';
-        $path = preg_replace('/\.(html?|php|aspx?)$/i', '', $path);
-        $path = preg_replace('/[-_\/]+/u', ' ', $path);
-        $path = trim($path);
-        if ($path !== '' && preg_match('/[\p{L}\p{N}]/u', $path)) {
-            return mb_substr($path, 0, 120);
-        }
-    }
-    return mb_substr($query, 0, 120);
-}
-
-function fetchUrlForTool($url) {
+function fetchUrlForTool(string $url): string
+{
     $context = stream_context_create([
         'http' => [
             'timeout' => 8,
-            'ignore_errors' => true,
-            'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 FengbroTools/1.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: zh-TW,zh;q=0.9,en;q=0.8\r\n"
-        ]
+            'header' => "User-Agent: Mozilla/5.0 FengbroTools/1.0\r\nAccept-Language: zh-TW,zh;q=0.9,en;q=0.8\r\n",
+        ],
     ]);
     $html = @file_get_contents($url, false, $context);
-    $status = 0;
-    if (!empty($http_response_header) && preg_match('/\s(\d{3})\s/', $http_response_header[0] ?? '', $m)) {
-        $status = (int) $m[1];
-    }
-    return [
-        'html' => is_string($html) ? $html : '',
-        'status' => $status,
-    ];
+    return is_string($html) ? $html : '';
 }
 
-function extractPrices($html) {
+function fetchJsonForTool(string $url, array $headers = []): ?array
+{
+    $headerLines = array_merge([
+        'User-Agent: Mozilla/5.0 FengbroTools/1.0',
+        'Accept: application/json',
+        'Accept-Language: zh-TW,zh;q=0.9,en;q=0.8',
+    ], $headers);
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 10,
+            'ignore_errors' => true,
+            'header' => implode("\r\n", $headerLines) . "\r\n",
+        ],
+    ]);
+    $body = @file_get_contents($url, false, $context);
+    if (!is_string($body) || trim($body) === '') {
+        return null;
+    }
+    $json = json_decode($body, true);
+    return is_array($json) ? $json : null;
+}
+
+function extractPrices(string $html): array
+{
     $prices = [];
-    if (preg_match_all('/(?:NT\\$|\\$|售價|價格|price["\']?\\s*[:=])[^0-9]{0,20}([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{3,7})/iu', $html, $matches)) {
+    if (preg_match_all('/(?:NT\\$|TWD|\\$|價格|售價)[^0-9]{0,12}([0-9]{2,3}(?:,[0-9]{3})+|[0-9]{3,8})/u', $html, $matches)) {
         foreach ($matches[1] as $raw) {
-            $price = (int) str_replace(',', '', $raw);
-            if ($price >= 10 && $price <= 500000) {
+            $price = normalizeToolPrice($raw);
+            if ($price !== null) {
                 $prices[] = $price;
             }
         }
@@ -83,7 +95,140 @@ function extractPrices($html) {
     return $prices;
 }
 
-function saveSnapshot(PDO $pdo, array $snapshot) {
+function toolGetSetting(PDO $pdo, string $key, string $default = ''): string
+{
+    try {
+        $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id IS NULL LIMIT 1");
+        $stmt->execute([$key]);
+        $value = $stmt->fetchColumn();
+        return $value === false || $value === null ? $default : (string) $value;
+    } catch (Throwable $e) {
+        return $default;
+    }
+}
+
+function toolSettingOrEnv(PDO $pdo, string $key, string $default = ''): string
+{
+    $value = trim(toolGetSetting($pdo, $key));
+    if ($value !== '') {
+        return $value;
+    }
+    $env = getenv($key);
+    return is_string($env) && trim($env) !== '' ? trim($env) : $default;
+}
+
+function firstToolSettingOrEnv(PDO $pdo, array $keys, string $default = ''): string
+{
+    foreach ($keys as $key) {
+        $value = toolSettingOrEnv($pdo, $key);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+    return $default;
+}
+
+function normalizeToolPrice($value): ?int
+{
+    if (is_int($value) || is_float($value)) {
+        $price = (int) round($value);
+    } else {
+        $raw = preg_replace('/[^\d.]/', '', (string) $value);
+        if ($raw === '') {
+            return null;
+        }
+        $price = (int) round((float) $raw);
+    }
+    return ($price >= 10 && $price <= 5000000) ? $price : null;
+}
+
+function firstStringValue(array $item, array $keys): string
+{
+    foreach ($keys as $key) {
+        if (isset($item[$key]) && is_scalar($item[$key]) && trim((string) $item[$key]) !== '') {
+            return trim((string) $item[$key]);
+        }
+    }
+    return '';
+}
+
+function collectBigGoApiItems($data, array &$items, int $limit = 12): void
+{
+    if (count($items) >= $limit || !is_array($data)) {
+        return;
+    }
+
+    $price = null;
+    foreach (['price', 'current_price', 'sale_price', 'min_price', 'amount', 'value'] as $key) {
+        if (array_key_exists($key, $data)) {
+            $price = normalizeToolPrice($data[$key]);
+            if ($price !== null) {
+                break;
+            }
+        }
+    }
+
+    if ($price !== null) {
+        $title = firstStringValue($data, ['title', 'name', 'product_name', 'keyword']);
+        $items[] = [
+            'title' => $title !== '' ? $title : 'BigGo API item',
+            'price' => $price,
+            'url' => firstStringValue($data, ['url', 'link', 'product_url', 'redirect_url']),
+            'source' => firstStringValue($data, ['source', 'shop', 'store', 'merchant']) ?: 'BigGo API',
+        ];
+    }
+
+    foreach ($data as $value) {
+        if (is_array($value)) {
+            collectBigGoApiItems($value, $items, $limit);
+            if (count($items) >= $limit) {
+                return;
+            }
+        }
+    }
+}
+
+function callBigGoApi(PDO $pdo, string $query): array
+{
+    $apiKey = firstToolSettingOrEnv($pdo, ['BIGGO_API_KEY', 'BIGGO_MCP_SERVER_CLIENT_ID']);
+    $secret = firstToolSettingOrEnv($pdo, ['BIGGO_API_SECRET_KEY', 'BIGGO_API_SECRET', 'BIGGO_MCP_SERVER_CLIENT_SECRET']);
+    $region = firstToolSettingOrEnv($pdo, ['BIGGO_API_REGION', 'BIGGO_MCP_SERVER_REGION'], 'tw');
+    $endpoint = toolSettingOrEnv($pdo, 'BIGGO_API_ENDPOINT', 'https://api.biggo.com.tw/v1/search');
+
+    if ($apiKey === '' || $endpoint === '') {
+        return ['ok' => false, 'items' => [], 'notice' => 'BIGGO_API_KEY / BIGGO_MCP_SERVER_CLIENT_ID 未設定，已改用 BigGo 搜尋頁連結。'];
+    }
+
+    $url = str_contains($endpoint, '{query}')
+        ? str_replace('{query}', rawurlencode($query), $endpoint)
+        : $endpoint . (str_contains($endpoint, '?') ? '&' : '?') . 'q=' . rawurlencode($query);
+    $headers = [
+        'Authorization: Bearer ' . $apiKey,
+        'X-API-Key: ' . $apiKey,
+        'X-BigGo-Client-Id: ' . $apiKey,
+        'X-BigGo-Region: ' . $region,
+    ];
+    if ($secret !== '') {
+        $headers[] = 'X-API-Secret: ' . $secret;
+        $headers[] = 'X-BigGo-Client-Secret: ' . $secret;
+    }
+
+    $json = fetchJsonForTool($url, $headers);
+    if (!$json) {
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 無回應或不是 JSON，已改用 BigGo 搜尋頁連結。'];
+    }
+
+    $items = [];
+    collectBigGoApiItems($json, $items);
+    if (!$items) {
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 回傳資料中沒有可辨識價格，已保留外部查詢連結。'];
+    }
+
+    return ['ok' => true, 'items' => $items, 'notice' => '已使用 BigGo API / MCP 認證取得價格資料。'];
+}
+
+function saveSnapshot(PDO $pdo, array $snapshot): void
+{
     $stmt = $pdo->prepare("INSERT INTO tool_price_history
         (id, tool_type, query_text, title, source, current_price, high_price, low_price, result_url, notice)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -101,7 +246,8 @@ function saveSnapshot(PDO $pdo, array $snapshot) {
     ]);
 }
 
-function loadHistory(PDO $pdo, $toolType, $queryText) {
+function loadHistory(PDO $pdo, string $toolType, string $queryText): array
+{
     $stmt = $pdo->prepare("SELECT * FROM tool_price_history WHERE tool_type = ? AND query_text = ? ORDER BY created_at ASC LIMIT 30");
     $stmt->execute([$toolType, $queryText]);
     return $stmt->fetchAll();
@@ -109,55 +255,53 @@ function loadHistory(PDO $pdo, $toolType, $queryText) {
 
 if ($action === 'price_lookup') {
     $input = readJsonInput();
-    $query = trim($input['query'] ?? '');
+    $query = trim((string) ($input['query'] ?? ''));
     if ($query === '') {
-        jsonResponse(['success' => false, 'error' => '請輸入商品關鍵字或網址'], 400);
+        jsonResponse(['success' => false, 'error' => '請輸入商品關鍵字或網址。'], 400);
     }
 
-    $lookupKeyword = extractLookupKeyword($query);
-    $searchUrl = buildBigGoSearchUrl($lookupKeyword);
-    $fetchResult = fetchUrlForTool($searchUrl);
-    $html = $fetchResult['html'];
-    $prices = $html ? extractPrices($html) : [];
-    $title = $lookupKeyword;
-    $lookupMode = 'link';
-    $notice = 'BigGo 目前沒有穩定公開價格 API；本功能採用可行性方案：保留 BigGo 查詢連結與歷史快照，價格解析僅作輔助。';
+    $searchUrl = 'https://biggo.com.tw/s/' . rawurlencode($query) . '/';
+    $apiResult = callBigGoApi($pdo, $query);
+    $items = $apiResult['items'] ?? [];
+    $prices = array_values(array_filter(array_map(fn($item) => normalizeToolPrice($item['price'] ?? null), $items)));
+    $title = !empty($items[0]['title']) ? $items[0]['title'] : $query;
+    $notice = $apiResult['notice'] ?? '';
+    $source = !empty($prices) ? 'BigGo API' : 'BigGo';
 
-    if ($html && preg_match('/<title[^>]*>(.*?)<\/title>/isu', $html, $m)) {
-        $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')) ?: $lookupKeyword;
-    }
-
-    if (!empty($prices)) {
-        $lookupMode = 'parsed';
-        $notice = '已從 BigGo 頁面解析到價格；請仍以 BigGo 開啟頁面的即時結果為準。';
-    } elseif (($fetchResult['status'] ?? 0) >= 400) {
-        $notice = 'BigGo 回應 HTTP ' . $fetchResult['status'] . '；已保留可直接開啟的 BigGo 查詢連結。';
-    } elseif ($html === '') {
-        $notice = '伺服器無法連線到 BigGo；已保留可直接開啟的 BigGo 查詢連結。';
+    if (!$prices) {
+        $html = fetchUrlForTool($searchUrl);
+        $prices = $html ? extractPrices($html) : [];
+        if ($html && preg_match('/<title[^>]*>(.*?)<\/title>/isu', $html, $m)) {
+            $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')) ?: $query;
+        }
+        $notice = $prices
+            ? trim(($notice ? $notice . ' ' : '') . '已由 BigGo 搜尋頁保守解析價格。')
+            : ($notice ?: 'BigGo API 未設定或無法解析價格，已保留查詢快照與外部連結。');
     }
 
     $snapshot = [
         'tool_type' => 'biggo',
         'query_text' => $query,
         'title' => $title,
-        'source' => 'BigGo',
+        'source' => $source,
         'current_price' => $prices[0] ?? null,
-        'high_price' => !empty($prices) ? max($prices) : null,
-        'low_price' => !empty($prices) ? min($prices) : null,
+        'high_price' => $prices ? max($prices) : null,
+        'low_price' => $prices ? min($prices) : null,
         'result_url' => $searchUrl,
         'notice' => $notice,
-        'lookup_keyword' => $lookupKeyword,
-        'lookup_mode' => $lookupMode,
-        'source_status' => $fetchResult['status'] ?? 0,
-        'external_link_required' => empty($prices),
     ];
     saveSnapshot($pdo, $snapshot);
-    jsonResponse(['success' => true, 'snapshot' => $snapshot, 'history' => loadHistory($pdo, 'biggo', $query)]);
+    jsonResponse([
+        'success' => true,
+        'snapshot' => $snapshot,
+        'items' => $items,
+        'history' => loadHistory($pdo, 'biggo', $query),
+    ]);
 }
 
 if ($action === 'phone_lookup') {
     $input = readJsonInput();
-    $query = trim($input['query'] ?? 'Samsung S26');
+    $query = trim((string) ($input['query'] ?? 'Samsung S26'));
     $targets = [
         '地標網通' => 'https://www.google.com/search?q=' . rawurlencode('site:landtop.com.tw ' . $query),
         '傑昇通信' => 'https://www.google.com/search?q=' . rawurlencode('site:jyes.com.tw ' . $query),
@@ -174,4 +318,4 @@ if ($action === 'phone_lookup') {
     jsonResponse(['success' => true, 'snapshot' => $snapshot, 'targets' => $targets, 'history' => loadHistory($pdo, 'phone', $query)]);
 }
 
-jsonResponse(['success' => false, 'error' => '無效的工具操作'], 400);
+jsonResponse(['success' => false, 'error' => '不支援的工具動作。'], 400);

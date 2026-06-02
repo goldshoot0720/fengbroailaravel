@@ -6,6 +6,8 @@ fengbroResendEnsureTables($pdo);
 
 $resendSettingsMessage = '';
 $resendSettingsError = '';
+$biggoSettingsMessage = '';
+$biggoSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
         for ($slot = 1; $slot <= 3; $slot++) {
@@ -36,11 +38,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_biggo') {
+    try {
+        $biggoKeys = [
+            'BIGGO_API_KEY',
+            'BIGGO_API_SECRET_KEY',
+            'BIGGO_API_ENDPOINT',
+            'BIGGO_API_REGION',
+            'BIGGO_MCP_SERVER_CLIENT_ID',
+            'BIGGO_MCP_SERVER_CLIENT_SECRET',
+            'BIGGO_MCP_SERVER_REGION',
+        ];
+        foreach ($biggoKeys as $biggoKey) {
+            $field = strtolower($biggoKey);
+            $value = trim((string) ($_POST[$field] ?? ''));
+            if ($value !== '' || !empty($_POST['clear_' . $field])) {
+                fengbroResendSaveSetting($pdo, $biggoKey, $value);
+            }
+        }
+        $biggoSettingsMessage = 'BigGo API / MCP 設定已儲存。';
+    } catch (Throwable $e) {
+        $biggoSettingsError = $e->getMessage();
+    }
+}
+
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendSlots = fengbroResendCredentialSlots($pdo);
 $resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
 $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
+$biggoSettings = [
+    'BIGGO_API_KEY' => fengbroResendGetSetting($pdo, 'BIGGO_API_KEY'),
+    'BIGGO_API_SECRET_KEY' => fengbroResendGetSetting($pdo, 'BIGGO_API_SECRET_KEY'),
+    'BIGGO_API_ENDPOINT' => fengbroResendGetSetting($pdo, 'BIGGO_API_ENDPOINT', 'https://api.biggo.com.tw/v1/search'),
+    'BIGGO_API_REGION' => fengbroResendGetSetting($pdo, 'BIGGO_API_REGION', 'tw'),
+    'BIGGO_MCP_SERVER_CLIENT_ID' => fengbroResendGetSetting($pdo, 'BIGGO_MCP_SERVER_CLIENT_ID'),
+    'BIGGO_MCP_SERVER_CLIENT_SECRET' => fengbroResendGetSetting($pdo, 'BIGGO_MCP_SERVER_CLIENT_SECRET'),
+    'BIGGO_MCP_SERVER_REGION' => fengbroResendGetSetting($pdo, 'BIGGO_MCP_SERVER_REGION', 'tw'),
+];
 ?>
 
 <div class="content-header">
@@ -203,6 +238,83 @@ $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
             </table>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i> 儲存 RESEND 設定
+            </button>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">BigGo API / MCP 比價設定</h3>
+        <?php if ($biggoSettingsMessage): ?>
+            <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($biggoSettingsMessage); ?></div>
+        <?php endif; ?>
+        <?php if ($biggoSettingsError): ?>
+            <div class="alert alert-danger" style="margin-bottom:12px;"><?php echo htmlspecialchars($biggoSettingsError); ?></div>
+        <?php endif; ?>
+        <form method="post">
+            <input type="hidden" name="settings_action" value="save_biggo">
+            <table class="table">
+                <tr>
+                    <th style="width: 240px;"><code>BIGGO_API_KEY</code></th>
+                    <td>
+                        <input type="password" class="form-control" name="biggo_api_key" placeholder="<?php echo $biggoSettings['BIGGO_API_KEY'] !== '' ? '已設定，留空保留原值' : 'BigGo API Key 或 Token'; ?>" autocomplete="off">
+                        <?php if ($biggoSettings['BIGGO_API_KEY'] !== ''): ?>
+                            <label style="display:flex; gap:6px; align-items:center; margin-top:8px; color:var(--muted-text);">
+                                <input type="checkbox" name="clear_biggo_api_key" value="1"> 清除 BIGGO_API_KEY
+                            </label>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_API_SECRET_KEY</code></th>
+                    <td>
+                        <input type="password" class="form-control" name="biggo_api_secret_key" placeholder="<?php echo $biggoSettings['BIGGO_API_SECRET_KEY'] !== '' ? '已設定，留空保留原值' : 'BigGo API Secret（若有）'; ?>" autocomplete="off">
+                        <?php if ($biggoSettings['BIGGO_API_SECRET_KEY'] !== ''): ?>
+                            <label style="display:flex; gap:6px; align-items:center; margin-top:8px; color:var(--muted-text);">
+                                <input type="checkbox" name="clear_biggo_api_secret_key" value="1"> 清除 BIGGO_API_SECRET_KEY
+                            </label>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_API_ENDPOINT</code></th>
+                    <td>
+                        <input type="url" class="form-control" name="biggo_api_endpoint" value="<?php echo htmlspecialchars($biggoSettings['BIGGO_API_ENDPOINT']); ?>" placeholder="https://api.biggo.com.tw/v1/search">
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:4px;">可用 <code>{query}</code> 作為關鍵字位置；未填時使用 q= 關鍵字參數。</div>
+                    </td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_API_REGION</code></th>
+                    <td><input type="text" class="form-control" name="biggo_api_region" value="<?php echo htmlspecialchars($biggoSettings['BIGGO_API_REGION']); ?>" placeholder="tw"></td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_MCP_SERVER_CLIENT_ID</code></th>
+                    <td>
+                        <input type="password" class="form-control" name="biggo_mcp_server_client_id" placeholder="<?php echo $biggoSettings['BIGGO_MCP_SERVER_CLIENT_ID'] !== '' ? '已設定，留空保留原值' : 'BigGo MCP Server Client ID'; ?>" autocomplete="off">
+                        <?php if ($biggoSettings['BIGGO_MCP_SERVER_CLIENT_ID'] !== ''): ?>
+                            <label style="display:flex; gap:6px; align-items:center; margin-top:8px; color:var(--muted-text);">
+                                <input type="checkbox" name="clear_biggo_mcp_server_client_id" value="1"> 清除 BIGGO_MCP_SERVER_CLIENT_ID
+                            </label>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_MCP_SERVER_CLIENT_SECRET</code></th>
+                    <td>
+                        <input type="password" class="form-control" name="biggo_mcp_server_client_secret" placeholder="<?php echo $biggoSettings['BIGGO_MCP_SERVER_CLIENT_SECRET'] !== '' ? '已設定，留空保留原值' : 'BigGo MCP Server Client Secret'; ?>" autocomplete="off">
+                        <?php if ($biggoSettings['BIGGO_MCP_SERVER_CLIENT_SECRET'] !== ''): ?>
+                            <label style="display:flex; gap:6px; align-items:center; margin-top:8px; color:var(--muted-text);">
+                                <input type="checkbox" name="clear_biggo_mcp_server_client_secret" value="1"> 清除 BIGGO_MCP_SERVER_CLIENT_SECRET
+                            </label>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><code>BIGGO_MCP_SERVER_REGION</code></th>
+                    <td><input type="text" class="form-control" name="biggo_mcp_server_region" value="<?php echo htmlspecialchars($biggoSettings['BIGGO_MCP_SERVER_REGION']); ?>" placeholder="tw"></td>
+                </tr>
+            </table>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> 儲存 BigGo 設定
             </button>
         </form>
     </div>

@@ -47,7 +47,7 @@ $tubeData = fengbroTubeGetData(false);
 $tubeNewVideos = $tubeData['newVideos'] ?? [];
 $financeData = fengbroFinanceGetData(false);
 foreach (($financeData['quotes'] ?? []) as $quote) {
-    if (($quote['name'] ?? '') === 'Shiller PE Ratio' && ($quote['status'] ?? '') === '創新高') {
+    if (trim((string) ($quote['status'] ?? '')) !== '') {
         $financeHighNotices[] = $quote;
     }
 }
@@ -79,12 +79,17 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
 <?php endif; ?>
 
 <?php if (!empty($financeHighNotices)): ?>
-    <?php $shillerNotice = $financeHighNotices[0]; ?>
+    <?php
+    $financeNotice = $financeHighNotices[0];
+    $financeNoticeSummary = implode('、', array_map(function ($quote) {
+        return ($quote['name'] ?? '-') . ' ' . ($quote['status'] ?? '');
+    }, array_slice($financeHighNotices, 0, 5)));
+    ?>
     <a class="tube-home-notice finance-home-notice" href="index.php?page=tools&tool=finance" role="status">
         <i class="fa-solid fa-chart-line"></i>
         <span>
-            <strong>Shiller PE Ratio 創新高</strong>
-            <small>目前 <?php echo htmlspecialchars($shillerNotice['value'] ?? '-'); ?>，<?php echo htmlspecialchars($shillerNotice['high52'] ?? 'Max: 44.19 (Dec 1999)'); ?></small>
+            <strong>鋒兄金融 <?php echo count($financeHighNotices); ?> 項突破提醒</strong>
+            <small><?php echo htmlspecialchars($financeNoticeSummary ?: (($financeNotice['name'] ?? '金融項目') . ' ' . ($financeNotice['status'] ?? '突破'))); ?></small>
         </span>
         <i class="fa-solid fa-arrow-right"></i>
     </a>

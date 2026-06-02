@@ -258,16 +258,44 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 </div>
             </div>
 
-            <div style="display: grid; gap: 12px;">
-                <label for="phoneQuery" style="font-weight: 700;">手機型號</label>
-                <input id="phoneQuery" class="form-control" type="text" placeholder="例如 Samsung S26 或 iPhone 17">
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    <button class="btn btn-primary" type="button" onclick="runPhoneCompare()">
-                        <i class="fa-solid fa-mobile-screen"></i> 查詢通路
-                    </button>
-                    <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('Samsung S26')">Samsung S26</button>
-                    <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('iPhone 17')">iPhone 17</button>
-                </div>
+            <div class="phone-compare-panel">
+                <input id="phoneQuery" class="form-control" type="hidden">
+                <details class="phone-compare-section" open>
+                    <summary>
+                        <span><i class="fa-brands fa-apple"></i> 蘋果手機區塊</span>
+                        <small id="applePhoneDefaultText">預設 iPhone</small>
+                    </summary>
+                    <div class="phone-compare-body">
+                        <label for="applePhoneQuery">蘋果手機型號</label>
+                        <input id="applePhoneQuery" class="form-control" type="text" placeholder="例如 iPhone 17">
+                        <div class="phone-compare-actions">
+                            <button class="btn btn-primary" type="button" onclick="runPhoneCompareFor('apple')">
+                                <i class="fa-solid fa-mobile-screen"></i> 查詢蘋果通路
+                            </button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery(getDefaultApplePhone(), 'apple')">預設 iPhone</button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('iPhone 17', 'apple')">iPhone 17</button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('iPhone 16', 'apple')">iPhone 16</button>
+                        </div>
+                    </div>
+                </details>
+                <details class="phone-compare-section">
+                    <summary>
+                        <span><i class="fa-brands fa-android"></i> 三星手機區塊</span>
+                        <small id="samsungPhoneDefaultText">預設 Samsung</small>
+                    </summary>
+                    <div class="phone-compare-body">
+                        <label for="samsungPhoneQuery">三星手機型號</label>
+                        <input id="samsungPhoneQuery" class="form-control" type="text" placeholder="例如 Samsung S26">
+                        <div class="phone-compare-actions">
+                            <button class="btn btn-primary" type="button" onclick="runPhoneCompareFor('samsung')">
+                                <i class="fa-solid fa-mobile-screen"></i> 查詢三星通路
+                            </button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery(getDefaultSamsungPhone(), 'samsung')">預設 Samsung</button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('Samsung S26', 'samsung')">Samsung S26</button>
+                            <button class="btn btn-ghost" type="button" onclick="fillPhoneQuery('Samsung S25', 'samsung')">Samsung S25</button>
+                        </div>
+                    </div>
+                </details>
             </div>
         </section>
     </div>
@@ -344,6 +372,60 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         background: var(--accent);
         border-color: var(--accent);
         color: #fff;
+    }
+
+    .phone-compare-panel {
+        display: grid;
+        gap: 12px;
+    }
+
+    .phone-compare-section {
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        background: var(--input-bg);
+        overflow: hidden;
+    }
+
+    .phone-compare-section summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        cursor: pointer;
+        padding: 14px 16px;
+        font-weight: 900;
+        list-style: none;
+    }
+
+    .phone-compare-section summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .phone-compare-section summary span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .phone-compare-section summary small {
+        color: var(--muted-text);
+        font-weight: 800;
+    }
+
+    .phone-compare-body {
+        display: grid;
+        gap: 12px;
+        padding: 0 16px 16px;
+    }
+
+    .phone-compare-body label {
+        font-weight: 800;
+    }
+
+    .phone-compare-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .tube-overview,
@@ -740,22 +822,6 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             : 'NT$ ' + Number(value).toLocaleString('zh-TW');
     }
 
-    function escapeToolHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, function (char) {
-            return {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char];
-        });
-    }
-
-    function escapeToolAttr(value) {
-        return escapeToolHtml(value).replace(/`/g, '&#96;');
-    }
-
     function renderToolHistory(history) {
         if (!history || history.length === 0) return '<p style="color: var(--muted-text);">尚無歷史快照。</p>';
         const points = history
@@ -763,8 +829,8 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .map(item => Number(item.current_price));
         const list = history.slice(-8).reverse().map(item => `
             <tr>
-                <td>${escapeToolHtml(item.created_at || '')}</td>
-                <td>${escapeToolHtml(item.source || '')}</td>
+                <td>${item.created_at || ''}</td>
+                <td>${item.source || ''}</td>
                 <td>${formatToolMoney(item.current_price)}</td>
                 <td>${formatToolMoney(item.low_price)}</td>
                 <td>${formatToolMoney(item.high_price)}</td>
@@ -817,27 +883,34 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .then(res => {
                 if (!res.success) throw new Error(res.error || '查詢失敗');
                 const s = res.snapshot;
-                const modeLabel = s.lookup_mode === 'parsed' ? '已解析價格' : '可行連結方案';
-                const modeColor = s.lookup_mode === 'parsed' ? '#16a34a' : '#b45309';
+                const itemRows = (res.items || []).map(item => `
+                    <tr>
+                        <td>${item.url ? `<a href="${item.url}" target="_blank" rel="noopener">${item.title || '商品'}</a>` : (item.title || '商品')}</td>
+                        <td>${item.source || 'BigGo API'}</td>
+                        <td>${formatToolMoney(item.price)}</td>
+                    </tr>
+                `).join('');
+                const itemTable = itemRows ? `
+                    <table class="table" style="margin-top: 12px;">
+                        <thead><tr><th>商品</th><th>來源</th><th>價格</th></tr></thead>
+                        <tbody>${itemRows}</tbody>
+                    </table>
+                ` : '';
                 setToolResult(`
                     <div style="display:grid;gap:12px;">
                         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                             <div>
-                                <h4>${escapeToolHtml(s.title || query)}</h4>
-                                <p style="color:var(--muted-text);">${escapeToolHtml(s.notice || '已儲存本次查詢快照。')}</p>
-                                <p style="margin-top:6px;color:${modeColor};font-weight:800;">
-                                    ${modeLabel} · BigGo 關鍵字：${escapeToolHtml(s.lookup_keyword || query)}
-                                </p>
+                                <h4>${s.title || query}</h4>
+                                <p style="color:var(--muted-text);">${s.notice || '已儲存本次查詢快照。'}</p>
                             </div>
-                            <a class="btn btn-ghost" href="${escapeToolAttr(s.result_url)}" target="_blank" rel="noopener">
-                                開啟 BigGo 查價
-                            </a>
+                            <a class="btn btn-ghost" href="${s.result_url}" target="_blank" rel="noopener">開啟來源</a>
                         </div>
                         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
                             <div class="food-stat-card"><span>目前價格</span><strong>${formatToolMoney(s.current_price)}</strong></div>
                             <div class="food-stat-card"><span>最低</span><strong>${formatToolMoney(s.low_price)}</strong></div>
                             <div class="food-stat-card"><span>最高</span><strong>${formatToolMoney(s.high_price)}</strong></div>
                         </div>
+                        ${itemTable}
                         ${renderToolHistory(res.history)}
                     </div>
                 `);
@@ -845,16 +918,44 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
     }
 
-    function fillPhoneQuery(value) {
+    function getDefaultSamsungPhone() {
+        const now = new Date();
+        const modelYear = now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
+        return 'Samsung S' + String(modelYear).slice(-2);
+    }
+
+    function getDefaultApplePhone() {
+        const now = new Date();
+        const releaseYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const modelNumber = 17 + (releaseYear - 2025);
+        return 'iPhone ' + Math.max(1, modelNumber);
+    }
+
+    function fillPhoneQuery(value, brand) {
         const input = document.getElementById('phoneQuery');
+        const brandInput = brand === 'samsung'
+            ? document.getElementById('samsungPhoneQuery')
+            : document.getElementById('applePhoneQuery');
         if (input) {
             input.value = value;
-            input.focus();
+        }
+        if (brandInput) {
+            brandInput.value = value;
+            brandInput.focus();
         }
     }
 
+    function getPhoneQueryForBrand(brand) {
+        const fieldId = brand === 'samsung' ? 'samsungPhoneQuery' : 'applePhoneQuery';
+        const fallback = brand === 'samsung' ? getDefaultSamsungPhone() : getDefaultApplePhone();
+        const field = document.getElementById(fieldId);
+        const value = field && field.value.trim() ? field.value.trim() : fallback;
+        fillPhoneQuery(value, brand);
+        return value;
+    }
+
     function openPhoneCompare() {
-        const query = getTrimmedValue('phoneQuery') || 'Samsung S26';
+        const query = getTrimmedValue('phoneQuery') || getDefaultSamsungPhone();
         const landtopUrl = 'https://www.google.com/search?q=' + encodeURIComponent('site:landtop.com.tw ' + query);
         const jyesUrl = 'https://www.google.com/search?q=' + encodeURIComponent('site:jyes.com.tw ' + query);
 
@@ -862,8 +963,13 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         window.open(jyesUrl, '_blank', 'noopener');
     }
 
-    function runPhoneCompare() {
-        const query = getTrimmedValue('phoneQuery') || 'Samsung S26';
+    function runPhoneCompareFor(brand) {
+        const query = getPhoneQueryForBrand(brand);
+        runPhoneCompare(query);
+    }
+
+    function runPhoneCompare(queryOverride) {
+        const query = queryOverride || getTrimmedValue('phoneQuery') || getDefaultSamsungPhone();
         setToolResult('<p>查詢中...</p>');
         fetch('tools_api.php?action=phone_lookup', {
             method: 'POST',
@@ -887,6 +993,20 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             })
             .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
     }
+
+    (function initPhoneCompareDefaults() {
+        const apple = getDefaultApplePhone();
+        const samsung = getDefaultSamsungPhone();
+        const appleInput = document.getElementById('applePhoneQuery');
+        const samsungInput = document.getElementById('samsungPhoneQuery');
+        const appleText = document.getElementById('applePhoneDefaultText');
+        const samsungText = document.getElementById('samsungPhoneDefaultText');
+        if (appleInput && !appleInput.value) appleInput.value = apple;
+        if (samsungInput && !samsungInput.value) samsungInput.value = samsung;
+        if (appleText) appleText.textContent = '預設 ' + apple;
+        if (samsungText) samsungText.textContent = '預設 ' + samsung;
+        fillPhoneQuery(apple, 'apple');
+    })();
 
     function editTubeChannel(index, name, url) {
         const indexInput = document.getElementById('tubeChannelIndex');
