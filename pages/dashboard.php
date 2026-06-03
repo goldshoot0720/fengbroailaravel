@@ -1,5 +1,8 @@
 <?php
 $pageTitle = '儀表板';
+if (!requireDatabaseOrSetup('dashboard')) {
+    return;
+}
 $pdo = getConnection();
 
 $exchangeRates = [

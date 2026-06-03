@@ -13,6 +13,10 @@ if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
 }
 
+if (!fengbroDatabaseConfigured()) {
+    jsonSetupRequiredResponse('Database is not configured yet. Open settings to finish local setup.');
+}
+
 $pdo = getConnection();
 
 switch ($action) {

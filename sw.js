@@ -1,8 +1,8 @@
 // Service Worker for 鋒兄AI Laravel MySQL PWA
 // v2.0 - 支援背景定期同步、推播通知
 
-const CACHE_NAME = 'fengxiong-ai-v3';
-const OFFLINE_URL = 'index.php?page=dashboard';
+const CACHE_NAME = 'fengxiong-ai-v4';
+const OFFLINE_URL = 'index.php?page=home';
 
 // ── 安裝：快取核心頁面 ──────────────────────────────────────────────────────
 self.addEventListener('install', function (event) {

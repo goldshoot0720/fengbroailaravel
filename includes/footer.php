@@ -46,6 +46,7 @@
 <script src="assets/js/main.js?v=20260520bankdeposit"></script>
 <script src="assets/js/inline-edit.js?v=20260521refactor"></script>
 
+<?php if (fengbroDatabaseConfigured()): ?>
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
 <script>
     if ('serviceWorker' in navigator) {
@@ -71,6 +72,7 @@
         }).catch(function () { });
     }
 </script>
+<?php endif; ?>
 
 <!-- PWA 安裝提示 (iOS + Android) -->
 <div id="pwaInstallPrompt"
@@ -151,6 +153,7 @@
     }
 </style>
 
+<?php if (fengbroDatabaseConfigured()): ?>
 <?php
 // 訂閱到期通知 (3天內)
 $notifPdo = getConnection();
@@ -380,6 +383,7 @@ try {
     })();
 </script>
 </script>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php if (($page ?? '') === 'home'): ?>

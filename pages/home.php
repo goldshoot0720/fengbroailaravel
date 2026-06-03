@@ -1,5 +1,8 @@
 <?php
 $pageTitle = '鋒兄首頁';
+if (!requireDatabaseOrSetup('home')) {
+    return;
+}
 require_once __DIR__ . '/../includes/fengbro_tube.php';
 require_once __DIR__ . '/../includes/fengbro_finance.php';
 

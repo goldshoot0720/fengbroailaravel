@@ -4,6 +4,14 @@ require_once 'includes/functions.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? 'scan';
+if (!fengbroDatabaseConfigured()) {
+    jsonResponse(setupRequiredPayload('Database is not configured yet. Storage stats are paused until setup is complete.') + [
+        'totalFiles' => 0,
+        'referencedCount' => 0,
+        'unusedFiles' => []
+    ], 503);
+}
+
 $uploadsRoot = realpath(__DIR__ . '/uploads');
 if (!$uploadsRoot || !is_dir($uploadsRoot)) {
     jsonResponse(['success' => true, 'totalFiles' => 0, 'referencedCount' => 0, 'unusedFiles' => [], 'message' => 'uploads 目錄不存在']);

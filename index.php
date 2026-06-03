@@ -26,6 +26,11 @@ if (!in_array($page, $allowedPages)) {
     $page = 'home';
 }
 
+if (!fengbroDatabaseConfigured() && !in_array($page, ['home', 'dashboard', 'settings', 'about'], true)) {
+    $page = 'settings';
+}
+$_GET['page'] = $page;
+
 $pageFile = "pages/{$page}.php";
 $pageTitles = [
     'home' => '鋒兄首頁',

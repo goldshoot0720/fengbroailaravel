@@ -4,6 +4,10 @@ require_once 'includes/functions.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? '';
+if (!fengbroDatabaseConfigured()) {
+    jsonSetupRequiredResponse('Database is not configured yet. Tool APIs are paused until setup is complete.');
+}
+
 $pdo = getConnection();
 ensureToolSettingsTable($pdo);
 ensureToolPriceHistory($pdo);

@@ -1,5 +1,8 @@
 <?php
 $pageTitle = '系統設定';
+if (!requireDatabaseOrSetup('settings')) {
+    return;
+}
 $pdo = getConnection();
 require_once __DIR__ . '/../includes/resend_notifications.php';
 fengbroResendEnsureTables($pdo);
