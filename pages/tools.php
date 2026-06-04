@@ -229,7 +229,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 </div>
                 <div>
                     <h3 class="card-title" style="margin-bottom: 4px;">鋒兄比價</h3>
-                    <p style="color: var(--muted-text); line-height: 1.6;">貼上商品關鍵字或網址，快速開啟 BigGo 查詢。</p>
+                    <p style="color: var(--muted-text); line-height: 1.6;">貼上商品關鍵字或網址；API 可用時抓取價格，否則保留 BigGo 查詢連結與歷史快照。</p>
                 </div>
             </div>
 
@@ -238,7 +238,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 <input id="priceQuery" class="form-control" type="text" placeholder="例如 iPhone 17 256GB">
                 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                     <button class="btn btn-primary" type="button" onclick="runBigGoLookup()">
-                        <i class="fa-solid fa-search"></i> 查詢價格
+                        <i class="fa-solid fa-search"></i> 建立比價快照
                     </button>
                     <a class="btn btn-ghost" href="https://biggo.com.tw/" target="_blank" rel="noopener">
                         <i class="fa-solid fa-up-right-from-square"></i> BigGo 首頁
@@ -318,7 +318,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
     <section class="card" style="margin-top: 20px;">
         <h3 class="card-title">查詢結果與歷史快照</h3>
         <div id="toolResult" class="tool-result-box">
-            <p style="color: var(--muted-text);">查詢後會在這裡顯示目前解析到的價格、外部來源與歷史快照。</p>
+            <p style="color: var(--muted-text);">查詢後會在這裡顯示 API 價格、外部來源連結與歷史快照。</p>
         </div>
     </section>
     <?php endif; ?>

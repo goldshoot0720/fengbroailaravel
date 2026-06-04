@@ -57,7 +57,7 @@ function fetchUrlForTool(string $url): string
     return is_string($html) ? $html : '';
 }
 
-function fetchJsonForTool(string $url, array $headers = []): ?array
+function fetchJsonResponseForTool(string $url, array $headers = []): array
 {
     $headerLines = array_merge([
         'User-Agent: Mozilla/5.0 FengbroTools/1.0',
@@ -72,11 +72,21 @@ function fetchJsonForTool(string $url, array $headers = []): ?array
         ],
     ]);
     $body = @file_get_contents($url, false, $context);
+    $status = 0;
+    if (!empty($http_response_header) && preg_match('/\s(\d{3})\s/', (string) $http_response_header[0], $m)) {
+        $status = (int) $m[1];
+    }
     if (!is_string($body) || trim($body) === '') {
-        return null;
+        return ['status' => $status, 'json' => null];
     }
     $json = json_decode($body, true);
-    return is_array($json) ? $json : null;
+    return ['status' => $status, 'json' => is_array($json) ? $json : null];
+}
+
+function fetchJsonForTool(string $url, array $headers = []): ?array
+{
+    $response = fetchJsonResponseForTool($url, $headers);
+    return $response['json'];
 }
 
 function extractPrices(string $html): array
@@ -196,7 +206,7 @@ function callBigGoApi(PDO $pdo, string $query): array
     $endpoint = toolSettingOrEnv($pdo, 'BIGGO_API_ENDPOINT', 'https://api.biggo.com.tw/v1/search');
 
     if ($apiKey === '' || $endpoint === '') {
-        return ['ok' => false, 'items' => [], 'notice' => 'BIGGO_API_KEY / BIGGO_MCP_SERVER_CLIENT_ID 未設定，已改用 BigGo 搜尋頁連結。'];
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API/MCP 尚未設定，採用可行方案：保留查詢快照與 BigGo 搜尋連結，不再抓取容易被限流的頁面。'];
     }
 
     $url = str_contains($endpoint, '{query}')
@@ -213,9 +223,17 @@ function callBigGoApi(PDO $pdo, string $query): array
         $headers[] = 'X-BigGo-Client-Secret: ' . $secret;
     }
 
-    $json = fetchJsonForTool($url, $headers);
+    $response = fetchJsonResponseForTool($url, $headers);
+    $json = $response['json'];
+    $status = (int) ($response['status'] ?? 0);
+    if ($status === 429) {
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 回傳 429，已採用可行方案：暫停自動抓價，只保留查詢快照與外部連結，避免連續請求造成限流。'];
+    }
+    if ($status >= 400) {
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 回傳 HTTP ' . $status . '，已採用可行方案：保留查詢快照與外部連結。'];
+    }
     if (!$json) {
-        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 無回應或不是 JSON，已改用 BigGo 搜尋頁連結。'];
+        return ['ok' => false, 'items' => [], 'notice' => 'BigGo API 無回應或不是 JSON，已採用可行方案：保留查詢快照與外部連結。'];
     }
 
     $items = [];
@@ -266,17 +284,9 @@ if ($action === 'price_lookup') {
     $prices = array_values(array_filter(array_map(fn($item) => normalizeToolPrice($item['price'] ?? null), $items)));
     $title = !empty($items[0]['title']) ? $items[0]['title'] : $query;
     $notice = $apiResult['notice'] ?? '';
-    $source = !empty($prices) ? 'BigGo API' : 'BigGo';
-
-    if (!$prices) {
-        $html = fetchUrlForTool($searchUrl);
-        $prices = $html ? extractPrices($html) : [];
-        if ($html && preg_match('/<title[^>]*>(.*?)<\/title>/isu', $html, $m)) {
-            $title = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8')) ?: $query;
-        }
-        $notice = $prices
-            ? trim(($notice ? $notice . ' ' : '') . '已由 BigGo 搜尋頁保守解析價格。')
-            : ($notice ?: 'BigGo API 未設定或無法解析價格，已保留查詢快照與外部連結。');
+    $source = !empty($prices) ? 'BigGo API' : 'BigGo 可行方案';
+    if (!$prices && $notice === '') {
+        $notice = '已採用 BigGo 可行方案：本次不抓取 BigGo HTML 或來源商品頁，只建立外部查詢連結與歷史快照。';
     }
 
     $snapshot = [
