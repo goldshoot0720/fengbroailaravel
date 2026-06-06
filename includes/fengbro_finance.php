@@ -17,6 +17,7 @@ function fengbroFinanceItems()
         ['name' => 'Dow Jones Industrial Average', 'symbol' => '.DJI', 'url' => 'https://www.cnbc.com/quotes/.DJI', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 66666, 'breakoutLabel' => '突破 66666'],
         ['name' => 'S&P 500 Index', 'symbol' => '.SPX', 'url' => 'https://www.cnbc.com/quotes/.SPX', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 11111, 'breakoutLabel' => '突破 11111'],
         ['name' => 'NASDAQ Composite', 'symbol' => '.IXIC', 'url' => 'https://www.cnbc.com/quotes/.IXIC', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 33333, 'breakoutLabel' => '突破 33333'],
+        ['name' => 'Philadelphia Semiconductor Index', 'symbol' => '.SOX', 'url' => 'https://www.cnbc.com/quotes/.SOX', 'group' => 'US Index', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 9999, 'breakoutLabel' => '突破 9999'],
         ['name' => 'CBOE Volatility Index', 'symbol' => 'VIX', 'url' => 'https://www.cnbc.com/quotes/VIX', 'group' => 'Volatility', 'source' => 'CNBC', 'parser' => 'cnbc'],
         ['name' => 'Shiller PE Ratio', 'symbol' => 'SHILLER_PE', 'url' => 'https://www.multpl.com/shiller-pe', 'group' => 'Valuation', 'source' => 'Multpl', 'parser' => 'multpl_shiller', 'recordHigh' => 45, 'recordHighDate' => 'Threshold', 'breakoutValue' => 45, 'breakoutLabel' => '突破 45'],
         ['name' => 'Bitcoin/USD Coin Metrics', 'symbol' => 'BTC.CM=', 'url' => 'https://www.cnbc.com/quotes/BTC.CM=', 'group' => 'Crypto', 'source' => 'CNBC', 'parser' => 'cnbc', 'breakoutValue' => 111111, 'breakoutLabel' => '突破 111111'],
@@ -484,7 +485,7 @@ function fengbroFinanceParseQuote($item)
 function fengbroFinanceGetData($force = false)
 {
     $cache = fengbroFinanceReadCache();
-    $dataKey = 'finance_data_v3';
+    $dataKey = 'finance_data_v4';
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 900) {
         return $cache[$dataKey]['value'];
     }
