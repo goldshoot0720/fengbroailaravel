@@ -69,7 +69,7 @@ function fengbroTubeWriteCache($cache)
 function fengbroTubeClearDataCache()
 {
     $cache = fengbroTubeReadCache();
-    unset($cache['tube_data'], $cache['tube_data_v2']);
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3']);
     fengbroTubeWriteCache($cache);
 }
 
@@ -348,10 +348,11 @@ function fengbroTubeExtractUpdateBadge($channel, $videos)
 
     foreach ($videos as $video) {
         $title = (string) ($video['title'] ?? '');
-        if (preg_match('/倒台指[數数]\D*(\d+(?:\.\d+)?)/u', $title, $m)) {
+        $collapseIndex = fengbroTubeExtractCollapseIndex($title);
+        if ($collapseIndex !== null) {
             return [
                 'label' => '倒台指數',
-                'value' => number_format((float) str_replace(',', '', $m[1]), 2, '.', ''),
+                'value' => number_format($collapseIndex, 2, '.', ''),
                 'title' => $title,
             ];
         }
@@ -360,10 +361,31 @@ function fengbroTubeExtractUpdateBadge($channel, $videos)
     return [];
 }
 
+function fengbroTubeExtractCollapseIndex($title): ?float
+{
+    if (!preg_match('/倒台指[數数](.*)$/u', (string) $title, $m)) {
+        return null;
+    }
+
+    preg_match_all('/\d[\d,]*(?:\.\d+)?/u', $m[1], $matches);
+    $numbers = $matches[0] ?? [];
+    if (!$numbers) {
+        return null;
+    }
+
+    foreach ($numbers as $number) {
+        if (strpos($number, '.') !== false) {
+            return (float) str_replace(',', '', $number);
+        }
+    }
+
+    return (float) str_replace(',', '', end($numbers));
+}
+
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
-    $dataKey = 'tube_data_v2';
+    $dataKey = 'tube_data_v3';
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
