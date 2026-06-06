@@ -351,7 +351,7 @@ function fengbroTubeExtractUpdateBadge($channel, $videos)
         if (preg_match('/倒台指[數数]\D*(\d+(?:\.\d+)?)/u', $title, $m)) {
             return [
                 'label' => '更新',
-                'value' => $m[1],
+                'value' => number_format((float) str_replace(',', '', $m[1]), 2, '.', ''),
                 'title' => $title,
             ];
         }
