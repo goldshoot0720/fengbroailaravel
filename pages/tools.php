@@ -85,12 +85,16 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                     <p>可編輯頻道別名與網址。別名留空時，預設使用 YouTube 原頻道名稱。</p>
                 </div>
                 <form method="post" onsubmit="return confirm('還原預設頻道？目前自訂清單會被清除。');">
+                    <button id="tubeChannelManagerToggle" type="button" class="btn btn-ghost tube-manager-toggle" aria-expanded="true" aria-controls="tubeChannelManagerBody" onclick="toggleTubeChannelManager()">
+                        <i class="fa-solid fa-chevron-up"></i> 收合
+                    </button>
                     <input type="hidden" name="tube_action" value="reset">
                     <button type="submit" class="btn btn-ghost">
                         <i class="fa-solid fa-rotate-left"></i> 還原預設
                     </button>
                 </form>
             </div>
+            <div id="tubeChannelManagerBody" class="tube-channel-manager-body">
             <form method="post" class="tube-channel-form">
                 <input type="hidden" name="tube_action" value="save">
                 <input type="hidden" id="tubeChannelIndex" name="channel_index" value="-1">
@@ -119,6 +123,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                         </div>
                     </div>
                 <?php endforeach; ?>
+            </div>
             </div>
         </section>
 
@@ -503,6 +508,23 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 10px;
+    }
+
+    .tube-channel-manager-body {
+        display: grid;
+        gap: 14px;
+    }
+
+    .tube-channel-manager.is-collapsed .tube-channel-manager-body {
+        display: none;
+    }
+
+    .tube-manager-toggle i {
+        transition: transform 0.18s ease;
+    }
+
+    .tube-channel-manager.is-collapsed .tube-manager-toggle i {
+        transform: rotate(180deg);
     }
 
     .tube-channel-admin-item {
@@ -1008,7 +1030,29 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         fillPhoneQuery(apple, 'apple');
     })();
 
+    const TUBE_MANAGER_COLLAPSED_KEY = 'fengbro.tubeChannelManager.collapsed';
+
+    function setTubeChannelManagerCollapsed(collapsed) {
+        const manager = document.getElementById('tube-channel-manager');
+        const toggle = document.getElementById('tubeChannelManagerToggle');
+        if (!manager || !toggle) return;
+        manager.classList.toggle('is-collapsed', collapsed);
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        toggle.innerHTML = '<i class="fa-solid fa-chevron-up"></i> ' + (collapsed ? '展開' : '收合');
+        localStorage.setItem(TUBE_MANAGER_COLLAPSED_KEY, collapsed ? '1' : '0');
+    }
+
+    function toggleTubeChannelManager() {
+        const manager = document.getElementById('tube-channel-manager');
+        setTubeChannelManagerCollapsed(!(manager && manager.classList.contains('is-collapsed')));
+    }
+
+    (function initTubeChannelManagerCollapse() {
+        setTubeChannelManagerCollapsed(localStorage.getItem(TUBE_MANAGER_COLLAPSED_KEY) === '1');
+    })();
+
     function editTubeChannel(index, name, url) {
+        setTubeChannelManagerCollapsed(false);
         const indexInput = document.getElementById('tubeChannelIndex');
         const nameInput = document.getElementById('tubeChannelName');
         const urlInput = document.getElementById('tubeChannelUrl');
