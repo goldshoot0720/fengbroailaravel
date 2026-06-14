@@ -96,6 +96,27 @@ if (is_dir($uploadsDir)) {
 </div>
 
 <div class="content-body">
+    <section class="dashboard-subscription-priority">
+        <div class="subscription-priority-copy">
+            <span class="eyebrow">Pinned Workspace</span>
+            <h2><i class="fa-solid fa-credit-card"></i> 鋒兄訂閱</h2>
+            <p>訂閱總覽固定在工作台最上方，方便先查看續訂數量與預估支出。</p>
+        </div>
+        <div class="subscription-priority-stats">
+            <span>
+                <strong><?php echo $subscriptionCount; ?></strong>
+                <small>Active subscriptions</small>
+            </span>
+            <span>
+                <strong><?php echo formatMoney($subscriptionTotal); ?></strong>
+                <small>Estimated spend</small>
+            </span>
+        </div>
+        <a href="index.php?page=subscription" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> 前往鋒兄訂閱
+        </a>
+    </section>
+
     <section class="hero-panel dashboard-hero">
         <div class="hero-copy">
             <span class="eyebrow">Daily Ops Status</span>

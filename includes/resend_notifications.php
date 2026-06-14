@@ -55,6 +55,11 @@ function fengbroResendSlotSuffix(int $slot): string
     return $slot <= 1 ? '' : (string) $slot;
 }
 
+function fengbroResendCredentialSlotLimit(): int
+{
+    return 6;
+}
+
 function fengbroResendSettingOrEnv(PDO $pdo, string $key): string
 {
     $value = trim(fengbroResendGetSetting($pdo, $key));
@@ -111,7 +116,7 @@ function fengbroResendDefaultRecipient(PDO $pdo): string
 function fengbroResendCredentialSlots(PDO $pdo): array
 {
     $slots = [];
-    for ($slot = 1; $slot <= 3; $slot++) {
+    for ($slot = 1; $slot <= fengbroResendCredentialSlotLimit(); $slot++) {
         $suffix = fengbroResendSlotSuffix($slot);
         $slots[] = [
             'slot' => $slot,

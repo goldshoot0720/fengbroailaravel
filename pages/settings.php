@@ -13,7 +13,7 @@ $biggoSettingsMessage = '';
 $biggoSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
-        for ($slot = 1; $slot <= 3; $slot++) {
+        for ($slot = 1; $slot <= fengbroResendCredentialSlotLimit(); $slot++) {
             $suffix = $slot <= 1 ? '' : (string) $slot;
             $apiSetting = 'RESEND_API_KEY' . $suffix;
             $toSetting = 'RESEND_TO_EMAIL' . $suffix;
@@ -68,6 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendSlots = fengbroResendCredentialSlots($pdo);
+$resendAnyApiKeySet = !empty(array_filter($resendSlots, function ($slot) {
+    return $slot['api_key'] !== '' && $slot['recipient'] !== '';
+}));
 $resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
 $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
 $biggoSettings = [
@@ -165,7 +168,7 @@ $biggoSettings = [
                         </div>
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= fengbroResendCredentialSlotLimit(); $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th style="width: 200px;"><code>RESEND_API_KEY<?php echo $resendSuffix; ?></code></th>
@@ -193,7 +196,7 @@ $biggoSettings = [
                         <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= fengbroResendCredentialSlotLimit(); $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th><code>RESEND_TO_EMAIL<?php echo $resendSuffix; ?></code></th>
@@ -229,10 +232,10 @@ $biggoSettings = [
                 <tr>
                     <th>手動檢查</th>
                     <td>
-                        <button type="button" class="btn btn-sm btn-warning" onclick="runResendNotify()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                        <button type="button" class="btn btn-sm btn-warning" onclick="runResendNotify()" <?php echo !$resendAnyApiKeySet ? 'disabled' : ''; ?>>
                             執行 RESEND 通知
                         </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="sendResendTestEmail()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="sendResendTestEmail()" <?php echo !$resendAnyApiKeySet ? 'disabled' : ''; ?>>
                             測試寄發
                         </button>
                         <span id="resendNotifyResult" style="margin-left:12px; font-size:0.9em;"></span>
