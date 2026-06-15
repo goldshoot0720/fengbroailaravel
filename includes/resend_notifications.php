@@ -57,7 +57,7 @@ function fengbroResendSlotSuffix(int $slot): string
 
 function fengbroResendCredentialSlotLimit(): int
 {
-    return 6;
+    return 15;
 }
 
 function fengbroResendSettingOrEnv(PDO $pdo, string $key): string
