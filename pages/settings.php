@@ -14,6 +14,12 @@ $biggoSettingsMessage = '';
 $biggoSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
+        $resendSlotUiOptions = [3, 6, 9, 12, 15, 18, 21];
+        $resendSlotUiCount = (int) ($_POST['resend_slot_ui_count'] ?? 3);
+        if (!in_array($resendSlotUiCount, $resendSlotUiOptions, true)) {
+            $resendSlotUiCount = 3;
+        }
+        fengbroResendSaveSetting($pdo, 'RESEND_SLOT_UI_COUNT', (string) $resendSlotUiCount);
         for ($slot = 1; $slot <= $resendSlotLimit; $slot++) {
             $suffix = $slot <= 1 ? '' : (string) $slot;
             $apiSetting = 'RESEND_API_KEY' . $suffix;
@@ -69,6 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendSlots = fengbroResendCredentialSlots($pdo);
+$resendSlotUiOptions = [3, 6, 9, 12, 15, 18, 21];
+$resendSlotUiCount = (int) fengbroResendGetSetting($pdo, 'RESEND_SLOT_UI_COUNT', '3');
+if (!in_array($resendSlotUiCount, $resendSlotUiOptions, true)) {
+    $resendSlotUiCount = 3;
+}
 $resendConfiguredSlots = array_filter($resendSlots, function ($slot) {
     return $slot['api_key'] !== '' && $slot['recipient'] !== '';
 });
@@ -158,6 +169,19 @@ $biggoSettings = [
             <input type="hidden" name="settings_action" value="save_resend">
             <table class="table">
                 <tr>
+                    <th style="width: 200px;">顯示組數</th>
+                    <td>
+                        <select id="resendSlotUiCount" name="resend_slot_ui_count" class="form-control" style="max-width:220px;" onchange="updateResendSlotRows()">
+                            <?php foreach ($resendSlotUiOptions as $option): ?>
+                                <option value="<?php echo (int) $option; ?>" <?php echo $resendSlotUiCount === $option ? 'selected' : ''; ?>>
+                                    <?php echo (int) $option; ?> 組
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:6px;">後端支援 21 組；預設顯示 3 組，可展開到 6、9、12、15、18、21 組。</div>
+                    </td>
+                </tr>
+                <tr data-resend-slot="1">
                     <th style="width: 200px;"><code>RESEND_API_KEY</code></th>
                     <td>
                         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -179,7 +203,7 @@ $biggoSettings = [
                 </tr>
                 <?php for ($resendSlot = 2; $resendSlot <= $resendSlotLimit; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
-                    <tr>
+                    <tr data-resend-slot="<?php echo (int) $resendSlot; ?>">
                         <th style="width: 200px;"><code>RESEND_API_KEY<?php echo $resendSuffix; ?></code></th>
                         <td>
                             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -199,7 +223,7 @@ $biggoSettings = [
                         </td>
                     </tr>
                 <?php endfor; ?>
-                <tr>
+                <tr data-resend-slot="1">
                     <th><code>RESEND_TO_EMAIL</code></th>
                     <td>
                         <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
@@ -207,7 +231,7 @@ $biggoSettings = [
                 </tr>
                 <?php for ($resendSlot = 2; $resendSlot <= $resendSlotLimit; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
-                    <tr>
+                    <tr data-resend-slot="<?php echo (int) $resendSlot; ?>">
                         <th><code>RESEND_TO_EMAIL<?php echo $resendSuffix; ?></code></th>
                         <td>
                             <input type="email" class="form-control" name="resend_to_email<?php echo $resendSuffix; ?>" value="<?php echo htmlspecialchars($resendSlotData['recipient']); ?>" placeholder="you<?php echo $resendSuffix; ?>@example.com">
@@ -396,6 +420,15 @@ $biggoSettings = [
             input.focus();
         }
 
+        function updateResendSlotRows() {
+            const select = document.getElementById('resendSlotUiCount');
+            const visibleCount = select ? parseInt(select.value || '3', 10) : 3;
+            document.querySelectorAll('[data-resend-slot]').forEach(function (row) {
+                const slot = parseInt(row.getAttribute('data-resend-slot') || '1', 10);
+                row.style.display = slot <= visibleCount ? '' : 'none';
+            });
+        }
+
         function runResendNotify() {
             const result = document.getElementById('resendNotifyResult');
             result.textContent = '檢查中...';
@@ -467,6 +500,8 @@ $biggoSettings = [
                     document.getElementById('pushSendResult').innerHTML = '<span style="color:red;">請求失敗</span>';
                 });
         }
+
+        updateResendSlotRows();
     </script>
 
     <div class="card" style="margin-top: 20px;">
