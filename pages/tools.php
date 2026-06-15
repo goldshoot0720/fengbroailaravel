@@ -1016,6 +1016,25 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
     }
 
+    function getPreviousPhoneModel(value, prefix) {
+        const current = Number((value.match(/\d+/) || [0])[0]);
+        return prefix + ' ' + Math.max(1, current - 1);
+    }
+
+    function renderPhoneQuickButtons(containerId, values, brand) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.replaceChildren();
+        [...new Set(values.filter(Boolean))].forEach(value => {
+            const button = document.createElement('button');
+            button.className = 'btn btn-ghost';
+            button.type = 'button';
+            button.textContent = value;
+            button.addEventListener('click', () => fillPhoneQuery(value, brand));
+            container.appendChild(button);
+        });
+    }
+
     (function initPhoneCompareDefaults() {
         const apple = getDefaultApplePhone();
         const samsung = getDefaultSamsungPhone();
@@ -1027,6 +1046,8 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         if (samsungInput && !samsungInput.value) samsungInput.value = samsung;
         if (appleText) appleText.textContent = '預設 ' + apple;
         if (samsungText) samsungText.textContent = '預設 ' + samsung;
+        renderPhoneQuickButtons('applePhoneQuickButtons', [apple, getPreviousPhoneModel(apple, 'iPhone')], 'apple');
+        renderPhoneQuickButtons('samsungPhoneQuickButtons', [samsung, getPreviousPhoneModel(samsung, 'Samsung S')], 'samsung');
         fillPhoneQuery(apple, 'apple');
     })();
 
