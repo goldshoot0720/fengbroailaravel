@@ -7,6 +7,7 @@ $pdo = getConnection();
 require_once __DIR__ . '/../includes/resend_notifications.php';
 fengbroResendEnsureTables($pdo);
 $resendSlotLimit = fengbroResendCredentialSlotLimit();
+$resendSlotUiOptions = [3, 6, 9, 12, 15, 18, 21];
 
 $resendSettingsMessage = '';
 $resendSettingsError = '';
@@ -14,7 +15,6 @@ $biggoSettingsMessage = '';
 $biggoSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
-        $resendSlotUiOptions = [3, 6, 9, 12, 15, 18, 21];
         $resendSlotUiCount = (int) ($_POST['resend_slot_ui_count'] ?? 3);
         if (!in_array($resendSlotUiCount, $resendSlotUiOptions, true)) {
             $resendSlotUiCount = 3;
@@ -75,11 +75,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendSlots = fengbroResendCredentialSlots($pdo);
-$resendSlotUiOptions = [3, 6, 9, 12, 15, 18, 21];
+$resendHighestUsedSlot = 1;
+foreach ($resendSlots as $slot) {
+    if ($slot['api_key'] !== '' || $slot['recipient'] !== '') {
+        $resendHighestUsedSlot = max($resendHighestUsedSlot, (int) $slot['slot']);
+    }
+}
 $resendSlotUiCount = (int) fengbroResendGetSetting($pdo, 'RESEND_SLOT_UI_COUNT', '3');
 if (!in_array($resendSlotUiCount, $resendSlotUiOptions, true)) {
     $resendSlotUiCount = 3;
 }
+$resendMinimumUiCount = $resendSlotLimit;
+foreach ($resendSlotUiOptions as $option) {
+    if ($option >= $resendHighestUsedSlot) {
+        $resendMinimumUiCount = $option;
+        break;
+    }
+}
+$resendSlotUiCount = max($resendSlotUiCount, $resendMinimumUiCount);
 $resendConfiguredSlots = array_filter($resendSlots, function ($slot) {
     return $slot['api_key'] !== '' && $slot['recipient'] !== '';
 });
@@ -178,7 +191,7 @@ $biggoSettings = [
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:6px;">後端支援 21 組；預設顯示 3 組，可展開到 6、9、12、15、18、21 組。</div>
+                        <div style="font-size:0.82em; color:var(--muted-text); margin-top:6px;">後端支援 21 組；預設顯示 3 組，若後段槽位已有資料會自動展開。</div>
                     </td>
                 </tr>
                 <tr data-resend-slot="1">
