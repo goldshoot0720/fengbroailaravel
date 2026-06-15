@@ -142,6 +142,12 @@ $biggoSettings = [
 
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">RESEND Email 通知 <span class="badge badge-info"><?php echo $resendSlotLimit; ?> 組</span></h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:0 0 12px;">
+            <span class="badge <?php echo $resendConfiguredSlotCount > 0 ? 'badge-success' : 'badge-danger'; ?>">
+                已可用 <?php echo (int) $resendConfiguredSlotCount; ?> / <?php echo (int) $resendSlotLimit; ?> 組
+            </span>
+            <span style="font-size:0.82em; color:var(--muted-text);">同一組需同時有 API Key 與收件 Email 才會寄送。</span>
+        </div>
         <?php if ($resendSettingsMessage): ?>
             <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsMessage); ?></div>
         <?php endif; ?>
