@@ -6,6 +6,7 @@ if (!requireDatabaseOrSetup('settings')) {
 $pdo = getConnection();
 require_once __DIR__ . '/../includes/resend_notifications.php';
 fengbroResendEnsureTables($pdo);
+$resendSlotLimit = fengbroResendCredentialSlotLimit();
 
 $resendSettingsMessage = '';
 $resendSettingsError = '';
@@ -13,7 +14,7 @@ $biggoSettingsMessage = '';
 $biggoSettingsError = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
-        for ($slot = 1; $slot <= fengbroResendCredentialSlotLimit(); $slot++) {
+        for ($slot = 1; $slot <= $resendSlotLimit; $slot++) {
             $suffix = $slot <= 1 ? '' : (string) $slot;
             $apiSetting = 'RESEND_API_KEY' . $suffix;
             $toSetting = 'RESEND_TO_EMAIL' . $suffix;
@@ -68,9 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
 $resendApiKeySet = fengbroResendApiKey($pdo) !== '';
 $resendToEmail = fengbroResendDefaultRecipient($pdo);
 $resendSlots = fengbroResendCredentialSlots($pdo);
-$resendAnyApiKeySet = !empty(array_filter($resendSlots, function ($slot) {
+$resendConfiguredSlots = array_filter($resendSlots, function ($slot) {
     return $slot['api_key'] !== '' && $slot['recipient'] !== '';
-}));
+});
+$resendConfiguredSlotCount = count($resendConfiguredSlots);
+$resendAnyApiKeySet = $resendConfiguredSlotCount > 0;
 $resendFromEmail = fengbroResendGetSetting($pdo, 'resend_from_email', 'Fengbro AI <onboarding@resend.dev>');
 $resendScriptPath = str_replace('\\', '/', __DIR__ . '/../resend_notify.php');
 $biggoSettings = [
@@ -138,7 +141,7 @@ $biggoSettings = [
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h3 class="card-title">RESEND Email 通知</h3>
+        <h3 class="card-title">RESEND Email 通知 <span class="badge badge-info"><?php echo $resendSlotLimit; ?> 組</span></h3>
         <?php if ($resendSettingsMessage): ?>
             <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsMessage); ?></div>
         <?php endif; ?>
@@ -168,7 +171,7 @@ $biggoSettings = [
                         </div>
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= fengbroResendCredentialSlotLimit(); $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= $resendSlotLimit; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th style="width: 200px;"><code>RESEND_API_KEY<?php echo $resendSuffix; ?></code></th>
@@ -196,7 +199,7 @@ $biggoSettings = [
                         <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= fengbroResendCredentialSlotLimit(); $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= $resendSlotLimit; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th><code>RESEND_TO_EMAIL<?php echo $resendSuffix; ?></code></th>
