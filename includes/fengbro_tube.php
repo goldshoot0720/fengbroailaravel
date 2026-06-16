@@ -27,6 +27,8 @@ function fengbroTubeDefaultChannels()
         ['name' => '', 'url' => 'https://www.youtube.com/@mrshenofficial/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@jiangtaigong/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@GC%E8%B6%99%E6%B0%8F%E8%AE%80%E6%9B%B8%E7%94%9F%E6%B4%BB'],
+        ['name' => '二爷故事', 'url' => 'https://www.youtube.com/@Tankman2020/videos'],
+        ['name' => 'Leonard', 'url' => 'https://www.youtube.com/@leonard2834/videos'],
     ];
 }
 
