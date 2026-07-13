@@ -45,7 +45,7 @@ foreach ($hostCandidates as $candidateHost) {
 
 $tubeData = fengbroTubeGetData(false);
 $tubeNewVideos = $tubeData['newVideos'] ?? [];
-$financeData = fengbroFinanceGetData(false);
+$financeData = fengbroFinanceGetData(false, false);
 foreach (($financeData['quotes'] ?? []) as $quote) {
     if (trim((string) ($quote['status'] ?? '')) !== '') {
         $financeHighNotices[] = $quote;
@@ -68,14 +68,17 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
 <?php endif; ?>
 
 <?php if (!empty($tubeNewVideos)): ?>
-    <a class="tube-home-notice" href="index.php?page=tools&tool=tube" role="status">
-        <i class="fa-brands fa-youtube"></i>
-        <span>
-            <strong>鋒兄tube 有 <?php echo count($tubeNewVideos); ?> 部 3 天內新影片</strong>
-            <small><?php echo htmlspecialchars($tubeNewVideos[0]['channel'] ?? 'YouTube'); ?>：<?php echo htmlspecialchars($tubeNewVideos[0]['title'] ?? '最新影片'); ?></small>
-        </span>
-        <i class="fa-solid fa-arrow-right"></i>
-    </a>
+    <div id="tubeHomeNotice" class="tube-home-notice-wrap" role="status" style="display:none;">
+        <a class="tube-home-notice" href="index.php?page=tools&tool=tube">
+            <i class="fa-brands fa-youtube"></i>
+            <span>
+                <strong>鋒兄tube 有 <?php echo count($tubeNewVideos); ?> 部 3 天內新影片</strong>
+                <small><?php echo htmlspecialchars($tubeNewVideos[0]['channel'] ?? 'YouTube'); ?>：<?php echo htmlspecialchars($tubeNewVideos[0]['title'] ?? '最新影片'); ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <button type="button" class="tube-home-notice-dismiss" onclick="dismissHomeNotice('tube')" title="今日不再顯示">×</button>
+    </div>
 <?php endif; ?>
 
 <?php if (!empty($financeHighNotices)): ?>
@@ -85,14 +88,17 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         return ($quote['name'] ?? '-') . ' ' . ($quote['status'] ?? '');
     }, array_slice($financeHighNotices, 0, 5)));
     ?>
-    <a class="tube-home-notice finance-home-notice" href="index.php?page=tools&tool=finance" role="status">
-        <i class="fa-solid fa-chart-line"></i>
-        <span>
-            <strong>鋒兄金融 <?php echo count($financeHighNotices); ?> 項突破提醒</strong>
-            <small><?php echo htmlspecialchars($financeNoticeSummary ?: (($financeNotice['name'] ?? '金融項目') . ' ' . ($financeNotice['status'] ?? '突破'))); ?></small>
-        </span>
-        <i class="fa-solid fa-arrow-right"></i>
-    </a>
+    <div id="financeHomeNotice" class="tube-home-notice-wrap" role="status" style="display:none;">
+        <a class="tube-home-notice finance-home-notice" href="index.php?page=tools&tool=finance">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>
+                <strong>鋒兄金融 <?php echo count($financeHighNotices); ?> 項突破提醒</strong>
+                <small><?php echo htmlspecialchars($financeNoticeSummary ?: (($financeNotice['name'] ?? '金融項目') . ' ' . ($financeNotice['status'] ?? '突破'))); ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <button type="button" class="tube-home-notice-dismiss" onclick="dismissHomeNotice('finance')" title="今日不再顯示">×</button>
+    </div>
 <?php endif; ?>
 <div class="content-header">
     <div class="page-intro">
@@ -216,6 +222,35 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         color: #fde68a;
     }
 
+    .tube-home-notice-wrap {
+        position: relative;
+        margin-bottom: 18px;
+    }
+
+    .tube-home-notice-wrap .tube-home-notice {
+        margin-bottom: 0;
+        padding-right: 44px;
+    }
+
+    .tube-home-notice-dismiss {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+        color: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .tube-home-notice-dismiss:hover {
+        background: rgba(15, 23, 42, 0.14);
+    }
+
     .tube-home-notice {
         display: flex;
         align-items: center;
@@ -300,3 +335,33 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         border-color: #1f3552;
     }
 </style>
+<script>
+    function homeNoticeToday() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function isHomeNoticeDismissed(kind) {
+        try {
+            const key = kind === 'finance' ? 'fengbroFinanceAlertsDismissed' : 'fengbroTubeNoticeDismissed';
+            return localStorage.getItem(key) === homeNoticeToday();
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function dismissHomeNotice(kind) {
+        try {
+            const key = kind === 'finance' ? 'fengbroFinanceAlertsDismissed' : 'fengbroTubeNoticeDismissed';
+            localStorage.setItem(key, homeNoticeToday());
+        } catch (e) {}
+        const el = document.getElementById(kind === 'finance' ? 'financeHomeNotice' : 'tubeHomeNotice');
+        if (el) el.style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const tube = document.getElementById('tubeHomeNotice');
+        const finance = document.getElementById('financeHomeNotice');
+        if (tube && !isHomeNoticeDismissed('tube')) tube.style.display = 'block';
+        if (finance && !isHomeNoticeDismissed('finance')) finance.style.display = 'block';
+    });
+</script>

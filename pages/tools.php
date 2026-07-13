@@ -31,9 +31,66 @@ if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST[
     header('Location: index.php?page=tools&tool=tube&refresh=1#tube-channel-manager');
     exit;
 }
+if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['finance_action'] ?? '') !== '') {
+    $action = (string) ($_POST['finance_action'] ?? '');
+    $config = fengbroFinanceReadConfig();
+
+    if ($action === 'reset') {
+        fengbroFinanceResetConfig();
+    } elseif ($action === 'save_defaults') {
+        $ids = isset($_POST['default_ids']) && is_array($_POST['default_ids']) ? $_POST['default_ids'] : [];
+        fengbroFinanceSaveDefaultIds($ids);
+    } elseif ($action === 'remove_default') {
+        $removeId = trim((string) ($_POST['instrument_id'] ?? ''));
+        $ids = array_values(array_filter($config['defaultIds'], static fn($id) => $id !== $removeId));
+        fengbroFinanceSaveDefaultIds($ids);
+    } elseif ($action === 'add_default') {
+        $addId = trim((string) ($_POST['instrument_id'] ?? ''));
+        $ids = $config['defaultIds'];
+        if ($addId !== '' && !in_array($addId, $ids, true)) {
+            $ids[] = $addId;
+        }
+        fengbroFinanceSaveDefaultIds($ids);
+    } elseif ($action === 'save_custom') {
+        $custom = $config['custom'];
+        $instrument = fengbroFinanceNormalizeCustomInstrument([
+            'name' => $_POST['custom_name'] ?? '',
+            'symbol' => $_POST['custom_symbol'] ?? '',
+            'provider' => $_POST['custom_provider'] ?? 'yahoo',
+            'group' => $_POST['custom_group'] ?? 'US',
+        ], count($custom));
+        if ($instrument) {
+            $replaced = false;
+            foreach ($custom as $i => $row) {
+                if (($row['id'] ?? '') === ($instrument['id'] ?? '')) {
+                    $custom[$i] = $instrument;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $custom[] = $instrument;
+            }
+            fengbroFinanceSaveCustomInstruments($custom);
+        }
+    } elseif ($action === 'delete_custom') {
+        $deleteId = trim((string) ($_POST['instrument_id'] ?? ''));
+        $custom = array_values(array_filter(
+            $config['custom'],
+            static fn($row) => ($row['id'] ?? '') !== $deleteId
+        ));
+        fengbroFinanceSaveCustomInstruments($custom);
+    }
+
+    header('Location: index.php?page=tools&tool=finance&refresh=1#finance-instrument-manager');
+    exit;
+}
+@set_time_limit(120);
 $tubeData = $toolSubpage === 'tube' ? fengbroTubeGetData(isset($_GET['refresh'])) : null;
 $tubeChannels = $toolSubpage === 'tube' ? fengbroTubeChannels() : [];
 $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['refresh'])) : null;
+$financeConfig = $toolSubpage === 'finance' ? fengbroFinanceReadConfig() : null;
+$financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : [];
 ?>
 
 <div class="content-header">
@@ -122,6 +179,42 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             </div>
         </section>
 
+        <?php
+        $downfallUpdate = $tubeData['downfallIndexUpdate'] ?? null;
+        $downfallHistory = $tubeData['downfallHistory'] ?? [];
+        $downfallPrices = array_values(array_filter(array_map(static function ($p) {
+            return isset($p['price']) && is_numeric($p['price']) ? (float) $p['price'] : null;
+        }, $downfallHistory)));
+        ?>
+        <?php if ($downfallUpdate || count($downfallPrices) >= 2): ?>
+            <section class="card tube-downfall-panel">
+                <div class="tube-downfall-head">
+                    <div>
+                        <h3 class="card-title"><i class="fa-solid fa-chart-area"></i> 倒台指數</h3>
+                        <p style="margin:6px 0 0;color:var(--muted-text);">追蹤「一個狠人」頻道標題中的倒台指數，並合併固定歷史節點與最新影片解析（對齊 Appwrite）。</p>
+                    </div>
+                    <?php if (!empty($downfallUpdate['value'])): ?>
+                        <?php if (!empty($downfallUpdate['url'])): ?>
+                            <a class="tube-update-badge" href="<?php echo htmlspecialchars($downfallUpdate['url']); ?>" target="_blank" rel="noopener" title="<?php echo htmlspecialchars($downfallUpdate['title'] ?? ''); ?>">
+                                更新：倒台指數 <?php echo htmlspecialchars($downfallUpdate['value']); ?>
+                            </a>
+                        <?php else: ?>
+                            <span class="tube-update-badge" title="<?php echo htmlspecialchars($downfallUpdate['title'] ?? ''); ?>">
+                                更新：倒台指數 <?php echo htmlspecialchars($downfallUpdate['value']); ?>
+                            </span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <?php if (count($downfallPrices) >= 2): ?>
+                    <div class="finance-history-chart tube-downfall-chart" data-points="<?php echo htmlspecialchars(json_encode($downfallPrices), ENT_QUOTES, 'UTF-8'); ?>" style="height:120px;margin-top:12px;"></div>
+                    <div style="margin-top:8px;color:var(--muted-text);font-size:0.82rem;font-weight:700;">
+                        共 <?php echo count($downfallHistory); ?> 個節點
+                        （<?php echo htmlspecialchars(number_format(min($downfallPrices), 2)); ?> → <?php echo htmlspecialchars(number_format(max($downfallPrices), 2)); ?>）
+                    </div>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
+
         <div class="tube-channel-grid">
             <?php foreach (($tubeData['channels'] ?? []) as $channel): ?>
                 <section class="card tube-channel-card">
@@ -165,15 +258,99 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             <?php endforeach; ?>
         </div>
     <?php elseif ($toolSubpage === 'finance'): ?>
+        <?php
+        $selectedDefaultIds = $financeConfig['defaultIds'] ?? fengbroFinanceDefaultIds();
+        $selectedDefaultSet = array_flip($selectedDefaultIds);
+        $customInstruments = $financeConfig['custom'] ?? [];
+        $availableDefaults = array_values(array_filter(
+            $financeCatalog,
+            static fn($item) => !isset($selectedDefaultSet[$item['id']])
+        ));
+        ?>
         <section class="card finance-overview">
             <div class="finance-overview-copy">
                 <h3 class="card-title"><i class="fa-solid fa-chart-line"></i> 鋒兄金融</h3>
-                <p>集中追蹤 CNBC、Yahoo 股市與 Multpl 參考來源的主要市場指標，若目前值觸及高低點會標註創新高或創新低。</p>
-                <span>最後檢查：<?php echo htmlspecialchars($financeData['checkedAt'] ?? '-'); ?> · 來源：<?php echo htmlspecialchars($financeData['source'] ?? 'CNBC / Yahoo股市 / Multpl'); ?></span>
+                <p>集中追蹤 CNBC、Yahoo 股市與 Multpl 參考來源。可管理預設標的與自訂標的，並顯示 1 年走勢（對齊 Appwrite 版）。</p>
+                <span>最後檢查：<?php echo htmlspecialchars($financeData['checkedAt'] ?? '-'); ?> · 來源：<?php echo htmlspecialchars($financeData['source'] ?? 'CNBC / Yahoo股市 / Multpl'); ?> · 追蹤 <?php echo count($financeData['quotes'] ?? []); ?> 項</span>
             </div>
             <a class="btn btn-ghost" href="index.php?page=tools&tool=finance&refresh=1">
                 <i class="fa-solid fa-rotate-right"></i> 重新檢查
             </a>
+        </section>
+
+        <section id="finance-instrument-manager" class="card finance-manager">
+            <div class="finance-manager-head">
+                <div>
+                    <h3 class="card-title">標的管理</h3>
+                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。設定會保存在伺服器本機設定檔。</p>
+                </div>
+                <form method="post" onsubmit="return confirm('還原全部預設標的並清除自訂標的？');">
+                    <input type="hidden" name="finance_action" value="reset">
+                    <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-rotate-left"></i> 還原預設</button>
+                </form>
+            </div>
+
+            <div class="finance-manager-grid">
+                <div>
+                    <h4 style="margin:0 0 10px;">目前預設標的（<?php echo count($selectedDefaultIds); ?>）</h4>
+                    <div class="finance-chip-list">
+                        <?php foreach ($financeCatalog as $item): ?>
+                            <?php if (!isset($selectedDefaultSet[$item['id']])) continue; ?>
+                            <form method="post" class="finance-chip">
+                                <input type="hidden" name="finance_action" value="remove_default">
+                                <input type="hidden" name="instrument_id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                <span><?php echo htmlspecialchars($item['name']); ?> <small><?php echo htmlspecialchars($item['symbol']); ?></small></span>
+                                <button type="submit" class="btn btn-sm btn-ghost" title="移除"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if ($availableDefaults): ?>
+                        <form method="post" class="finance-add-default" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <input type="hidden" name="finance_action" value="add_default">
+                            <select name="instrument_id" class="form-control" style="max-width:280px;">
+                                <?php foreach ($availableDefaults as $item): ?>
+                                    <option value="<?php echo htmlspecialchars($item['id']); ?>">
+                                        <?php echo htmlspecialchars($item['name'] . ' (' . $item['symbol'] . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> 加回預設標的</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <div>
+                    <h4 style="margin:0 0 10px;">自訂標的</h4>
+                    <form method="post" class="finance-custom-form">
+                        <input type="hidden" name="finance_action" value="save_custom">
+                        <input class="form-control" type="text" name="custom_name" placeholder="名稱（可留空）">
+                        <input class="form-control" type="text" name="custom_symbol" placeholder="代碼，例如 NVDA / 2330.TW" required>
+                        <select class="form-control" name="custom_provider">
+                            <option value="yahoo">Yahoo</option>
+                            <option value="cnbc">CNBC</option>
+                        </select>
+                        <select class="form-control" name="custom_group">
+                            <?php foreach (['Taiwan','Asia','Korea','FX','Commodities','Rates','US','Crypto'] as $g): ?>
+                                <option value="<?php echo $g; ?>" <?php echo $g === 'US' ? 'selected' : ''; ?>><?php echo $g; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-plus"></i> 儲存自訂標的</button>
+                    </form>
+                    <div class="finance-chip-list" style="margin-top:12px;">
+                        <?php if (!$customInstruments): ?>
+                            <p style="color:var(--muted-text);margin:0;">尚未新增自訂標的。</p>
+                        <?php endif; ?>
+                        <?php foreach ($customInstruments as $custom): ?>
+                            <form method="post" class="finance-chip">
+                                <input type="hidden" name="finance_action" value="delete_custom">
+                                <input type="hidden" name="instrument_id" value="<?php echo htmlspecialchars($custom['id']); ?>">
+                                <span><?php echo htmlspecialchars($custom['name']); ?> <small><?php echo htmlspecialchars($custom['symbol']); ?></small></span>
+                                <button type="submit" class="btn btn-sm btn-ghost" title="刪除"><i class="fa-solid fa-trash"></i></button>
+                            </form>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <div class="finance-grid">
@@ -183,12 +360,19 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 $changeNumber = isset($quote['change']) ? (float) str_replace(',', '', (string) $quote['change']) : 0;
                 $tone = $changeNumber > 0 ? 'up' : ($changeNumber < 0 ? 'down' : 'flat');
                 $statusClass = ($quote['status'] ?? '') === '創新高' ? 'high' : ((($quote['status'] ?? '') === '創新低') ? 'low' : 'breakout');
+                $history1y = $quote['historyRanges']['1y'] ?? [];
+                $historyPoints = array_values(array_filter(array_map(static function ($p) {
+                    return isset($p['price']) && is_numeric($p['price']) ? (float) $p['price'] : null;
+                }, $history1y)));
                 ?>
                 <section class="finance-card <?php echo $tone; ?>">
                     <div class="finance-card-head">
                         <div>
-                            <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?></span>
+                            <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?><?php echo !empty($quote['isCustom']) ? ' · 自訂' : ''; ?></span>
                             <h3><?php echo htmlspecialchars($quote['name']); ?></h3>
+                            <?php if (!empty($quote['localLabel'])): ?>
+                                <div style="color:var(--muted-text);font-size:0.82rem;margin-bottom:4px;"><?php echo htmlspecialchars($quote['localLabel']); ?></div>
+                            <?php endif; ?>
                             <a href="<?php echo htmlspecialchars($quote['url']); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($quote['symbol']); ?> · <?php echo htmlspecialchars($quote['source'] ?? ''); ?></a>
                         </div>
                         <?php if (!empty($quote['status'])): ?>
@@ -208,6 +392,21 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                         <div class="finance-change <?php echo $tone; ?>">
                             <?php echo $changeText !== '' ? htmlspecialchars($changeText) : '變動暫無資料'; ?>
                         </div>
+                        <?php if (!empty($quote['historySymbol']) || count($historyPoints) >= 2): ?>
+                            <div class="finance-range-tabs"
+                                 data-symbol="<?php echo htmlspecialchars($quote['historySymbol'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                 data-initial="<?php echo htmlspecialchars(json_encode(['1y' => $historyPoints], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>">
+                                <div class="finance-range-buttons">
+                                    <button type="button" class="btn btn-sm finance-range-btn active" data-range="1y">近一年</button>
+                                    <button type="button" class="btn btn-sm finance-range-btn" data-range="5y">近五年</button>
+                                    <button type="button" class="btn btn-sm finance-range-btn" data-range="10y">近十年</button>
+                                </div>
+                                <div class="finance-history-chart" data-points="<?php echo htmlspecialchars(json_encode($historyPoints), ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                <div class="finance-range-meta" style="color:var(--muted-text);font-size:0.78rem;font-weight:700;">
+                                    <?php echo count($historyPoints) >= 2 ? ('近一年 · ' . count($historyPoints) . ' 點') : '點選區間載入走勢'; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                         <div class="finance-stats">
                             <span>Open <b><?php echo htmlspecialchars($quote['open'] ?: '-'); ?></b></span>
                             <span>Day High <b><?php echo htmlspecialchars($quote['dayHigh'] ?: '-'); ?></b></span>
@@ -254,7 +453,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
                 </div>
                 <div>
                     <h3 class="card-title" style="margin-bottom: 4px;">手機比價</h3>
-                    <p style="color: var(--muted-text); line-height: 1.6;">依機型開啟手機通路查詢，對照地標網通與傑昇通信。</p>
+                    <p style="color: var(--muted-text); line-height: 1.6;">自動抓取地標網通與傑昇通信價格，合併比對最佳通路（對齊 Appwrite 版）。</p>
                 </div>
             </div>
 
@@ -773,11 +972,124 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         font-size: 0.9rem;
     }
 
+    .finance-manager {
+        margin-bottom: 20px;
+    }
+
+    .finance-manager-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .finance-manager-head p {
+        margin: 6px 0 0;
+        color: var(--muted-text);
+        line-height: 1.5;
+    }
+
+    .finance-manager-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 18px;
+    }
+
+    .finance-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .finance-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        margin: 0;
+    }
+
+    .finance-chip span {
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+
+    .finance-chip small {
+        color: var(--muted-text);
+        font-weight: 600;
+    }
+
+    .finance-custom-form {
+        display: grid;
+        gap: 8px;
+    }
+
+    .finance-history-chart {
+        width: 100%;
+        min-height: 72px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        background: var(--input-bg);
+        overflow: hidden;
+        padding-bottom: 4px;
+    }
+
+    .finance-history-chart svg {
+        display: block;
+        width: 100%;
+        height: 72px;
+    }
+
+    .finance-spark-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 4px 10px 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--muted-text);
+    }
+
+    .finance-range-tabs {
+        display: grid;
+        gap: 8px;
+    }
+
+    .finance-range-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .finance-range-btn.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .tube-downfall-panel {
+        margin-bottom: 18px;
+    }
+
+    .tube-downfall-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
     @media (max-width: 560px) {
         .tube-overview,
         .tube-channel-head,
         .tube-new-alert,
         .finance-overview,
+        .finance-manager-head,
         .finance-card-head {
             align-items: flex-start;
             flex-direction: column;
@@ -956,11 +1268,138 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
 
     function openPhoneCompare() {
         const query = getTrimmedValue('phoneQuery') || getDefaultSamsungPhone();
-        const landtopUrl = 'https://www.google.com/search?q=' + encodeURIComponent('site:landtop.com.tw ' + query);
-        const jyesUrl = 'https://www.google.com/search?q=' + encodeURIComponent('site:jyes.com.tw ' + query);
+        runPhoneCompare(query);
+    }
 
-        window.open(landtopUrl, '_blank', 'noopener');
-        window.open(jyesUrl, '_blank', 'noopener');
+    function escapeToolHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderPhoneProducts(products) {
+        if (!products || !products.length) {
+            return '<p style="color:var(--muted-text);">沒有可比對的商品結果。</p>';
+        }
+        const rows = products.slice(0, 40).map(product => {
+            const name = escapeToolHtml(product.name || '商品');
+            const brand = escapeToolHtml(product.brand || '');
+            const landtopLabel = escapeToolHtml(product.landtopPriceLabel || formatToolMoney(product.landtopPrice));
+            const jyesLabel = escapeToolHtml(product.jyesPriceLabel || formatToolMoney(product.jyesPrice));
+            const bestLabel = product.bestPrice != null
+                ? formatToolMoney(product.bestPrice) + (product.bestSourceLabel ? ' · ' + escapeToolHtml(product.bestSourceLabel) : '')
+                : '--';
+            const landtopLink = product.sourceUrl
+                ? `<a href="${escapeToolHtml(product.sourceUrl)}" target="_blank" rel="noopener">${landtopLabel}</a>`
+                : landtopLabel;
+            const jyesLink = product.jyesUrl
+                ? `<a href="${escapeToolHtml(product.jyesUrl)}" target="_blank" rel="noopener">${jyesLabel}</a>`
+                : jyesLabel;
+            return `
+                <tr>
+                    <td>
+                        <strong>${name}</strong>
+                        <div style="color:var(--muted-text);font-size:0.82rem;margin-top:4px;">${brand}</div>
+                    </td>
+                    <td>${formatToolMoney(product.suggestedPrice)}</td>
+                    <td>${landtopLink}</td>
+                    <td>${jyesLink}</td>
+                    <td><strong>${bestLabel}</strong></td>
+                </tr>
+            `;
+        }).join('');
+        return `
+            <div style="overflow-x:auto;">
+                <table class="table" style="margin-top:8px; min-width:720px;">
+                    <thead>
+                        <tr>
+                            <th>商品</th>
+                            <th>建議售價</th>
+                            <th>地標網通</th>
+                            <th>傑昇通信</th>
+                            <th>最佳價</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function renderPhonePriceChart(products) {
+        const chartProducts = (products || [])
+            .filter(p => p.landtopPrice || p.jyesPrice)
+            .slice(0, 8);
+        if (!chartProducts.length) return '';
+        const maxPrice = Math.max(
+            ...chartProducts.flatMap(p => [p.landtopPrice || 0, p.jyesPrice || 0]),
+            1
+        );
+        const bars = chartProducts.map(product => {
+            const landtopWidth = Math.max(4, ((product.landtopPrice || 0) / maxPrice) * 100);
+            const jyesWidth = Math.max(4, ((product.jyesPrice || 0) / maxPrice) * 100);
+            return `
+                <div style="display:grid;gap:6px;margin-bottom:12px;">
+                    <div style="font-size:0.86rem;font-weight:600;">${escapeToolHtml(product.name || '')}</div>
+                    <div style="display:grid;gap:4px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="width:56px;color:var(--muted-text);font-size:0.78rem;">地標</span>
+                            <div style="flex:1;background:var(--table-header-bg);border-radius:999px;height:10px;overflow:hidden;">
+                                <div style="width:${product.landtopPrice ? landtopWidth : 4}%;height:100%;background:var(--accent);"></div>
+                            </div>
+                            <span style="min-width:88px;text-align:right;font-size:0.82rem;">${product.landtopPrice ? formatToolMoney(product.landtopPrice) : '最低價'}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="width:56px;color:var(--muted-text);font-size:0.78rem;">傑昇</span>
+                            <div style="flex:1;background:var(--table-header-bg);border-radius:999px;height:10px;overflow:hidden;">
+                                <div style="width:${product.jyesPrice ? jyesWidth : 4}%;height:100%;background:#0ea5e9;"></div>
+                            </div>
+                            <span style="min-width:88px;text-align:right;font-size:0.82rem;">${product.jyesPrice ? formatToolMoney(product.jyesPrice) : '--'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        return `
+            <div class="card" style="padding:14px 16px;box-shadow:none;">
+                <div style="font-size:0.78rem;font-weight:700;letter-spacing:0.08em;color:var(--muted-text);margin-bottom:10px;">LANDTOP / JYES CHART</div>
+                ${bars}
+            </div>
+        `;
+    }
+
+    function renderPhoneProductHistories(histories) {
+        if (!histories || !histories.length) {
+            return '<p style="color:var(--muted-text);">目前還沒有商品級歷史價格。每次查詢會寫入當日快照，累積後即可看走勢。</p>';
+        }
+        const cards = histories.slice(0, 8).map(series => {
+            const landtopPoints = (series.points || [])
+                .filter(p => p.landtopPrice != null)
+                .map(p => Number(p.landtopPrice));
+            const jyesPoints = (series.points || [])
+                .filter(p => p.jyesPrice != null)
+                .map(p => Number(p.jyesPrice));
+            const chart = landtopPoints.length >= 2
+                ? renderSparkline(landtopPoints)
+                : (jyesPoints.length >= 2 ? renderSparkline(jyesPoints) : '<p style="color:var(--muted-text);font-size:0.86rem;">至少 2 個快照日後顯示走勢。</p>');
+            return `
+                <div class="card" style="padding:12px 14px;box-shadow:none;">
+                    <strong style="display:block;margin-bottom:6px;">${escapeToolHtml(series.name || series.id || '商品')}</strong>
+                    <div style="color:var(--muted-text);font-size:0.8rem;margin-bottom:8px;">快照 ${Number((series.points || []).length)} 筆</div>
+                    ${chart}
+                </div>
+            `;
+        }).join('');
+        return `
+            <div style="display:grid;gap:12px;">
+                <h4 style="margin:0;">商品歷史價格（每日快照）</h4>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+                    ${cards}
+                </div>
+            </div>
+        `;
     }
 
     function runPhoneCompareFor(brand) {
@@ -970,7 +1409,7 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
 
     function runPhoneCompare(queryOverride) {
         const query = queryOverride || getTrimmedValue('phoneQuery') || getDefaultSamsungPhone();
-        setToolResult('<p>查詢中...</p>');
+        setToolResult('<p>正在抓取地標網通與傑昇通信價格，請稍候...</p>');
         fetch('tools_api.php?action=phone_lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -979,19 +1418,37 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.error || '查詢失敗');
+                const s = res.snapshot || {};
                 const links = Object.entries(res.targets || {}).map(([name, url]) =>
-                    `<a class="btn btn-ghost" href="${url}" target="_blank" rel="noopener">${name}</a>`
+                    `<a class="btn btn-ghost" href="${escapeToolHtml(url)}" target="_blank" rel="noopener">${escapeToolHtml(name)}</a>`
                 ).join('');
+                const warningHtml = (res.warnings || []).length
+                    ? `<p style="color:#b45309;">${res.warnings.map(escapeToolHtml).join('；')}</p>`
+                    : '';
                 setToolResult(`
                     <div style="display:grid;gap:12px;">
-                        <h4>${res.snapshot.title}</h4>
-                        <p style="color:var(--muted-text);">${res.snapshot.notice}</p>
+                        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                            <div>
+                                <h4>${escapeToolHtml(s.title || (query + ' 手機比價'))}</h4>
+                                <p style="color:var(--muted-text);">${escapeToolHtml(s.notice || '')}</p>
+                                <p style="color:var(--muted-text);font-size:0.86rem;">共 ${Number(res.total || (res.products || []).length)} 筆 · 來源：地標網通 + 傑昇通信${res.snapshotStored ? ' · 今日寫入 ' + Number(res.snapshotStored) + ' 筆商品快照' : ''}</p>
+                            </div>
+                        </div>
+                        ${warningHtml}
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+                            <div class="food-stat-card"><span>最佳價</span><strong>${formatToolMoney(s.current_price ?? s.low_price)}</strong></div>
+                            <div class="food-stat-card"><span>最低</span><strong>${formatToolMoney(s.low_price)}</strong></div>
+                            <div class="food-stat-card"><span>最高</span><strong>${formatToolMoney(s.high_price)}</strong></div>
+                        </div>
+                        ${renderPhonePriceChart(res.products || [])}
+                        ${renderPhoneProducts(res.products || [])}
+                        ${renderPhoneProductHistories(res.histories || [])}
                         <div style="display:flex;gap:10px;flex-wrap:wrap;">${links}</div>
                         ${renderToolHistory(res.history)}
                     </div>
                 `);
             })
-            .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
+            .catch(err => setToolResult('<p style="color:#e74c3c;">' + escapeToolHtml(err.message) + '</p>'));
     }
 
     (function initPhoneCompareDefaults() {
@@ -1041,5 +1498,114 @@ $financeData = $toolSubpage === 'finance' ? fengbroFinanceGetData(isset($_GET['r
         if (event.key !== 'Enter') return;
         if (event.target && event.target.id === 'priceQuery') runBigGoLookup();
         if (event.target && event.target.id === 'phoneQuery') runPhoneCompare();
+    });
+
+    function renderInlineSparkline(container, points) {
+        if (!container || !points || points.length < 2) return;
+        const width = 320;
+        const height = 72;
+        const min = Math.min(...points);
+        const max = Math.max(...points);
+        const last = points[points.length - 1];
+        const span = Math.max(1e-9, max - min);
+        const coords = points.map((value, index) => {
+            const x = (index / (points.length - 1)) * width;
+            const y = height - ((value - min) / span) * (height - 18) - 10;
+            return x.toFixed(1) + ',' + y.toFixed(1);
+        }).join(' ');
+        const up = last >= points[0];
+        const color = up ? '#059669' : '#dc2626';
+        const areaCoords = '0,' + height + ' ' + coords + ' ' + width + ',' + height;
+        const fmt = function (n) {
+            return Number(n).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+        };
+        const gradientId = 'sparkFill_' + Math.random().toString(36).slice(2, 8);
+        container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block;width:100%;height:100%;">
+            <defs>
+                <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${color}" stop-opacity="0.28"></stop>
+                    <stop offset="100%" stop-color="${color}" stop-opacity="0.02"></stop>
+                </linearGradient>
+            </defs>
+            <polygon points="${areaCoords}" fill="url(#${gradientId})"></polygon>
+            <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        </svg>
+        <div class="finance-spark-meta">
+            <span>低 ${fmt(min)}</span>
+            <span>現 ${fmt(last)}</span>
+            <span>高 ${fmt(max)}</span>
+        </div>`;
+    }
+
+    document.querySelectorAll('.finance-history-chart[data-points]').forEach(function (el) {
+        try {
+            const points = JSON.parse(el.getAttribute('data-points') || '[]');
+            renderInlineSparkline(el, points);
+        } catch (e) {}
+    });
+
+    document.querySelectorAll('.finance-range-tabs').forEach(function (tabs) {
+        const symbol = tabs.getAttribute('data-symbol') || '';
+        const chartEl = tabs.querySelector('.finance-history-chart');
+        const metaEl = tabs.querySelector('.finance-range-meta');
+        let cache = {};
+        try {
+            cache = JSON.parse(tabs.getAttribute('data-initial') || '{}') || {};
+        } catch (e) {
+            cache = {};
+        }
+
+        function setActive(range) {
+            tabs.querySelectorAll('.finance-range-btn').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-range') === range);
+            });
+        }
+
+        function showPoints(range, points, label) {
+            const safePoints = (points || []).filter(function (n) { return typeof n === 'number' && !isNaN(n); });
+            if (chartEl) {
+                if (safePoints.length >= 2) {
+                    renderInlineSparkline(chartEl, safePoints);
+                } else {
+                    chartEl.innerHTML = '<div style="padding:18px;color:var(--muted-text);font-size:0.86rem;">此區間暫無資料</div>';
+                }
+            }
+            if (metaEl) {
+                metaEl.textContent = (label || range) + ' · ' + safePoints.length + ' 點';
+            }
+        }
+
+        tabs.querySelectorAll('.finance-range-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const range = btn.getAttribute('data-range') || '1y';
+                setActive(range);
+                if (cache[range] && cache[range].length) {
+                    showPoints(range, cache[range], btn.textContent.trim());
+                    return;
+                }
+                if (!symbol) {
+                    if (metaEl) metaEl.textContent = '此標的無 Yahoo 歷史代碼';
+                    return;
+                }
+                if (metaEl) metaEl.textContent = '載入 ' + btn.textContent.trim() + '…';
+                fetch('tools_api.php?action=finance_history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol: symbol, range: range })
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        const points = (res.points || []).map(function (p) { return Number(p.price); }).filter(function (n) { return !isNaN(n); });
+                        cache[range] = points;
+                        showPoints(range, points, res.label || btn.textContent.trim());
+                        if (!res.success && metaEl && res.error) {
+                            metaEl.textContent = res.error;
+                        }
+                    })
+                    .catch(function (err) {
+                        if (metaEl) metaEl.textContent = err.message || '載入失敗';
+                    });
+            });
+        });
     });
 </script>

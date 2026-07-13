@@ -37,6 +37,9 @@ sort($categories);
             class="fa-solid fa-upload"></i> 匯入 ZIP</button>
     <input type="file" id="zipImport" accept=".zip" style="display:none;"
         onchange="previewAndImportZIP(this, 'document', 'import_zip_document_ajax.php', '文件')">
+    <button type="button" class="btn btn-ghost" onclick="refreshDocumentCacheStats()" title="離線快取狀態">
+        <i class="fa-solid fa-hard-drive"></i> <span id="documentCacheStatsLabel">快取</span>
+    </button>
 
     <?php include 'includes/zip-preview.php'; ?>
     <?php include 'includes/batch-delete.php'; ?>
@@ -272,6 +275,12 @@ sort($categories);
                                     <button class="btn btn-sm btn-primary"
                                         onclick="previewDocument('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')">
                                         <i class="fa-solid fa-eye"></i> 預覽
+                                    </button>
+                                    <button class="btn btn-sm btn-ghost document-cache-btn"
+                                        data-cache-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                        onclick="cacheDocumentOffline('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')"
+                                        title="離線快取（上限 500MB）">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i>
                                     </button>
                                     <a href="<?php echo htmlspecialchars($item['file']); ?>" download="<?php
                                        $ext = pathinfo($item['file'], PATHINFO_EXTENSION);
@@ -809,15 +818,84 @@ sort($categories);
         window.triggerFileUpload(targetInput);
     };
 
-    // 文件預覽功能
-    function previewDocument(id, filePath, title) {
+    async function resolveDocumentSrc(id, fallbackSrc) {
+        if (!window.FengbroMediaCache || !id) return fallbackSrc;
+        try {
+            const objectUrl = await window.FengbroMediaCache.getObjectUrl('document', id);
+            return objectUrl || fallbackSrc;
+        } catch (e) {
+            return fallbackSrc;
+        }
+    }
+
+    async function refreshDocumentCacheStats() {
+        const label = document.getElementById('documentCacheStatsLabel');
+        if (!window.FengbroMediaCache) {
+            if (label) label.textContent = '快取不可用';
+            return;
+        }
+        try {
+            const stats = await window.FengbroMediaCache.getStats('document');
+            if (label) {
+                label.textContent = window.FengbroMediaCache.formatBytes(stats.totalSize) + ' / 500MB · ' + stats.totalItems;
+            }
+            document.querySelectorAll('.document-cache-btn[data-cache-id]').forEach(async function (btn) {
+                const id = btn.getAttribute('data-cache-id');
+                const cached = await window.FengbroMediaCache.isCached('document', id);
+                btn.classList.toggle('btn-success', cached);
+                btn.innerHTML = cached
+                    ? '<i class="fa-solid fa-check"></i>'
+                    : '<i class="fa-solid fa-cloud-arrow-down"></i>';
+            });
+        } catch (e) {
+            if (label) label.textContent = '快取';
+        }
+    }
+
+    async function cacheDocumentOffline(id, filePath, title) {
+        if (!window.FengbroMediaCache) {
+            alert('瀏覽器不支援離線快取');
+            return;
+        }
+        if (!id || !filePath) {
+            alert('找不到可快取的檔案');
+            return;
+        }
+        const btn = document.querySelector('.document-cache-btn[data-cache-id="' + id + '"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        }
+        try {
+            await window.FengbroMediaCache.cacheMedia('document', {
+                id: id,
+                title: title || id,
+                url: filePath
+            }, function (progress) {
+                if (btn) btn.innerHTML = progress + '%';
+            });
+            await refreshDocumentCacheStats();
+            alert('已快取到本機，可離線預覽');
+        } catch (err) {
+            alert('快取失敗：' + (err.message || err));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+            }
+        }
+    }
+
+    // 文件預覽功能（優先使用 IndexedDB 離線快取）
+    async function previewDocument(id, filePath, title) {
+        const src = await resolveDocumentSrc(id, filePath);
+        const offline = src !== filePath;
         const ext = filePath.split('.').pop().toLowerCase();
         const previewModal = document.getElementById('previewModal');
         const previewTitle = document.getElementById('previewTitle');
         const previewContent = document.getElementById('previewContent');
         const downloadBtn = document.getElementById('previewDownloadBtn');
 
-        previewTitle.textContent = title;
+        previewTitle.textContent = title + (offline ? ' · Offline' : '');
         downloadBtn.href = filePath;
         downloadBtn.download = filePath.split('/').pop();
         downloadBtn.style.display = '';
@@ -826,34 +904,28 @@ sort($categories);
 
         // 根據檔案類型顯示不同預覽
         if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
-            // 圖片
-            previewContent.innerHTML = `<img src="${filePath}" style="max-width:100%;max-height:70vh;border-radius:8px;">`;
+            previewContent.innerHTML = `<img src="${src}" style="max-width:100%;max-height:70vh;border-radius:8px;">`;
         } else if (ext === 'pdf') {
-            // PDF
-            previewContent.innerHTML = `<iframe src="${filePath}" style="width:100%;height:70vh;border:none;border-radius:8px;"></iframe>`;
+            previewContent.innerHTML = `<iframe src="${src}" style="width:100%;height:70vh;border:none;border-radius:8px;"></iframe>`;
         } else if (['pptx', 'ppt', 'docx', 'doc', 'xlsx', 'xls'].includes(ext)) {
-            // Office 文件 - 本地伺服器無法使用 Office Online Viewer，直接提供下載
             const iconClass = ext.includes('ppt') ? 'fa-file-powerpoint' : (ext.includes('doc') ? 'fa-file-word' : 'fa-file-excel');
             const iconColor = ext.includes('ppt') ? '#e67e22' : (ext.includes('doc') ? '#3498db' : '#27ae60');
             previewContent.innerHTML = `
                 <div style="text-align:center;padding:50px;">
                     <i class="fa-solid ${iconClass} fa-5x" style="color:${iconColor};margin-bottom:25px;"></i>
                     <h3 style="margin-bottom:15px;">${title}</h3>
-                    <p style="color:#888;margin-bottom:25px;">Office 文件需要下載後使用本機軟體開啟</p>
+                    <p style="color:#888;margin-bottom:25px;">Office 文件需要下載後使用本機軟體開啟${offline ? '（已離線快取）' : ''}</p>
                     <a href="${filePath}" download class="btn btn-primary" style="font-size:1.1rem;padding:12px 30px;">
                         <i class="fa-solid fa-download"></i> 下載檔案
                     </a>
                 </div>
             `;
         } else if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
-            // 影片
-            previewContent.innerHTML = `<video src="${filePath}" controls style="max-width:100%;max-height:70vh;border-radius:8px;"></video>`;
+            previewContent.innerHTML = `<video src="${src}" controls style="max-width:100%;max-height:70vh;border-radius:8px;"></video>`;
         } else if (['mp3', 'wav', 'm4a', 'ogg', 'flac'].includes(ext)) {
-            // 音訊
-            previewContent.innerHTML = `<audio src="${filePath}" controls style="width:100%;"></audio>`;
+            previewContent.innerHTML = `<audio src="${src}" controls style="width:100%;"></audio>`;
         } else if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql'].includes(ext)) {
-            // 文字檔案 - 可編輯
-            fetch(filePath)
+            fetch(src)
                 .then(r => r.text())
                 .then(text => {
                     previewContent.innerHTML = `
@@ -869,7 +941,6 @@ sort($categories);
                     previewContent.innerHTML = `<p style="color:#e74c3c;">無法載入檔案內容</p>`;
                 });
         } else {
-            // 其他 - 提供下載連結
             previewContent.innerHTML = `
                 <div style="text-align:center;padding:50px;">
                     <i class="fa-solid fa-file fa-4x" style="color:#666;margin-bottom:20px;"></i>
@@ -916,12 +987,41 @@ sort($categories);
             });
     }
 
+    window.batchCacheSelectedItems = async function (ids) {
+        if (!window.FengbroMediaCache) throw new Error('瀏覽器不支援離線快取');
+        if (!ids || !ids.length) return;
+        let ok = 0, fail = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const row = document.querySelector('tr[data-id="' + id + '"], .card[data-id="' + id + '"]');
+            const filePath = row ? (row.dataset.file || '') : '';
+            const title = row ? (row.dataset.name || id) : id;
+            if (!filePath) { fail++; continue; }
+            try {
+                await window.FengbroMediaCache.cacheMedia('document', {
+                    id: id,
+                    title: title,
+                    url: filePath
+                });
+                ok++;
+            } catch (e) {
+                fail++;
+            }
+        }
+        await refreshDocumentCacheStats();
+        alert('批次快取完成：成功 ' + ok + ' 筆' + (fail ? '，失敗 ' + fail + ' 筆' : ''));
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         let preferredView = 'list';
         try {
             preferredView = localStorage.getItem(DOCUMENT_VIEW_STORAGE_KEY) || 'list';
         } catch (_) {}
         setDocumentView(preferredView === 'card' ? 'card' : 'list');
+        refreshDocumentCacheStats();
+        if (typeof enableBatchCacheButton === 'function') {
+            enableBatchCacheButton(true);
+        }
     });
 </script>
 

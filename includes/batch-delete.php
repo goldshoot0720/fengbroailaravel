@@ -184,6 +184,39 @@
         return batchDeleteTable ? `DELETE ${batchDeleteTable}` : 'DELETE';
     }
 
+    function enableBatchCacheButton(enabled) {
+        const btn = document.getElementById('batchCacheBtn');
+        if (!btn) return;
+        btn.style.display = enabled ? 'inline-flex' : 'none';
+    }
+
+    async function confirmBatchCache() {
+        if (batchDeleteIds.size === 0) {
+            alert('請先選擇項目');
+            return;
+        }
+        if (typeof window.batchCacheSelectedItems !== 'function') {
+            alert('此頁面尚未支援批次快取');
+            return;
+        }
+        const ids = Array.from(batchDeleteIds);
+        const btn = document.getElementById('batchCacheBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 快取中…';
+        }
+        try {
+            await window.batchCacheSelectedItems(ids);
+        } catch (err) {
+            alert('批次快取失敗：' + (err && err.message ? err.message : err));
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-cloud-arrow-down"></i> 批次快取';
+            }
+        }
+    }
+
     function confirmBatchDelete() {
         if (batchDeleteIds.size === 0) return;
 
@@ -256,12 +289,16 @@
         <i class="fas fa-check-square"></i>
         已選擇 <span id="batchSelectedCount" class="count">0</span> 個項目
     </div>
-    <div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
         <button class="btn btn-sm" onclick="cancelBatchSelect()">
             <i class="fas fa-times"></i> 取消選擇
         </button>
+        <button id="batchCacheBtn" class="btn btn-sm" onclick="confirmBatchCache()"
+            style="display:none; background: #eef2ff; color: #4338ca;">
+            <i class="fas fa-cloud-arrow-down"></i> 批次快取
+        </button>
         <button class="btn btn-sm" onclick="confirmBatchDelete()"
-            style="margin-left: 8px; background: #fff; color: #c0392b;">
+            style="background: #fff; color: #c0392b;">
             <i class="fas fa-trash"></i> 批量刪除
         </button>
     </div>

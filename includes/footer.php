@@ -43,8 +43,9 @@
     </div>
     <pre id="globalLyricsContent" class="global-lyrics-content"></pre>
 </div>
-<script src="assets/js/main.js?v=20260520bankdeposit"></script>
-<script src="assets/js/inline-edit.js?v=20260521refactor"></script>
+<script src="assets/js/media-cache.js?v=20260713cache2"></script>
+<script src="assets/js/main.js?v=20260713theme3"></script>
+<script src="assets/js/inline-edit.js?v=20260713delete"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
 <script>

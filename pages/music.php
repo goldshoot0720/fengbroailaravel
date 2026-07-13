@@ -103,6 +103,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     </button>
     <input type="file" id="multiAudioFiles" accept="audio/*" multiple style="display: none;" onchange="uploadMultipleAudioFiles(this.files)">
 
+    <button type="button" class="btn btn-ghost" onclick="refreshMusicCacheStats()" title="離線快取狀態" style="margin-left: 10px;">
+        <i class="fa-solid fa-hard-drive"></i> <span id="musicCacheStatsLabel">快取</span>
+    </button>
     <div style="display: inline-block; margin-left: 10px;">
         <a href="export_zip_music.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP
@@ -858,14 +861,78 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         }, 50);
     }
 
-    function playMusic(src, title, musicId) {
+    async function resolveMusicPlaySrc(id, fallbackSrc) {
+        if (!window.FengbroMediaCache || !id) return fallbackSrc;
+        try {
+            const objectUrl = await window.FengbroMediaCache.getObjectUrl('music', id);
+            return objectUrl || fallbackSrc;
+        } catch (e) {
+            return fallbackSrc;
+        }
+    }
+
+    async function refreshMusicCacheStats() {
+        const label = document.getElementById('musicCacheStatsLabel');
+        if (!window.FengbroMediaCache) {
+            if (label) label.textContent = '快取不可用';
+            return;
+        }
+        try {
+            const stats = await window.FengbroMediaCache.getStats('music');
+            if (label) {
+                label.textContent = window.FengbroMediaCache.formatBytes(stats.totalSize) + ' / 500MB · ' + stats.totalItems;
+            }
+        } catch (e) {
+            if (label) label.textContent = '快取';
+        }
+    }
+
+    async function cacheMusicOffline(id, src, title) {
+        if (!window.FengbroMediaCache) {
+            alert('瀏覽器不支援離線快取');
+            return;
+        }
+        if (!id || !src) {
+            alert('找不到可快取的音樂');
+            return;
+        }
+        const btn = document.getElementById('twoLayerCacheBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        }
+        try {
+            await window.FengbroMediaCache.cacheMedia('music', {
+                id: id,
+                title: title || id,
+                url: src
+            }, function (progress) {
+                if (btn) btn.innerHTML = progress + '%';
+            });
+            await refreshMusicCacheStats();
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+            }
+            alert('已快取到本機，可離線播放');
+        } catch (err) {
+            alert('快取失敗：' + (err.message || err));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-cloud-arrow-down"></i>';
+            }
+        }
+    }
+
+    async function playMusic(src, title, musicId) {
+        const playSrc = await resolveMusicPlaySrc(musicId, src);
         withSharedMusicPlayer(function (player) {
             player.playAudio({
-                src: src,
+                src: playSrc,
                 title: title,
                 id: musicId,
                 mediaType: 'music',
-                meta: 'Music',
+                meta: playSrc !== src ? 'Music · Offline' : 'Music',
                 downloadName: sanitizeMusicFilename(title) + '.mp3'
             });
         });
@@ -954,6 +1021,12 @@ $languages = $defaultLanguages; // Keep default for quick buttons
         playMusic(twoLayerCurrentFile, title, twoLayerCurrentId);
     }
 
+    function cacheTwoLayerTrack() {
+        if (!twoLayerCurrentFile || !twoLayerCurrentId) { alert('請選擇版本'); return; }
+        const title = document.getElementById('twoLayerTitle').textContent + ' - ' + document.getElementById('twoLayerTrackName').textContent;
+        cacheMusicOffline(twoLayerCurrentId, twoLayerCurrentFile, title);
+    }
+
     function downloadTwoLayerTrack() {
         if (!twoLayerCurrentFile) { alert('請選擇版本'); return; }
         const title = document.getElementById('twoLayerTitle').textContent + ' - ' + document.getElementById('twoLayerTrackName').textContent;
@@ -969,6 +1042,70 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
     function closeTwoLayerModal() {
         document.getElementById('twoLayerModal').style.display = 'none';
+    }
+
+    window.batchCacheSelectedItems = async function (ids) {
+        if (!window.FengbroMediaCache) throw new Error('瀏覽器不支援離線快取');
+        if (!ids || !ids.length) return;
+
+        // 從卡片 data-items 收集所有版本（同名多語言）
+        const targets = [];
+        const seen = new Set();
+        document.querySelectorAll('.card[data-items]').forEach(function (card) {
+            let items = [];
+            try {
+                items = JSON.parse(card.getAttribute('data-items') || '[]');
+            } catch (e) {
+                items = [];
+            }
+            items.forEach(function (it) {
+                if (!it || !it.id || !ids.includes(it.id) || !it.file || seen.has(it.id)) return;
+                seen.add(it.id);
+                targets.push({
+                    id: it.id,
+                    title: (card.dataset.name || 'Music') + (it.language ? (' - ' + it.language) : ''),
+                    url: it.file
+                });
+            });
+        });
+
+        // 後備：只依 data-id / data-file
+        ids.forEach(function (id) {
+            if (seen.has(id)) return;
+            const card = document.querySelector('.card[data-id="' + id + '"]');
+            if (!card || !card.dataset.file) return;
+            seen.add(id);
+            targets.push({
+                id: id,
+                title: card.dataset.name || id,
+                url: card.dataset.file
+            });
+        });
+
+        let ok = 0, fail = 0;
+        for (let i = 0; i < targets.length; i++) {
+            try {
+                await window.FengbroMediaCache.cacheMedia('music', targets[i]);
+                ok++;
+            } catch (e) {
+                fail++;
+            }
+        }
+        await refreshMusicCacheStats();
+        alert('批次快取完成：成功 ' + ok + ' 首' + (fail ? '，失敗 ' + fail + ' 首' : ''));
+    };
+
+    function initMusicCacheUi() {
+        refreshMusicCacheStats();
+        if (typeof enableBatchCacheButton === 'function') {
+            enableBatchCacheButton(true);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMusicCacheUi);
+    } else {
+        initMusicCacheUi();
     }
 
     document.addEventListener('keydown', function (e) {
@@ -1009,6 +1146,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div style="font-size:0.85rem; opacity:0.8;">已選版本：</div>
                 <div id="twoLayerTrackName" style="font-weight:600; font-size:1.1rem;">請選擇</div>
             </div>
+            <button id="twoLayerCacheBtn" onclick="cacheTwoLayerTrack()" title="離線快取（上限 500MB）"
+                style="width:52px; height:52px; border-radius:50%; border:none; background:#eef2ff; color:#764ba2; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                    class="fas fa-cloud-arrow-down"></i></button>
             <button onclick="downloadTwoLayerTrack()"
                 style="width:52px; height:52px; border-radius:50%; border:none; background:#f3f4f6; color:#764ba2; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
                     class="fas fa-download"></i></button>

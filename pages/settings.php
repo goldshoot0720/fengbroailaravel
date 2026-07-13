@@ -511,6 +511,23 @@ $biggoSettings = [
         </div>
         <div id="storageScanResult" style="color: var(--muted-text);">尚未掃描。</div>
     </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">本機離線快取（IndexedDB）</h3>
+        <p style="color: var(--muted-text); margin-bottom: 12px;">
+            對齊 Appwrite 版媒體快取：影片 / 音樂 / 播客 / 文件 / 圖片各有獨立資料庫，單一類型上限 500MB。
+            快取只存在目前瀏覽器，清除後需重新下載。
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button type="button" class="btn btn-primary" onclick="refreshOfflineCacheStats()">
+                <i class="fa-solid fa-rotate"></i> 重新整理統計
+            </button>
+            <button type="button" class="btn btn-danger" onclick="clearAllOfflineCaches()">
+                <i class="fa-solid fa-broom"></i> 清除全部離線快取
+            </button>
+        </div>
+        <div id="offlineCacheResult" style="color: var(--muted-text);">載入中...</div>
+    </div>
 </div>
 
 <script>
@@ -578,4 +595,97 @@ $biggoSettings = [
             })
             .catch(err => alert('刪除失敗: ' + err.message));
     }
+
+    const OFFLINE_CACHE_LABELS = {
+        video: '影片',
+        music: '音樂',
+        podcast: '播客',
+        document: '文件',
+        image: '圖片'
+    };
+
+    async function refreshOfflineCacheStats() {
+        const box = document.getElementById('offlineCacheResult');
+        if (!box) return;
+        if (!window.FengbroMediaCache || !window.FengbroMediaCache.getAllStats) {
+            box.innerHTML = '<span style="color:#e74c3c;">目前瀏覽器不支援 IndexedDB 離線快取。</span>';
+            return;
+        }
+        box.textContent = '讀取中...';
+        try {
+            const summary = await window.FengbroMediaCache.getAllStats();
+            const rows = (summary.kinds || []).map(function (row) {
+                const ratio = Math.min(100, Math.round((row.usageRatio || 0) * 100));
+                return `
+                    <tr>
+                        <td>${OFFLINE_CACHE_LABELS[row.kind] || row.kind}</td>
+                        <td>${row.totalItems || 0}</td>
+                        <td>${window.FengbroMediaCache.formatBytes(row.totalSize || 0)}</td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="flex:1;height:8px;border-radius:999px;background:var(--table-header-bg);overflow:hidden;">
+                                    <div style="width:${ratio}%;height:100%;background:var(--accent);"></div>
+                                </div>
+                                <span style="min-width:42px;text-align:right;">${ratio}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="clearOfflineCacheKind('${row.kind}')">
+                                清除
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            box.innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+                    <div class="card" style="margin:0;"><strong>${summary.totalItems || 0}</strong><br><span>快取項目</span></div>
+                    <div class="card" style="margin:0;"><strong>${window.FengbroMediaCache.formatBytes(summary.totalSize || 0)}</strong><br><span>合計用量</span></div>
+                    <div class="card" style="margin:0;"><strong>500MB</strong><br><span>每類型上限</span></div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="table" style="min-width:560px;">
+                        <thead>
+                            <tr><th>類型</th><th>數量</th><th>大小</th><th>用量</th><th>操作</th></tr>
+                        </thead>
+                        <tbody>${rows || '<tr><td colspan="5">目前沒有離線快取。</td></tr>'}</tbody>
+                    </table>
+                </div>
+            `;
+        } catch (err) {
+            box.innerHTML = '<span style="color:#e74c3c;">讀取失敗：' + (err.message || err) + '</span>';
+        }
+    }
+
+    async function clearOfflineCacheKind(kind) {
+        if (!window.FengbroMediaCache) return;
+        const label = OFFLINE_CACHE_LABELS[kind] || kind;
+        if (!confirm('確定清除「' + label + '」離線快取？')) return;
+        try {
+            const result = await window.FengbroMediaCache.clearKind(kind);
+            alert('已清除 ' + (result.cleared || 0) + ' 筆「' + label + '」快取');
+            refreshOfflineCacheStats();
+        } catch (err) {
+            alert('清除失敗：' + (err.message || err));
+        }
+    }
+
+    async function clearAllOfflineCaches() {
+        if (!window.FengbroMediaCache) return;
+        if (!confirm('確定清除全部離線快取（影片/音樂/播客/文件/圖片）？此操作不可復原。')) return;
+        try {
+            const results = await window.FengbroMediaCache.clearAll();
+            const total = (results || []).reduce(function (sum, row) {
+                return sum + (row.cleared || 0);
+            }, 0);
+            alert('已清除全部離線快取，共 ' + total + ' 筆');
+            refreshOfflineCacheStats();
+        } catch (err) {
+            alert('清除失敗：' + (err.message || err));
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        refreshOfflineCacheStats();
+    });
 </script>

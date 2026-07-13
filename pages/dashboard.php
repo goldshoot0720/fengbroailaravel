@@ -8,7 +8,11 @@ $exchangeRates = [
     'EUR' => 40,
     'JPY' => 0.35,
     'CNY' => 4.5,
-    'HKD' => 4
+    'HKD' => 4,
+    'GBP' => 44,
+    'KRW' => 0.025,
+    'SGD' => 26,
+    'AUD' => 23,
 ];
 
 $subscriptionCount = $pdo->query("SELECT COUNT(*) FROM subscription")->fetchColumn();
@@ -24,10 +28,25 @@ $foodCount = $pdo->query("SELECT COUNT(*) FROM food")->fetchColumn();
 $noteCount = $pdo->query("SELECT COUNT(*) FROM article")->fetchColumn();
 $favoriteCount = $pdo->query("SELECT COUNT(*) FROM commonaccount")->fetchColumn();
 $imageCount = $pdo->query("SELECT COUNT(*) FROM image")->fetchColumn();
-$videoCount = $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category = 'video'")->fetchColumn();
+$videoCount = 0;
+try {
+    $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM video")->fetchColumn();
+} catch (Throwable $e) {
+    try {
+        $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category = 'video'")->fetchColumn();
+    } catch (Throwable $e2) {
+        $videoCount = 0;
+    }
+}
 $musicCount = $pdo->query("SELECT COUNT(*) FROM music")->fetchColumn();
 $podcastCount = $pdo->query("SELECT COUNT(*) FROM podcast")->fetchColumn();
-$documentCount = $pdo->query("SELECT COUNT(*) FROM commondocument")->fetchColumn();
+$documentCount = 0;
+try {
+    // 文件頁排除 category=video 的舊資料
+    $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category != 'video' OR category IS NULL")->fetchColumn();
+} catch (Throwable $e) {
+    $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument")->fetchColumn();
+}
 $bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
 $bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
@@ -75,6 +94,63 @@ $uploadsFileCount = 0;
 if (is_dir($uploadsDir)) {
     $uploadsFileCount = count(glob($uploadsDir . '/*'));
 }
+
+// 伺服器 uploads 子目錄分類（對齊 Appwrite storage-stats 的分類概念）
+$uploadBuckets = [
+    'images' => 0,
+    'videos' => 0,
+    'music' => 0,
+    'podcasts' => 0,
+    'documents' => 0,
+    'other' => 0,
+];
+$uploadBucketCounts = [
+    'images' => 0,
+    'videos' => 0,
+    'music' => 0,
+    'podcasts' => 0,
+    'documents' => 0,
+    'other' => 0,
+];
+if (is_dir($uploadsDir)) {
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($uploadsDir, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) {
+                continue;
+            }
+            $ext = strtolower($file->getExtension());
+            $size = (int) $file->getSize();
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'], true)) {
+                $bucket = 'images';
+            } elseif (in_array($ext, ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'], true)) {
+                $bucket = 'videos';
+            } elseif (in_array($ext, ['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg', 'oga'], true)) {
+                // 粗分：路徑含 podcast 才算播客
+                $path = strtolower(str_replace('\\', '/', $file->getPathname()));
+                $bucket = (str_contains($path, 'podcast')) ? 'podcasts' : 'music';
+            } elseif (in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv', 'zip', 'json', 'xml'], true)) {
+                $bucket = 'documents';
+            } else {
+                $bucket = 'other';
+            }
+            $uploadBuckets[$bucket] += $size;
+            $uploadBucketCounts[$bucket]++;
+        }
+    } catch (Throwable $e) {
+        // ignore scan errors
+    }
+}
+$uploadBucketLabels = [
+    'images' => '圖片',
+    'videos' => '影片',
+    'music' => '音樂',
+    'podcasts' => '播客',
+    'documents' => '文件',
+    'other' => '其他',
+];
 ?>
 
 <div class="content-header">
@@ -186,12 +262,65 @@ if (is_dir($uploadsDir)) {
             <strong><?php echo $uploadsFolderSizeFormatted; ?></strong>
             <small><?php echo $uploadsFileCount; ?> files available</small>
         </div>
+        <a href="index.php?page=settings" class="metric-card" id="offlineCacheMetricCard">
+            <span class="metric-icon"><i class="fa-solid fa-database"></i></span>
+            <span class="metric-label">Offline cache</span>
+            <strong id="offlineCacheMetricValue">…</strong>
+            <small id="offlineCacheMetricHint">IndexedDB 媒體快取</small>
+        </a>
         <a href="index.php?page=tools" class="metric-card">
             <span class="metric-icon"><i class="fa-solid fa-wrench"></i></span>
             <span class="metric-label">Tools snapshots</span>
             <strong><?php echo $toolSnapshotCount; ?></strong>
             <small>BigGo and phone compare history</small>
         </a>
+    </section>
+
+    <section class="dashboard-section storage-breakdown-section">
+        <div class="section-heading">
+            <h3><i class="fa-solid fa-chart-pie"></i> 儲存空間分類</h3>
+            <p>伺服器 uploads 依副檔名粗分；本機 IndexedDB 快取由瀏覽器即時讀取（上限每類型 500MB）。</p>
+        </div>
+        <div class="storage-breakdown-grid">
+            <article class="card storage-breakdown-card">
+                <h4>伺服器 uploads</h4>
+                <div class="storage-breakdown-total">
+                    <strong><?php echo htmlspecialchars($uploadsFolderSizeFormatted); ?></strong>
+                    <span><?php echo (int) $uploadsFileCount; ?> files</span>
+                </div>
+                <div class="storage-breakdown-list">
+                    <?php foreach ($uploadBucketLabels as $key => $label): ?>
+                        <?php
+                        $size = (int) ($uploadBuckets[$key] ?? 0);
+                        $count = (int) ($uploadBucketCounts[$key] ?? 0);
+                        $ratio = $uploadsFolderSize > 0 ? min(100, round(($size / $uploadsFolderSize) * 100)) : 0;
+                        ?>
+                        <div class="storage-breakdown-row">
+                            <div class="storage-breakdown-meta">
+                                <span><?php echo htmlspecialchars($label); ?></span>
+                                <small><?php echo $count; ?> · <?php echo htmlspecialchars(formatBytes($size)); ?></small>
+                            </div>
+                            <div class="storage-breakdown-bar">
+                                <div style="width:<?php echo $ratio; ?>%;"></div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </article>
+            <article class="card storage-breakdown-card">
+                <h4>本機 Offline cache</h4>
+                <div class="storage-breakdown-total">
+                    <strong id="offlineBreakdownTotal">…</strong>
+                    <span id="offlineBreakdownHint">IndexedDB</span>
+                </div>
+                <div id="offlineBreakdownList" class="storage-breakdown-list">
+                    <p style="color:var(--muted-text);margin:0;">讀取中…</p>
+                </div>
+                <div style="margin-top:12px;">
+                    <a class="btn btn-sm btn-ghost" href="index.php?page=settings">管理快取</a>
+                </div>
+            </article>
+        </div>
     </section>
 
     <?php if (!empty($subExpiring3Days) || !empty($subExpiring7Days) || !empty($foodExpiring7Days) || !empty($foodExpiring30Days) || !empty($expiredFoods)): ?>
@@ -350,8 +479,67 @@ if (is_dir($uploadsDir)) {
         });
     }
 
-    document.addEventListener('DOMContentLoaded', sendDashboardNotifications);
+    async function loadOfflineCacheMetric() {
+        const valueEl = document.getElementById('offlineCacheMetricValue');
+        const hintEl = document.getElementById('offlineCacheMetricHint');
+        const totalEl = document.getElementById('offlineBreakdownTotal');
+        const listEl = document.getElementById('offlineBreakdownList');
+        const listHint = document.getElementById('offlineBreakdownHint');
+        const labels = {
+            video: '影片',
+            music: '音樂',
+            podcast: '播客',
+            document: '文件',
+            image: '圖片'
+        };
+
+        if (!window.FengbroMediaCache || !window.FengbroMediaCache.getAllStats) {
+            if (valueEl) valueEl.textContent = 'N/A';
+            if (hintEl) hintEl.textContent = '此瀏覽器不支援 IndexedDB';
+            if (totalEl) totalEl.textContent = 'N/A';
+            if (listEl) listEl.innerHTML = '<p style="color:var(--muted-text);margin:0;">此瀏覽器不支援 IndexedDB</p>';
+            return;
+        }
+        try {
+            const summary = await window.FengbroMediaCache.getAllStats();
+            if (valueEl) valueEl.textContent = window.FengbroMediaCache.formatBytes(summary.totalSize || 0);
+            if (hintEl) hintEl.textContent = (summary.totalItems || 0) + ' 項 · 點此管理快取';
+            if (totalEl) totalEl.textContent = window.FengbroMediaCache.formatBytes(summary.totalSize || 0);
+            if (listHint) listHint.textContent = (summary.totalItems || 0) + ' 項';
+            if (listEl) {
+                const maxSize = summary.maxSizePerKind || (500 * 1024 * 1024);
+                const rows = (summary.kinds || []).map(function (row) {
+                    const ratio = Math.min(100, Math.round(((row.totalSize || 0) / maxSize) * 100));
+                    return `
+                        <div class="storage-breakdown-row">
+                            <div class="storage-breakdown-meta">
+                                <span>${labels[row.kind] || row.kind}</span>
+                                <small>${row.totalItems || 0} · ${window.FengbroMediaCache.formatBytes(row.totalSize || 0)}</small>
+                            </div>
+                            <div class="storage-breakdown-bar">
+                                <div style="width:${ratio}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                listEl.innerHTML = rows || '<p style="color:var(--muted-text);margin:0;">尚無離線快取</p>';
+            }
+        } catch (e) {
+            if (valueEl) valueEl.textContent = '--';
+            if (hintEl) hintEl.textContent = '讀取失敗';
+            if (totalEl) totalEl.textContent = '--';
+            if (listEl) listEl.innerHTML = '<p style="color:#e74c3c;margin:0;">讀取失敗</p>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        sendDashboardNotifications();
+        loadOfflineCacheMetric();
+    });
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') sendDashboardNotifications();
+        if (document.visibilityState === 'visible') {
+            sendDashboardNotifications();
+            loadOfflineCacheMetric();
+        }
     });
 </script>

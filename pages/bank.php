@@ -511,7 +511,24 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 
 
     function deleteItem(id) {
-        deleteInlineItem(id, { table: TABLE });
+        const item = getBankById(id);
+        const name = (item && item.name) ? String(item.name) : '';
+        const expected = name ? ('DELETE ' + name) : 'DELETE bank';
+        const userInput = prompt(
+            '刪除銀行/電子票證無法復原。\n\n' +
+            (name ? ('即將刪除：「' + name + '」\n\n') : '') +
+            '請輸入以下文字確認：\n' + expected
+        );
+        if (userInput === null) return;
+        if (userInput !== expected) {
+            alert('輸入不正確，已取消刪除。');
+            return;
+        }
+        deleteInlineItem(id, {
+            table: TABLE,
+            confirmMessage: null,
+            skipConfirm: true
+        });
     }
 
     function formatAmount(amount) {

@@ -16,12 +16,15 @@ function deleteInlineItem(id, options = {}) {
     const confirmMessage = options.confirmMessage || '確定要刪除嗎？';
     const failureMessage = options.failureMessage || '刪除失敗';
     const onSuccess = options.onSuccess || function () { location.reload(); };
+    const skipConfirm = !!options.skipConfirm;
 
     if (!table) {
         alert('刪除功能尚未設定資料表');
         return;
     }
-    if (!confirm(confirmMessage)) return;
+    if (!skipConfirm && confirmMessage) {
+        if (!confirm(confirmMessage)) return;
+    }
 
     fetch(`${endpoint}?action=delete&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`)
         .then(response => response.json())

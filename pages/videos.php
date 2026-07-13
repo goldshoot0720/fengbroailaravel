@@ -34,7 +34,11 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('videos', 'grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片</button>
             <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('videos', 'list')"><i class="fa-solid fa-list"></i> 列表</button>
         </div>
+        <button type="button" class="btn btn-ghost" onclick="refreshVideoCacheStats()" title="離線快取狀態">
+            <i class="fa-solid fa-hard-drive"></i> <span id="videoCacheStatsLabel">快取</span>
+        </button>
     </div>
+    <div id="videoCacheBanner" class="video-cache-banner" style="display:none;margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--table-header-bg);color:var(--muted-text);font-size:0.9rem;"></div>
     <?php include 'includes/batch-delete.php'; ?>
 
     <div id="videoExperience" class="video-experience video-experience-youtube media-browser media-browser-video media-view-list" data-media-scope="videos">
@@ -172,6 +176,12 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                     <button class="btn btn-success btn-sm"
                                         onclick="downloadVideo('<?php echo $item['id']; ?>')">
                                         <i class="fa-solid fa-download"></i> 下載
+                                    </button>
+                                    <button class="btn btn-ghost btn-sm video-cache-btn"
+                                        data-cache-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                        onclick="cacheVideoOffline('<?php echo $item['id']; ?>')"
+                                        title="快取到本機（IndexedDB，上限 500MB）">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i> 快取
                                     </button>
                                 <?php endif; ?>
                             </div>
@@ -1477,16 +1487,89 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         return vjsPlayer;
     }
 
-    function playVideo(id, src, title) {
+    async function resolveVideoPlaySrc(id, fallbackSrc) {
+        if (!window.FengbroMediaCache) return fallbackSrc;
+        try {
+            const objectUrl = await window.FengbroMediaCache.getObjectUrl('video', id);
+            return objectUrl || fallbackSrc;
+        } catch (e) {
+            return fallbackSrc;
+        }
+    }
+
+    async function refreshVideoCacheStats() {
+        const label = document.getElementById('videoCacheStatsLabel');
+        const banner = document.getElementById('videoCacheBanner');
+        if (!window.FengbroMediaCache) {
+            if (label) label.textContent = '快取不可用';
+            return;
+        }
+        try {
+            const stats = await window.FengbroMediaCache.getStats('video');
+            const text = window.FengbroMediaCache.formatBytes(stats.totalSize) + ' / 500MB · ' + stats.totalItems + ' 部';
+            if (label) label.textContent = text;
+            if (banner) {
+                banner.style.display = 'block';
+                banner.textContent = '離線影片快取：' + text + '（超過 500MB 會自動清除最舊項目）';
+            }
+            document.querySelectorAll('.video-cache-btn[data-cache-id]').forEach(async function (btn) {
+                const id = btn.getAttribute('data-cache-id');
+                const cached = await window.FengbroMediaCache.isCached('video', id);
+                btn.classList.toggle('btn-success', cached);
+                btn.innerHTML = cached
+                    ? '<i class="fa-solid fa-check"></i> 已快取'
+                    : '<i class="fa-solid fa-cloud-arrow-down"></i> 快取';
+            });
+        } catch (e) {
+            if (label) label.textContent = '快取';
+        }
+    }
+
+    async function cacheVideoOffline(id) {
         const item = getVideoItem(id);
+        if (!item || !item.file) {
+            alert('找不到可快取的影片檔案');
+            return;
+        }
+        if (!window.FengbroMediaCache) {
+            alert('瀏覽器不支援離線快取');
+            return;
+        }
+        const btn = document.querySelector('.video-cache-btn[data-cache-id="' + id + '"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 0%';
+        }
+        try {
+            await window.FengbroMediaCache.cacheMedia('video', {
+                id: item.id,
+                title: item.name,
+                url: item.file
+            }, function (progress) {
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + progress + '%';
+            });
+            await refreshVideoCacheStats();
+            alert('已快取到本機，可離線播放');
+        } catch (err) {
+            alert('快取失敗：' + (err.message || err));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> 快取';
+            }
+        }
+    }
+
+    async function playVideo(id, src, title) {
+        const item = getVideoItem(id);
+        const playSrc = await resolveVideoPlaySrc(id, src);
         if (window.FengbroMedia) {
             window.FengbroMedia.playVideo({
-                src: src,
+                src: playSrc,
                 title: title,
                 id: id,
                 mediaType: 'video',
                 poster: item && item.cover ? item.cover : '',
-                meta: item && item.ref ? item.ref : 'Video',
+                meta: item && item.ref ? item.ref : (playSrc !== src ? 'Video · Offline' : 'Video'),
                 downloadName: item ? getVideoDownloadName(item) : ''
             });
             return;
@@ -1518,7 +1601,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         }
 
         const player = initVideoJS();
-        player.src({ type: 'video/mp4', src: src });
+        player.src({ type: 'video/mp4', src: playSrc });
         player.play();
     }
 
@@ -1615,12 +1698,39 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         }
     });
 
+    window.batchCacheSelectedItems = async function (ids) {
+        if (!window.FengbroMediaCache) throw new Error('瀏覽器不支援離線快取');
+        if (!ids || !ids.length) return;
+        let ok = 0, fail = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const item = getVideoItem(id);
+            if (!item || !item.file) { fail++; continue; }
+            try {
+                await window.FengbroMediaCache.cacheMedia('video', {
+                    id: item.id,
+                    title: item.name,
+                    url: item.file
+                });
+                ok++;
+            } catch (e) {
+                fail++;
+            }
+        }
+        await refreshVideoCacheStats();
+        alert('批次快取完成：成功 ' + ok + ' 部' + (fail ? '，失敗 ' + fail + ' 部' : ''));
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         const savedMode = localStorage.getItem(VIDEO_INTERFACE_STORAGE_KEY);
         setVideoInterface(savedMode || 'youtube');
         if (window.initMediaView) initMediaView('videos', 'list');
         renderVideoQueue(null);
         renderVideoMeta(null);
+        refreshVideoCacheStats();
+        if (typeof enableBatchCacheButton === 'function') {
+            enableBatchCacheButton(true);
+        }
     });
 
     function importZIP(input) {

@@ -27,9 +27,13 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
         </button>
         <input type="file" id="zipImportImage" accept=".zip" style="display: none;"
             onchange="previewAndImportZIP(this, 'image', 'import_zip_image.php', '圖片')">
+        <button type="button" class="btn btn-ghost" onclick="refreshImageCacheStats()" title="離線快取狀態">
+            <i class="fa-solid fa-hard-drive"></i> <span id="imageCacheStatsLabel">快取</span>
+        </button>
 
         <?php include 'includes/batch-delete.php'; ?>
     </div>
+    <div id="imageCacheBanner" style="display:none;margin:0 0 12px;padding:10px 14px;border-radius:12px;background:var(--table-header-bg);color:var(--muted-text);font-size:0.9rem;"></div>
 
     <div class="media-toolbar">
         <div></div>
@@ -96,14 +100,34 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                                 <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                             </div>
                         </div>
-                        <?php if (!empty($item['cover'])): ?>
-                            <img src="<?php echo htmlspecialchars($item['cover']); ?>" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">
-                        <?php elseif (!empty($item['file'])): ?>
-                            <img src="<?php echo htmlspecialchars($item['file']); ?>" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">
+                        <?php
+                        $imageSrc = !empty($item['cover']) ? $item['cover'] : ($item['file'] ?? '');
+                        $cacheFile = $item['file'] ?? $imageSrc;
+                        ?>
+                        <?php if (!empty($imageSrc)): ?>
+                            <img class="image-thumb"
+                                data-image-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                data-src="<?php echo htmlspecialchars($imageSrc); ?>"
+                                src="<?php echo htmlspecialchars($imageSrc); ?>"
+                                alt="<?php echo htmlspecialchars($item['name'] ?? ''); ?>"
+                                style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8; cursor: zoom-in;"
+                                onclick="openImageLightbox('<?php echo htmlspecialchars($item['id']); ?>', '<?php echo htmlspecialchars($imageSrc, ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($item['name'] ?? '')); ?>')">
                         <?php endif; ?>
                         <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
                         <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
                         <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
+                        <?php if (!empty($cacheFile)): ?>
+                            <div style="margin-top:8px;">
+                                <button type="button" class="btn btn-sm btn-ghost image-cache-btn"
+                                    data-cache-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                    data-cache-src="<?php echo htmlspecialchars($cacheFile, ENT_QUOTES); ?>"
+                                    data-cache-title="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                                    onclick="cacheImageOffline('<?php echo htmlspecialchars($item['id']); ?>')"
+                                    title="離線快取（上限 500MB）">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> 快取
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="inline-edit">
                         <div class="form-group">
@@ -637,8 +661,170 @@ function updateImagePreview() {
 
 document.getElementById('file').addEventListener('change', updateImagePreview);
 document.getElementById('file').addEventListener('input', updateImagePreview);
+
+async function resolveImageSrc(id, fallbackSrc) {
+    if (!window.FengbroMediaCache || !id) return fallbackSrc;
+    try {
+        const objectUrl = await window.FengbroMediaCache.getObjectUrl('image', id);
+        return objectUrl || fallbackSrc;
+    } catch (e) {
+        return fallbackSrc;
+    }
+}
+
+async function refreshImageCacheStats() {
+    const label = document.getElementById('imageCacheStatsLabel');
+    const banner = document.getElementById('imageCacheBanner');
+    if (!window.FengbroMediaCache) {
+        if (label) label.textContent = '快取不可用';
+        return;
+    }
+    try {
+        const stats = await window.FengbroMediaCache.getStats('image');
+        const text = window.FengbroMediaCache.formatBytes(stats.totalSize) + ' / 500MB · ' + stats.totalItems + ' 張';
+        if (label) label.textContent = text;
+        if (banner) {
+            banner.style.display = 'block';
+            banner.textContent = '離線圖片快取：' + text + '（超過 500MB 會自動清除最舊項目）';
+        }
+        document.querySelectorAll('.image-cache-btn[data-cache-id]').forEach(async function (btn) {
+            const id = btn.getAttribute('data-cache-id');
+            const cached = await window.FengbroMediaCache.isCached('image', id);
+            btn.classList.toggle('btn-success', cached);
+            btn.innerHTML = cached
+                ? '<i class="fa-solid fa-check"></i> 已快取'
+                : '<i class="fa-solid fa-cloud-arrow-down"></i> 快取';
+        });
+        await hydrateImageThumbsFromCache();
+    } catch (e) {
+        if (label) label.textContent = '快取';
+    }
+}
+
+async function hydrateImageThumbsFromCache() {
+    if (!window.FengbroMediaCache) return;
+    const imgs = document.querySelectorAll('img.image-thumb[data-image-id]');
+    for (const img of imgs) {
+        const id = img.getAttribute('data-image-id');
+        const fallback = img.getAttribute('data-src') || img.src;
+        const src = await resolveImageSrc(id, fallback);
+        if (src && src !== img.src) {
+            img.src = src;
+            img.dataset.offline = '1';
+            img.title = (img.alt || '') + ' · Offline';
+        }
+    }
+}
+
+async function cacheImageOffline(id) {
+    const btn = document.querySelector('.image-cache-btn[data-cache-id="' + id + '"]');
+    const src = btn ? (btn.getAttribute('data-cache-src') || '') : '';
+    const title = btn ? (btn.getAttribute('data-cache-title') || id) : id;
+    if (!src) {
+        alert('找不到可快取的圖片');
+        return;
+    }
+    if (!window.FengbroMediaCache) {
+        alert('瀏覽器不支援離線快取');
+        return;
+    }
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 0%';
+    }
+    try {
+        await window.FengbroMediaCache.cacheMedia('image', {
+            id: id,
+            title: title,
+            url: src
+        }, function (progress) {
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + progress + '%';
+        });
+        await refreshImageCacheStats();
+        alert('已快取到本機，可離線瀏覽');
+    } catch (err) {
+        alert('快取失敗：' + (err.message || err));
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> 快取';
+        }
+    }
+}
+
+async function openImageLightbox(id, filePath, title) {
+    const src = await resolveImageSrc(id, filePath);
+    const offline = src !== filePath;
+    let modal = document.getElementById('imageLightboxModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imageLightboxModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        modal.onclick = function (e) {
+            if (e.target === modal) closeImageLightbox();
+        };
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:960px;width:95%;background:rgba(15,23,42,0.96);color:#fff;">
+                <span class="modal-close" onclick="closeImageLightbox()" style="color:#fff;">&times;</span>
+                <h3 id="imageLightboxTitle" style="margin:0 0 12px;"></h3>
+                <div style="text-align:center;">
+                    <img id="imageLightboxImg" src="" alt="" style="max-width:100%;max-height:75vh;border-radius:12px;object-fit:contain;">
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    document.getElementById('imageLightboxTitle').textContent = (title || '圖片') + (offline ? ' · Offline' : '');
+    document.getElementById('imageLightboxImg').src = src;
+    modal.style.display = 'flex';
+}
+
+function closeImageLightbox() {
+    const modal = document.getElementById('imageLightboxModal');
+    if (modal) modal.style.display = 'none';
+}
+
+window.batchCacheSelectedItems = async function (ids) {
+    if (!window.FengbroMediaCache) {
+        throw new Error('瀏覽器不支援離線快取');
+    }
+    if (!ids || !ids.length) return;
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const btn = document.querySelector('.image-cache-btn[data-cache-id="' + id + '"]');
+        const src = btn ? (btn.getAttribute('data-cache-src') || '') : '';
+        const title = btn ? (btn.getAttribute('data-cache-title') || id) : id;
+        if (!src) {
+            fail++;
+            continue;
+        }
+        try {
+            await window.FengbroMediaCache.cacheMedia('image', {
+                id: id,
+                title: title,
+                url: src
+            });
+            ok++;
+            if (btn) {
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> 已快取';
+            }
+        } catch (e) {
+            fail++;
+        }
+    }
+    await refreshImageCacheStats();
+    alert('批次快取完成：成功 ' + ok + ' 張' + (fail ? '，失敗 ' + fail + ' 張' : ''));
+};
+
 document.addEventListener('DOMContentLoaded', function () {
     if (window.initMediaView) initMediaView('images', 'grid');
+    refreshImageCacheStats();
+    if (typeof enableBatchCacheButton === 'function') {
+        enableBatchCacheButton(true);
+    }
 });
 
 </script>

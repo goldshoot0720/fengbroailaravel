@@ -27,6 +27,9 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         </button>
         <input type="file" id="zipImportPodcast" accept=".zip" style="display: none;"
             onchange="previewAndImportZIP(this, 'podcast', 'import_zip_podcast.php', '播客')">
+        <button type="button" class="btn btn-ghost" onclick="refreshPodcastCacheStats()" title="離線快取狀態">
+            <i class="fa-solid fa-hard-drive"></i> <span id="podcastCacheStatsLabel">快取</span>
+        </button>
     </div>
 
     <?php include 'includes/batch-delete.php'; ?>
@@ -91,7 +94,8 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                     data-ref="<?php echo htmlspecialchars($item['ref'] ?? '', ENT_QUOTES); ?>"
                     data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>">
                     <div class="inline-view">
-                        <input type="checkbox" class="batch-checkbox" value="<?php echo $item['id']; ?>" style="display:none;" onclick="toggleSelectItem(this)">
+                        <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                            onchange="toggleSelectItem(this)">
                         <div class="card-actions">
                             <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
                             <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
@@ -112,6 +116,12 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                                 <button class="btn btn-sm btn-success" onclick="togglePlay('<?php echo $item['id']; ?>')"
                                     id="playBtn-<?php echo $item['id']; ?>">
                                     <i class="fa-solid fa-play"></i> 播放
+                                </button>
+                                <button class="btn btn-sm btn-ghost podcast-cache-btn"
+                                    data-cache-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                    onclick="cachePodcastOffline('<?php echo $item['id']; ?>')"
+                                    title="離線快取（上限 500MB）">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i>
                                 </button>
                                 <span id="time-<?php echo $item['id']; ?>" class="podcast-time-label"
                                     style="font-size: 0.8rem; color: #888; margin-left: 8px;">00:00</span>
@@ -340,37 +350,104 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
             });
     }
 
+    async function resolvePodcastPlaySrc(id, fallbackSrc) {
+        if (!window.FengbroMediaCache || !id) return fallbackSrc;
+        try {
+            const objectUrl = await window.FengbroMediaCache.getObjectUrl('podcast', id);
+            return objectUrl || fallbackSrc;
+        } catch (e) {
+            return fallbackSrc;
+        }
+    }
+
+    async function refreshPodcastCacheStats() {
+        const label = document.getElementById('podcastCacheStatsLabel');
+        if (!window.FengbroMediaCache) {
+            if (label) label.textContent = '快取不可用';
+            return;
+        }
+        try {
+            const stats = await window.FengbroMediaCache.getStats('podcast');
+            if (label) {
+                label.textContent = window.FengbroMediaCache.formatBytes(stats.totalSize) + ' / 500MB · ' + stats.totalItems;
+            }
+            document.querySelectorAll('.podcast-cache-btn[data-cache-id]').forEach(async function (btn) {
+                const id = btn.getAttribute('data-cache-id');
+                const cached = await window.FengbroMediaCache.isCached('podcast', id);
+                btn.classList.toggle('btn-success', cached);
+                btn.innerHTML = cached
+                    ? '<i class="fa-solid fa-check"></i>'
+                    : '<i class="fa-solid fa-cloud-arrow-down"></i>';
+            });
+        } catch (e) {
+            if (label) label.textContent = '快取';
+        }
+    }
+
+    async function cachePodcastOffline(id) {
+        const card = getCardById(id);
+        const src = card ? (card.dataset.file || '') : '';
+        const title = card ? (card.dataset.name || 'Podcast') : 'Podcast';
+        if (!src) {
+            alert('找不到可快取的播客檔案');
+            return;
+        }
+        if (!window.FengbroMediaCache) {
+            alert('瀏覽器不支援離線快取');
+            return;
+        }
+        const btn = document.querySelector('.podcast-cache-btn[data-cache-id="' + id + '"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        }
+        try {
+            await window.FengbroMediaCache.cacheMedia('podcast', { id: id, title: title, url: src }, function (progress) {
+                if (btn) btn.innerHTML = progress + '%';
+            });
+            await refreshPodcastCacheStats();
+            alert('已快取到本機');
+        } catch (err) {
+            alert('快取失敗：' + (err.message || err));
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+            }
+        }
+    }
+
     // 播放/暫停切換
-    function togglePlay(id) {
+    async function togglePlay(id) {
         const card = getCardById(id);
         if (card && window.FengbroMedia) {
             const src = card.dataset.file || '';
             const title = card.dataset.name || 'Podcast';
+            const playSrc = await resolvePodcastPlaySrc(id, src);
             const state = window.FengbroMedia.getState();
-            const isSame = state && state.kind === 'audio' && state.src === src;
+            const isSame = state && state.kind === 'audio' && (state.src === src || state.src === playSrc || state.id === id);
 
             if (isSame) {
                 window.FengbroMedia.toggle();
             } else {
                 window.FengbroMedia.playAudio({
-                    src: src,
+                    src: playSrc,
                     title: title,
                     id: id,
                     mediaType: 'podcast',
                     poster: card.dataset.cover || '',
-                    meta: card.dataset.category || 'Podcast',
+                    meta: (card.dataset.category || 'Podcast') + (playSrc !== src ? ' · Offline' : ''),
                     downloadName: (title || 'podcast').replace(/[\\/:*?"<>|]+/g, '_') + '.mp3'
                 });
             }
 
             document.querySelectorAll('[id^="playBtn-"]').forEach(function (button) {
-                button.innerHTML = '<i class="fa-solid fa-play"></i> ?剜';
+                button.innerHTML = '<i class="fa-solid fa-play"></i> 播放';
             });
             const currentBtn = document.getElementById('playBtn-' + id);
             if (currentBtn) {
-                currentBtn.innerHTML = isSame && state && state.wasPlaying
-                    ? '<i class="fa-solid fa-play"></i> ?剜'
-                    : '<i class="fa-solid fa-pause"></i> ?怠?';
+                currentBtn.innerHTML = isSame && state && !state.playing
+                    ? '<i class="fa-solid fa-play"></i> 播放'
+                    : '<i class="fa-solid fa-pause"></i> 暫停';
             }
             return;
         }
@@ -406,6 +483,31 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
         return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
     }
 
+    window.batchCacheSelectedItems = async function (ids) {
+        if (!window.FengbroMediaCache) throw new Error('瀏覽器不支援離線快取');
+        if (!ids || !ids.length) return;
+        let ok = 0, fail = 0;
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const card = getCardById(id);
+            const src = card ? (card.dataset.file || '') : '';
+            const title = card ? (card.dataset.name || id) : id;
+            if (!src) { fail++; continue; }
+            try {
+                await window.FengbroMediaCache.cacheMedia('podcast', {
+                    id: id,
+                    title: title,
+                    url: src
+                });
+                ok++;
+            } catch (e) {
+                fail++;
+            }
+        }
+        await refreshPodcastCacheStats();
+        alert('批次快取完成：成功 ' + ok + ' 集' + (fail ? '，失敗 ' + fail + ' 集' : ''));
+    };
+
     // 初始化音頻事件監聽
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('audio').forEach(audio => {
@@ -422,6 +524,10 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                 currentPlayingId = null;
             });
         });
+        refreshPodcastCacheStats();
+        if (typeof enableBatchCacheButton === 'function') {
+            enableBatchCacheButton(true);
+        }
     });
 
     function deleteItem(id) {

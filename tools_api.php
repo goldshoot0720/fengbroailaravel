@@ -2,6 +2,7 @@
 require_once 'includes/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
+@set_time_limit(90);
 
 $action = $_GET['action'] ?? '';
 $pdo = getConnection();
@@ -36,6 +37,117 @@ function ensureToolPriceHistory(PDO $pdo): void
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_tool_query (tool_type, query_text(191), created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // 手機比價：商品級每日快照（對齊 Appwrite landtophistory）
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+        id VARCHAR(36) PRIMARY KEY,
+        product_id VARCHAR(190) NOT NULL,
+        brand VARCHAR(50),
+        name VARCHAR(500) NOT NULL,
+        source VARCHAR(50) NOT NULL,
+        price INT NULL,
+        source_url VARCHAR(1000),
+        snapshot_day DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_product_day_source (product_id, snapshot_day, source),
+        INDEX idx_product_day (product_id, snapshot_day)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function savePhoneProductSnapshots(PDO $pdo, array $products): int
+{
+    $stored = 0;
+    $day = date('Y-m-d');
+    $stmt = $pdo->prepare("INSERT INTO tool_phone_product_history
+        (id, product_id, brand, name, source, price, source_url, snapshot_day)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            price = VALUES(price),
+            source_url = VALUES(source_url),
+            name = VALUES(name),
+            brand = VALUES(brand)");
+
+    foreach (array_slice($products, 0, 60) as $product) {
+        $productId = trim((string) ($product['id'] ?? ''));
+        $name = trim((string) ($product['name'] ?? ''));
+        if ($productId === '' || $name === '') {
+            continue;
+        }
+        $entries = [];
+        if (isset($product['landtopPrice']) && is_int($product['landtopPrice'])) {
+            $entries[] = [
+                'source' => 'landtop',
+                'price' => $product['landtopPrice'],
+                'url' => (string) ($product['sourceUrl'] ?? ''),
+            ];
+        }
+        if (isset($product['jyesPrice']) && is_int($product['jyesPrice'])) {
+            $entries[] = [
+                'source' => 'jyes',
+                'price' => $product['jyesPrice'],
+                'url' => (string) ($product['jyesUrl'] ?? ''),
+            ];
+        }
+        foreach ($entries as $entry) {
+            try {
+                $stmt->execute([
+                    generateUUID(),
+                    $productId,
+                    (string) ($product['brand'] ?? ''),
+                    $name,
+                    $entry['source'],
+                    $entry['price'],
+                    $entry['url'],
+                    $day,
+                ]);
+                $stored++;
+            } catch (Throwable $e) {
+                // ignore single-row failures
+            }
+        }
+    }
+    return $stored;
+}
+
+function loadPhoneProductHistories(PDO $pdo, array $products): array
+{
+    $ids = array_values(array_filter(array_map(
+        static fn($p) => trim((string) ($p['id'] ?? '')),
+        $products
+    )));
+    if (!$ids) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("SELECT product_id, brand, name, source, price, source_url, snapshot_day
+        FROM tool_phone_product_history
+        WHERE product_id IN ($placeholders)
+        ORDER BY snapshot_day ASC");
+    $stmt->execute($ids);
+    $rows = $stmt->fetchAll();
+
+    $grouped = [];
+    foreach ($rows as $row) {
+        $pid = $row['product_id'];
+        if (!isset($grouped[$pid])) {
+            $grouped[$pid] = [
+                'id' => $pid,
+                'brand' => $row['brand'],
+                'name' => $row['name'],
+                'sourceUrl' => $row['source_url'],
+                'points' => [],
+            ];
+        }
+        $grouped[$pid]['points'][] = [
+            'date' => $row['snapshot_day'],
+            'source' => $row['source'],
+            'price' => $row['price'] !== null ? (int) $row['price'] : null,
+            'landtopPrice' => $row['source'] === 'landtop' && $row['price'] !== null ? (int) $row['price'] : null,
+            'jyesPrice' => $row['source'] === 'jyes' && $row['price'] !== null ? (int) $row['price'] : null,
+        ];
+    }
+    return array_values($grouped);
 }
 
 function readJsonInput(): array
@@ -271,6 +383,29 @@ function loadHistory(PDO $pdo, string $toolType, string $queryText): array
     return $stmt->fetchAll();
 }
 
+if ($action === 'finance_history') {
+    require_once __DIR__ . '/includes/fengbro_finance.php';
+    $input = readJsonInput();
+    $symbol = trim((string) ($input['symbol'] ?? $_GET['symbol'] ?? ''));
+    $range = trim((string) ($input['range'] ?? $_GET['range'] ?? '1y'));
+    if ($symbol === '') {
+        jsonResponse(['success' => false, 'error' => '請提供 symbol'], 400);
+    }
+    $allowed = array_column(fengbroFinanceAllHistoryRanges(), 'key');
+    if (!in_array($range, $allowed, true)) {
+        $range = '1y';
+    }
+    $result = fengbroFinanceFetchSingleHistory($symbol, $range);
+    jsonResponse([
+        'success' => $result['error'] === '',
+        'symbol' => $result['symbol'] ?? $symbol,
+        'range' => $result['range'] ?? $range,
+        'label' => $result['label'] ?? $range,
+        'points' => $result['points'] ?? [],
+        'error' => $result['error'] ?? '',
+    ]);
+}
+
 if ($action === 'price_lookup') {
     $input = readJsonInput();
     $query = trim((string) ($input['query'] ?? ''));
@@ -312,20 +447,60 @@ if ($action === 'price_lookup') {
 if ($action === 'phone_lookup') {
     $input = readJsonInput();
     $query = trim((string) ($input['query'] ?? 'Samsung S26'));
-    $targets = [
-        '地標網通' => 'https://www.google.com/search?q=' . rawurlencode('site:landtop.com.tw ' . $query),
-        '傑昇通信' => 'https://www.google.com/search?q=' . rawurlencode('site:jyes.com.tw ' . $query),
-    ];
+    if ($query === '') {
+        $query = 'Samsung S26';
+    }
+
+    require_once __DIR__ . '/includes/phone_compare.php';
+    $compare = phoneCompareLookup($query);
+    $products = $compare['products'] ?? [];
+    $summary = $compare['priceSummary'] ?? [];
+    $warnings = $compare['warnings'] ?? [];
+    $noticeParts = [];
+    if (!empty($products)) {
+        $noticeParts[] = '已對齊 Appwrite 版抓取地標網通與傑昇通信，共 ' . count($products) . ' 筆可比價結果。';
+    } else {
+        $noticeParts[] = '通路頁面暫時抓不到商品；已保留外部搜尋連結與歷史快照。';
+    }
+    if ($warnings) {
+        $noticeParts[] = implode('；', $warnings);
+    }
+
     $snapshot = [
         'tool_type' => 'phone',
         'query_text' => $query,
         'title' => $query . ' 手機比價',
-        'source' => 'Google site search',
-        'result_url' => reset($targets),
-        'notice' => 'PHP 版使用站內搜尋保守整合；若要完整自動比價，需要穩定可用的通路 API 或允許爬取。',
+        'source' => '地標網通 + 傑昇通信',
+        'current_price' => $summary['current'] ?? null,
+        'high_price' => $summary['high'] ?? null,
+        'low_price' => $summary['low'] ?? null,
+        'result_url' => ($compare['targets']['地標網通'] ?? 'https://www.landtop.com.tw/'),
+        'notice' => implode(' ', $noticeParts),
     ];
     saveSnapshot($pdo, $snapshot);
-    jsonResponse(['success' => true, 'snapshot' => $snapshot, 'targets' => $targets, 'history' => loadHistory($pdo, 'phone', $query)]);
+    $snapshotStored = 0;
+    $histories = [];
+    try {
+        $snapshotStored = savePhoneProductSnapshots($pdo, $products);
+        $histories = loadPhoneProductHistories($pdo, $products);
+    } catch (Throwable $e) {
+        $warnings[] = '商品歷史價格儲存/讀取失敗：' . $e->getMessage();
+    }
+
+    jsonResponse([
+        'success' => true,
+        'snapshot' => $snapshot,
+        'targets' => $compare['targets'] ?? [],
+        'products' => $products,
+        'warnings' => $warnings,
+        'total' => (int) ($compare['total'] ?? count($products)),
+        'sourceUrls' => $compare['sourceUrls'] ?? [],
+        'fetchedAt' => $compare['fetchedAt'] ?? null,
+        'history' => loadHistory($pdo, 'phone', $query),
+        'histories' => $histories,
+        'historyAvailable' => true,
+        'snapshotStored' => $snapshotStored,
+    ]);
 }
 
 jsonResponse(['success' => false, 'error' => '不支援的工具動作。'], 400);

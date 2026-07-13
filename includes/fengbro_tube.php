@@ -69,7 +69,7 @@ function fengbroTubeWriteCache($cache)
 function fengbroTubeClearDataCache()
 {
     $cache = fengbroTubeReadCache();
-    unset($cache['tube_data'], $cache['tube_data_v2']);
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4']);
     fengbroTubeWriteCache($cache);
 }
 
@@ -201,9 +201,10 @@ function fengbroTubeResolveChannelId($channel, &$cache)
     } else {
         $html = fengbroTubeFetchUrl($url);
         $channelId = '';
+        // 優先 externalId，避免頁面多個 channelId 造成頻道錯位（對齊 Appwrite）
         $patterns = [
-            '/"channelId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/',
             '/"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/',
+            '/"channelId"\s*:\s*"(UC[a-zA-Z0-9_-]+)"/',
             '/itemprop="channelId"\s+content="(UC[a-zA-Z0-9_-]+)"/',
             '/\/channel\/(UC[a-zA-Z0-9_-]+)/',
         ];
@@ -250,10 +251,15 @@ function fengbroTubeParseFeed($xmlText, $limit = 10)
         if (isset($yt->videoId)) {
             $videoId = (string) $yt->videoId;
         }
+        $url = (string) $entry->link['href'];
+        // 過濾 YouTube Shorts（對齊 Appwrite fengbro-tube）
+        if (str_contains($url, '/shorts/')) {
+            continue;
+        }
         $videos[] = [
             'id' => $videoId,
             'title' => (string) $entry->title,
-            'url' => (string) $entry->link['href'],
+            'url' => $url,
             'published' => $published,
             'publishedText' => $published ? date('Y-m-d H:i', strtotime($published)) : '',
             'thumbnail' => $thumbnail,
@@ -339,20 +345,85 @@ function fengbroTubeResolveChannelName($channel, $channelId, $feedXml, &$cache)
     return $name;
 }
 
-function fengbroTubeExtractUpdateBadge($channel, $videos)
+function fengbroTubeNormalizeDigits($value)
+{
+    $map = [
+        '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4',
+        '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9',
+    ];
+    return strtr((string) $value, $map);
+}
+
+/**
+ * 從影片標題解析倒台指數（對齊 Appwrite extractTubeDownfallIndex）。
+ */
+function fengbroTubeExtractDownfallIndex($title)
+{
+    $normalized = fengbroTubeNormalizeDigits($title);
+    $formatIndex = static function ($value) {
+        return sprintf('%05.2f', (float) $value);
+    };
+
+    if (preg_match('/倒台指[數数]/u', $normalized, $labelMatch, PREG_OFFSET_CAPTURE)) {
+        $labelPos = $labelMatch[0][1];
+        $labelLen = strlen($labelMatch[0][0]);
+        $afterLabel = substr($normalized, $labelPos + $labelLen, 80);
+
+        if (preg_match('/(?:飆至|飙至|升至|漲至|涨至|達到|达到|達|达|至|突破|破)\s*([0-9]+(?:\.[0-9]+)?)/u', $afterLabel, $m)) {
+            return $formatIndex($m[1]);
+        }
+        if (preg_match_all('/([0-9]+(?:\.[0-9]+)?)/', $afterLabel, $nums, PREG_OFFSET_CAPTURE)) {
+            foreach ($nums[1] as $match) {
+                $next = ltrim(substr($afterLabel, $match[1] + strlen($match[0])));
+                if (preg_match('/^[月日號号]/u', $next)) {
+                    continue;
+                }
+                return $formatIndex($match[0]);
+            }
+        }
+    }
+
+    if (preg_match('/([0-9]+(?:\.[0-9]+)?)\s*(?:分|%|％)?\s*倒台指[數数]/u', $normalized, $m)) {
+        return $formatIndex($m[1]);
+    }
+    return '';
+}
+
+function fengbroTubeIsHenrenChannel($channel, $channelName = '')
 {
     $handle = strtolower((string) ($channel['handle'] ?? ''));
-    if ($handle !== 'henren778') {
+    $url = (string) ($channel['url'] ?? '');
+    $name = (string) $channelName;
+    if ($handle === 'henren778' || stripos($url, 'henren778') !== false) {
+        return true;
+    }
+    return (bool) preg_match('/一[個个]狠人/u', $name);
+}
+
+function fengbroTubeHardcodedDownfallHistory()
+{
+    return [
+        ['date' => '2023-10-01T00:00:00Z', 'price' => 67.44],
+        ['date' => '2023-11-01T00:00:00Z', 'price' => 68.28],
+        ['date' => '2024-06-01T00:00:00Z', 'price' => 70.58],
+    ];
+}
+
+function fengbroTubeExtractUpdateBadge($channel, $videos, $channelName = '')
+{
+    if (!fengbroTubeIsHenrenChannel($channel, $channelName)) {
         return [];
     }
 
     foreach ($videos as $video) {
-        $title = (string) ($video['title'] ?? '');
-        if (preg_match('/倒台指[數数]\D*(\d+(?:\.\d+)?)/u', $title, $m)) {
+        $value = fengbroTubeExtractDownfallIndex($video['title'] ?? '');
+        if ($value !== '') {
             return [
                 'label' => '更新',
-                'value' => $m[1],
-                'title' => $title,
+                'value' => $value,
+                'title' => (string) ($video['title'] ?? ''),
+                'url' => (string) ($video['url'] ?? ''),
+                'published' => (string) ($video['published'] ?? ''),
             ];
         }
     }
@@ -360,16 +431,53 @@ function fengbroTubeExtractUpdateBadge($channel, $videos)
     return [];
 }
 
+function fengbroTubeBuildDownfallHistory($channel, $videos)
+{
+    $hardcoded = fengbroTubeHardcodedDownfallHistory();
+    if (!$channel) {
+        return $hardcoded;
+    }
+
+    $dynamic = [];
+    foreach ($videos as $video) {
+        $value = fengbroTubeExtractDownfallIndex($video['title'] ?? '');
+        if ($value === '') {
+            continue;
+        }
+        $dynamic[] = [
+            'date' => (string) ($video['published'] ?: date('c')),
+            'price' => (float) $value,
+            'title' => (string) ($video['title'] ?? ''),
+            'url' => (string) ($video['url'] ?? ''),
+        ];
+    }
+    usort($dynamic, static function ($a, $b) {
+        return strtotime($a['date']) <=> strtotime($b['date']);
+    });
+
+    $lastHardcoded = strtotime($hardcoded[count($hardcoded) - 1]['date']);
+    $newPoints = array_values(array_filter(
+        $dynamic,
+        static fn($p) => strtotime($p['date']) > $lastHardcoded
+    ));
+
+    return array_merge($hardcoded, $newPoints);
+}
+
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
-    $dataKey = 'tube_data_v2';
+    $dataKey = 'tube_data_v4'; // v4: 倒台指數強化解析 + 歷史
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
 
     $channels = [];
     $newVideos = [];
+    $downfallChannel = null;
+    $downfallIndexUpdate = null;
+    $downfallHistory = fengbroTubeHardcodedDownfallHistory();
+
     foreach (fengbroTubeChannels() as $channel) {
         $channelId = fengbroTubeResolveChannelId($channel, $cache);
         $videos = [];
@@ -378,7 +486,7 @@ function fengbroTubeGetData($force = false)
         if ($channelId) {
             $feedUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($channelId);
             $feedXml = fengbroTubeFetchUrl($feedUrl);
-            $videos = fengbroTubeParseFeed($feedXml, 10);
+            $videos = fengbroTubeParseFeed($feedXml, 15);
         } else {
             $error = '無法解析頻道 ID';
         }
@@ -393,16 +501,40 @@ function fengbroTubeGetData($force = false)
                 ];
             }
         }
-        $updateBadge = fengbroTubeExtractUpdateBadge($channel, $videos);
-        $channels[] = [
+        $updateBadge = fengbroTubeExtractUpdateBadge($channel, $videos, $channelName);
+        $channelRow = [
             'name' => $channelName,
             'defaultName' => $channel['name'],
             'handle' => $channel['handle'] ?? '',
             'url' => $channel['url'],
             'channelId' => $channelId,
-            'videos' => $videos,
+            'videos' => array_slice($videos, 0, 10),
             'error' => $error,
             'updateBadge' => $updateBadge,
+            'isHenren' => fengbroTubeIsHenrenChannel($channel, $channelName),
+        ];
+        if ($channelRow['isHenren']) {
+            $downfallChannel = $channelRow;
+            $downfallHistory = fengbroTubeBuildDownfallHistory($channel, $videos);
+            if ($updateBadge) {
+                $downfallIndexUpdate = [
+                    'value' => $updateBadge['value'],
+                    'title' => $updateBadge['title'],
+                    'url' => $updateBadge['url'] ?? '',
+                    'publishedAt' => $updateBadge['published'] ?? '',
+                ];
+            }
+        }
+        $channels[] = $channelRow;
+    }
+
+    if (!$downfallIndexUpdate && $downfallHistory) {
+        $last = $downfallHistory[count($downfallHistory) - 1];
+        $downfallIndexUpdate = [
+            'value' => number_format((float) $last['price'], 2, '.', ''),
+            'title' => $last['title'] ?? '倒台指數歷史資料',
+            'url' => $last['url'] ?? '',
+            'publishedAt' => $last['date'] ?? '',
         ];
     }
 
@@ -410,8 +542,13 @@ function fengbroTubeGetData($force = false)
         'checkedAt' => date('Y-m-d H:i:s'),
         'channels' => $channels,
         'newVideos' => $newVideos,
+        'downfallChannel' => $downfallChannel,
+        'downfallIndexUpdate' => $downfallIndexUpdate,
+        'downfallHistory' => $downfallHistory,
     ];
     $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
+    // 一併清掉舊 key，避免殘留
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3']);
     fengbroTubeWriteCache($cache);
     return $data;
 }

@@ -49,14 +49,31 @@ $duplicateSubscriptions = array_values(array_filter($duplicateSubscriptionMap, f
     return count($group['items']) > 1;
 }));
 
-// 匯率轉換 (轉為新台幣)
+// 匯率轉換 (轉為新台幣，對齊 Appwrite formatters.ts)
 $exchangeRates = [
     'TWD' => 1,
     'USD' => 35,
     'EUR' => 40,
     'JPY' => 0.35,
     'CNY' => 4.5,
-    'HKD' => 4
+    'HKD' => 4,
+    'GBP' => 44,
+    'KRW' => 0.025,
+    'SGD' => 26,
+    'AUD' => 23,
+];
+
+$currencyOptions = [
+    'TWD' => 'TWD 台幣',
+    'USD' => 'USD 美元',
+    'EUR' => 'EUR 歐元',
+    'JPY' => 'JPY 日圓',
+    'CNY' => 'CNY 人民幣',
+    'HKD' => 'HKD 港幣',
+    'GBP' => 'GBP 英鎊',
+    'KRW' => 'KRW 韓元',
+    'SGD' => 'SGD 新加坡元',
+    'AUD' => 'AUD 澳幣',
 ];
 
 function convertToTWD($price, $currency, $rates)
@@ -64,6 +81,21 @@ function convertToTWD($price, $currency, $rates)
     $currency = strtoupper($currency ?? 'TWD');
     $rate = $rates[$currency] ?? 1;
     return round($price * $rate);
+}
+
+function renderCurrencyOptions(array $options, $selected = 'TWD')
+{
+    $selected = strtoupper((string) ($selected ?: 'TWD'));
+    $html = '';
+    foreach ($options as $code => $label) {
+        $isSelected = $code === $selected ? ' selected' : '';
+        $html .= '<option value="' . htmlspecialchars($code) . '"' . $isSelected . '>' . htmlspecialchars($label) . '</option>';
+    }
+    // 若現有資料幣別不在清單中，仍保留可選
+    if ($selected !== '' && !isset($options[$selected])) {
+        $html .= '<option value="' . htmlspecialchars($selected) . '" selected>' . htmlspecialchars($selected) . '</option>';
+    }
+    return $html;
 }
 
 function formatDaysFromToday($date)
@@ -204,12 +236,7 @@ function getDaysUntil($date)
                     <div class="inline-edit inline-edit-row inline-edit-always">
                         <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
                         <select class="form-control inline-input" data-field="currency">
-                            <option value="TWD">TWD 新台幣</option>
-                            <option value="USD">USD 美元</option>
-                            <option value="EUR">EUR 歐元</option>
-                            <option value="JPY">JPY 日圓</option>
-                            <option value="CNY">CNY 人民幣</option>
-                            <option value="HKD">HKD 港幣</option>
+                            <?php echo renderCurrencyOptions($currencyOptions, 'TWD'); ?>
                         </select>
                     </div>
                 </td>
@@ -292,12 +319,7 @@ function getDaysUntil($date)
                             <div class="inline-edit inline-edit-row">
                                 <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
                                 <select class="form-control inline-input" data-field="currency">
-                                    <option value="TWD">TWD 新台幣</option>
-                                    <option value="USD">USD 美元</option>
-                                    <option value="EUR">EUR 歐元</option>
-                                    <option value="JPY">JPY 日圓</option>
-                                    <option value="CNY">CNY 人民幣</option>
-                                    <option value="HKD">HKD 港幣</option>
+                                    <?php echo renderCurrencyOptions($currencyOptions, $item['currency'] ?? 'TWD'); ?>
                                 </select>
                             </div>
                         </td>
@@ -437,12 +459,7 @@ function getDaysUntil($date)
                 <div class="form-group" style="flex:1">
                     <label>幣別</label>
                     <select class="form-control" id="currency" name="currency">
-                        <option value="TWD">TWD 新台幣</option>
-                        <option value="USD">USD 美元</option>
-                        <option value="EUR">EUR 歐元</option>
-                        <option value="JPY">JPY 日圓</option>
-                        <option value="CNY">CNY 人民幣</option>
-                        <option value="HKD">HKD 港幣</option>
+                        <?php echo renderCurrencyOptions($currencyOptions, 'TWD'); ?>
                     </select>
                 </div>
             </div>

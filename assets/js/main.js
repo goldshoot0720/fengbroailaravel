@@ -5,34 +5,75 @@ document.addEventListener('DOMContentLoaded', function () {
     initFengbroVoiceInput();
 });
 
-function initDarkMode() {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+function getThemePreference() {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+    // 相容舊值：未設定時視為 system
+    return 'system';
+}
 
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+function resolveThemeMode(preference) {
+    if (preference === 'dark') return 'dark';
+    if (preference === 'light') return 'light';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyThemePreference(preference, persist) {
+    const mode = resolveThemeMode(preference);
+    if (mode === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
-        updateDarkModeIcon(true);
+    } else {
+        document.documentElement.removeAttribute('data-theme');
     }
+    if (persist !== false) {
+        localStorage.setItem('theme', preference);
+    }
+    updateDarkModeIcon(preference, mode === 'dark');
+}
+
+function initDarkMode() {
+    const preference = getThemePreference();
+    applyThemePreference(preference, false);
+
+    // 跟隨系統時監聽系統主題變化
+    try {
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+        const onChange = function () {
+            if (getThemePreference() === 'system') {
+                applyThemePreference('system', false);
+            }
+        };
+        if (typeof mql.addEventListener === 'function') {
+            mql.addEventListener('change', onChange);
+        } else if (typeof mql.addListener === 'function') {
+            mql.addListener(onChange);
+        }
+    } catch (e) {}
 }
 
 function toggleDarkMode() {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-
-    if (isDark) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-        updateDarkModeIcon(false);
-    } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-        updateDarkModeIcon(true);
-    }
+    // 循環：system → light → dark → system（對齊 Appwrite 三態主題）
+    const current = getThemePreference();
+    const next = current === 'system' ? 'light' : (current === 'light' ? 'dark' : 'system');
+    applyThemePreference(next, true);
 }
 
-function updateDarkModeIcon(isDark) {
+function updateDarkModeIcon(preference, isDarkResolved) {
     const btn = document.getElementById('darkModeToggle');
-    if (btn) {
-        btn.innerHTML = isDark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+    if (!btn) return;
+    const pref = preference || getThemePreference();
+    const isDark = typeof isDarkResolved === 'boolean'
+        ? isDarkResolved
+        : (document.documentElement.getAttribute('data-theme') === 'dark');
+    if (pref === 'system') {
+        btn.innerHTML = '<i class="fa-solid fa-circle-half-stroke"></i>';
+        btn.title = '主題：跟隨系統（點擊切換）';
+    } else if (isDark || pref === 'dark') {
+        btn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+        btn.title = '主題：深色（點擊切換）';
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+        btn.title = '主題：淺色（點擊切換）';
     }
 }
 
