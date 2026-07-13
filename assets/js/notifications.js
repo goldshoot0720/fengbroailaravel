@@ -9,7 +9,11 @@
     var FAVICON = 'favicon.ico';
 
     function todayKey() {
-        return new Date().toISOString().slice(0, 10);
+        // Local calendar date (not UTC) so Asia/Taipei midnight is correct.
+        var d = new Date();
+        var m = d.getMonth() + 1;
+        var day = d.getDate();
+        return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
     }
 
     function supportsNotification() {
@@ -58,15 +62,11 @@
     }
 
     /**
-     * Page banner for subscription expiry (once per session/day).
+     * Page banner for subscription expiry.
      * @param {Array<{name:string,date:string,daysText:string}>} items
      */
     function showExpiringBanner(items) {
         if (!items || !items.length) return;
-
-        var notifiedKey = 'sub_notified_' + todayKey();
-        if (sessionStorage.getItem(notifiedKey)) return;
-        sessionStorage.setItem(notifiedKey, '1');
 
         var banner = document.getElementById('subExpiringBanner');
         var list = document.getElementById('subExpiringList');
@@ -144,9 +144,15 @@
 
     /**
      * Global page load: banner + optional system notifications for 3-day subscriptions.
+     * Once per browser tab session/day (same key as the previous footer implementation).
      */
     function initExpiringSubscriptionAlerts(items) {
         if (!items || !items.length) return;
+
+        var notifiedKey = 'sub_notified_' + todayKey();
+        if (sessionStorage.getItem(notifiedKey)) return;
+        sessionStorage.setItem(notifiedKey, '1');
+
         showExpiringBanner(items);
         showExpiringSystemNotifications(items);
     }

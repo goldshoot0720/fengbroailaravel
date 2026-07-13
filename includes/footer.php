@@ -46,7 +46,7 @@
 <script src="assets/js/media-cache.js?v=20260713cache2"></script>
 <script src="assets/js/main.js?v=20260713theme3"></script>
 <script src="assets/js/inline-edit.js?v=20260713delete"></script>
-<script src="assets/js/notifications.js?v=20260714notif1"></script>
+<script src="assets/js/notifications.js?v=20260714notif2"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
 <script>
