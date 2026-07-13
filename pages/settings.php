@@ -370,6 +370,36 @@ $biggoSettings = [
         </table>
     </div>
 
+    <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">通知自我檢測</h3>
+        <p style="color:var(--muted-text); margin:0 0 12px;">
+            只讀檢查：檔案是否部署、VAPID / Resend 設定、到期候選筆數、推播裝置。不會寄信或發推播。
+        </p>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="runNotificationSelfCheck()">
+                <i class="fa-solid fa-stethoscope"></i> 執行自我檢測
+            </button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="runClientNotificationSelfCheck()">
+                <i class="fa-solid fa-desktop"></i> 瀏覽器端檢測
+            </button>
+            <span id="notifSelfCheckSummary" style="font-size:0.9em;"></span>
+        </div>
+        <pre id="notifSelfCheckResult" style="display:none; background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow:auto; max-height:420px; font-size:0.82rem; line-height:1.45; white-space:pre-wrap;"></pre>
+        <div id="notifSelfCheckTableWrap" style="display:none; overflow:auto;">
+            <table class="table" id="notifSelfCheckTable">
+                <thead>
+                    <tr>
+                        <th style="width:90px;">狀態</th>
+                        <th style="width:100px;">通道</th>
+                        <th style="width:180px;">項目</th>
+                        <th>說明</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
     <script>
         function toggleResendApiKeyVisibility(id) {
             const input = document.getElementById(id || 'resendApiKeyInput');
@@ -447,6 +477,108 @@ $biggoSettings = [
                     btn.disabled = false;
                     btn.textContent = '立即發送到期提醒';
                     document.getElementById('pushSendResult').innerHTML = '<span style="color:red;">請求失敗</span>';
+                });
+        }
+
+        function notifLevelBadge(level) {
+            if (level === 'ok') return '<span class="badge badge-success">OK</span>';
+            if (level === 'fail') return '<span class="badge badge-danger">FAIL</span>';
+            return '<span class="badge badge-warning">WARN</span>';
+        }
+
+        function renderNotificationSelfCheck(d, extraClient) {
+            const summaryEl = document.getElementById('notifSelfCheckSummary');
+            const tableWrap = document.getElementById('notifSelfCheckTableWrap');
+            const tbody = document.querySelector('#notifSelfCheckTable tbody');
+            const pre = document.getElementById('notifSelfCheckResult');
+            const s = d.summary || {};
+            const overall = d.overall || (d.success ? 'ok' : 'fail');
+            const color = overall === 'ok' ? 'green' : (overall === 'fail' ? 'red' : '#b45309');
+            summaryEl.innerHTML = '<span style="color:' + color + ';font-weight:600;">overall=' + overall +
+                '</span> · OK ' + (s.ok || 0) + ' / WARN ' + (s.warn || 0) + ' / FAIL ' + (s.fail || 0) +
+                ' · ' + (d.checked_at || '');
+
+            const rows = Array.isArray(d.checks) ? d.checks.slice() : [];
+            if (extraClient && Array.isArray(extraClient.checks)) {
+                extraClient.checks.forEach(function (c) { rows.push(c); });
+            }
+
+            tbody.innerHTML = rows.map(function (c) {
+                return '<tr>' +
+                    '<td>' + notifLevelBadge(c.level || (c.ok ? 'ok' : 'warn')) + '</td>' +
+                    '<td>' + (c.channel || '') + '</td>' +
+                    '<td>' + (c.label || c.id || '') + '</td>' +
+                    '<td style="word-break:break-word;">' + String(c.detail || '').replace(/</g, '&lt;') + '</td>' +
+                    '</tr>';
+            }).join('');
+            tableWrap.style.display = 'block';
+            pre.style.display = 'block';
+            pre.textContent = JSON.stringify({ server: d, client: extraClient || null }, null, 2);
+        }
+
+        function runNotificationSelfCheck() {
+            const summaryEl = document.getElementById('notifSelfCheckSummary');
+            summaryEl.textContent = '伺服器檢測中…';
+            fetch('notif_diag.php', { method: 'GET', cache: 'no-store' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { renderNotificationSelfCheck(d); })
+                .catch(function () {
+                    summaryEl.innerHTML = '<span style="color:red;">notif_diag.php 請求失敗（可能尚未部署）</span>';
+                });
+        }
+
+        function runClientNotificationSelfCheck() {
+            const checks = [];
+            function add(id, label, ok, detail, level) {
+                checks.push({
+                    id: id,
+                    channel: 'browser-client',
+                    label: label,
+                    ok: !!ok,
+                    level: level || (ok ? 'ok' : 'warn'),
+                    detail: detail
+                });
+            }
+            add('notif_api', 'Notification API', 'Notification' in window,
+                'Notification' in window ? ('permission=' + Notification.permission) : '不支援',
+                'Notification' in window ? 'ok' : 'warn');
+            add('sw', 'Service Worker', 'serviceWorker' in navigator,
+                'serviceWorker' in navigator ? '可用' : '不支援',
+                'serviceWorker' in navigator ? 'ok' : 'warn');
+            add('push_manager', 'PushManager', 'PushManager' in window,
+                'PushManager' in window ? '可用' : '不支援',
+                'PushManager' in window ? 'ok' : 'warn');
+            add('secure', 'isSecureContext', window.isSecureContext === true,
+                window.isSecureContext ? 'secure context' : '非 secure context（HTTPS/localhost 才完整支援）',
+                window.isSecureContext ? 'ok' : 'warn');
+            add('fengbro_js', 'FengbroNotifications 模組', !!(window.FengbroNotifications),
+                window.FengbroNotifications ? '已載入' : '未載入 assets/js/notifications.js',
+                window.FengbroNotifications ? 'ok' : 'fail');
+            if (window.FengbroNotifications && typeof FengbroNotifications.todayKey === 'function') {
+                add('today_key', 'todayKey()', true, FengbroNotifications.todayKey(), 'ok');
+            }
+            const fail = checks.filter(function (c) { return c.level === 'fail'; }).length;
+            const warn = checks.filter(function (c) { return c.level === 'warn'; }).length;
+            const ok = checks.filter(function (c) { return c.level === 'ok'; }).length;
+            const client = {
+                overall: fail ? 'fail' : (warn ? 'warn' : 'ok'),
+                summary: { ok: ok, warn: warn, fail: fail, total: checks.length },
+                checks: checks
+            };
+            // Merge with server report when available
+            fetch('notif_diag.php', { method: 'GET', cache: 'no-store' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) { renderNotificationSelfCheck(d, client); })
+                .catch(function () {
+                    renderNotificationSelfCheck({
+                        success: fail === 0,
+                        overall: client.overall,
+                        checked_at: new Date().toISOString(),
+                        summary: client.summary,
+                        checks: [],
+                        due: {},
+                        client_hints: {}
+                    }, client);
                 });
         }
     </script>

@@ -15,3 +15,4 @@
 - Move reusable domain rules into `includes/*_helpers.php` modules when they are shared or conceptually independent from a page.
 - Prefer small refactor commits that keep the app runnable after every step.
 - Notification due-date queries and payload formatting should go through `notification_helpers.php` so footer, dashboard, push, and resend stay aligned.
+- Use `notif_diag.php` / `notifRunSelfCheck()` for read-only notification self-diagnostics (settings page UI).

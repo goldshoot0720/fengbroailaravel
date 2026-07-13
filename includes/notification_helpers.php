@@ -296,3 +296,352 @@ function notifDeletePushSubscription(PDO $pdo, string $endpoint): void
     $stmt = $pdo->prepare('DELETE FROM push_subscriptions WHERE endpoint = ?');
     $stmt->execute([$endpoint]);
 }
+
+/**
+ * Build a single self-check row.
+ *
+ * @return array{id:string,channel:string,label:string,ok:bool,level:string,detail:string}
+ */
+function notifSelfCheckItem(string $id, string $channel, string $label, bool $ok, string $detail, string $level = ''): array
+{
+    if ($level === '') {
+        $level = $ok ? 'ok' : 'warn';
+    }
+    return [
+        'id' => $id,
+        'channel' => $channel,
+        'label' => $label,
+        'ok' => $ok,
+        'level' => $level,
+        'detail' => $detail,
+    ];
+}
+
+/**
+ * Notification self-diagnostic (read-only; does not send mail/push).
+ *
+ * @return array{
+ *   success:bool,
+ *   overall:string,
+ *   checked_at:string,
+ *   timezone:string,
+ *   summary:array{ok:int,warn:int,fail:int,total:int},
+ *   checks:list<array<string,mixed>>,
+ *   due:array<string,mixed>,
+ *   client_hints:array<string,mixed>
+ * }
+ */
+function notifRunSelfCheck(PDO $pdo): array
+{
+    $checks = [];
+    $root = dirname(__DIR__);
+
+    // ── Runtime ────────────────────────────────────────────────────────────
+    $checks[] = notifSelfCheckItem(
+        'php_version',
+        'runtime',
+        'PHP 版本',
+        version_compare(PHP_VERSION, '8.0.0', '>='),
+        PHP_VERSION,
+        version_compare(PHP_VERSION, '8.0.0', '>=') ? 'ok' : 'fail'
+    );
+    $checks[] = notifSelfCheckItem(
+        'ext_curl',
+        'runtime',
+        'cURL 擴充',
+        function_exists('curl_init'),
+        function_exists('curl_init') ? '可用（Resend / Web Push 需要）' : '缺少 cURL',
+        function_exists('curl_init') ? 'ok' : 'fail'
+    );
+    $checks[] = notifSelfCheckItem(
+        'ext_openssl',
+        'runtime',
+        'OpenSSL 擴充',
+        extension_loaded('openssl'),
+        extension_loaded('openssl') ? '可用（VAPID / 推播加密需要）' : '缺少 OpenSSL',
+        extension_loaded('openssl') ? 'ok' : 'fail'
+    );
+    $checks[] = notifSelfCheckItem(
+        'timezone',
+        'runtime',
+        '時區',
+        true,
+        date_default_timezone_get() . ' / 今天 ' . date('Y-m-d H:i:s')
+    );
+
+    // ── Deployed files ─────────────────────────────────────────────────────
+    $files = [
+        'file_helpers' => ['includes/notification_helpers.php', '共用 helpers'],
+        'file_js' => ['assets/js/notifications.js', '前端通知模組'],
+        'file_sw' => ['sw.js', 'Service Worker'],
+        'file_push_send' => ['push_send.php', 'Web Push 發送腳本'],
+        'file_push_sub' => ['push_subscribe.php', 'Web Push 訂閱 API'],
+        'file_resend' => ['includes/resend_notifications.php', 'Resend 郵件模組'],
+        'file_resend_cli' => ['resend_notify.php', 'Resend 排程入口'],
+        'file_webpush' => ['push/WebPushHelper.php', 'WebPushHelper'],
+    ];
+    foreach ($files as $id => [$rel, $label]) {
+        $path = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        $exists = is_file($path);
+        $checks[] = notifSelfCheckItem(
+            $id,
+            'deploy',
+            $label,
+            $exists,
+            $exists ? $rel . ' 存在' : $rel . ' 不存在（尚未部署？）',
+            $exists ? 'ok' : 'fail'
+        );
+    }
+
+    // ── Due-date data ──────────────────────────────────────────────────────
+    $due = [
+        'subscriptions_3d' => 0,
+        'subscriptions_1d' => 0,
+        'food_7d_window' => 0,
+        'food_7d_exact' => 0,
+        'food_expired' => 0,
+        'subscription_samples' => [],
+        'food_samples' => [],
+    ];
+    try {
+        $sub3 = notifGetExpiringSubscriptions($pdo, 3);
+        $sub1 = notifGetSubscriptionsDueInDays($pdo, 1);
+        $foodWin = notifGetExpiringFood($pdo, 7);
+        $foodExact = notifGetFoodDueInDays($pdo, 7);
+        $foodExpired = notifGetExpiredFood($pdo, 5);
+        $due['subscriptions_3d'] = count($sub3);
+        $due['subscriptions_1d'] = count($sub1);
+        $due['food_7d_window'] = count($foodWin);
+        $due['food_7d_exact'] = count($foodExact);
+        $due['food_expired'] = count($foodExpired);
+        $due['subscription_samples'] = array_map(static function ($row) {
+            return [
+                'name' => (string) ($row['name'] ?? ''),
+                'nextdate' => (string) ($row['nextdate'] ?? $row['target_date'] ?? ''),
+                'daysText' => notifDaysText($row['nextdate'] ?? $row['target_date'] ?? ''),
+            ];
+        }, array_slice($sub3, 0, 5));
+        $due['food_samples'] = array_map(static function ($row) {
+            return [
+                'name' => (string) ($row['name'] ?? ''),
+                'todate' => (string) ($row['todate'] ?? $row['target_date'] ?? ''),
+                'daysText' => notifDaysText($row['todate'] ?? $row['target_date'] ?? ''),
+            ];
+        }, array_slice($foodWin, 0, 5));
+
+        $checks[] = notifSelfCheckItem(
+            'db_due_queries',
+            'data',
+            '到期查詢',
+            true,
+            sprintf(
+                '訂閱3天內 %d / 訂閱明天 %d / 食品7天內 %d / 食品正好7天後 %d / 已過期 %d',
+                $due['subscriptions_3d'],
+                $due['subscriptions_1d'],
+                $due['food_7d_window'],
+                $due['food_7d_exact'],
+                $due['food_expired']
+            )
+        );
+        $checks[] = notifSelfCheckItem(
+            'banner_candidates',
+            'browser',
+            '全站橫幅 / 系統通知候選',
+            true,
+            $due['subscriptions_3d'] > 0
+                ? '有 ' . $due['subscriptions_3d'] . ' 筆會觸發全站提醒（需瀏覽器權限）'
+                : '目前無 3 天內到期訂閱，全站橫幅不會顯示（正常）',
+            'ok'
+        );
+        $checks[] = notifSelfCheckItem(
+            'dashboard_candidates',
+            'browser',
+            '儀表板提醒候選',
+            true,
+            sprintf(
+                '訂閱 %d、食品7天 %d、過期 %d（需權限 + 每日去重）',
+                $due['subscriptions_3d'],
+                $due['food_7d_window'],
+                $due['food_expired']
+            )
+        );
+    } catch (Throwable $e) {
+        $checks[] = notifSelfCheckItem(
+            'db_due_queries',
+            'data',
+            '到期查詢',
+            false,
+            '查詢失敗：' . $e->getMessage(),
+            'fail'
+        );
+    }
+
+    // ── Web Push ───────────────────────────────────────────────────────────
+    $vapidPublic = notifGetVapidPublicKey($pdo);
+    $vapidPrivate = '';
+    try {
+        $stmt = $pdo->query(
+            "SELECT setting_value FROM settings
+             WHERE setting_key = 'vapid_private_key' AND user_id IS NULL
+             LIMIT 1"
+        );
+        $vapidPrivate = $stmt ? (string) ($stmt->fetchColumn() ?: '') : '';
+    } catch (Throwable $e) {
+        $vapidPrivate = '';
+    }
+    $pushDevices = notifCountPushDevices($pdo);
+    $checks[] = notifSelfCheckItem(
+        'vapid_public',
+        'push',
+        'VAPID 公鑰',
+        $vapidPublic !== '',
+        $vapidPublic !== '' ? '已設定（' . strlen($vapidPublic) . ' chars）' : '未設定，請在設定頁初始化',
+        $vapidPublic !== '' ? 'ok' : 'warn'
+    );
+    $checks[] = notifSelfCheckItem(
+        'vapid_private',
+        'push',
+        'VAPID 私鑰',
+        $vapidPrivate !== '',
+        $vapidPrivate !== '' ? '已設定' : '未設定',
+        $vapidPrivate !== '' ? 'ok' : 'warn'
+    );
+    $checks[] = notifSelfCheckItem(
+        'push_devices',
+        'push',
+        '推播訂閱裝置',
+        $pushDevices > 0,
+        $pushDevices . ' 台' . ($pushDevices === 0 ? '（需在瀏覽器允許通知後自動訂閱）' : ''),
+        $pushDevices > 0 ? 'ok' : 'warn'
+    );
+    $pushReady = $vapidPublic !== '' && $vapidPrivate !== '' && $pushDevices > 0;
+    $checks[] = notifSelfCheckItem(
+        'push_ready',
+        'push',
+        'Web Push 就緒',
+        $pushReady,
+        $pushReady
+            ? ($due['subscriptions_3d'] > 0
+                ? '可立即發送 3 天內訂閱提醒'
+                : '通道就緒，但目前無 3 天內到期訂閱可推')
+            : '尚缺 VAPID 或訂閱裝置',
+        $pushReady ? 'ok' : 'warn'
+    );
+
+    // ── Resend email ───────────────────────────────────────────────────────
+    if (!function_exists('fengbroResendCredentialSlots')) {
+        require_once __DIR__ . '/resend_notifications.php';
+    }
+    $slots = fengbroResendCredentialSlots($pdo);
+    $configuredSlots = array_values(array_filter($slots, static function ($slot) {
+        return $slot['api_key'] !== '' && $slot['recipient'] !== '';
+    }));
+    $slotSummary = [];
+    foreach ($slots as $slot) {
+        $slotSummary[] = sprintf(
+            '#%d key=%s to=%s',
+            $slot['slot'],
+            $slot['api_key'] !== '' ? '已設' : '空',
+            $slot['recipient'] !== '' ? $slot['recipient'] : '空'
+        );
+    }
+    $checks[] = notifSelfCheckItem(
+        'resend_credentials',
+        'email',
+        'Resend 憑證',
+        count($configuredSlots) > 0,
+        count($configuredSlots) > 0
+            ? ('可用 ' . count($configuredSlots) . ' 組：' . implode('；', $slotSummary))
+            : ('尚未設定 RESEND_API_KEY / RESEND_TO_EMAIL（' . implode('；', $slotSummary) . '）'),
+        count($configuredSlots) > 0 ? 'ok' : 'warn'
+    );
+
+    $resendLogOk = true;
+    $resendLogDetail = '';
+    try {
+        if (function_exists('fengbroResendEnsureTables')) {
+            fengbroResendEnsureTables($pdo);
+        }
+        $logCount = (int) $pdo->query('SELECT COUNT(*) FROM resend_notification_log')->fetchColumn();
+        $resendLogDetail = 'resend_notification_log 共 ' . $logCount . ' 筆';
+    } catch (Throwable $e) {
+        $resendLogOk = false;
+        $resendLogDetail = 'log 表不可用：' . $e->getMessage();
+    }
+    $checks[] = notifSelfCheckItem(
+        'resend_log',
+        'email',
+        'Resend 去重 log',
+        $resendLogOk,
+        $resendLogDetail,
+        $resendLogOk ? 'ok' : 'fail'
+    );
+    $emailDue = $due['subscriptions_1d'] + $due['food_7d_exact'];
+    $checks[] = notifSelfCheckItem(
+        'resend_due',
+        'email',
+        'Resend 今日應寄候選',
+        true,
+        sprintf(
+            '訂閱明天 %d + 食品正好7天後 %d = %d 筆（已寄過會 skipped）',
+            $due['subscriptions_1d'],
+            $due['food_7d_exact'],
+            $emailDue
+        )
+    );
+
+    // ── Secure context hint for browser/push ───────────────────────────────
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https');
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $isLocal = $host === 'localhost' || str_starts_with($host, '127.0.0.1');
+    $secureOk = $https || $isLocal || $host === '';
+    $checks[] = notifSelfCheckItem(
+        'secure_context',
+        'browser',
+        'Secure context（瀏覽器通知 / Push）',
+        $secureOk,
+        $secureOk
+            ? ($https ? 'HTTPS 可用' : ($isLocal ? 'localhost 可用' : 'CLI / 未知 host'))
+            : '目前非 HTTPS，部分瀏覽器會封鎖 Notification / Push',
+        $secureOk ? 'ok' : 'warn'
+    );
+
+    $ok = 0;
+    $warn = 0;
+    $fail = 0;
+    foreach ($checks as $c) {
+        if ($c['level'] === 'fail' || (!$c['ok'] && $c['level'] !== 'warn')) {
+            $fail++;
+        } elseif ($c['level'] === 'warn' || !$c['ok']) {
+            $warn++;
+        } else {
+            $ok++;
+        }
+    }
+    $overall = $fail > 0 ? 'fail' : ($warn > 0 ? 'warn' : 'ok');
+
+    return [
+        'success' => $fail === 0,
+        'overall' => $overall,
+        'checked_at' => date('c'),
+        'timezone' => date_default_timezone_get(),
+        'summary' => [
+            'ok' => $ok,
+            'warn' => $warn,
+            'fail' => $fail,
+            'total' => count($checks),
+        ],
+        'checks' => $checks,
+        'due' => $due,
+        'client_hints' => [
+            'notifications_js' => 'assets/js/notifications.js',
+            'service_worker' => 'sw.js',
+            'permission_api' => 'Notification.permission',
+            'push_manager' => 'serviceWorker + PushManager',
+            'session_dedupe_key' => 'sub_notified_YYYY-MM-DD',
+            'dashboard_dedupe_prefix' => 'fengbro.dashboard.notifications.',
+        ],
+    ];
+}
