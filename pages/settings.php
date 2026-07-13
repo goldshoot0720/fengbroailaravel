@@ -321,13 +321,10 @@ $biggoSettings = [
 
     <?php
     // ── 推播通知管理卡片資料 ──────────────────────────────────────────────────
+    require_once __DIR__ . '/../includes/notification_helpers.php';
     require_once __DIR__ . '/../push/WebPushHelper.php';
     $vapidPublicKeySet = WebPushHelper::getVapidPublicKey() !== '';
-    try {
-        $pushDeviceCount = $pdo->query("SELECT COUNT(*) FROM push_subscriptions")->fetchColumn();
-    } catch (Exception $e) {
-        $pushDeviceCount = 0;
-    }
+    $pushDeviceCount = notifCountPushDevices($pdo);
     $scriptPath = str_replace('\\', '/', __DIR__ . '/../push_send.php');
     ?>
 

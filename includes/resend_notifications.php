@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/notification_helpers.php';
+
 function fengbroResendEnsureTables(PDO $pdo): void
 {
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
@@ -274,12 +276,9 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
             'days' => 1,
             'label' => '鋒兄訂閱',
             'subject' => '鋒兄訂閱：明天到期提醒',
-            'sql' => "SELECT id, name, nextdate AS target_date, site, account, note
-                      FROM subscription
-                      WHERE `continue` = 1
-                        AND nextdate IS NOT NULL
-                        AND DATE(nextdate) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
-                      ORDER BY nextdate ASC, name ASC",
+            'fetch' => static function (PDO $pdo): array {
+                return notifGetSubscriptionsDueInDays($pdo, 1);
+            },
         ],
         [
             'type' => 'food_due_7d',
@@ -288,11 +287,9 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
             'days' => 7,
             'label' => '鋒兄食品',
             'subject' => '鋒兄食品：一周後到期提醒',
-            'sql' => "SELECT id, name, todate AS target_date, amount, shop
-                      FROM food
-                      WHERE todate IS NOT NULL
-                        AND DATE(todate) = DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-                      ORDER BY todate ASC, name ASC",
+            'fetch' => static function (PDO $pdo): array {
+                return notifGetFoodDueInDays($pdo, 7);
+            },
         ],
     ];
 
@@ -302,7 +299,7 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
     $details = [];
 
     foreach ($rules as $rule) {
-        $rows = $pdo->query($rule['sql'])->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $rule['fetch']($pdo);
         $pending = [];
 
         foreach ($rows as $row) {

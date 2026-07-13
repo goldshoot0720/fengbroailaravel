@@ -1,5 +1,6 @@
 <?php
 $pageTitle = '儀表板';
+require_once __DIR__ . '/../includes/notification_helpers.php';
 $pdo = getConnection();
 
 $exchangeRates = [
@@ -51,11 +52,25 @@ $bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
 $bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
 
-$subExpiring3Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate >= CURDATE() ORDER BY nextdate ASC")->fetchAll();
-$subExpiring7Days = $pdo->query("SELECT * FROM subscription WHERE `continue` = 1 AND nextdate IS NOT NULL AND nextdate > DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY nextdate ASC")->fetchAll();
-$foodExpiring7Days = $pdo->query("SELECT * FROM food WHERE todate IS NOT NULL AND todate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND todate >= CURDATE() ORDER BY todate ASC")->fetchAll();
-$foodExpiring30Days = $pdo->query("SELECT * FROM food WHERE todate IS NOT NULL AND todate > DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND todate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) ORDER BY todate ASC")->fetchAll();
-$expiredFoods = $pdo->query("SELECT * FROM food WHERE todate IS NOT NULL AND todate < CURDATE() ORDER BY todate ASC LIMIT 5")->fetchAll();
+$subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
+$subExpiring7Days = $pdo->query(
+    "SELECT * FROM subscription
+     WHERE `continue` = 1
+       AND nextdate IS NOT NULL
+       AND nextdate > DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+       AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+     ORDER BY nextdate ASC"
+)->fetchAll();
+$foodExpiring7Days = notifGetExpiringFood($pdo, 7);
+$foodExpiring30Days = $pdo->query(
+    "SELECT * FROM food
+     WHERE todate IS NOT NULL
+       AND todate > DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+       AND todate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+     ORDER BY todate ASC"
+)->fetchAll();
+$expiredFoods = notifGetExpiredFood($pdo, 5);
+$dashboardNotificationAlerts = notifBuildDashboardAlerts($pdo);
 $toolSnapshotCount = 0;
 try {
     $toolSnapshotCount = $pdo->query("SELECT COUNT(*) FROM tool_price_history")->fetchColumn();
@@ -438,45 +453,20 @@ $uploadBucketLabels = [
 </div>
 
 <script>
-    const dashboardAlerts = {
-        subscriptions3: <?php echo json_encode(array_map(fn($item) => ['name' => $item['name'], 'date' => formatDate($item['nextdate'])], $subExpiring3Days), JSON_UNESCAPED_UNICODE); ?>,
-        foods7: <?php echo json_encode(array_map(fn($item) => ['name' => $item['name'], 'date' => formatDate($item['todate'])], $foodExpiring7Days), JSON_UNESCAPED_UNICODE); ?>,
-        expiredFoods: <?php echo json_encode(array_map(fn($item) => ['name' => $item['name'], 'date' => formatDate($item['todate'])], $expiredFoods), JSON_UNESCAPED_UNICODE); ?>
-    };
+    const dashboardAlerts = <?php echo json_encode($dashboardNotificationAlerts, JSON_UNESCAPED_UNICODE); ?>;
 
     function sendDashboardNotifications() {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        const today = new Date().toISOString().slice(0, 10);
-        const storageKey = 'fengbro.dashboard.notifications.' + today;
-        const sent = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        const notifyOnce = (key, title, body) => {
-            if (sent[key]) return;
-            sent[key] = true;
-            new Notification(title, { body, icon: 'icon-192x192.png' });
-        };
-        dashboardAlerts.subscriptions3.slice(0, 3).forEach((item, index) => {
-            notifyOnce('sub-' + index + '-' + item.name, '訂閱 3 天內到期', item.name + '：' + item.date);
-        });
-        dashboardAlerts.foods7.slice(0, 3).forEach((item, index) => {
-            notifyOnce('food-' + index + '-' + item.name, '食品 7 天內到期', item.name + '：' + item.date);
-        });
-        dashboardAlerts.expiredFoods.slice(0, 3).forEach((item, index) => {
-            notifyOnce('expired-' + index + '-' + item.name, '食品已過期', item.name + '：' + item.date);
-        });
-        localStorage.setItem(storageKey, JSON.stringify(sent));
+        if (window.FengbroNotifications) {
+            FengbroNotifications.sendDashboardNotifications(dashboardAlerts);
+        }
     }
 
     function requestDashboardNotifications() {
-        if (!('Notification' in window)) {
-            alert('此瀏覽器不支援通知。');
+        if (window.FengbroNotifications) {
+            FengbroNotifications.requestDashboardNotifications(dashboardAlerts);
             return;
         }
-        Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-                sendDashboardNotifications();
-                alert('提醒已啟用。');
-            }
-        });
+        alert('通知模組尚未載入。');
     }
 
     async function loadOfflineCacheMetric() {
