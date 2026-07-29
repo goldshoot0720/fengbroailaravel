@@ -35,7 +35,7 @@ $currentPage = $_GET['page'] ?? 'home';
         <div class="sidebar-brand-copy">
             <span class="sidebar-kicker">Personal Ops System</span>
             <h2><i class="fa-solid fa-dragon"></i> Fengbro AI</h2>
-            <p>Laravel + MySQL workspace</p>
+            <p>PHP + MySQL workspace</p>
         </div>
         <button id="darkModeToggle" class="dark-mode-btn" onclick="toggleDarkMode()" title="切換深色模式">
             <i class="fa-solid fa-moon"></i>

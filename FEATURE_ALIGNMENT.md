@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：自動對齊完成標記。對照倉庫 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：終態收尾（手機獨立分頁、金融精選、影片截圖）。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -13,7 +13,7 @@
 | Notes / Article | `pages/notes.php` | 完成 |
 | Common accounts | `pages/favorites.php` | 完成 |
 | Images | `pages/images.php` | 完成（批次快取） |
-| Videos | `pages/videos.php` | 完成（批次快取） |
+| Videos | `pages/videos.php` | 完成（批次快取、播放器截圖） |
 | Music + lyrics | `pages/music.php` | 完成 |
 | Documents | `pages/documents.php` | 完成（批次快取） |
 | Podcast | `pages/podcast.php` | 完成 |
@@ -28,9 +28,9 @@
 |---|---|---|
 | 鋒兄比價 BigGo | `price` | 完成 |
 | ManualPriceTracker | `manual` | 完成（localStorage + CSV） |
-| 手機比價 landtop+jyes | `price`（同頁） | 完成（快照表 + 歷史 CSV 匯出/匯入） |
+| 手機比價 landtop+jyes | `phone` | 完成（獨立分頁、快照、歷史 CSV 匯出/匯入） |
 | 鋒兄Tube | `tube` | 完成（頻道 CSV） |
-| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂標的 CSV、**解析名稱**） |
+| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**） |
 | 鋒兄新聞 + 便當 | `news` | 完成 |
 | PNG/JPEG 轉換 | `image-convert` | 完成 |
 | ImageVoiceVideo | `image-voice` | 完成（多語 TTS、翻譯、人臉選聲、一鍵 MP4） |
@@ -69,4 +69,9 @@
 
 ## 結論
 
-在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成。後續僅維護／環境優化，不再以功能缺口為主軸。
+**狀態：完成（DONE）**
+
+在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成。  
+刻意不移植項目見上表；其餘缺口屬執行環境或第三方服務限制，不屬功能未做。
+
+後續僅維護／hotfix／環境優化，**不再以功能缺口為主軸無限擴充**。

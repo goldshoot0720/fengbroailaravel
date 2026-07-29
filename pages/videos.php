@@ -808,6 +808,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                             <p id="videoPlayerSummary"></p>
                         </div>
                         <div class="video-player-actions">
+                            <button id="videoPlayerScreenshotBtn" type="button" class="btn btn-ghost"
+                                onclick="captureVideoScreenshot()" title="擷取目前畫面為圖片">
+                                <i class="fa-solid fa-camera"></i> 截圖
+                            </button>
                             <button id="videoPlayerDownloadBtn" type="button" class="btn btn-success"
                                 onclick="downloadCurrentVideo()" style="display: none;">
                                 <i class="fa-solid fa-download"></i> 下載影片
@@ -960,6 +964,37 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         }
 
         downloadVideo(currentPlayingVideoId);
+    }
+
+    /** 擷取播放器目前畫面（對齊 Appwrite video-screenshot-button） */
+    function captureVideoScreenshot() {
+        try {
+            let videoEl = null;
+            if (typeof vjsPlayer !== 'undefined' && vjsPlayer && typeof vjsPlayer.el === 'function') {
+                videoEl = vjsPlayer.el().querySelector('video');
+            }
+            if (!videoEl) {
+                videoEl = document.querySelector('#videoPlayer video, #videoPlayer_html5_api, video#videoPlayer');
+            }
+            if (!videoEl || !videoEl.videoWidth) {
+                alert('目前沒有可截圖的影片畫面');
+                return;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+            const name = (document.getElementById('videoPlayerTitle')?.textContent || 'video').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60);
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = name + '-shot-' + Date.now() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (e) {
+            alert('截圖失敗（可能因跨域影片限制）：' + (e.message || e));
+        }
     }
 
     function setVideoInterface(mode) {

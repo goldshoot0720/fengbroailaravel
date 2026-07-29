@@ -67,6 +67,7 @@ function fengbroFinanceReadConfig()
         return [
             'defaultIds' => fengbroFinanceDefaultIds(),
             'custom' => [],
+            'featuredIds' => [],
         ];
     }
     $data = json_decode((string) @file_get_contents($path), true);
@@ -74,6 +75,7 @@ function fengbroFinanceReadConfig()
         return [
             'defaultIds' => fengbroFinanceDefaultIds(),
             'custom' => [],
+            'featuredIds' => [],
         ];
     }
     $allowed = array_flip(fengbroFinanceDefaultIds());
@@ -94,7 +96,67 @@ function fengbroFinanceReadConfig()
             $custom[] = $normalized;
         }
     }
-    return ['defaultIds' => array_values(array_unique($defaultIds)), 'custom' => $custom];
+    $customIds = array_flip(array_map(static fn($c) => $c['id'] ?? '', $custom));
+    $featuredIds = [];
+    foreach ((array) ($data['featuredIds'] ?? []) as $id) {
+        $id = trim((string) $id);
+        if ($id === '') {
+            continue;
+        }
+        if (isset($allowed[$id]) || isset($customIds[$id])) {
+            $featuredIds[] = $id;
+        }
+        if (count($featuredIds) >= 9) {
+            break;
+        }
+    }
+    return [
+        'defaultIds' => array_values(array_unique($defaultIds)),
+        'custom' => $custom,
+        'featuredIds' => array_values(array_unique($featuredIds)),
+    ];
+}
+
+/** Max 9 featured instrument ids (default or custom). */
+function fengbroFinanceSaveFeaturedIds(array $ids): void
+{
+    $config = fengbroFinanceReadConfig();
+    $allowed = array_flip(fengbroFinanceDefaultIds());
+    foreach ($config['custom'] as $c) {
+        if (!empty($c['id'])) {
+            $allowed[$c['id']] = true;
+        }
+    }
+    $filtered = [];
+    foreach ($ids as $id) {
+        $id = trim((string) $id);
+        if ($id !== '' && isset($allowed[$id])) {
+            $filtered[] = $id;
+        }
+        if (count($filtered) >= 9) {
+            break;
+        }
+    }
+    $config['featuredIds'] = array_values(array_unique($filtered));
+    fengbroFinanceWriteConfig($config);
+}
+
+function fengbroFinanceToggleFeatured(string $id): array
+{
+    $id = trim($id);
+    $config = fengbroFinanceReadConfig();
+    $featured = $config['featuredIds'] ?? [];
+    $pos = array_search($id, $featured, true);
+    if ($pos !== false) {
+        array_splice($featured, (int) $pos, 1);
+    } else {
+        if (count($featured) >= 9) {
+            return ['ok' => false, 'error' => '精選最多 9 項', 'featuredIds' => $featured];
+        }
+        $featured[] = $id;
+    }
+    fengbroFinanceSaveFeaturedIds($featured);
+    return ['ok' => true, 'featuredIds' => fengbroFinanceReadConfig()['featuredIds'] ?? []];
 }
 
 function fengbroFinanceWriteConfig(array $config)
@@ -273,6 +335,7 @@ function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
         'historySymbol' => $historySymbol,
         'localLabel' => strtoupper($provider) . ': ' . $symbol,
         'isCustom' => true,
+        'featured' => !empty($input['featured']),
     ];
 }
 

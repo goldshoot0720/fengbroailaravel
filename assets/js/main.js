@@ -1270,7 +1270,8 @@ function initFengbroVoiceInput() {
                 { re: /圖\s*\+?\s*語音|圖加語音|圖片語音|image\s*voice|ivv/, tool: 'image-voice', label: '圖+語音' },
                 { re: /影片合併|合併影片|video\s*merge/, tool: 'video-merge', label: '影片合併' },
                 { re: /yt\s*轉檔|b站|bilibili|youtube\s*轉|轉檔/, tool: 'yt-bili', label: 'YT/B站轉檔' },
-                { re: /比價|biggo|手機比價|手機/, tool: 'price', label: '鋒兄比價' }
+                { re: /手機比價|手機通路|地標|傑昇/, tool: 'phone', label: '手機比價' },
+                { re: /比價|biggo/, tool: 'price', label: '鋒兄比價' }
             ];
             for (let ti = 0; ti < toolRoutes.length; ti++) {
                 if (toolRoutes[ti].re.test(text)) {

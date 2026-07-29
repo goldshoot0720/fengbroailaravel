@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $toolSubpage = $_GET['tool'] ?? 'price';
 $toolSubpage = in_array($toolSubpage, [
-    'price', 'manual', 'tube', 'finance', 'news',
+    'price', 'phone', 'manual', 'tube', 'finance', 'news',
     'image-convert', 'image-voice', 'video-merge', 'yt-bili',
 ], true) ? $toolSubpage : 'price';
 if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['tube_action'] ?? '') !== '') {
@@ -164,6 +164,11 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
             echo implode(',', $out) . "\n";
         }
         exit;
+    } elseif ($action === 'toggle_featured') {
+        $fid = trim((string) ($_POST['instrument_id'] ?? ''));
+        if ($fid !== '') {
+            fengbroFinanceToggleFeatured($fid);
+        }
     } elseif ($action === 'import_csv' && !empty($_FILES['finance_csv']['tmp_name'])) {
         $raw = (string) file_get_contents($_FILES['finance_csv']['tmp_name']);
         $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
@@ -228,6 +233,9 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     <div class="tools-subnav">
         <a class="tools-subnav-link <?php echo $toolSubpage === 'price' ? 'active' : ''; ?>" href="index.php?page=tools&tool=price">
             <i class="fa-solid fa-tags"></i> 鋒兄比價
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'phone' ? 'active' : ''; ?>" href="index.php?page=tools&tool=phone">
+            <i class="fa-solid fa-mobile-screen-button"></i> 手機比價
         </a>
         <a class="tools-subnav-link <?php echo $toolSubpage === 'manual' ? 'active' : ''; ?>" href="index.php?page=tools&tool=manual">
             <i class="fa-solid fa-clipboard-list"></i> 手動價格
@@ -748,10 +756,22 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         $selectedDefaultIds = $financeConfig['defaultIds'] ?? fengbroFinanceDefaultIds();
         $selectedDefaultSet = array_flip($selectedDefaultIds);
         $customInstruments = $financeConfig['custom'] ?? [];
+        $featuredIds = $financeConfig['featuredIds'] ?? [];
+        $featuredSet = array_flip($featuredIds);
         $availableDefaults = array_values(array_filter(
             $financeCatalog,
             static fn($item) => !isset($selectedDefaultSet[$item['id']])
         ));
+        // 精選排在報價列表前
+        $quotes = $financeData['quotes'] ?? [];
+        if ($featuredIds && $quotes) {
+            usort($quotes, static function ($a, $b) use ($featuredSet) {
+                $ai = isset($featuredSet[$a['id'] ?? '']) ? 0 : 1;
+                $bi = isset($featuredSet[$b['id'] ?? '']) ? 0 : 1;
+                return $ai <=> $bi;
+            });
+            $financeData['quotes'] = $quotes;
+        }
         ?>
         <section class="card finance-overview">
             <div class="finance-overview-copy">
@@ -867,22 +887,35 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 $historyPoints = array_values(array_filter(array_map(static function ($p) {
                     return isset($p['price']) && is_numeric($p['price']) ? (float) $p['price'] : null;
                 }, $history1y)));
+                $qid = (string) ($quote['id'] ?? '');
+                $isFeatured = $qid !== '' && isset($featuredSet[$qid]);
                 ?>
-                <section class="finance-card <?php echo $tone; ?>">
+                <section class="finance-card <?php echo $tone; ?><?php echo $isFeatured ? ' is-featured' : ''; ?>">
                     <div class="finance-card-head">
                         <div>
-                            <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?><?php echo !empty($quote['isCustom']) ? ' · 自訂' : ''; ?></span>
+                            <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?><?php echo !empty($quote['isCustom']) ? ' · 自訂' : ''; ?><?php echo $isFeatured ? ' · 精選' : ''; ?></span>
                             <h3><?php echo htmlspecialchars($quote['name']); ?></h3>
                             <?php if (!empty($quote['localLabel'])): ?>
                                 <div style="color:var(--muted-text);font-size:0.82rem;margin-bottom:4px;"><?php echo htmlspecialchars($quote['localLabel']); ?></div>
                             <?php endif; ?>
                             <a href="<?php echo htmlspecialchars($quote['url']); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($quote['symbol']); ?> · <?php echo htmlspecialchars($quote['source'] ?? ''); ?></a>
                         </div>
-                        <?php if (!empty($quote['status'])): ?>
-                            <strong class="finance-status <?php echo $statusClass; ?>">
-                                <?php echo htmlspecialchars($quote['status']); ?>
-                            </strong>
-                        <?php endif; ?>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                            <?php if ($qid !== ''): ?>
+                            <form method="post" style="margin:0;">
+                                <input type="hidden" name="finance_action" value="toggle_featured">
+                                <input type="hidden" name="instrument_id" value="<?php echo htmlspecialchars($qid); ?>">
+                                <button type="submit" class="btn btn-sm btn-ghost" title="<?php echo $isFeatured ? '取消精選' : '加入精選（最多9）'; ?>">
+                                    <i class="fa-<?php echo $isFeatured ? 'solid' : 'regular'; ?> fa-star"></i>
+                                </button>
+                            </form>
+                            <?php endif; ?>
+                            <?php if (!empty($quote['status'])): ?>
+                                <strong class="finance-status <?php echo $statusClass; ?>">
+                                    <?php echo htmlspecialchars($quote['status']); ?>
+                                </strong>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <?php if (!empty($quote['error'])): ?>
@@ -922,33 +955,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 </section>
             <?php endforeach; ?>
         </div>
-    <?php else: ?>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-        <section class="card">
-            <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;">
-                <div style="width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--warning-soft); color: #b45309;">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i>
-                </div>
-                <div>
-                    <h3 class="card-title" style="margin-bottom: 4px;">鋒兄比價</h3>
-                    <p style="color: var(--muted-text); line-height: 1.6;">貼上商品關鍵字或網址；API 可用時抓取價格，否則保留 BigGo 查詢連結與歷史快照。</p>
-                </div>
-            </div>
-
-            <div style="display: grid; gap: 12px;">
-                <label for="priceQuery" style="font-weight: 700;">商品關鍵字或網址</label>
-                <input id="priceQuery" class="form-control" type="text" placeholder="例如 iPhone 17 256GB">
-                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    <button class="btn btn-primary" type="button" onclick="runBigGoLookup()">
-                        <i class="fa-solid fa-search"></i> 建立比價快照
-                    </button>
-                    <a class="btn btn-ghost" href="https://biggo.com.tw/" target="_blank" rel="noopener">
-                        <i class="fa-solid fa-up-right-from-square"></i> BigGo 首頁
-                    </a>
-                </div>
-            </div>
-        </section>
-
+    <?php elseif ($toolSubpage === 'phone'): ?>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
         <section class="card">
             <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;">
                 <div style="width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent);">
@@ -956,7 +964,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 </div>
                 <div>
                     <h3 class="card-title" style="margin-bottom: 4px;">手機比價</h3>
-                    <p style="color: var(--muted-text); line-height: 1.6;">自動抓取地標網通與傑昇通信價格，合併比對最佳通路（對齊 Appwrite 版）。</p>
+                    <p style="color: var(--muted-text); line-height: 1.6;">自動抓取地標網通與傑昇通信價格，合併比對最佳通路（對齊 Appwrite landtop 分頁）。</p>
                     <p style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                         <a class="btn btn-ghost btn-sm" href="media_tools_api.php?action=phone_history_csv">
                             <i class="fa-solid fa-download"></i> 匯出歷史價格 CSV
@@ -1021,11 +1029,48 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <a class="btn btn-ghost" href="https://www.jyes.com.tw/" target="_blank" rel="noopener">
                 <i class="fa-solid fa-store"></i> 傑昇通信
             </a>
-            <a class="btn btn-ghost" href="https://biggo.com.tw/" target="_blank" rel="noopener">
-                <i class="fa-solid fa-tags"></i> BigGo 比價
+            <a class="btn btn-ghost" href="index.php?page=tools&tool=price">
+                <i class="fa-solid fa-tags"></i> 鋒兄比價（BigGo）
             </a>
         </div>
     </section>
+
+    <section class="card" style="margin-top: 20px;">
+        <h3 class="card-title">查詢結果與歷史快照</h3>
+        <div id="toolResult" class="tool-result-box">
+            <p style="color: var(--muted-text);">查詢後會在這裡顯示通路比價結果與歷史快照。</p>
+        </div>
+    </section>
+    <?php else: ?>
+    <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+        <section class="card">
+            <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;">
+                <div style="width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--warning-soft); color: #b45309;">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                </div>
+                <div>
+                    <h3 class="card-title" style="margin-bottom: 4px;">鋒兄比價</h3>
+                    <p style="color: var(--muted-text); line-height: 1.6;">貼上商品關鍵字或網址；API 可用時抓取價格，否則保留 BigGo 查詢連結與歷史快照。</p>
+                    <p style="margin-top:8px;">
+                        <a class="btn btn-ghost btn-sm" href="index.php?page=tools&tool=phone"><i class="fa-solid fa-mobile-screen"></i> 手機通路比價</a>
+                    </p>
+                </div>
+            </div>
+
+            <div style="display: grid; gap: 12px;">
+                <label for="priceQuery" style="font-weight: 700;">商品關鍵字或網址</label>
+                <input id="priceQuery" class="form-control" type="text" placeholder="例如 iPhone 17 256GB">
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <button class="btn btn-primary" type="button" onclick="runBigGoLookup()">
+                        <i class="fa-solid fa-search"></i> 建立比價快照
+                    </button>
+                    <a class="btn btn-ghost" href="https://biggo.com.tw/" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-up-right-from-square"></i> BigGo 首頁
+                    </a>
+                </div>
+            </div>
+        </section>
+    </div>
 
     <section class="card" style="margin-top: 20px;">
         <h3 class="card-title">查詢結果與歷史快照</h3>
@@ -1522,6 +1567,10 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 
     .finance-card.down {
         border-color: rgba(239, 68, 68, 0.24);
+    }
+
+    .finance-card.is-featured {
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35), 0 12px 26px var(--shadow);
     }
 
     .finance-card-head {
