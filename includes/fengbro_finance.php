@@ -122,6 +122,110 @@ function fengbroFinanceSlugify(string $value): string
     return substr(trim($value, '-'), 0, 48);
 }
 
+/**
+ * Resolve a display name for a quote symbol (Yahoo chart / TW page / JP page).
+ * Aligns with Appwrite /api/fengbro-finance/resolve-name.
+ *
+ * @return array{ok:bool,name:?string,symbol:string,source:?string,error?:string}
+ */
+function fengbroFinanceResolveName(string $symbol, string $provider = 'yahoo'): array
+{
+    $symbol = strtoupper(trim($symbol));
+    if ($symbol === '' || strlen($symbol) > 40) {
+        return ['ok' => false, 'name' => null, 'symbol' => $symbol, 'source' => null, 'error' => '無效代碼'];
+    }
+    $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+    $headers = [
+        'User-Agent: ' . $ua,
+        'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+        'Accept-Language: zh-TW,zh;q=0.9,en;q=0.8',
+    ];
+
+    $fetch = static function (string $url, array $extraHeaders = []) use ($headers): string {
+        $h = array_merge($headers, $extraHeaders);
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 12,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER => $h,
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+            return ($code >= 200 && $code < 400 && is_string($body)) ? $body : '';
+        }
+        $ctx = stream_context_create(['http' => ['timeout' => 12, 'header' => implode("\r\n", $h) . "\r\n"]]);
+        $body = @file_get_contents($url, false, $ctx);
+        return is_string($body) ? $body : '';
+    };
+
+    // 1) Yahoo chart meta shortName / longName
+    $chartSymbol = $symbol;
+    if (preg_match('/^998407/i', $symbol)) {
+        $chartSymbol = '^N225';
+    }
+    $chartUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($chartSymbol)
+        . '?interval=1d&range=5d';
+    $chartJson = $fetch($chartUrl, ['Accept: application/json']);
+    if ($chartJson !== '') {
+        $data = json_decode($chartJson, true);
+        $meta = $data['chart']['result'][0]['meta'] ?? null;
+        if (is_array($meta)) {
+            $name = trim((string) ($meta['shortName'] ?? $meta['longName'] ?? $meta['symbol'] ?? ''));
+            if ($name !== '') {
+                return ['ok' => true, 'name' => mb_substr($name, 0, 80, 'UTF-8'), 'symbol' => $symbol, 'source' => 'yahoo-chart'];
+            }
+        }
+    }
+
+    // 2) Taiwan Yahoo stock page
+    if (preg_match('/\.(TW|TWO)$/i', $symbol) || preg_match('/^\d{4}$/', $symbol)) {
+        $twSym = preg_match('/\.(TW|TWO)$/i', $symbol) ? $symbol : ($symbol . '.TW');
+        $pageUrl = 'https://tw.stock.yahoo.com/quote/' . rawurlencode($twSym);
+        $html = $fetch($pageUrl);
+        if ($html !== '') {
+            if (preg_match('/<title[^>]*>([^<]+)/iu', $html, $m)) {
+                $title = html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                // e.g. "台積電 (2330.TW) ..."
+                if (preg_match('/^(.+?)\s*[\(（]/u', $title, $tm)) {
+                    $name = trim($tm[1]);
+                    $name = preg_replace('/\s*[-|].*$/u', '', $name) ?? $name;
+                    if ($name !== '' && !preg_match('/yahoo/i', $name)) {
+                        return ['ok' => true, 'name' => mb_substr($name, 0, 80, 'UTF-8'), 'symbol' => $symbol, 'source' => 'yahoo-tw'];
+                    }
+                }
+            }
+            if (preg_match('/"symbolName"\s*:\s*"([^"]{1,80})"/u', $html, $sm)) {
+                $name = trim($sm[1]);
+                if ($name !== '') {
+                    return ['ok' => true, 'name' => mb_substr($name, 0, 80, 'UTF-8'), 'symbol' => $symbol, 'source' => 'yahoo-tw-json'];
+                }
+            }
+        }
+    }
+
+    // 3) Japan Yahoo
+    if (preg_match('/\.T$/i', $symbol)) {
+        $pageUrl = 'https://finance.yahoo.co.jp/quote/' . rawurlencode($symbol);
+        $html = $fetch($pageUrl, ['Accept-Language: ja,ja-JP;q=0.9,en;q=0.5']);
+        if ($html !== '' && preg_match('/<title[^>]*>([^<]+)/iu', $html, $m)) {
+            $title = html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if (preg_match('/^(.+?)\s*[\(（]/u', $title, $tm)) {
+                $name = trim($tm[1]);
+                if ($name !== '') {
+                    return ['ok' => true, 'name' => mb_substr($name, 0, 80, 'UTF-8'), 'symbol' => $symbol, 'source' => 'yahoo-jp'];
+                }
+            }
+        }
+    }
+
+    return ['ok' => false, 'name' => null, 'symbol' => $symbol, 'source' => null, 'error' => '無法解析名稱'];
+}
+
 function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
 {
     if (!is_array($input)) {

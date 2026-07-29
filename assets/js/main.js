@@ -262,7 +262,11 @@ function initFengbroVoiceInput() {
                 url: ['網址', '連結'],
                 note: ['備註', '描述']
             },
-            examples: ['搜尋 匯率', '前往設定', '重新整理']
+            examples: [
+                '前往鋒兄新聞', '前往手機比價', '前往圖加語音', '前往影片合併',
+                '前往 YT 轉檔', '前往 PNG', '前往手動價格', '前往鋒兄tube', '前往鋒兄金融',
+                '搜尋 匯率', '重新整理'
+            ]
         },
         settings: {
             title: '鋒兄設定',
@@ -1257,13 +1261,25 @@ function initFengbroVoiceInput() {
                 });
                 return true;
             }
-            if (/鋒兄tube|youtube|頻道/.test(text)) {
-                stageAction('開啟鋒兄 tube', function () { window.location.href = 'index.php?page=tools&tool=tube'; });
-                return true;
-            }
-            if (/金融|股價|匯率/.test(text)) {
-                stageAction('開啟鋒兄金融', function () { window.location.href = 'index.php?page=tools&tool=finance'; });
-                return true;
+            const toolRoutes = [
+                { re: /鋒兄tube|tube|youtube\s*頻道|頻道管理/, tool: 'tube', label: '鋒兄tube' },
+                { re: /金融|股價|匯率|指數/, tool: 'finance', label: '鋒兄金融' },
+                { re: /新聞|便當|台鐵/, tool: 'news', label: '鋒兄新聞' },
+                { re: /手動價格|價格紀錄/, tool: 'manual', label: '手動價格' },
+                { re: /png|jpeg|圖片轉換|格式轉換/, tool: 'image-convert', label: 'PNG/JPEG 轉換' },
+                { re: /圖\s*\+?\s*語音|圖加語音|圖片語音|image\s*voice|ivv/, tool: 'image-voice', label: '圖+語音' },
+                { re: /影片合併|合併影片|video\s*merge/, tool: 'video-merge', label: '影片合併' },
+                { re: /yt\s*轉檔|b站|bilibili|youtube\s*轉|轉檔/, tool: 'yt-bili', label: 'YT/B站轉檔' },
+                { re: /比價|biggo|手機比價|手機/, tool: 'price', label: '鋒兄比價' }
+            ];
+            for (let ti = 0; ti < toolRoutes.length; ti++) {
+                if (toolRoutes[ti].re.test(text)) {
+                    const route = toolRoutes[ti];
+                    stageAction('開啟' + route.label, function () {
+                        window.location.href = 'index.php?page=tools&tool=' + encodeURIComponent(route.tool);
+                    });
+                    return true;
+                }
             }
         }
         return false;

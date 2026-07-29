@@ -54,6 +54,13 @@ Windows 範例：`winget install yt-dlp.yt-dlp Gyan.FFmpeg`
 Whisper 自動字幕：瀏覽器跑模型；影片音訊優先由伺服器 `extract_audio` 抽成 16k mono WAV，較能處理 mp4。  
 人臉自動選聲：瀏覽器載入 face-api tiny 模型（CDN），僅在封面為「剛好一張臉」時採用預測性別，否則預設男聲。
 
+## 對齊狀態
+
+詳細對照表見 [FEATURE_ALIGNMENT.md](FEATURE_ALIGNMENT.md)。  
+**可移植功能模組已標記完成**（2026）。
+
+近期補完：金融標的「解析名稱」、手機歷史 CSV 匯入、Whisper 語言選擇、語音導向各工具子頁。
+
 ## 不再繼續移植的範圍
 
 下列為 Appwrite/Next 專屬或與 PHP 架構無關的內容，**刻意不移植**：

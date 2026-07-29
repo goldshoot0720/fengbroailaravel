@@ -525,6 +525,16 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <label style="display:block;font-weight:700;margin-bottom:6px;">可選字幕腳本（每行一句，合併後均分時間燒錄；MP4 專用）</label>
             <textarea class="form-control" data-vm-subtitle rows="3" placeholder="可留空&#10;第一句字幕&#10;第二句字幕" style="margin-bottom:8px;"></textarea>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+                <label style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:0.86rem;">
+                    Whisper 語言
+                    <select class="form-control" data-vm-whisper-lang style="width:auto;display:inline-block;">
+                        <option value="chinese">中文</option>
+                        <option value="english">English</option>
+                        <option value="japanese">日本語</option>
+                        <option value="korean">한국어</option>
+                        <option value="auto">自動</option>
+                    </select>
+                </label>
                 <button type="button" class="btn btn-ghost btn-sm" data-vm-whisper><i class="fa-solid fa-microphone-lines"></i> Whisper 自動字幕（第一段；影片先 ffmpeg 抽音）</button>
                 <span data-vm-whisper-status class="tool-muted" style="font-size:0.86rem;"></span>
             </div>
@@ -808,11 +818,16 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 
                 <div>
                     <h4 style="margin:0 0 10px;">自訂標的</h4>
-                    <form method="post" class="finance-custom-form">
+                    <form method="post" class="finance-custom-form" id="financeCustomForm">
                         <input type="hidden" name="finance_action" value="save_custom">
-                        <input class="form-control" type="text" name="custom_name" placeholder="名稱（可留空）">
-                        <input class="form-control" type="text" name="custom_symbol" placeholder="代碼，例如 NVDA / 2330.TW" required>
-                        <select class="form-control" name="custom_provider">
+                        <input class="form-control" type="text" name="custom_name" id="financeCustomName" placeholder="名稱（可留空，可自動解析）">
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                            <input class="form-control" style="flex:1;min-width:140px;" type="text" name="custom_symbol" id="financeCustomSymbol" placeholder="代碼，例如 NVDA / 2330.TW" required>
+                            <button type="button" class="btn btn-ghost" id="financeResolveNameBtn" title="從 Yahoo 解析顯示名稱">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> 解析名稱
+                            </button>
+                        </div>
+                        <select class="form-control" name="custom_provider" id="financeCustomProvider">
                             <option value="yahoo">Yahoo</option>
                             <option value="cnbc">CNBC</option>
                         </select>
@@ -822,6 +837,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             <?php endforeach; ?>
                         </select>
                         <button type="submit" class="btn btn-danger"><i class="fa-solid fa-plus"></i> 儲存自訂標的</button>
+                        <p id="financeResolveHint" class="tool-muted" style="margin:6px 0 0;font-size:0.86rem;"></p>
                     </form>
                     <div class="finance-chip-list" style="margin-top:12px;">
                         <?php if (!$customInstruments): ?>
@@ -941,10 +957,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 <div>
                     <h3 class="card-title" style="margin-bottom: 4px;">手機比價</h3>
                     <p style="color: var(--muted-text); line-height: 1.6;">自動抓取地標網通與傑昇通信價格，合併比對最佳通路（對齊 Appwrite 版）。</p>
-                    <p style="margin-top:8px;">
+                    <p style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                         <a class="btn btn-ghost btn-sm" href="media_tools_api.php?action=phone_history_csv">
                             <i class="fa-solid fa-download"></i> 匯出歷史價格 CSV
                         </a>
+                        <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
+                            <i class="fa-solid fa-upload"></i> 匯入歷史 CSV
+                            <input type="file" id="phoneHistoryCsvFile" accept=".csv,text/csv" hidden>
+                        </label>
+                        <span id="phoneHistoryCsvHint" class="tool-muted" style="font-size:0.82rem;"></span>
                     </p>
                 </div>
             </div>
@@ -2138,6 +2159,67 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         if (event.target && event.target.id === 'priceQuery') runBigGoLookup();
         if (event.target && event.target.id === 'phoneQuery') runPhoneCompare();
     });
+
+    // 金融自訂標的：解析顯示名稱
+    (function initFinanceResolveName() {
+        const btn = document.getElementById('financeResolveNameBtn');
+        const symbolInput = document.getElementById('financeCustomSymbol');
+        const nameInput = document.getElementById('financeCustomName');
+        const providerSel = document.getElementById('financeCustomProvider');
+        const hint = document.getElementById('financeResolveHint');
+        if (!btn || !symbolInput) return;
+        btn.addEventListener('click', function () {
+            const symbol = (symbolInput.value || '').trim();
+            if (!symbol) {
+                if (hint) hint.textContent = '請先輸入代碼';
+                return;
+            }
+            if (hint) hint.textContent = '解析中…';
+            btn.disabled = true;
+            fetch('tools_api.php?action=finance_resolve_name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    symbol: symbol,
+                    provider: providerSel ? providerSel.value : 'yahoo'
+                })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success || !data.name) throw new Error(data.error || '無法解析');
+                    if (nameInput) nameInput.value = data.name;
+                    if (hint) hint.textContent = '已解析：' + data.name + (data.source ? '（' + data.source + '）' : '');
+                })
+                .catch(function (err) {
+                    if (hint) hint.textContent = err.message || '解析失敗';
+                })
+                .finally(function () { btn.disabled = false; });
+        });
+    })();
+
+    // 手機歷史 CSV 匯入
+    (function initPhoneHistoryCsvImport() {
+        const input = document.getElementById('phoneHistoryCsvFile');
+        const hint = document.getElementById('phoneHistoryCsvHint');
+        if (!input) return;
+        input.addEventListener('change', function () {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            if (hint) hint.textContent = '匯入中…';
+            const fd = new FormData();
+            fd.append('csv', file, file.name);
+            fetch('tools_api.php?action=phone_history_import', { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) throw new Error(data.error || '匯入失敗');
+                    if (hint) hint.textContent = '已匯入 ' + Number(data.imported || 0) + ' 筆快照';
+                })
+                .catch(function (err) {
+                    if (hint) hint.textContent = err.message || '匯入失敗';
+                })
+                .finally(function () { input.value = ''; });
+        });
+    })();
 
     function renderInlineSparkline(container, points) {
         if (!container || !points || points.length < 2) return;

@@ -20,6 +20,7 @@
       env: root.querySelector('[data-vm-env]'),
       whisper: root.querySelector('[data-vm-whisper]'),
       whisperStatus: root.querySelector('[data-vm-whisper-status]'),
+      whisperLang: root.querySelector('[data-vm-whisper-lang]'),
     };
 
     /** @type {File[]} */
@@ -245,13 +246,17 @@
           device: 'wasm',
         });
         if (els.whisperStatus) els.whisperStatus.textContent = '辨識中…';
-        const result = await transcriber(mono, {
-          language: 'chinese',
+        const lang = (els.whisperLang && els.whisperLang.value) || 'chinese';
+        const asrOpts = {
           task: 'transcribe',
           return_timestamps: true,
           chunk_length_s: 15,
           stride_length_s: 2,
-        });
+        };
+        if (lang && lang !== 'auto') {
+          asrOpts.language = lang;
+        }
+        const result = await transcriber(mono, asrOpts);
         let lines = [];
         if (result && Array.isArray(result.chunks)) {
           lines = chunksToLines(result.chunks);

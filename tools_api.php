@@ -406,6 +406,129 @@ if ($action === 'finance_history') {
     ]);
 }
 
+if ($action === 'finance_resolve_name') {
+    require_once __DIR__ . '/includes/fengbro_finance.php';
+    $input = readJsonInput();
+    $symbol = trim((string) ($input['symbol'] ?? $_GET['symbol'] ?? ''));
+    $provider = trim((string) ($input['provider'] ?? $_GET['provider'] ?? 'yahoo'));
+    $result = fengbroFinanceResolveName($symbol, $provider);
+    jsonResponse([
+        'success' => !empty($result['ok']),
+        'name' => $result['name'] ?? null,
+        'symbol' => $result['symbol'] ?? $symbol,
+        'source' => $result['source'] ?? null,
+        'error' => $result['error'] ?? null,
+    ], !empty($result['ok']) ? 200 : 404);
+}
+
+if ($action === 'phone_history_import') {
+    $input = readJsonInput();
+    // Also accept multipart CSV
+    $csvText = '';
+    if (!empty($_FILES['csv']['tmp_name'])) {
+        $csvText = (string) file_get_contents($_FILES['csv']['tmp_name']);
+    } elseif (!empty($input['csv'])) {
+        $csvText = (string) $input['csv'];
+    } else {
+        $raw = file_get_contents('php://input');
+        if (is_string($raw) && $raw !== '' && !str_starts_with(ltrim($raw), '{')) {
+            $csvText = $raw;
+        }
+    }
+    $csvText = preg_replace('/^\xEF\xBB\xBF/', '', $csvText) ?? $csvText;
+    if (trim($csvText) === '') {
+        jsonResponse(['success' => false, 'error' => '請提供 CSV'], 400);
+    }
+    ensureToolPriceHistory($pdo);
+    $lines = preg_split('/\r\n|\r|\n/', $csvText) ?: [];
+    $start = 0;
+    if ($lines && preg_match('/productid|product_id|brand|name|snapshot/i', $lines[0])) {
+        $start = 1;
+    }
+    $imported = 0;
+    $stmt = $pdo->prepare("INSERT INTO tool_phone_product_history
+        (id, product_id, brand, name, source, price, source_url, snapshot_day)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE price = VALUES(price), source_url = VALUES(source_url), name = VALUES(name), brand = VALUES(brand)");
+    // table may not have unique key — try plain insert with dedupe day
+    try {
+        $pdo->exec("ALTER TABLE tool_phone_product_history ADD UNIQUE KEY uq_phone_day (product_id, source, snapshot_day)");
+    } catch (Throwable $e) {
+        // ignore if exists
+    }
+    for ($i = $start; $i < count($lines); $i++) {
+        $line = trim($lines[$i]);
+        if ($line === '') {
+            continue;
+        }
+        $cols = str_getcsv($line);
+        // productId,brand,name,sourceUrl,landtopPrice,jyesPrice,snapshotDate,source
+        $productId = trim((string) ($cols[0] ?? ''));
+        $brand = trim((string) ($cols[1] ?? ''));
+        $name = trim((string) ($cols[2] ?? ''));
+        $sourceUrl = trim((string) ($cols[3] ?? ''));
+        $landtop = $cols[4] ?? '';
+        $jyes = $cols[5] ?? '';
+        $day = trim((string) ($cols[6] ?? ''));
+        if ($day !== '' && preg_match('/^\d{4}-\d{2}-\d{2}/', $day, $dm)) {
+            $day = $dm[0];
+        } else {
+            $day = date('Y-m-d');
+        }
+        if ($productId === '' && $name === '') {
+            continue;
+        }
+        if ($productId === '') {
+            $productId = substr(preg_replace('/[^a-z0-9]+/i', '-', strtolower($brand . '-' . $name)) ?? 'p', 0, 160);
+        }
+        $rowsToWrite = [];
+        if ($landtop !== '' && is_numeric(str_replace(',', '', (string) $landtop))) {
+            $rowsToWrite[] = ['landtop', (int) str_replace(',', '', (string) $landtop)];
+        }
+        if ($jyes !== '' && is_numeric(str_replace(',', '', (string) $jyes))) {
+            $rowsToWrite[] = ['jyes', (int) str_replace(',', '', (string) $jyes)];
+        }
+        if (!$rowsToWrite && isset($cols[7]) && is_numeric(str_replace(',', '', (string) ($cols[4] ?? '')))) {
+            // single price column fallback
+        }
+        if (!$rowsToWrite) {
+            continue;
+        }
+        foreach ($rowsToWrite as [$source, $price]) {
+            try {
+                $stmt->execute([
+                    generateUUID(),
+                    $productId,
+                    $brand !== '' ? $brand : null,
+                    $name !== '' ? $name : $productId,
+                    $source,
+                    $price,
+                    $sourceUrl !== '' ? $sourceUrl : null,
+                    $day,
+                ]);
+                $imported++;
+            } catch (Throwable $e) {
+                // try without unique
+                try {
+                    $pdo->prepare("INSERT INTO tool_phone_product_history
+                        (id, product_id, brand, name, source, price, source_url, snapshot_day)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)")->execute([
+                        generateUUID(), $productId, $brand ?: null, $name ?: $productId,
+                        $source, $price, $sourceUrl ?: null, $day,
+                    ]);
+                    $imported++;
+                } catch (Throwable $e2) {
+                    // skip
+                }
+            }
+        }
+        if ($imported >= 5000) {
+            break;
+        }
+    }
+    jsonResponse(['success' => true, 'imported' => $imported]);
+}
+
 if ($action === 'price_lookup') {
     $input = readJsonInput();
     $query = trim((string) ($input['query'] ?? ''));
