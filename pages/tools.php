@@ -4,9 +4,10 @@ require_once __DIR__ . '/../includes/fengbro_tube.php';
 require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $toolSubpage = $_GET['tool'] ?? 'price';
-$toolSubpage = in_array($toolSubpage, ['price', 'manual', 'tube', 'finance', 'news', 'image-convert'], true)
-    ? $toolSubpage
-    : 'price';
+$toolSubpage = in_array($toolSubpage, [
+    'price', 'manual', 'tube', 'finance', 'news',
+    'image-convert', 'image-voice', 'video-merge', 'yt-bili',
+], true) ? $toolSubpage : 'price';
 if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['tube_action'] ?? '') !== '') {
     $channels = fengbroTubeChannels();
     $action = (string) ($_POST['tube_action'] ?? '');
@@ -98,7 +99,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 <div class="content-header">
     <div>
         <h1>鋒兄工具</h1>
-        <p style="margin-top: 8px; color: var(--muted-text);">比價、新聞、圖片轉換與常用工具（對齊 Appwrite 版可移植模組）。</p>
+        <p style="margin-top: 8px; color: var(--muted-text);">比價、新聞、媒體轉檔與常用工具（對齊 Appwrite 版）。</p>
     </div>
 </div>
 
@@ -121,6 +122,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         </a>
         <a class="tools-subnav-link <?php echo $toolSubpage === 'image-convert' ? 'active' : ''; ?>" href="index.php?page=tools&tool=image-convert">
             <i class="fa-solid fa-image"></i> PNG / JPEG
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'image-voice' ? 'active' : ''; ?>" href="index.php?page=tools&tool=image-voice">
+            <i class="fa-solid fa-clapperboard"></i> 圖+語音
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'video-merge' ? 'active' : ''; ?>" href="index.php?page=tools&tool=video-merge">
+            <i class="fa-solid fa-film"></i> 影片合併
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'yt-bili' ? 'active' : ''; ?>" href="index.php?page=tools&tool=yt-bili">
+            <i class="fa-brands fa-youtube"></i> YT / B站
         </a>
     </div>
 
@@ -278,6 +288,131 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         </section>
         <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
         <script src="assets/js/tool-image-convert.js" defer></script>
+    <?php elseif ($toolSubpage === 'image-voice'): ?>
+        <section id="ivvTool" class="card">
+            <div style="margin-bottom:16px;">
+                <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-clapperboard"></i> 圖片 + 語音 = 影片</h3>
+                <p style="color:var(--muted-text);line-height:1.6;margin:0;">
+                    對齊 Appwrite ImageVoiceVideo：上傳封面與語音稿，瀏覽器以系統語音朗讀並錄製含字幕畫面。
+                    若需<strong>嵌入音軌的 MP4</strong>，請按「伺服器合成」並另行選擇音訊檔（需本機 ffmpeg）。
+                    參考 <a href="https://github.com/huang1988pioneer/ImageVoiceVideo" target="_blank" rel="noopener">ImageVoiceVideo</a>。
+                </p>
+            </div>
+            <div class="ic-layout">
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">1</span><strong>封面圖片</strong>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ivv-clear>清除</button>
+                    </div>
+                    <div class="ic-dropzone" data-ivv-drop>
+                        <img data-ivv-preview alt="" style="display:none;max-width:100%;max-height:220px;border-radius:10px;">
+                        <div data-ivv-drop-hint>拖放或點選圖片</div>
+                    </div>
+                    <input type="file" data-ivv-file accept="image/*" hidden>
+                    <canvas data-ivv-canvas style="display:none;"></canvas>
+                </div>
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">2</span><strong>語音稿與設定</strong></div>
+                    <label style="font-weight:700;display:block;margin-bottom:6px;">語音稿（每行一句）</label>
+                    <textarea class="form-control" data-ivv-script rows="6" placeholder="第一句&#10;第二句"></textarea>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+                        <label>
+                            <span style="font-weight:700;">語速 <span data-ivv-rate-label>0</span></span>
+                            <input type="range" min="-2" max="2" step="1" value="0" data-ivv-rate style="width:100%;">
+                        </label>
+                        <label>
+                            <span style="font-weight:700;">畫面方向</span>
+                            <select class="form-control" data-ivv-orient>
+                                <option value="auto">自動（依圖片）</option>
+                                <option value="portrait">直式 9:16</option>
+                                <option value="landscape">橫式 16:9</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                        <button type="button" class="btn btn-primary" data-ivv-record><i class="fa-solid fa-circle"></i> 開始錄製</button>
+                        <button type="button" class="btn btn-ghost" data-ivv-stop>停止</button>
+                        <button type="button" class="btn btn-ghost" data-ivv-download disabled>下載結果</button>
+                        <button type="button" class="btn btn-ghost" data-ivv-server><i class="fa-solid fa-server"></i> 伺服器合成 MP4</button>
+                    </div>
+                    <p data-ivv-status class="tool-muted" style="margin-top:10px;"></p>
+                    <p data-ivv-error style="color:#dc2626;"></p>
+                </div>
+            </div>
+            <video data-ivv-result controls style="display:none;width:100%;max-height:420px;margin-top:16px;border-radius:14px;background:#000;"></video>
+        </section>
+        <script src="assets/js/tool-ivv.js" defer></script>
+    <?php elseif ($toolSubpage === 'video-merge'): ?>
+        <section id="videoMergeTool" class="card">
+            <div style="margin-bottom:16px;">
+                <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-film"></i> 影片合併</h3>
+                <p style="color:var(--muted-text);line-height:1.6;margin:0;">
+                    上傳 2～12 段影片／音訊，伺服器以 ffmpeg 依序合併（對齊 Appwrite VideoMerge 的伺服器簡化版）。需本機安裝 ffmpeg。
+                </p>
+            </div>
+            <div class="ybc-status-card" data-vm-env style="margin-bottom:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--border-color);">檢查環境中…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <button type="button" class="btn btn-primary" data-vm-pick><i class="fa-solid fa-upload"></i> 選擇片段</button>
+                <button type="button" class="btn btn-ghost" data-vm-clear>清除</button>
+                <input type="file" data-vm-file accept="video/*,audio/*,.mp4,.webm,.mov,.mkv,.mp3,.m4a" multiple hidden>
+                <label style="display:inline-flex;align-items:center;gap:8px;font-weight:700;">
+                    輸出
+                    <select class="form-control" data-vm-format style="width:auto;">
+                        <option value="mp4">MP4</option>
+                        <option value="mp3">MP3（僅音訊）</option>
+                    </select>
+                </label>
+                <button type="button" class="btn btn-primary" data-vm-merge><i class="fa-solid fa-scissors"></i> 開始合併</button>
+            </div>
+            <div data-vm-list></div>
+            <p data-vm-status class="tool-muted" style="margin-top:10px;"></p>
+            <p data-vm-error style="color:#dc2626;"></p>
+        </section>
+        <script src="assets/js/tool-video-merge.js" defer></script>
+    <?php elseif ($toolSubpage === 'yt-bili'): ?>
+        <section id="ytbiliTool" class="card">
+            <div style="margin-bottom:16px;">
+                <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-brands fa-youtube"></i> YouTube / Bilibili 轉檔</h3>
+                <p style="color:var(--muted-text);line-height:1.6;margin:0;">
+                    伺服器端 yt-dlp + ffmpeg 轉成 MP3 或 MP4（對齊 Appwrite YoutubeBilibiliConvert）。
+                    參考 <a href="https://github.com/huang1988pioneer/YoutubeBilibiliMP4MP3Converter" target="_blank" rel="noopener">YoutubeBilibiliMP4MP3Converter</a>。
+                    YouTube 若遇驗證可貼上 Netscape cookies.txt。
+                </p>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--border-color);background:var(--input-bg);">
+                <span data-yb-status class="badge">檢查中</span>
+                <span data-yb-status-note class="tool-muted" style="flex:1;"></span>
+                <button type="button" class="btn btn-ghost btn-sm" data-yb-refresh>重新檢查</button>
+            </div>
+            <div class="ic-layout">
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">1</span><strong>影片網址</strong></div>
+                    <textarea class="form-control" data-yb-urls rows="7" placeholder="每行一個網址，最多 7 個&#10;https://www.youtube.com/watch?v=…&#10;https://www.bilibili.com/video/BV…"></textarea>
+                </div>
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">2</span><strong>輸出與 Cookies</strong></div>
+                    <label style="font-weight:700;">格式</label>
+                    <select class="form-control" data-yb-format style="margin:6px 0 12px;">
+                        <option value="mp3">MP3</option>
+                        <option value="mp4">MP4</option>
+                    </select>
+                    <div data-yb-quality-wrap style="display:none;">
+                        <label style="font-weight:700;">MP4 畫質</label>
+                        <select class="form-control" data-yb-quality style="margin:6px 0 12px;">
+                            <option value="1080p">1080p</option>
+                            <option value="720p">720p</option>
+                        </select>
+                    </div>
+                    <label style="font-weight:700;">Cookies（選填，YouTube 驗證用）</label>
+                    <textarea class="form-control" data-yb-cookies rows="5" placeholder="# Netscape HTTP Cookie File …" style="margin-top:6px;"></textarea>
+                    <button type="button" class="btn btn-primary" style="margin-top:14px;" data-yb-convert>
+                        <i class="fa-solid fa-download"></i> 開始轉檔並下載
+                    </button>
+                    <p data-yb-log class="tool-muted" style="margin-top:10px;"></p>
+                    <p data-yb-error style="color:#dc2626;"></p>
+                </div>
+            </div>
+        </section>
+        <script src="assets/js/tool-ytbili.js" defer></script>
     <?php elseif ($toolSubpage === 'tube'): ?>
         <section class="card tube-overview">
             <div class="tube-overview-copy">
@@ -867,6 +1002,23 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     .badge-success { background: rgba(16,185,129,.14); color: #047857; }
     .badge-danger { background: rgba(239,68,68,.14); color: #b91c1c; }
     .badge-warning { background: rgba(245,158,11,.16); color: #b45309; }
+
+    [data-yb-status].is-ready,
+    [data-vm-env].is-ready { color: #047857; font-weight: 800; }
+    [data-yb-status].is-missing,
+    [data-vm-env].is-missing { color: #b91c1c; font-weight: 800; }
+
+    .vm-item {
+        display: grid; grid-template-columns: 36px minmax(0,1fr) auto;
+        gap: 10px; align-items: center; padding: 10px 12px;
+        border: 1px solid var(--border-color); border-radius: 12px;
+        background: var(--input-bg); margin-bottom: 8px;
+    }
+    .vm-idx {
+        width: 28px; height: 28px; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--accent); color: #fff; font-weight: 900; font-size: 0.85rem;
+    }
 
     .phone-compare-panel {
         display: grid;
