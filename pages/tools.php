@@ -465,10 +465,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             </select>
                         </label>
                         <label>
-                            <span style="font-weight:700;">聲線（SAPI 備援）</span>
+                            <span style="font-weight:700;">聲線</span>
                             <select class="form-control" data-ivv-gender>
-                                <option value="female">女聲（優先）</option>
-                                <option value="male">男聲（優先）</option>
+                                <option value="auto">自動（單一人臉）</option>
+                                <option value="female">女聲</option>
+                                <option value="male">男聲</option>
                             </select>
                         </label>
                         <label>
@@ -480,8 +481,10 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             </select>
                         </label>
                     </div>
-                    <div style="margin-top:10px;">
+                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                         <button type="button" class="btn btn-ghost btn-sm" data-ivv-do-translate><i class="fa-solid fa-language"></i> 預覽翻譯到朗讀語言</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ivv-detect-gender><i class="fa-solid fa-user"></i> 偵測封面人臉聲線</button>
+                        <span data-ivv-gender-hint class="tool-muted" style="font-size:0.86rem;"></span>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
                         <button type="button" class="btn btn-primary" data-ivv-generate><i class="fa-solid fa-wand-magic-sparkles"></i> 伺服器一鍵生成 MP4</button>
@@ -522,7 +525,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <label style="display:block;font-weight:700;margin-bottom:6px;">可選字幕腳本（每行一句，合併後均分時間燒錄；MP4 專用）</label>
             <textarea class="form-control" data-vm-subtitle rows="3" placeholder="可留空&#10;第一句字幕&#10;第二句字幕" style="margin-bottom:8px;"></textarea>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
-                <button type="button" class="btn btn-ghost btn-sm" data-vm-whisper><i class="fa-solid fa-microphone-lines"></i> 瀏覽器 Whisper 自動字幕（取第一段）</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-vm-whisper><i class="fa-solid fa-microphone-lines"></i> Whisper 自動字幕（第一段；影片先 ffmpeg 抽音）</button>
                 <span data-vm-whisper-status class="tool-muted" style="font-size:0.86rem;"></span>
             </div>
             <div data-vm-list></div>

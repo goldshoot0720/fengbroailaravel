@@ -156,7 +156,7 @@
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
-            <li>工具：手機比價+歷史 CSV、手動價格、新聞、PNG/JPEG、圖+語音（多語 TTS/翻譯）、影片合併+Whisper 字幕、YT/B站、tube/金融 CSV</li>
+            <li>工具：手機比價+歷史 CSV、手動價格、新聞、PNG/JPEG、圖+語音（多語 TTS/翻譯/人臉選聲）、影片合併+抽音 Whisper、YT/B站、tube/金融 CSV</li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>
             <li>匯入：CSV 遮罩進度；食品/訂閱/銀行/常用與大檔分批寫入</li>

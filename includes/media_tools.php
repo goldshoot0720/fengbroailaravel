@@ -561,6 +561,61 @@ function mediaToolsBurnSubtitles(string $videoPath, array $lines, float $totalDu
 }
 
 /**
+ * Extract mono 16kHz WAV from video/audio for Whisper / ASR.
+ * Caps duration at 10 minutes.
+ *
+ * @return array{workDir:string,filePath:string,filename:string,mime:string,size:int,logs:list<string>,duration:float}
+ */
+function mediaToolsExtractAudio(string $inputPath, int $maxSeconds = 600): array
+{
+    $tools = mediaToolsResolve();
+    if (empty($tools['ffmpeg'])) {
+        throw new RuntimeException('TOOLS_MISSING: 找不到 ffmpeg');
+    }
+    if (!is_file($inputPath)) {
+        throw new InvalidArgumentException('找不到輸入媒體檔');
+    }
+    $maxSeconds = max(30, min(600, $maxSeconds));
+    $workDir = mediaToolsTempDir('fengbro_aext_');
+    $ext = strtolower(pathinfo($inputPath, PATHINFO_EXTENSION) ?: 'bin');
+    $safeExt = preg_replace('/[^a-z0-9]/i', '', $ext) ?: 'bin';
+    $src = $workDir . DIRECTORY_SEPARATOR . 'input.' . $safeExt;
+    if (!@copy($inputPath, $src)) {
+        throw new RuntimeException('無法複製輸入檔');
+    }
+    $outPath = $workDir . DIRECTORY_SEPARATOR . 'audio-16k-mono.wav';
+    $args = [
+        $tools['ffmpeg'], '-y',
+        '-i', $src,
+        '-vn',
+        '-ac', '1',
+        '-ar', '16000',
+        '-c:a', 'pcm_s16le',
+        '-t', (string) $maxSeconds,
+        $outPath,
+    ];
+    $run = mediaToolsRun($args, 180, $workDir);
+    if (!$run['ok'] || !is_file($outPath) || filesize($outPath) < 1000) {
+        mediaToolsCleanupDir($workDir);
+        throw new RuntimeException('抽音失敗：' . trim($run['stderr'] ?: $run['stdout']));
+    }
+    $dur = 0.0;
+    require_once __DIR__ . '/media_tts.php';
+    if (function_exists('mediaTtsProbeDuration')) {
+        $dur = mediaTtsProbeDuration($outPath);
+    }
+    return [
+        'workDir' => $workDir,
+        'filePath' => $outPath,
+        'filename' => 'audio-16k-mono.wav',
+        'mime' => 'audio/wav',
+        'size' => (int) filesize($outPath),
+        'logs' => [trim($run['stdout'] . "\n" . $run['stderr'])],
+        'duration' => $dur,
+    ];
+}
+
+/**
  * Image + audio → video via ffmpeg (server assist for browser-recorded webm/mp3).
  * For pure browser IVV, client may not call this.
  *

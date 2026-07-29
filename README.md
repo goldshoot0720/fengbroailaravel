@@ -21,8 +21,8 @@
 - **手動價格紀錄**（localStorage + CSV 匯出／匯入，對齊 ManualPriceTracker）
 - **鋒兄新聞**：多來源關鍵字搜尋 + 焦點來源開關 + **台鐵便當門市**據點
 - **PNG / JPEG 批次轉換**（瀏覽器 Canvas；網址圖經 `media_proxy.php`）
-- **圖片 + 語音 = 影片**（Google 多語 TTS + 翻譯軌；SAPI 備援；ffmpeg 嵌音軌 + 燒錄字幕）
-- **影片合併**（ffmpeg concat、可選字幕腳本燒錄、瀏覽器 Whisper tiny 自動字幕）
+- **圖片 + 語音 = 影片**（Google 多語 TTS + 翻譯軌；單一人臉自動選聲；SAPI 備援；ffmpeg 嵌音軌 + 燒錄字幕）
+- **影片合併**（ffmpeg concat、可選字幕腳本燒錄、Whisper tiny 自動字幕；影片先 **伺服器 ffmpeg 抽音**）
 - **YouTube / Bilibili 轉檔**（伺服器 yt-dlp + ffmpeg → MP3/MP4，可選 cookies）
 - Tube / 金融自訂標的 **CSV 匯出／匯入**；手機比價 **歷史價格 CSV**
 - 鋒兄金融：擴充預設標的、可開關預設/新增自訂標的、1Y/5Y/10Y 走勢（後兩者 AJAX 懶載入）
@@ -51,7 +51,8 @@ Windows 範例：`winget install yt-dlp.yt-dlp Gyan.FFmpeg`
 圖+語音一鍵生成需 **ffmpeg** + 可連外網（Google TTS／翻譯）；Windows 可備援 SAPI。  
 `tools/edge-tts` 為可選 Edge TTS 實驗目錄（WebSocket 不穩時不強制）。  
 共用主機若禁用 `proc_open`，伺服器轉檔會顯示「缺少工具」；瀏覽器端工具仍可用。  
-Whisper 自動字幕在瀏覽器下載模型，首次較慢，且部分影片容器無法解碼音訊時請改用 mp3/wav。
+Whisper 自動字幕：瀏覽器跑模型；影片音訊優先由伺服器 `extract_audio` 抽成 16k mono WAV，較能處理 mp4。  
+人臉自動選聲：瀏覽器載入 face-api tiny 模型（CDN），僅在封面為「剛好一張臉」時採用預測性別，否則預設男聲。
 
 ## 不再繼續移植的範圍
 

@@ -276,6 +276,32 @@ if ($action === 'ivv_generate') {
     }
 }
 
+if ($action === 'extract_audio') {
+    try {
+        if (empty($_FILES['media']) || ($_FILES['media']['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            mediaToolsJson(['success' => false, 'error' => '請上傳 media 檔案（影片或音訊）'], 400);
+        }
+        $maxSec = (int) ($_POST['maxSeconds'] ?? $_GET['maxSeconds'] ?? 600);
+        $staging = mediaToolsTempDir('fengbro_aext_up_');
+        $ext = pathinfo((string) $_FILES['media']['name'], PATHINFO_EXTENSION) ?: 'bin';
+        $src = $staging . DIRECTORY_SEPARATOR . 'up.' . preg_replace('/[^a-z0-9]/i', '', $ext);
+        if (!move_uploaded_file($_FILES['media']['tmp_name'], $src)) {
+            mediaToolsCleanupDir($staging);
+            mediaToolsJson(['success' => false, 'error' => '上傳失敗'], 400);
+        }
+        $result = mediaToolsExtractAudio($src, $maxSec);
+        mediaToolsCleanupDir($staging);
+        mediaToolsSendFile($result);
+    } catch (Throwable $e) {
+        $msg = $e->getMessage();
+        $code = str_starts_with($msg, 'TOOLS_MISSING') ? 503 : 500;
+        if ($e instanceof InvalidArgumentException) {
+            $code = 400;
+        }
+        mediaToolsJson(['success' => false, 'error' => $msg], $code);
+    }
+}
+
 if ($action === 'translate') {
     try {
         $payload = [];

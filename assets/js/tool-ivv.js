@@ -21,6 +21,8 @@
       rateLabel: root.querySelector('[data-ivv-rate-label]'),
       orient: root.querySelector('[data-ivv-orient]'),
       gender: root.querySelector('[data-ivv-gender]'),
+      genderHint: root.querySelector('[data-ivv-gender-hint]'),
+      detectGender: root.querySelector('[data-ivv-detect-gender]'),
       lang: root.querySelector('[data-ivv-lang]'),
       translate: root.querySelector('[data-ivv-translate]'),
       doTranslate: root.querySelector('[data-ivv-do-translate]'),
@@ -45,6 +47,8 @@
     let recording = false;
     let abortRec = false;
     let env = { ffmpeg: false, tts: false };
+    let autoGender = 'male';
+    let faceModelsReady = null;
 
     function setStatus(m) {
       if (els.status) els.status.textContent = m || '';
@@ -61,7 +65,7 @@
             script: els.script ? els.script.value : '',
             rate: els.rate ? els.rate.value : '0',
             orient: els.orient ? els.orient.value : 'auto',
-            gender: els.gender ? els.gender.value : 'female',
+            gender: els.gender ? els.gender.value : 'auto',
             lang: els.lang ? els.lang.value : 'zh-TW',
             translateTo: els.translate ? els.translate.value : '',
           })
@@ -92,6 +96,78 @@
       if (els.rate && els.rateLabel) {
         const v = Number(els.rate.value || 0);
         els.rateLabel.textContent = (v >= 0 ? '+' : '') + v;
+      }
+    }
+
+    function setGenderHint(msg) {
+      if (els.genderHint) els.genderHint.textContent = msg || '';
+    }
+
+    function resolvedGender() {
+      const mode = els.gender ? els.gender.value : 'auto';
+      if (mode === 'auto') return autoGender === 'female' ? 'female' : 'male';
+      return mode === 'male' ? 'male' : 'female';
+    }
+
+    async function ensureFaceApi() {
+      if (faceModelsReady) return faceModelsReady;
+      faceModelsReady = (async () => {
+        const faceapi = await import('https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/+esm');
+        const modelUrl = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl),
+          faceapi.nets.ageGenderNet.loadFromUri(modelUrl),
+        ]);
+        return faceapi;
+      })();
+      return faceModelsReady;
+    }
+
+    /**
+     * Align Appwrite detectImageGender:
+     * single face → model gender; else default male.
+     */
+    async function detectCoverGender(opts) {
+      const silent = opts && opts.silent;
+      if (!imageEl) {
+        autoGender = 'male';
+        setGenderHint(silent ? '' : '無封面圖，預設男聲');
+        return { gender: 'male', message: '無封面圖，預設男聲' };
+      }
+      if (!silent) setGenderHint('人臉偵測中…');
+      try {
+        const faceapi = await ensureFaceApi();
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 });
+        const detections = await faceapi.detectAllFaces(imageEl, options).withAgeAndGender();
+        const n = detections.length;
+        if (n === 0) {
+          autoGender = 'male';
+          const msg = '未偵測到人臉，預設男聲';
+          setGenderHint(msg);
+          return { gender: 'male', message: msg };
+        }
+        if (n > 1) {
+          autoGender = 'male';
+          const msg = '偵測到 ' + n + ' 張人臉，預設男聲';
+          setGenderHint(msg);
+          return { gender: 'male', message: msg };
+        }
+        const det = detections[0];
+        const raw = String(det.gender || '').toLowerCase();
+        const gender = raw === 'female' ? 'female' : 'male';
+        const conf = Number(det.genderProbability) || 0;
+        autoGender = gender;
+        const msg =
+          '單一人臉 → ' +
+          (gender === 'female' ? '女聲' : '男聲') +
+          (conf ? '（' + Math.round(conf * 100) + '%）' : '');
+        setGenderHint(msg);
+        return { gender, message: msg, confidence: conf };
+      } catch (e) {
+        autoGender = 'male';
+        const msg = '人臉模型載入失敗，預設男聲';
+        setGenderHint(msg);
+        return { gender: 'male', message: msg, error: e.message };
       }
     }
 
@@ -325,17 +401,21 @@
         return;
       }
       if (!env.ffmpeg || !env.tts) {
-        setError('伺服器環境不足（需要 Windows SAPI + ffmpeg）');
+        setError('伺服器環境不足（需要 ffmpeg + 可連外網 TTS）');
         return;
       }
       setError('');
-      setStatus('伺服器 SAPI TTS + ffmpeg 合成中（可能需數十秒）…');
+      if (els.gender && els.gender.value === 'auto') {
+        setStatus('自動偵測人臉聲線…');
+        await detectCoverGender({ silent: false });
+      }
+      setStatus('伺服器 TTS + ffmpeg 合成中（可能需數十秒）…');
       if (els.generate) els.generate.disabled = true;
       try {
         const fd = new FormData();
         fd.append('image', imageFile, imageFile.name || 'cover.jpg');
         fd.append('script', script);
-        fd.append('gender', els.gender ? els.gender.value : 'female');
+        fd.append('gender', resolvedGender());
         fd.append('rate', els.rate ? els.rate.value : '0');
         fd.append('orientation', els.orient ? els.orient.value : 'auto');
         fd.append('lang', els.lang ? els.lang.value : 'zh-TW');
@@ -418,6 +498,9 @@
         drawFrame('');
         setError('');
         setStatus('已載入圖片');
+        if (els.gender && els.gender.value === 'auto') {
+          detectCoverGender({ silent: false });
+        }
       };
       img.onerror = () => setError('圖片載入失敗');
       img.src = previewUrl;
@@ -469,7 +552,18 @@
     if (els.rate) els.rate.addEventListener('input', () => { updateRateLabel(); saveDraft(); });
     if (els.script) els.script.addEventListener('change', saveDraft);
     if (els.orient) els.orient.addEventListener('change', () => { if (imageEl) drawFrame(''); saveDraft(); });
-    if (els.gender) els.gender.addEventListener('change', saveDraft);
+    if (els.gender) {
+      els.gender.addEventListener('change', () => {
+        saveDraft();
+        if (els.gender.value === 'auto' && imageEl) detectCoverGender({ silent: false });
+        else if (els.gender.value !== 'auto') {
+          setGenderHint(els.gender.value === 'female' ? '手動：女聲' : '手動：男聲');
+        }
+      });
+    }
+    if (els.detectGender) {
+      els.detectGender.addEventListener('click', () => detectCoverGender({ silent: false }));
+    }
     if (els.lang) els.lang.addEventListener('change', saveDraft);
     if (els.translate) els.translate.addEventListener('change', saveDraft);
     if (els.doTranslate) {

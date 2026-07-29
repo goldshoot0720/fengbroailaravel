@@ -146,17 +146,16 @@
       }
     }
 
-    async function fileToMono16k(file) {
-      const buf = await file.arrayBuffer();
+    async function decodeWavOrAudioToMono16k(arrayBuffer) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) throw new Error('瀏覽器不支援 AudioContext');
       const ctx = new AC({ sampleRate: 16000 });
       let audio;
       try {
-        audio = await ctx.decodeAudioData(buf.slice(0));
+        audio = await ctx.decodeAudioData(arrayBuffer.slice(0));
       } catch (e) {
         await ctx.close();
-        throw new Error('無法解碼音訊（影片容器可能不支援，請改用 mp3/wav 或手動字幕）');
+        throw e;
       }
       const ch0 = audio.getChannelData(0);
       let mono;
@@ -167,7 +166,6 @@
       } else {
         mono = ch0;
       }
-      // resample if needed
       if (audio.sampleRate !== 16000) {
         const ratio = audio.sampleRate / 16000;
         const len = Math.floor(mono.length / ratio);
@@ -175,11 +173,50 @@
         for (let i = 0; i < len; i++) out[i] = mono[Math.floor(i * ratio)];
         mono = out;
       }
-      // limit 10 min
       const max = 16000 * 600;
       if (mono.length > max) mono = mono.slice(0, max);
       await ctx.close();
       return mono;
+    }
+
+    async function serverExtractToMono16k(file) {
+      if (els.whisperStatus) els.whisperStatus.textContent = '伺服器 ffmpeg 抽音中…';
+      const fd = new FormData();
+      fd.append('media', file, file.name || 'clip.bin');
+      fd.append('maxSeconds', '600');
+      const res = await fetch('media_tools_api.php?action=extract_audio', { method: 'POST', body: fd });
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok) {
+        let err = '抽音失敗';
+        if (ct.includes('json')) {
+          const j = await res.json();
+          err = j.error || err;
+        }
+        throw new Error(err);
+      }
+      const buf = await res.arrayBuffer();
+      return decodeWavOrAudioToMono16k(buf);
+    }
+
+    async function fileToMono16k(file) {
+      // Prefer client decode for audio/*; for video always try server extract first
+      const isAudio = (file.type || '').startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.name || '');
+      if (isAudio) {
+        try {
+          return await decodeWavOrAudioToMono16k(await file.arrayBuffer());
+        } catch (e) {
+          return serverExtractToMono16k(file);
+        }
+      }
+      try {
+        return await serverExtractToMono16k(file);
+      } catch (e1) {
+        try {
+          return await decodeWavOrAudioToMono16k(await file.arrayBuffer());
+        } catch (e2) {
+          throw new Error(e1.message || e2.message || '無法取得音訊');
+        }
+      }
     }
 
     function chunksToLines(chunks) {
@@ -195,18 +232,19 @@
         return;
       }
       const file = files[0];
-      if (els.whisperStatus) els.whisperStatus.textContent = '載入 Whisper tiny 模型（首次較久）…';
       if (els.whisper) els.whisper.disabled = true;
       setError('');
       try {
+        if (els.whisperStatus) els.whisperStatus.textContent = '準備音訊…';
         const mono = await fileToMono16k(file);
-        if (els.whisperStatus) els.whisperStatus.textContent = '辨識中…';
+        if (els.whisperStatus) els.whisperStatus.textContent = '載入 Whisper tiny（首次較久）…';
         const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.1');
         const pipeline = mod.pipeline;
         const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
           dtype: 'fp32',
           device: 'wasm',
         });
+        if (els.whisperStatus) els.whisperStatus.textContent = '辨識中…';
         const result = await transcriber(mono, {
           language: 'chinese',
           task: 'transcribe',
@@ -225,7 +263,7 @@
         }
         if (!lines.length) throw new Error('未辨識到內容');
         if (els.subtitle) els.subtitle.value = lines.join('\n');
-        if (els.whisperStatus) els.whisperStatus.textContent = '完成 ' + lines.length + ' 句，已填入字幕框';
+        if (els.whisperStatus) els.whisperStatus.textContent = '完成 ' + lines.length + ' 句（含伺服器抽音備援）';
         setStatus('Whisper 字幕已就緒，可開始合併並燒錄');
       } catch (e) {
         setError(e.message || 'Whisper 失敗');
