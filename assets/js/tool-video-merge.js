@@ -12,6 +12,7 @@
       file: root.querySelector('[data-vm-file]'),
       list: root.querySelector('[data-vm-list]'),
       format: root.querySelector('[data-vm-format]'),
+      subtitle: root.querySelector('[data-vm-subtitle]'),
       status: root.querySelector('[data-vm-status]'),
       error: root.querySelector('[data-vm-error]'),
       merge: root.querySelector('[data-vm-merge]'),
@@ -110,6 +111,9 @@
         const fd = new FormData();
         files.forEach((f) => fd.append('clips[]', f, f.name));
         fd.append('format', els.format ? els.format.value : 'mp4');
+        if (els.subtitle && els.subtitle.value.trim()) {
+          fd.append('subtitle', els.subtitle.value.trim());
+        }
         const res = await fetch('media_tools_api.php?action=video_merge', { method: 'POST', body: fd });
         const ct = (res.headers.get('content-type') || '').toLowerCase();
         if (!res.ok) {

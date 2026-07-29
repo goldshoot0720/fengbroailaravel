@@ -29,6 +29,67 @@ if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST[
             $channels[] = $channel;
         }
         fengbroTubeSaveChannels($channels);
+    } elseif ($action === 'export_csv') {
+        $channels = fengbroTubeChannels();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="fengbro-tube-channels.csv"');
+        echo "\xEF\xBB\xBF";
+        echo "alias,sourceUrl\n";
+        foreach ($channels as $ch) {
+            $alias = str_replace('"', '""', (string) ($ch['name'] ?? ''));
+            $url = str_replace('"', '""', (string) ($ch['url'] ?? ''));
+            echo '"' . $alias . '","' . $url . "\"\n";
+        }
+        exit;
+    } elseif ($action === 'import_csv' && !empty($_FILES['tube_csv']['tmp_name'])) {
+        $raw = (string) file_get_contents($_FILES['tube_csv']['tmp_name']);
+        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
+        $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
+        $imported = [];
+        $start = 0;
+        if ($lines && preg_match('/alias|sourceurl|網址|名稱/i', $lines[0])) {
+            $start = 1;
+        }
+        for ($i = $start; $i < count($lines); $i++) {
+            $line = trim($lines[$i]);
+            if ($line === '') {
+                continue;
+            }
+            // simple CSV split respecting quotes
+            if (preg_match('/^"(.*)"\s*,\s*"(.*)"\s*$/u', $line, $m)) {
+                $alias = str_replace('""', '"', $m[1]);
+                $url = str_replace('""', '"', $m[2]);
+            } else {
+                $parts = str_getcsv($line);
+                $alias = trim((string) ($parts[0] ?? ''));
+                $url = trim((string) ($parts[1] ?? $parts[0] ?? ''));
+                if (count($parts) < 2) {
+                    $alias = '';
+                }
+            }
+            $url = trim($url);
+            if ($url === '') {
+                continue;
+            }
+            $imported[] = ['name' => trim($alias), 'url' => $url];
+            if (count($imported) >= 80) {
+                break;
+            }
+        }
+        if ($imported) {
+            // merge by URL
+            $map = [];
+            foreach (fengbroTubeChannels() as $ch) {
+                $u = trim((string) ($ch['url'] ?? ''));
+                if ($u !== '') {
+                    $map[$u] = $ch;
+                }
+            }
+            foreach ($imported as $ch) {
+                $map[$ch['url']] = $ch;
+            }
+            fengbroTubeSaveChannels(array_values($map));
+        }
     }
 
     header('Location: index.php?page=tools&tool=tube&refresh=1#tube-channel-manager');
@@ -83,6 +144,66 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
             static fn($row) => ($row['id'] ?? '') !== $deleteId
         ));
         fengbroFinanceSaveCustomInstruments($custom);
+    } elseif ($action === 'export_csv') {
+        $custom = fengbroFinanceReadConfig()['custom'] ?? [];
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="fengbro-finance-custom.csv"');
+        echo "\xEF\xBB\xBF";
+        echo "name,symbol,provider,group\n";
+        foreach ($custom as $row) {
+            $cells = [
+                (string) ($row['name'] ?? ''),
+                (string) ($row['symbol'] ?? ''),
+                (string) ($row['provider'] ?? 'yahoo'),
+                (string) ($row['group'] ?? 'US'),
+            ];
+            $out = [];
+            foreach ($cells as $c) {
+                $out[] = '"' . str_replace('"', '""', $c) . '"';
+            }
+            echo implode(',', $out) . "\n";
+        }
+        exit;
+    } elseif ($action === 'import_csv' && !empty($_FILES['finance_csv']['tmp_name'])) {
+        $raw = (string) file_get_contents($_FILES['finance_csv']['tmp_name']);
+        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
+        $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
+        $custom = fengbroFinanceReadConfig()['custom'] ?? [];
+        $start = 0;
+        if ($lines && preg_match('/name|symbol|名稱|代號/i', $lines[0])) {
+            $start = 1;
+        }
+        for ($i = $start; $i < count($lines); $i++) {
+            $line = trim($lines[$i]);
+            if ($line === '') {
+                continue;
+            }
+            $parts = str_getcsv($line);
+            $instrument = fengbroFinanceNormalizeCustomInstrument([
+                'name' => $parts[0] ?? '',
+                'symbol' => $parts[1] ?? '',
+                'provider' => $parts[2] ?? 'yahoo',
+                'group' => $parts[3] ?? 'US',
+            ], count($custom));
+            if (!$instrument) {
+                continue;
+            }
+            $replaced = false;
+            foreach ($custom as $ci => $row) {
+                if (($row['id'] ?? '') === ($instrument['id'] ?? '') || (($row['symbol'] ?? '') === ($instrument['symbol'] ?? '') && ($row['symbol'] ?? '') !== '')) {
+                    $custom[$ci] = $instrument;
+                    $replaced = true;
+                    break;
+                }
+            }
+            if (!$replaced) {
+                $custom[] = $instrument;
+            }
+            if (count($custom) >= 30) {
+                break;
+            }
+        }
+        fengbroFinanceSaveCustomInstruments(array_slice($custom, 0, 30));
     }
 
     header('Location: index.php?page=tools&tool=finance&refresh=1#finance-instrument-manager');
@@ -293,11 +414,12 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div style="margin-bottom:16px;">
                 <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-clapperboard"></i> 圖片 + 語音 = 影片</h3>
                 <p style="color:var(--muted-text);line-height:1.6;margin:0;">
-                    對齊 Appwrite ImageVoiceVideo：上傳封面與語音稿，瀏覽器以系統語音朗讀並錄製含字幕畫面。
-                    若需<strong>嵌入音軌的 MP4</strong>，請按「伺服器合成」並另行選擇音訊檔（需本機 ffmpeg）。
+                    對齊 Appwrite ImageVoiceVideo。推薦<strong>伺服器一鍵生成</strong>（Windows SAPI TTS + ffmpeg：嵌入音軌並燒錄字幕）。
+                    亦可瀏覽器預覽錄製，或自備音訊檔合成。
                     參考 <a href="https://github.com/huang1988pioneer/ImageVoiceVideo" target="_blank" rel="noopener">ImageVoiceVideo</a>。
                 </p>
             </div>
+            <div data-ivv-env class="ybc-status-card" style="margin-bottom:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--border-color);">檢查環境中…</div>
             <div class="ic-layout">
                 <div class="ic-card">
                     <div class="ic-card-head"><span class="ic-step">1</span><strong>封面圖片</strong>
@@ -314,10 +436,17 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     <div class="ic-card-head"><span class="ic-step">2</span><strong>語音稿與設定</strong></div>
                     <label style="font-weight:700;display:block;margin-bottom:6px;">語音稿（每行一句）</label>
                     <textarea class="form-control" data-ivv-script rows="6" placeholder="第一句&#10;第二句"></textarea>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px;">
                         <label>
                             <span style="font-weight:700;">語速 <span data-ivv-rate-label>0</span></span>
                             <input type="range" min="-2" max="2" step="1" value="0" data-ivv-rate style="width:100%;">
+                        </label>
+                        <label>
+                            <span style="font-weight:700;">聲線</span>
+                            <select class="form-control" data-ivv-gender>
+                                <option value="female">女聲（優先）</option>
+                                <option value="male">男聲（優先）</option>
+                            </select>
                         </label>
                         <label>
                             <span style="font-weight:700;">畫面方向</span>
@@ -329,10 +458,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         </label>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
-                        <button type="button" class="btn btn-primary" data-ivv-record><i class="fa-solid fa-circle"></i> 開始錄製</button>
+                        <button type="button" class="btn btn-primary" data-ivv-generate><i class="fa-solid fa-wand-magic-sparkles"></i> 伺服器一鍵生成 MP4</button>
+                        <button type="button" class="btn btn-ghost" data-ivv-record><i class="fa-solid fa-circle"></i> 瀏覽器預覽錄製</button>
                         <button type="button" class="btn btn-ghost" data-ivv-stop>停止</button>
                         <button type="button" class="btn btn-ghost" data-ivv-download disabled>下載結果</button>
-                        <button type="button" class="btn btn-ghost" data-ivv-server><i class="fa-solid fa-server"></i> 伺服器合成 MP4</button>
+                        <button type="button" class="btn btn-ghost" data-ivv-server><i class="fa-solid fa-file-audio"></i> 自備音訊合成</button>
                     </div>
                     <p data-ivv-status class="tool-muted" style="margin-top:10px;"></p>
                     <p data-ivv-error style="color:#dc2626;"></p>
@@ -363,6 +493,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 </label>
                 <button type="button" class="btn btn-primary" data-vm-merge><i class="fa-solid fa-scissors"></i> 開始合併</button>
             </div>
+            <label style="display:block;font-weight:700;margin-bottom:6px;">可選字幕腳本（每行一句，合併後均分時間燒錄；MP4 專用）</label>
+            <textarea class="form-control" data-vm-subtitle rows="3" placeholder="可留空&#10;第一句字幕&#10;第二句字幕" style="margin-bottom:12px;"></textarea>
             <div data-vm-list></div>
             <p data-vm-status class="tool-muted" style="margin-top:10px;"></p>
             <p data-vm-error style="color:#dc2626;"></p>
@@ -439,14 +571,25 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div class="tube-manager-head">
                 <div>
                     <h3 class="card-title">頻道管理</h3>
-                    <p>可編輯頻道別名與網址。別名留空時，預設使用 YouTube 原頻道名稱。</p>
+                    <p>可編輯頻道別名與網址。別名留空時，預設使用 YouTube 原頻道名稱。支援 CSV 匯出／匯入（alias,sourceUrl）。</p>
                 </div>
-                <form method="post" onsubmit="return confirm('還原預設頻道？目前自訂清單會被清除。');">
-                    <input type="hidden" name="tube_action" value="reset">
-                    <button type="submit" class="btn btn-ghost">
-                        <i class="fa-solid fa-rotate-left"></i> 還原預設
-                    </button>
-                </form>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <form method="post">
+                        <input type="hidden" name="tube_action" value="export_csv">
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出 CSV</button>
+                    </form>
+                    <form method="post" enctype="multipart/form-data" style="display:inline-flex;gap:6px;align-items:center;">
+                        <input type="hidden" name="tube_action" value="import_csv">
+                        <input type="file" name="tube_csv" accept=".csv,text/csv" required style="max-width:180px;">
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-upload"></i> 匯入</button>
+                    </form>
+                    <form method="post" onsubmit="return confirm('還原預設頻道？目前自訂清單會被清除。');">
+                        <input type="hidden" name="tube_action" value="reset">
+                        <button type="submit" class="btn btn-ghost">
+                            <i class="fa-solid fa-rotate-left"></i> 還原預設
+                        </button>
+                    </form>
+                </div>
             </div>
             <form method="post" class="tube-channel-form">
                 <input type="hidden" name="tube_action" value="save">
@@ -582,12 +725,23 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div class="finance-manager-head">
                 <div>
                     <h3 class="card-title">標的管理</h3>
-                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。設定會保存在伺服器本機設定檔。</p>
+                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。自訂標的支援 CSV（name,symbol,provider,group）匯出／匯入合併。</p>
                 </div>
-                <form method="post" onsubmit="return confirm('還原全部預設標的並清除自訂標的？');">
-                    <input type="hidden" name="finance_action" value="reset">
-                    <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-rotate-left"></i> 還原預設</button>
-                </form>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <form method="post">
+                        <input type="hidden" name="finance_action" value="export_csv">
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出自訂 CSV</button>
+                    </form>
+                    <form method="post" enctype="multipart/form-data" style="display:inline-flex;gap:6px;align-items:center;">
+                        <input type="hidden" name="finance_action" value="import_csv">
+                        <input type="file" name="finance_csv" accept=".csv,text/csv" required style="max-width:180px;">
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-upload"></i> 匯入</button>
+                    </form>
+                    <form method="post" onsubmit="return confirm('還原全部預設標的並清除自訂標的？');">
+                        <input type="hidden" name="finance_action" value="reset">
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-rotate-left"></i> 還原預設</button>
+                    </form>
+                </div>
             </div>
 
             <div class="finance-manager-grid">

@@ -1,6 +1,7 @@
 /**
- * 圖片 + 語音 = 影片（瀏覽器 speechSynthesis + canvas + MediaRecorder）
- * 可選：將封面圖 + 錄音上傳伺服器 ffmpeg 合成 MP4。
+ * 圖片 + 語音 = 影片
+ * - 瀏覽器預覽錄製（系統朗讀 + 字幕畫面）
+ * - 伺服器一鍵生成：Windows SAPI TTS + ffmpeg（嵌音軌 + 燒錄字幕）
  */
 (function () {
   'use strict';
@@ -19,11 +20,14 @@
       rate: root.querySelector('[data-ivv-rate]'),
       rateLabel: root.querySelector('[data-ivv-rate-label]'),
       orient: root.querySelector('[data-ivv-orient]'),
+      gender: root.querySelector('[data-ivv-gender]'),
       status: root.querySelector('[data-ivv-status]'),
       error: root.querySelector('[data-ivv-error]'),
+      env: root.querySelector('[data-ivv-env]'),
       record: root.querySelector('[data-ivv-record]'),
       stop: root.querySelector('[data-ivv-stop]'),
       download: root.querySelector('[data-ivv-download]'),
+      generate: root.querySelector('[data-ivv-generate]'),
       server: root.querySelector('[data-ivv-server]'),
       result: root.querySelector('[data-ivv-result]'),
       canvas: root.querySelector('[data-ivv-canvas]'),
@@ -37,6 +41,7 @@
     let resultBlob = null;
     let recording = false;
     let abortRec = false;
+    let env = { ffmpeg: false, tts: false };
 
     function setStatus(m) {
       if (els.status) els.status.textContent = m || '';
@@ -53,6 +58,7 @@
             script: els.script ? els.script.value : '',
             rate: els.rate ? els.rate.value : '0',
             orient: els.orient ? els.orient.value : 'auto',
+            gender: els.gender ? els.gender.value : 'female',
           })
         );
       } catch (e) {
@@ -68,6 +74,7 @@
         if (els.script && d.script != null) els.script.value = d.script;
         if (els.rate && d.rate != null) els.rate.value = d.rate;
         if (els.orient && d.orient) els.orient.value = d.orient;
+        if (els.gender && d.gender) els.gender.value = d.gender;
         updateRateLabel();
       } catch (e) {
         /* ignore */
@@ -78,6 +85,29 @@
       if (els.rate && els.rateLabel) {
         const v = Number(els.rate.value || 0);
         els.rateLabel.textContent = (v >= 0 ? '+' : '') + v;
+      }
+    }
+
+    async function refreshEnv() {
+      try {
+        const res = await fetch('media_tools_api.php?action=status');
+        const data = await res.json();
+        env = { ffmpeg: !!data.ffmpeg, tts: !!data.tts };
+        if (els.env) {
+          const voiceNames = (data.voices || []).map((v) => v.name).slice(0, 3).join('、');
+          els.env.textContent = data.ffmpeg
+            ? 'ffmpeg 就緒' +
+              (data.tts ? ' · SAPI TTS 就緒' + (voiceNames ? '（' + voiceNames + '）' : '') : ' · 本機 TTS 不可用')
+            : '缺少 ffmpeg（伺服器一鍵生成不可用）';
+          els.env.classList.toggle('is-ready', !!(data.ffmpeg && data.tts));
+          els.env.classList.toggle('is-missing', !data.ffmpeg);
+        }
+        if (els.generate) els.generate.disabled = !(data.ffmpeg && data.tts);
+      } catch (e) {
+        if (els.env) {
+          els.env.textContent = '無法檢查媒體環境';
+          els.env.classList.add('is-missing');
+        }
       }
     }
 
@@ -102,9 +132,7 @@
       const scale = Math.min(w / imageEl.naturalWidth, h / imageEl.naturalHeight);
       const dw = imageEl.naturalWidth * scale;
       const dh = imageEl.naturalHeight * scale;
-      const dx = (w - dw) / 2;
-      const dy = (h - dh) / 2;
-      ctx.drawImage(imageEl, dx, dy, dw, dh);
+      ctx.drawImage(imageEl, (w - dw) / 2, (h - dh) / 2, dw, dh);
       if (text) {
         const pad = Math.round(w * 0.06);
         const fontSize = Math.max(28, Math.round(w * 0.045));
@@ -137,9 +165,7 @@
         if (ctx.measureText(test).width > maxWidth && line) {
           lines.push(line);
           line = ch;
-        } else {
-          line = test;
-        }
+        } else line = test;
       }
       if (line) lines.push(line);
       return lines.slice(0, 4);
@@ -154,41 +180,38 @@
 
     function pickVoice() {
       const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
-      const prefer = voices.find((v) => /zh(-|_)?TW|zh-CN|Chinese|漢語|中文/i.test(v.lang + v.name));
-      return prefer || voices[0] || null;
+      return voices.find((v) => /zh(-|_)?TW|zh-CN|Chinese|漢語|中文/i.test(v.lang + v.name)) || voices[0] || null;
     }
 
     function speakLine(text, rate) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         if (!window.speechSynthesis) {
-          reject(new Error('瀏覽器不支援語音合成'));
+          resolve();
           return;
         }
         const u = new SpeechSynthesisUtterance(text);
         const voice = pickVoice();
         if (voice) u.voice = voice;
         u.lang = (voice && voice.lang) || 'zh-TW';
-        // rate: -1..1 UI → 0.7..1.4
         u.rate = Math.min(1.4, Math.max(0.7, 1 + Number(rate || 0) * 0.25));
         u.onend = () => resolve();
-        u.onerror = () => resolve(); // continue even if one line fails
+        u.onerror = () => resolve();
         speechSynthesis.speak(u);
       });
     }
 
     function chooseMime() {
-      const types = [
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm',
-        'video/mp4',
-      ];
+      const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
       for (const t of types) {
         if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) {
           return { mimeType: t, ext: t.includes('mp4') ? 'mp4' : 'webm' };
         }
       }
       return { mimeType: '', ext: 'webm' };
+    }
+
+    function sleep(ms) {
+      return new Promise((r) => setTimeout(r, ms));
     }
 
     async function recordBrowser() {
@@ -209,43 +232,15 @@
       abortRec = false;
       recording = true;
       setError('');
-      setStatus('錄製中…');
+      setStatus('瀏覽器錄製中…');
       if (els.record) els.record.disabled = true;
       if (els.stop) els.stop.disabled = false;
       if (els.download) els.download.disabled = true;
 
-      // warm voices
       if (window.speechSynthesis) speechSynthesis.getVoices();
-
       const { mimeType, ext } = chooseMime();
       drawFrame(lines[0]);
       const stream = els.canvas.captureStream(30);
-      // capture speech via Web Audio is hard; MediaRecorder only gets canvas.
-      // Use audio from speechSynthesis by capturing tab is not available.
-      // Approach: generate silent video with subtitles only in browser,
-      // OR use SpeechSynthesis and separately we can't mux easily without audio graph.
-      // Better approach: use AudioContext + MediaStreamDestination isn't fed by speechSynthesis.
-      // Practical approach: record canvas-only video with timed subtitles based on estimated speech duration,
-      // then optional server path: user can use "伺服器合成" with pre-recorded audio.
-      // For browser path with audio: use utterance and estimate duration, subtitles only OR
-      // use SpeechRecognition alternative - no.
-      // Chrome: speechSynthesis doesn't expose MediaStream.
-      // We'll do timed subtitle video + optional server ffmpeg with uploaded TTS isn't available.
-      // Actually implement: play TTS while recording canvas; audio won't be in video.
-      // Then offer server merge if user records mic? Too complex.
-      //
-      // Improved: create offline audio with speech is not available.
-      // Use estimateDuration and draw subtitles; note "瀏覽器版含字幕畫面；音訊請用伺服器 ffmpeg 路徑需音訊檔"
-      //
-      // Alternative used by many: HTML5 audio from free TTS API - skip.
-      // I'll implement browser recording WITH audio using the Web Speech API workaround:
-      // capture microphone while TTS plays (user hears TTS from speakers, mic picks it up) - bad UX.
-      //
-      // Best practical for PHP port without TTS server:
-      // 1) Canvas video with subtitles, timed by speech rate estimate
-      // 2) Server button: image + optional audio file upload
-      // 3) Also try MediaRecorder on canvas only
-
       const chunks = [];
       const rec = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 4_000_000 } : undefined);
       rec.ondataavailable = (e) => {
@@ -255,59 +250,48 @@
         rec.onstop = () => resolve();
       });
       rec.start(200);
-
       const rate = els.rate ? Number(els.rate.value || 0) : 0;
       for (let i = 0; i < lines.length; i++) {
         if (abortRec) break;
         const line = lines[i];
-        setStatus('朗讀 ' + (i + 1) + '/' + lines.length + '：' + line.slice(0, 24));
+        setStatus('朗讀 ' + (i + 1) + '/' + lines.length);
         drawFrame(line);
-        // animate frames during speech
         const speakP = speakLine(line, rate);
         const anim = setInterval(() => {
-          if (!recording) return;
-          drawFrame(line);
+          if (recording) drawFrame(line);
         }, 100);
         await speakP;
         clearInterval(anim);
-        // pause between lines
         await sleep(280);
       }
-
       recording = false;
       if (rec.state !== 'inactive') rec.stop();
       stream.getTracks().forEach((t) => t.stop());
       await stopped;
-
       if (els.record) els.record.disabled = false;
       if (els.stop) els.stop.disabled = true;
-
       if (!chunks.length) {
         setError('沒有錄到影像');
         setStatus('就緒');
         return;
       }
-      resultBlob = new Blob(chunks, { type: mimeType || 'video/webm' });
+      applyResult(new Blob(chunks, { type: mimeType || 'video/webm' }), ext);
+      setStatus(abortRec ? '已停止' : '瀏覽器預覽完成（音軌可能未嵌入）。完整 MP4 請用「伺服器一鍵生成」。');
+      saveDraft();
+    }
+
+    function applyResult(blob, ext) {
+      resultBlob = blob;
       if (resultUrl) URL.revokeObjectURL(resultUrl);
-      resultUrl = URL.createObjectURL(resultBlob);
+      resultUrl = URL.createObjectURL(blob);
       if (els.result) {
         els.result.src = resultUrl;
         els.result.style.display = '';
       }
       if (els.download) {
         els.download.disabled = false;
-        els.download.dataset.ext = ext;
+        els.download.dataset.ext = ext || 'mp4';
       }
-      setStatus(
-        abortRec
-          ? '已停止'
-          : '完成（瀏覽器 WebM/MP4 畫面含字幕；語音由系統朗讀，若需嵌入音軌請改用下方伺服器合成並提供音訊）'
-      );
-      saveDraft();
-    }
-
-    function sleep(ms) {
-      return new Promise((r) => setTimeout(r, ms));
     }
 
     function stopRec() {
@@ -325,12 +309,56 @@
       a.click();
     }
 
-    async function serverCompose() {
+    async function serverGenerate() {
+      if (!imageFile) {
+        setError('請先上傳封面圖片');
+        return;
+      }
+      const script = els.script ? els.script.value.trim() : '';
+      if (!script) {
+        setError('請輸入語音稿');
+        return;
+      }
+      if (!env.ffmpeg || !env.tts) {
+        setError('伺服器環境不足（需要 Windows SAPI + ffmpeg）');
+        return;
+      }
+      setError('');
+      setStatus('伺服器 SAPI TTS + ffmpeg 合成中（可能需數十秒）…');
+      if (els.generate) els.generate.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append('image', imageFile, imageFile.name || 'cover.jpg');
+        fd.append('script', script);
+        fd.append('gender', els.gender ? els.gender.value : 'female');
+        fd.append('rate', els.rate ? els.rate.value : '0');
+        fd.append('orientation', els.orient ? els.orient.value : 'auto');
+        const res = await fetch('media_tools_api.php?action=ivv_generate', { method: 'POST', body: fd });
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (!res.ok) {
+          let err = '生成失敗';
+          if (ct.includes('json')) {
+            const j = await res.json();
+            err = j.error || err;
+          }
+          throw new Error(err);
+        }
+        applyResult(await res.blob(), 'mp4');
+        setStatus('伺服器生成完成：已嵌入語音與字幕，可下載 MP4');
+        saveDraft();
+      } catch (e) {
+        setError(e.message || '生成失敗');
+        setStatus('就緒');
+      } finally {
+        refreshEnv();
+      }
+    }
+
+    async function serverWithAudioFile() {
       if (!imageFile) {
         setError('請先上傳圖片');
         return;
       }
-      // Need audio file - prompt for file or use result as video only
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'audio/*,video/webm,video/mp4,.mp3,.wav,.m4a,.webm';
@@ -343,10 +371,7 @@
         fd.append('image', imageFile, imageFile.name || 'cover.jpg');
         fd.append('audio', audio, audio.name || 'voice.webm');
         try {
-          const res = await fetch('media_tools_api.php?action=image_voice_video', {
-            method: 'POST',
-            body: fd,
-          });
+          const res = await fetch('media_tools_api.php?action=image_voice_video', { method: 'POST', body: fd });
           const ct = (res.headers.get('content-type') || '').toLowerCase();
           if (!res.ok) {
             let err = '合成失敗';
@@ -356,18 +381,7 @@
             }
             throw new Error(err);
           }
-          const blob = await res.blob();
-          if (resultUrl) URL.revokeObjectURL(resultUrl);
-          resultBlob = blob;
-          resultUrl = URL.createObjectURL(blob);
-          if (els.result) {
-            els.result.src = resultUrl;
-            els.result.style.display = '';
-          }
-          if (els.download) {
-            els.download.disabled = false;
-            els.download.dataset.ext = 'mp4';
-          }
+          applyResult(await res.blob(), 'mp4');
           setStatus('伺服器合成完成，可下載 MP4');
         } catch (e) {
           setError(e.message || '伺服器合成失敗');
@@ -392,9 +406,11 @@
           els.preview.src = previewUrl;
           els.preview.style.display = '';
         }
+        const hint = root.querySelector('[data-ivv-drop-hint]');
+        if (hint) hint.style.display = 'none';
         drawFrame('');
         setError('');
-        setStatus('已載入圖片，可輸入語音稿後開始錄製');
+        setStatus('已載入圖片');
       };
       img.onerror = () => setError('圖片載入失敗');
       img.src = previewUrl;
@@ -411,6 +427,8 @@
         els.preview.removeAttribute('src');
         els.preview.style.display = 'none';
       }
+      const hint = root.querySelector('[data-ivv-drop-hint]');
+      if (hint) hint.style.display = '';
       if (els.result) {
         els.result.removeAttribute('src');
         els.result.style.display = 'none';
@@ -444,6 +462,7 @@
     if (els.rate) els.rate.addEventListener('input', () => { updateRateLabel(); saveDraft(); });
     if (els.script) els.script.addEventListener('change', saveDraft);
     if (els.orient) els.orient.addEventListener('change', () => { if (imageEl) drawFrame(''); saveDraft(); });
+    if (els.gender) els.gender.addEventListener('change', saveDraft);
     if (els.record) els.record.addEventListener('click', () => recordBrowser());
     if (els.stop) {
       els.stop.disabled = true;
@@ -453,7 +472,8 @@
       els.download.disabled = true;
       els.download.addEventListener('click', downloadResult);
     }
-    if (els.server) els.server.addEventListener('click', serverCompose);
+    if (els.generate) els.generate.addEventListener('click', serverGenerate);
+    if (els.server) els.server.addEventListener('click', serverWithAudioFile);
     if (els.clear) els.clear.addEventListener('click', clearAll);
 
     if (window.speechSynthesis) {
@@ -462,7 +482,8 @@
     }
 
     loadDraft();
-    setStatus('就緒 — 上傳圖片並輸入語音稿（每行一句）');
+    refreshEnv();
+    setStatus('就緒 — 建議使用「伺服器一鍵生成」取得嵌音軌 MP4');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -499,6 +499,68 @@ function mediaToolsMergeClips(array $inputPaths, string $outputFormat = 'mp4'): 
 }
 
 /**
+ * Optional: burn simple SRT (equal time per line) onto a merged MP4.
+ *
+ * @param list<string> $lines
+ * @return array{workDir:string,filePath:string,filename:string,mime:string,size:int,logs:list<string>}
+ */
+function mediaToolsBurnSubtitles(string $videoPath, array $lines, float $totalDuration = 0.0): array
+{
+    $tools = mediaToolsResolve();
+    if (empty($tools['ffmpeg'])) {
+        throw new RuntimeException('TOOLS_MISSING: 找不到 ffmpeg');
+    }
+    if (!is_file($videoPath)) {
+        throw new InvalidArgumentException('影片不存在');
+    }
+    $lines = array_values(array_filter(array_map(static fn($l) => trim((string) $l), $lines)));
+    if (!$lines) {
+        throw new InvalidArgumentException('字幕行為空');
+    }
+    require_once __DIR__ . '/media_tts.php';
+    if ($totalDuration <= 0) {
+        $totalDuration = mediaTtsProbeDuration($videoPath);
+    }
+    if ($totalDuration <= 0) {
+        $totalDuration = max(3.0, count($lines) * 2.5);
+    }
+    $per = $totalDuration / count($lines);
+    $durs = array_fill(0, count($lines), $per);
+    $workDir = mediaToolsTempDir('fengbro_sub_');
+    $srt = $workDir . DIRECTORY_SEPARATOR . 'burn.srt';
+    mediaTtsWriteSrt($lines, $durs, $srt, 0.0);
+    $src = $workDir . DIRECTORY_SEPARATOR . 'src' . (pathinfo($videoPath, PATHINFO_EXTENSION) ? '.' . pathinfo($videoPath, PATHINFO_EXTENSION) : '.mp4');
+    copy($videoPath, $src);
+    $outPath = $workDir . DIRECTORY_SEPARATOR . 'with-subs.mp4';
+    $srtForFilter = str_replace('\\', '/', $srt);
+    $srtForFilter = str_replace(':', '\\:', $srtForFilter);
+    $vf = "subtitles='" . $srtForFilter . "':force_style='FontName=Microsoft JhengHei,FontSize=20,PrimaryColour=&H00FFFFFF,BorderStyle=3,Outline=2,MarginV=40,Alignment=2'";
+    $run = mediaToolsRun([
+        $tools['ffmpeg'], '-y',
+        '-i', $src,
+        '-vf', $vf,
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-c:a', 'copy',
+        '-movflags', '+faststart',
+        $outPath,
+    ], 600, $workDir);
+    if (!$run['ok'] || !is_file($outPath)) {
+        mediaToolsCleanupDir($workDir);
+        throw new RuntimeException('字幕燒錄失敗：' . trim($run['stderr']));
+    }
+    return [
+        'workDir' => $workDir,
+        'filePath' => $outPath,
+        'filename' => 'merged-subs.mp4',
+        'mime' => 'video/mp4',
+        'size' => (int) filesize($outPath),
+        'logs' => [trim($run['stdout'] . "\n" . $run['stderr'])],
+    ];
+}
+
+/**
  * Image + audio → video via ffmpeg (server assist for browser-recorded webm/mp3).
  * For pure browser IVV, client may not call this.
  *

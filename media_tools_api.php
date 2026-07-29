@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/media_tools.php';
+require_once __DIR__ . '/includes/media_tts.php';
 
 @set_time_limit(660);
 @ini_set('max_execution_time', '660');
@@ -68,18 +69,33 @@ function mediaToolsSendFile(array $result): void
 
 if ($action === 'status') {
     $tools = mediaToolsResolve();
+    $voices = [];
+    $ttsOk = false;
+    try {
+        $voices = mediaTtsListVoices();
+        $ttsOk = count($voices) > 0;
+    } catch (Throwable $e) {
+        $ttsOk = false;
+    }
     mediaToolsJson([
         'success' => true,
         'available' => $tools['available'],
         'ytDlp' => $tools['ytDlp'] ? true : false,
         'ffmpeg' => $tools['ffmpeg'] ? true : false,
+        'tts' => $ttsOk,
+        'ttsEngine' => $ttsOk ? 'windows-sapi' : null,
+        'voices' => array_map(static fn($v) => [
+            'name' => $v['name'],
+            'culture' => $v['culture'],
+            'gender' => $v['gender'],
+        ], $voices),
         'ytDlpPath' => $tools['ytDlp'] ? basename($tools['ytDlp']) : null,
         'ffmpegPath' => $tools['ffmpeg'] ? basename($tools['ffmpeg']) : null,
         'installHint' => $tools['installHint'],
         'platform' => $tools['platform'],
         'note' => $tools['available']
-            ? '已偵測到 yt-dlp 與 ffmpeg，可進行伺服器端轉檔／合併。'
-            : '本機未找到工具。瀏覽器端「圖片+語音=影片」仍可使用語音合成。',
+            ? ('已偵測到 yt-dlp 與 ffmpeg' . ($ttsOk ? '，SAPI TTS 可用。' : '；本機 TTS 不可用（需 Windows 語音）。'))
+            : '本機未找到 yt-dlp/ffmpeg。瀏覽器端工具仍可用。',
     ]);
 }
 
@@ -164,6 +180,18 @@ if ($action === 'video_merge') {
         }
         $format = $_POST['format'] ?? 'mp4';
         $result = mediaToolsMergeClips($paths, (string) $format);
+        $subtitle = trim((string) ($_POST['subtitle'] ?? ''));
+        if ($subtitle !== '' && strtolower((string) $format) !== 'mp3') {
+            $lines = preg_split('/\r\n|\r|\n/', $subtitle) ?: [];
+            try {
+                $subbed = mediaToolsBurnSubtitles($result['filePath'], $lines);
+                mediaToolsCleanupDir($result['workDir']);
+                $result = $subbed;
+            } catch (Throwable $subErr) {
+                // keep unsubbed merge if burn fails
+                $result['logs'][] = 'subtitle skipped: ' . $subErr->getMessage();
+            }
+        }
         // cleanup staging uploads
         mediaToolsCleanupDir($staging);
         mediaToolsSendFile($result);
@@ -197,12 +225,55 @@ if ($action === 'image_voice_video') {
         mediaToolsSendFile($result);
     } catch (Throwable $e) {
         $msg = $e->getMessage();
-        $code = str_starts_with($msg, 'TOOLS_MISSING') ? 503 : 500;
+        $code = (str_starts_with($msg, 'TOOLS_MISSING') || str_starts_with($msg, 'TTS_UNAVAILABLE')) ? 503 : 500;
         if ($e instanceof InvalidArgumentException) {
             $code = 400;
         }
         mediaToolsJson(['success' => false, 'error' => $msg], $code);
     }
+}
+
+/** 一鍵：封面圖 + 語音稿 → SAPI TTS + ffmpeg（嵌音軌 + 燒錄字幕） */
+if ($action === 'ivv_generate') {
+    try {
+        if (empty($_FILES['image']) || ($_FILES['image']['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            mediaToolsJson(['success' => false, 'error' => '請上傳封面圖片'], 400);
+        }
+        $script = trim((string) ($_POST['script'] ?? ''));
+        if ($script === '') {
+            mediaToolsJson(['success' => false, 'error' => '請提供語音稿 script'], 400);
+        }
+        $lines = preg_split('/\r\n|\r|\n/', $script) ?: [];
+        $gender = strtolower(trim((string) ($_POST['gender'] ?? 'female'))) === 'male' ? 'male' : 'female';
+        $rate = (int) ($_POST['rate'] ?? 0);
+        $orient = (string) ($_POST['orientation'] ?? 'auto');
+        if (!in_array($orient, ['auto', 'portrait', 'landscape'], true)) {
+            $orient = 'auto';
+        }
+        $staging = mediaToolsTempDir('fengbro_ivv_gen_');
+        $imgExt = pathinfo((string) $_FILES['image']['name'], PATHINFO_EXTENSION) ?: 'jpg';
+        $imgPath = $staging . DIRECTORY_SEPARATOR . 'image.' . preg_replace('/[^a-z0-9]/i', '', $imgExt);
+        if (!move_uploaded_file($_FILES['image']['tmp_name'], $imgPath)) {
+            mediaToolsCleanupDir($staging);
+            mediaToolsJson(['success' => false, 'error' => '圖片上傳失敗'], 400);
+        }
+        $result = mediaTtsImageScriptToVideo($imgPath, $lines, $gender, $rate, $orient);
+        mediaToolsCleanupDir($staging);
+        mediaToolsSendFile($result);
+    } catch (Throwable $e) {
+        $msg = $e->getMessage();
+        $code = (str_starts_with($msg, 'TOOLS_MISSING') || str_starts_with($msg, 'TTS_UNAVAILABLE')) ? 503 : 500;
+        if ($e instanceof InvalidArgumentException) {
+            $code = 400;
+        }
+        mediaToolsJson(['success' => false, 'error' => $msg], $code);
+    }
+}
+
+/** 影片合併可選字幕腳本：先合併再燒錄 */
+if ($action === 'video_merge_sub') {
+    // alias handled inside video_merge via optional POST subtitle
+    mediaToolsJson(['success' => false, 'error' => '請使用 video_merge 並附帶 subtitle 欄位'], 400);
 }
 
 mediaToolsJson(['success' => false, 'error' => '不支援的動作'], 400);
