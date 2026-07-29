@@ -1,18 +1,55 @@
 <?php
 /**
- * 本機 TTS：Windows System.Speech (SAPI)，產出 WAV 供 ffmpeg 合成。
- * 無 Python / edge-tts 時的可攜方案。
+ * TTS 引擎：
+ * 1) Google Translate TTS（多語、跨平台，預設）
+ * 2) Windows SAPI（本機備援，繁中較穩）
+ * 可選 Node Edge TTS（tools/edge-tts，連線不穩時自動略過）
  */
 
 require_once __DIR__ . '/media_tools.php';
+
+/** UI lang → Google TTS / Translate code */
+function mediaTtsLangMap(): array
+{
+    return [
+        'zh-TW' => ['tts' => 'zh-TW', 'translate' => 'zh-TW', 'label' => '繁體中文'],
+        'zh-CN' => ['tts' => 'zh-CN', 'translate' => 'zh-CN', 'label' => '簡體中文'],
+        'en-US' => ['tts' => 'en', 'translate' => 'en', 'label' => 'English'],
+        'ja-JP' => ['tts' => 'ja', 'translate' => 'ja', 'label' => '日本語'],
+        'ko-KR' => ['tts' => 'ko', 'translate' => 'ko', 'label' => '한국어'],
+        'yue-HK' => ['tts' => 'yue', 'translate' => 'yue', 'label' => '廣東話'],
+    ];
+}
+
+function mediaTtsNormalizeLang(string $lang): string
+{
+    $lang = trim($lang) ?: 'zh-TW';
+    $map = mediaTtsLangMap();
+    return isset($map[$lang]) ? $lang : 'zh-TW';
+}
+
+function mediaTtsGoogleCode(string $lang): string
+{
+    $lang = mediaTtsNormalizeLang($lang);
+    return mediaTtsLangMap()[$lang]['tts'];
+}
+
+function mediaTtsTranslateCode(string $lang): string
+{
+    $lang = mediaTtsNormalizeLang($lang);
+    return mediaTtsLangMap()[$lang]['translate'];
+}
 
 /**
  * @return list<array{name:string,culture:string,gender:string,age:string}>
  */
 function mediaTtsListVoices(): array
 {
+    $voices = [
+        ['name' => 'Google TTS (multi-lang)', 'culture' => 'multi', 'gender' => 'neutral', 'age' => 'Adult'],
+    ];
     if (!mediaToolsIsWindows()) {
-        return [];
+        return $voices;
     }
     $ps = <<<'PS'
 Add-Type -AssemblyName System.Speech
@@ -24,7 +61,6 @@ $s.GetInstalledVoices() | ForEach-Object {
 }
 PS;
     $out = mediaTtsRunPowerShell($ps, 30);
-    $voices = [];
     foreach (preg_split('/\r\n|\r|\n/', $out['stdout']) as $line) {
         $line = trim($line);
         if ($line === '' || !str_contains($line, "\t")) {
@@ -102,9 +138,146 @@ function mediaTtsPickVoice(?string $preferGender = 'female', string $preferCultu
 }
 
 /**
+ * Fetch URL body with curl/file_get_contents.
+ */
+function mediaTtsHttpGet(string $url, int $timeout = 20): string
+{
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_HTTPHEADER => [
+                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept: */*',
+                'Referer: https://translate.google.com/',
+            ],
+        ]);
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if (!is_string($body) || $body === '' || $code >= 400) {
+            return '';
+        }
+        return $body;
+    }
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => $timeout,
+            'header' => "User-Agent: Mozilla/5.0\r\nReferer: https://translate.google.com/\r\n",
+        ],
+    ]);
+    $body = @file_get_contents($url, false, $ctx);
+    return is_string($body) ? $body : '';
+}
+
+/**
+ * Split text for Google TTS (~180 chars, prefer punctuation breaks).
+ * @return list<string>
+ */
+function mediaTtsChunkText(string $text, int $max = 180): array
+{
+    $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+    if ($text === '') {
+        return [];
+    }
+    if (mb_strlen($text, 'UTF-8') <= $max) {
+        return [$text];
+    }
+    $chunks = [];
+    $buf = '';
+    $len = mb_strlen($text, 'UTF-8');
+    for ($i = 0; $i < $len; $i++) {
+        $ch = mb_substr($text, $i, 1, 'UTF-8');
+        $buf .= $ch;
+        $bl = mb_strlen($buf, 'UTF-8');
+        $break = preg_match('/[。！？!?,，；;、\s]/u', $ch);
+        if ($bl >= $max || ($break && $bl >= (int) ($max * 0.55))) {
+            $chunks[] = trim($buf);
+            $buf = '';
+        }
+    }
+    if (trim($buf) !== '') {
+        $chunks[] = trim($buf);
+    }
+    return $chunks ?: [$text];
+}
+
+/**
+ * Google Translate TTS → MP3 file (may concat chunks with ffmpeg).
+ */
+function mediaTtsGoogleToMp3(string $text, string $outMp3, string $lang = 'zh-TW'): void
+{
+    $text = trim($text);
+    if ($text === '') {
+        throw new InvalidArgumentException('語音文字為空');
+    }
+    $tl = mediaTtsGoogleCode($lang);
+    $parts = mediaTtsChunkText($text, 160);
+    $work = dirname($outMp3);
+    $mp3s = [];
+    foreach ($parts as $i => $part) {
+        $url = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob'
+            . '&tl=' . rawurlencode($tl)
+            . '&q=' . rawurlencode($part);
+        $bin = mediaTtsHttpGet($url, 25);
+        if ($bin === '' || strlen($bin) < 200) {
+            // yue fallback
+            if ($tl === 'yue') {
+                $url = 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-TW&q=' . rawurlencode($part);
+                $bin = mediaTtsHttpGet($url, 25);
+            }
+        }
+        if ($bin === '' || strlen($bin) < 200) {
+            throw new RuntimeException('Google TTS 失敗：' . mb_substr($part, 0, 40, 'UTF-8'));
+        }
+        $seg = $work . DIRECTORY_SEPARATOR . 'gtts_' . $i . '_' . bin2hex(random_bytes(2)) . '.mp3';
+        file_put_contents($seg, $bin);
+        $mp3s[] = $seg;
+    }
+    if (count($mp3s) === 1) {
+        if (!@rename($mp3s[0], $outMp3) && !@copy($mp3s[0], $outMp3)) {
+            throw new RuntimeException('無法寫入 TTS 檔案');
+        }
+        @unlink($mp3s[0]);
+        return;
+    }
+    $tools = mediaToolsResolve();
+    if (empty($tools['ffmpeg'])) {
+        // join binary mp3 roughly by concat demuxer
+        throw new RuntimeException('TOOLS_MISSING: 長句 Google TTS 需要 ffmpeg 合併');
+    }
+    $list = $work . DIRECTORY_SEPARATOR . 'gtts_list.txt';
+    $lines = [];
+    foreach ($mp3s as $m) {
+        $safe = str_replace('\\', '/', $m);
+        $lines[] = "file '" . str_replace("'", "'\\''", $safe) . "'";
+    }
+    file_put_contents($list, implode("\n", $lines) . "\n");
+    $run = mediaToolsRun([
+        $tools['ffmpeg'], '-y', '-f', 'concat', '-safe', '0', '-i', $list,
+        '-c', 'copy', $outMp3,
+    ], 60, $work);
+    if (!$run['ok'] || !is_file($outMp3)) {
+        $run2 = mediaToolsRun([
+            $tools['ffmpeg'], '-y', '-f', 'concat', '-safe', '0', '-i', $list,
+            '-c:a', 'libmp3lame', '-q:a', '4', $outMp3,
+        ], 60, $work);
+        if (!$run2['ok'] || !is_file($outMp3)) {
+            throw new RuntimeException('Google TTS 合併失敗');
+        }
+    }
+    foreach ($mp3s as $m) {
+        @unlink($m);
+    }
+    @unlink($list);
+}
+
+/**
  * Speak text to a WAV file via SAPI.
- *
- * @param float $rate -10..10 SAPI rate (we map UI -2..2 → -4..4)
  */
 function mediaTtsSynthesizeToWav(string $text, string $outWav, ?string $voiceName = null, int $rate = 0, int $volume = 100): void
 {
@@ -122,7 +295,6 @@ function mediaTtsSynthesizeToWav(string $text, string $outWav, ?string $voiceNam
     $volume = max(0, min(100, $volume));
     $outWavEsc = str_replace("'", "''", $outWav);
     $voiceEsc = str_replace("'", "''", $voiceName);
-    // Escape text for PowerShell single-quoted string
     $textEsc = str_replace("'", "''", $text);
 
     $ps = "Add-Type -AssemblyName System.Speech\n";
@@ -138,15 +310,124 @@ function mediaTtsSynthesizeToWav(string $text, string $outWav, ?string $voiceNam
 
     $run = mediaTtsRunPowerShell($ps, 180);
     if (!$run['ok'] || !is_file($outWav) || filesize($outWav) < 100) {
-        throw new RuntimeException('TTS 合成失敗：' . trim($run['stderr'] . ' ' . $run['stdout']));
+        throw new RuntimeException('SAPI TTS 合成失敗：' . trim($run['stderr'] . ' ' . $run['stdout']));
     }
 }
 
 /**
- * @param list<string> $lines
- * @return array{wavPath:string,srtPath:string,workDir:string,durations:list<float>,totalDuration:float,voice:string}
+ * Synthesize one line to audio file (mp3 or wav). Returns engine used.
  */
-function mediaTtsBuildScriptAudio(array $lines, ?string $gender = 'female', int $rateUi = 0, int $volume = 100): array
+function mediaTtsSynthesizeLine(string $text, string $outPath, string $lang = 'zh-TW', ?string $gender = 'female', int $rateUi = 0): string
+{
+    $lang = mediaTtsNormalizeLang($lang);
+    $engine = 'google';
+    // Prefer Google for multi-lang or non-Windows; SAPI only for zh on Windows as optional
+    try {
+        $mp3 = preg_match('/\.mp3$/i', $outPath) ? $outPath : ($outPath . '.mp3');
+        mediaTtsGoogleToMp3($text, $mp3, $lang);
+        if ($mp3 !== $outPath) {
+            // convert to wav if requested
+            if (preg_match('/\.wav$/i', $outPath)) {
+                $tools = mediaToolsResolve();
+                if (empty($tools['ffmpeg'])) {
+                    @rename($mp3, preg_replace('/\.wav$/i', '.mp3', $outPath) ?: $mp3);
+                    return 'google-mp3';
+                }
+                mediaToolsRun([$tools['ffmpeg'], '-y', '-i', $mp3, '-c:a', 'pcm_s16le', $outPath], 60);
+                @unlink($mp3);
+            }
+        }
+        return 'google';
+    } catch (Throwable $e) {
+        if (mediaToolsIsWindows() && in_array($lang, ['zh-TW', 'zh-CN', 'yue-HK'], true)) {
+            $voice = mediaTtsPickVoice($gender === 'male' ? 'male' : 'female', $lang === 'zh-CN' ? 'zh-CN' : 'zh-TW');
+            $sapiRate = (int) round(max(-2, min(2, $rateUi)) * 2);
+            $wav = preg_match('/\.wav$/i', $outPath) ? $outPath : ($outPath . '.wav');
+            mediaTtsSynthesizeToWav($text, $wav, $voice, $sapiRate, 100);
+            if ($wav !== $outPath && preg_match('/\.mp3$/i', $outPath)) {
+                $tools = mediaToolsResolve();
+                if (!empty($tools['ffmpeg'])) {
+                    mediaToolsRun([$tools['ffmpeg'], '-y', '-i', $wav, '-c:a', 'libmp3lame', '-q:a', '4', $outPath], 60);
+                    @unlink($wav);
+                }
+            }
+            return 'sapi';
+        }
+        throw $e;
+    }
+}
+
+/**
+ * Google Translate (unofficial client=gtx).
+ * @param list<string> $lines
+ * @return list<string>
+ */
+function mediaTtsTranslateLines(array $lines, string $targetLang = 'en-US', string $sourceLang = 'auto'): array
+{
+    $target = mediaTtsTranslateCode($targetLang);
+    $source = $sourceLang === 'auto' ? 'auto' : mediaTtsTranslateCode($sourceLang);
+    $out = [];
+    foreach ($lines as $line) {
+        $line = trim((string) $line);
+        if ($line === '') {
+            $out[] = '';
+            continue;
+        }
+        if ($source !== 'auto' && $source === $target) {
+            $out[] = $line;
+            continue;
+        }
+        $url = 'https://translate.googleapis.com/translate_a/single?client=gtx'
+            . '&sl=' . rawurlencode($source)
+            . '&tl=' . rawurlencode($target)
+            . '&dt=t&q=' . rawurlencode($line);
+        $raw = mediaTtsHttpGet($url, 15);
+        $translated = $line;
+        if ($raw !== '') {
+            $data = json_decode($raw, true);
+            if (is_array($data) && isset($data[0]) && is_array($data[0])) {
+                $parts = [];
+                foreach ($data[0] as $seg) {
+                    if (is_array($seg) && isset($seg[0])) {
+                        $parts[] = (string) $seg[0];
+                    }
+                }
+                $joined = trim(implode('', $parts));
+                if ($joined !== '') {
+                    $translated = $joined;
+                }
+            }
+        }
+        // yue fallback
+        if ($translated === $line && $target === 'yue') {
+            $url2 = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=' . rawurlencode($source)
+                . '&tl=zh-TW&dt=t&q=' . rawurlencode($line);
+            $raw2 = mediaTtsHttpGet($url2, 15);
+            $data2 = json_decode($raw2, true);
+            if (is_array($data2) && isset($data2[0]) && is_array($data2[0])) {
+                $parts = [];
+                foreach ($data2[0] as $seg) {
+                    if (is_array($seg) && isset($seg[0])) {
+                        $parts[] = (string) $seg[0];
+                    }
+                }
+                $joined = trim(implode('', $parts));
+                if ($joined !== '') {
+                    $translated = $joined;
+                }
+            }
+        }
+        $out[] = $translated;
+        usleep(80000);
+    }
+    return $out;
+}
+
+/**
+ * @param list<string> $lines
+ * @return array{wavPath:string,srtPath:string,workDir:string,durations:list<float>,totalDuration:float,voice:string,engine:string,lines:list<string>}
+ */
+function mediaTtsBuildScriptAudio(array $lines, ?string $gender = 'female', int $rateUi = 0, int $volume = 100, string $lang = 'zh-TW'): array
 {
     $lines = array_values(array_filter(array_map(static fn($l) => trim((string) $l), $lines), static fn($l) => $l !== ''));
     if (!$lines) {
@@ -157,32 +438,37 @@ function mediaTtsBuildScriptAudio(array $lines, ?string $gender = 'female', int 
     }
 
     $workDir = mediaToolsTempDir('fengbro_tts_');
-    $voice = mediaTtsPickVoice($gender === 'male' ? 'male' : 'female', 'zh-TW') ?: '';
-    // UI -2..2 → SAPI roughly -4..4
-    $sapiRate = (int) round(max(-2, min(2, $rateUi)) * 2);
+    $lang = mediaTtsNormalizeLang($lang);
+    $engineUsed = 'google';
+    $voiceLabel = 'Google TTS / ' . $lang;
 
-    $segmentWavs = [];
+    $segmentFiles = [];
     $durations = [];
     foreach ($lines as $i => $line) {
-        $wav = $workDir . DIRECTORY_SEPARATOR . sprintf('seg_%02d.wav', $i + 1);
-        mediaTtsSynthesizeToWav($line, $wav, $voice, $sapiRate, $volume);
-        $dur = mediaTtsProbeDuration($wav);
+        $seg = $workDir . DIRECTORY_SEPARATOR . sprintf('seg_%02d.mp3', $i + 1);
+        $engineUsed = mediaTtsSynthesizeLine($line, $seg, $lang, $gender, $rateUi);
+        if (!is_file($seg)) {
+            // maybe wav
+            $segWav = $workDir . DIRECTORY_SEPARATOR . sprintf('seg_%02d.wav', $i + 1);
+            if (is_file($segWav)) {
+                $seg = $segWav;
+            }
+        }
+        $dur = mediaTtsProbeDuration($seg);
         if ($dur <= 0) {
-            // fallback estimate ~4 chars/sec for CJK
             $dur = max(1.2, mb_strlen($line, 'UTF-8') / 4.0);
         }
         $durations[] = $dur;
-        $segmentWavs[] = $wav;
+        $segmentFiles[] = $seg;
     }
 
-    // concat wavs with ffmpeg
     $tools = mediaToolsResolve();
     if (empty($tools['ffmpeg'])) {
         throw new RuntimeException('TOOLS_MISSING: 找不到 ffmpeg');
     }
     $listFile = $workDir . DIRECTORY_SEPARATOR . 'audio_list.txt';
     $listLines = [];
-    foreach ($segmentWavs as $w) {
+    foreach ($segmentFiles as $w) {
         $safe = str_replace('\\', '/', $w);
         $listLines[] = "file '" . str_replace("'", "'\\''", $safe) . "'";
     }
@@ -192,24 +478,13 @@ function mediaTtsBuildScriptAudio(array $lines, ?string $gender = 'female', int 
         $tools['ffmpeg'], '-y',
         '-f', 'concat', '-safe', '0',
         '-i', $listFile,
-        '-c', 'copy',
+        '-c:a', 'pcm_s16le',
         $fullWav,
     ], 120, $workDir);
     if (!$run['ok'] || !is_file($fullWav)) {
-        // fallback re-encode concat
-        $run2 = mediaToolsRun([
-            $tools['ffmpeg'], '-y',
-            '-f', 'concat', '-safe', '0',
-            '-i', $listFile,
-            '-c:a', 'pcm_s16le',
-            $fullWav,
-        ], 120, $workDir);
-        if (!$run2['ok'] || !is_file($fullWav)) {
-            throw new RuntimeException('合併語音失敗：' . trim($run['stderr'] . "\n" . $run2['stderr']));
-        }
+        throw new RuntimeException('合併語音失敗：' . trim($run['stderr']));
     }
 
-    // pause gap already none; add 0.25s silence between? optional skip
     $srtPath = $workDir . DIRECTORY_SEPARATOR . 'subs.srt';
     mediaTtsWriteSrt($lines, $durations, $srtPath, 0.25);
     $total = array_sum($durations) + max(0, count($durations) - 1) * 0.25;
@@ -217,10 +492,11 @@ function mediaTtsBuildScriptAudio(array $lines, ?string $gender = 'female', int 
     return [
         'wavPath' => $fullWav,
         'srtPath' => $srtPath,
+        'engine' => $engineUsed,
+        'voice' => $voiceLabel . ' (' . $engineUsed . ')',
         'workDir' => $workDir,
         'durations' => $durations,
         'totalDuration' => $total,
-        'voice' => $voice,
         'lines' => $lines,
     ];
 }
@@ -297,7 +573,9 @@ function mediaTtsImageScriptToVideo(
     array $lines,
     string $gender = 'female',
     int $rateUi = 0,
-    string $orientation = 'auto'
+    string $orientation = 'auto',
+    string $lang = 'zh-TW',
+    string $translateTo = ''
 ): array {
     $tools = mediaToolsResolve();
     if (empty($tools['ffmpeg'])) {
@@ -307,7 +585,19 @@ function mediaTtsImageScriptToVideo(
         throw new InvalidArgumentException('缺少封面圖片');
     }
 
-    $audio = mediaTtsBuildScriptAudio($lines, $gender, $rateUi, 100);
+    $lang = mediaTtsNormalizeLang($lang);
+    $speakLines = $lines;
+    $subLines = $lines;
+    if ($translateTo !== '' && mediaTtsNormalizeLang($translateTo) !== $lang) {
+        $speakLines = mediaTtsTranslateLines($lines, $translateTo, $lang);
+        // subtitles follow spoken language
+        $subLines = $speakLines;
+        $lang = mediaTtsNormalizeLang($translateTo);
+    }
+
+    $audio = mediaTtsBuildScriptAudio($speakLines, $gender, $rateUi, 100, $lang);
+    // rewrite srt with final subtitle lines (same durations)
+    mediaTtsWriteSrt($subLines, $audio['durations'], $audio['srtPath'], 0.25);
     $workDir = mediaToolsTempDir('fengbro_ivv_full_');
     $imgExt = pathinfo($imagePath, PATHINFO_EXTENSION) ?: 'jpg';
     $img = $workDir . DIRECTORY_SEPARATOR . 'cover.' . preg_replace('/[^a-z0-9]/i', '', $imgExt);

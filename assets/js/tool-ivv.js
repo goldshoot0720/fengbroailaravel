@@ -21,6 +21,9 @@
       rateLabel: root.querySelector('[data-ivv-rate-label]'),
       orient: root.querySelector('[data-ivv-orient]'),
       gender: root.querySelector('[data-ivv-gender]'),
+      lang: root.querySelector('[data-ivv-lang]'),
+      translate: root.querySelector('[data-ivv-translate]'),
+      doTranslate: root.querySelector('[data-ivv-do-translate]'),
       status: root.querySelector('[data-ivv-status]'),
       error: root.querySelector('[data-ivv-error]'),
       env: root.querySelector('[data-ivv-env]'),
@@ -59,6 +62,8 @@
             rate: els.rate ? els.rate.value : '0',
             orient: els.orient ? els.orient.value : 'auto',
             gender: els.gender ? els.gender.value : 'female',
+            lang: els.lang ? els.lang.value : 'zh-TW',
+            translateTo: els.translate ? els.translate.value : '',
           })
         );
       } catch (e) {
@@ -75,6 +80,8 @@
         if (els.rate && d.rate != null) els.rate.value = d.rate;
         if (els.orient && d.orient) els.orient.value = d.orient;
         if (els.gender && d.gender) els.gender.value = d.gender;
+        if (els.lang && d.lang) els.lang.value = d.lang;
+        if (els.translate && d.translateTo != null) els.translate.value = d.translateTo;
         updateRateLabel();
       } catch (e) {
         /* ignore */
@@ -94,10 +101,8 @@
         const data = await res.json();
         env = { ffmpeg: !!data.ffmpeg, tts: !!data.tts };
         if (els.env) {
-          const voiceNames = (data.voices || []).map((v) => v.name).slice(0, 3).join('、');
           els.env.textContent = data.ffmpeg
-            ? 'ffmpeg 就緒' +
-              (data.tts ? ' · SAPI TTS 就緒' + (voiceNames ? '（' + voiceNames + '）' : '') : ' · 本機 TTS 不可用')
+            ? 'ffmpeg 就緒 · TTS：' + (data.ttsEngine || 'google') + '（多語）'
             : '缺少 ffmpeg（伺服器一鍵生成不可用）';
           els.env.classList.toggle('is-ready', !!(data.ffmpeg && data.tts));
           els.env.classList.toggle('is-missing', !data.ffmpeg);
@@ -333,6 +338,8 @@
         fd.append('gender', els.gender ? els.gender.value : 'female');
         fd.append('rate', els.rate ? els.rate.value : '0');
         fd.append('orientation', els.orient ? els.orient.value : 'auto');
+        fd.append('lang', els.lang ? els.lang.value : 'zh-TW');
+        if (els.translate && els.translate.value) fd.append('translateTo', els.translate.value);
         const res = await fetch('media_tools_api.php?action=ivv_generate', { method: 'POST', body: fd });
         const ct = (res.headers.get('content-type') || '').toLowerCase();
         if (!res.ok) {
@@ -463,6 +470,45 @@
     if (els.script) els.script.addEventListener('change', saveDraft);
     if (els.orient) els.orient.addEventListener('change', () => { if (imageEl) drawFrame(''); saveDraft(); });
     if (els.gender) els.gender.addEventListener('change', saveDraft);
+    if (els.lang) els.lang.addEventListener('change', saveDraft);
+    if (els.translate) els.translate.addEventListener('change', saveDraft);
+    if (els.doTranslate) {
+      els.doTranslate.addEventListener('click', async () => {
+        const target = els.translate && els.translate.value;
+        if (!target) {
+          setError('請先選擇「朗讀語言（可翻譯）」');
+          return;
+        }
+        const lines = parseLines(els.script && els.script.value);
+        if (!lines.length) {
+          setError('請先輸入語音稿');
+          return;
+        }
+        setError('');
+        setStatus('翻譯中…');
+        try {
+          const res = await fetch('media_tools_api.php?action=translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lines,
+              language: target,
+              source_language: els.lang ? els.lang.value : 'auto',
+            }),
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || '翻譯失敗');
+          if (els.script) els.script.value = (data.lines || []).join('\n');
+          if (els.lang) els.lang.value = target;
+          if (els.translate) els.translate.value = '';
+          saveDraft();
+          setStatus('已寫入翻譯結果（並將稿件語言改為目標語）');
+        } catch (e) {
+          setError(e.message || '翻譯失敗');
+          setStatus('就緒');
+        }
+      });
+    }
     if (els.record) els.record.addEventListener('click', () => recordBrowser());
     if (els.stop) {
       els.stop.disabled = true;

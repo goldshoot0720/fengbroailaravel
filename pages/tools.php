@@ -414,8 +414,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div style="margin-bottom:16px;">
                 <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-clapperboard"></i> 圖片 + 語音 = 影片</h3>
                 <p style="color:var(--muted-text);line-height:1.6;margin:0;">
-                    對齊 Appwrite ImageVoiceVideo。推薦<strong>伺服器一鍵生成</strong>（Windows SAPI TTS + ffmpeg：嵌入音軌並燒錄字幕）。
-                    亦可瀏覽器預覽錄製，或自備音訊檔合成。
+                    對齊 Appwrite ImageVoiceVideo。推薦<strong>伺服器一鍵生成</strong>（Google 多語 TTS，失敗時 Windows SAPI 備援；ffmpeg 嵌音軌並燒錄字幕）。
+                    支援稿件語言／朗讀翻譯、瀏覽器預覽錄製、自備音訊合成。
                     參考 <a href="https://github.com/huang1988pioneer/ImageVoiceVideo" target="_blank" rel="noopener">ImageVoiceVideo</a>。
                 </p>
             </div>
@@ -436,13 +436,36 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     <div class="ic-card-head"><span class="ic-step">2</span><strong>語音稿與設定</strong></div>
                     <label style="font-weight:700;display:block;margin-bottom:6px;">語音稿（每行一句）</label>
                     <textarea class="form-control" data-ivv-script rows="6" placeholder="第一句&#10;第二句"></textarea>
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px;">
                         <label>
                             <span style="font-weight:700;">語速 <span data-ivv-rate-label>0</span></span>
                             <input type="range" min="-2" max="2" step="1" value="0" data-ivv-rate style="width:100%;">
                         </label>
                         <label>
-                            <span style="font-weight:700;">聲線</span>
+                            <span style="font-weight:700;">稿件語言</span>
+                            <select class="form-control" data-ivv-lang>
+                                <option value="zh-TW">繁體中文</option>
+                                <option value="zh-CN">簡體中文</option>
+                                <option value="en-US">English</option>
+                                <option value="ja-JP">日本語</option>
+                                <option value="ko-KR">한국어</option>
+                                <option value="yue-HK">廣東話</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span style="font-weight:700;">朗讀語言（可翻譯）</span>
+                            <select class="form-control" data-ivv-translate>
+                                <option value="">與稿件相同</option>
+                                <option value="zh-TW">→ 繁中</option>
+                                <option value="zh-CN">→ 簡中</option>
+                                <option value="en-US">→ English</option>
+                                <option value="ja-JP">→ 日本語</option>
+                                <option value="ko-KR">→ 한국어</option>
+                                <option value="yue-HK">→ 廣東話</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span style="font-weight:700;">聲線（SAPI 備援）</span>
                             <select class="form-control" data-ivv-gender>
                                 <option value="female">女聲（優先）</option>
                                 <option value="male">男聲（優先）</option>
@@ -456,6 +479,9 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                                 <option value="landscape">橫式 16:9</option>
                             </select>
                         </label>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <button type="button" class="btn btn-ghost btn-sm" data-ivv-do-translate><i class="fa-solid fa-language"></i> 預覽翻譯到朗讀語言</button>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
                         <button type="button" class="btn btn-primary" data-ivv-generate><i class="fa-solid fa-wand-magic-sparkles"></i> 伺服器一鍵生成 MP4</button>
@@ -494,7 +520,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 <button type="button" class="btn btn-primary" data-vm-merge><i class="fa-solid fa-scissors"></i> 開始合併</button>
             </div>
             <label style="display:block;font-weight:700;margin-bottom:6px;">可選字幕腳本（每行一句，合併後均分時間燒錄；MP4 專用）</label>
-            <textarea class="form-control" data-vm-subtitle rows="3" placeholder="可留空&#10;第一句字幕&#10;第二句字幕" style="margin-bottom:12px;"></textarea>
+            <textarea class="form-control" data-vm-subtitle rows="3" placeholder="可留空&#10;第一句字幕&#10;第二句字幕" style="margin-bottom:8px;"></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+                <button type="button" class="btn btn-ghost btn-sm" data-vm-whisper><i class="fa-solid fa-microphone-lines"></i> 瀏覽器 Whisper 自動字幕（取第一段）</button>
+                <span data-vm-whisper-status class="tool-muted" style="font-size:0.86rem;"></span>
+            </div>
             <div data-vm-list></div>
             <p data-vm-status class="tool-muted" style="margin-top:10px;"></p>
             <p data-vm-error style="color:#dc2626;"></p>
@@ -908,6 +938,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 <div>
                     <h3 class="card-title" style="margin-bottom: 4px;">手機比價</h3>
                     <p style="color: var(--muted-text); line-height: 1.6;">自動抓取地標網通與傑昇通信價格，合併比對最佳通路（對齊 Appwrite 版）。</p>
+                    <p style="margin-top:8px;">
+                        <a class="btn btn-ghost btn-sm" href="media_tools_api.php?action=phone_history_csv">
+                            <i class="fa-solid fa-download"></i> 匯出歷史價格 CSV
+                        </a>
+                    </p>
                 </div>
             </div>
 

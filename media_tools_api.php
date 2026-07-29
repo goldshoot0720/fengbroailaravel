@@ -70,20 +70,24 @@ function mediaToolsSendFile(array $result): void
 if ($action === 'status') {
     $tools = mediaToolsResolve();
     $voices = [];
-    $ttsOk = false;
+    $ttsOk = true; // Google TTS is network-based default
     try {
         $voices = mediaTtsListVoices();
-        $ttsOk = count($voices) > 0;
     } catch (Throwable $e) {
-        $ttsOk = false;
+        $voices = [];
+    }
+    $langs = [];
+    foreach (mediaTtsLangMap() as $code => $meta) {
+        $langs[] = ['code' => $code, 'label' => $meta['label']];
     }
     mediaToolsJson([
         'success' => true,
         'available' => $tools['available'],
         'ytDlp' => $tools['ytDlp'] ? true : false,
         'ffmpeg' => $tools['ffmpeg'] ? true : false,
-        'tts' => $ttsOk,
-        'ttsEngine' => $ttsOk ? 'windows-sapi' : null,
+        'tts' => $ttsOk && !empty($tools['ffmpeg']),
+        'ttsEngine' => 'google-tts(+sapi-fallback)',
+        'languages' => $langs,
         'voices' => array_map(static fn($v) => [
             'name' => $v['name'],
             'culture' => $v['culture'],
@@ -94,7 +98,7 @@ if ($action === 'status') {
         'installHint' => $tools['installHint'],
         'platform' => $tools['platform'],
         'note' => $tools['available']
-            ? ('已偵測到 yt-dlp 與 ffmpeg' . ($ttsOk ? '，SAPI TTS 可用。' : '；本機 TTS 不可用（需 Windows 語音）。'))
+            ? '已偵測到 yt-dlp 與 ffmpeg；TTS 預設 Google 多語，Windows 可備援 SAPI。'
             : '本機未找到 yt-dlp/ffmpeg。瀏覽器端工具仍可用。',
     ]);
 }
@@ -250,6 +254,8 @@ if ($action === 'ivv_generate') {
         if (!in_array($orient, ['auto', 'portrait', 'landscape'], true)) {
             $orient = 'auto';
         }
+        $lang = (string) ($_POST['lang'] ?? 'zh-TW');
+        $translateTo = trim((string) ($_POST['translateTo'] ?? ''));
         $staging = mediaToolsTempDir('fengbro_ivv_gen_');
         $imgExt = pathinfo((string) $_FILES['image']['name'], PATHINFO_EXTENSION) ?: 'jpg';
         $imgPath = $staging . DIRECTORY_SEPARATOR . 'image.' . preg_replace('/[^a-z0-9]/i', '', $imgExt);
@@ -257,7 +263,7 @@ if ($action === 'ivv_generate') {
             mediaToolsCleanupDir($staging);
             mediaToolsJson(['success' => false, 'error' => '圖片上傳失敗'], 400);
         }
-        $result = mediaTtsImageScriptToVideo($imgPath, $lines, $gender, $rate, $orient);
+        $result = mediaTtsImageScriptToVideo($imgPath, $lines, $gender, $rate, $orient, $lang, $translateTo);
         mediaToolsCleanupDir($staging);
         mediaToolsSendFile($result);
     } catch (Throwable $e) {
@@ -270,10 +276,103 @@ if ($action === 'ivv_generate') {
     }
 }
 
-/** 影片合併可選字幕腳本：先合併再燒錄 */
-if ($action === 'video_merge_sub') {
-    // alias handled inside video_merge via optional POST subtitle
-    mediaToolsJson(['success' => false, 'error' => '請使用 video_merge 並附帶 subtitle 欄位'], 400);
+if ($action === 'translate') {
+    try {
+        $payload = [];
+        $raw = file_get_contents('php://input');
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $payload = $decoded;
+            }
+        }
+        $lines = $payload['lines'] ?? [];
+        if (!is_array($lines) || !$lines) {
+            mediaToolsJson(['success' => false, 'error' => 'lines required'], 400);
+        }
+        if (count($lines) > 120) {
+            mediaToolsJson(['success' => false, 'error' => 'too many lines'], 400);
+        }
+        $target = (string) ($payload['language'] ?? $payload['target'] ?? 'en-US');
+        $source = (string) ($payload['source_language'] ?? $payload['source'] ?? 'auto');
+        $translated = mediaTtsTranslateLines($lines, $target, $source);
+        mediaToolsJson(['success' => true, 'lines' => $translated, 'target' => $target]);
+    } catch (Throwable $e) {
+        mediaToolsJson(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
+if ($action === 'phone_history_csv') {
+    try {
+        require_once __DIR__ . '/includes/functions.php';
+        $pdo = getConnection();
+        // ensure table exists via tools_api helper pattern
+        $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+            id VARCHAR(36) PRIMARY KEY,
+            product_id VARCHAR(190) NOT NULL,
+            brand VARCHAR(50),
+            name VARCHAR(500) NOT NULL,
+            source VARCHAR(50) NOT NULL,
+            price INT NULL,
+            source_url VARCHAR(1000),
+            snapshot_day DATE NOT NULL,
+            INDEX idx_phone_hist (product_id, snapshot_day)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        // suggested price not always stored — export landtop/jyes rows
+        $rows = $pdo->query("SELECT product_id, brand, name, source, price, source_url, snapshot_day
+            FROM tool_phone_product_history
+            ORDER BY snapshot_day DESC, name ASC
+            LIMIT 5000")->fetchAll(PDO::FETCH_ASSOC);
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="phone-price-history.csv"');
+        echo "\xEF\xBB\xBF";
+        echo "productId,brand,name,sourceUrl,landtopPrice,jyesPrice,snapshotDate,source\n";
+        // pivot same product/day
+        $bucket = [];
+        foreach ($rows as $r) {
+            $key = ($r['product_id'] ?? '') . '|' . ($r['snapshot_day'] ?? '');
+            if (!isset($bucket[$key])) {
+                $bucket[$key] = [
+                    'productId' => $r['product_id'] ?? '',
+                    'brand' => $r['brand'] ?? '',
+                    'name' => $r['name'] ?? '',
+                    'sourceUrl' => $r['source_url'] ?? '',
+                    'landtopPrice' => '',
+                    'jyesPrice' => '',
+                    'snapshotDate' => $r['snapshot_day'] ?? '',
+                    'source' => $r['source'] ?? '',
+                ];
+            }
+            $src = strtolower((string) ($r['source'] ?? ''));
+            $price = $r['price'] !== null ? (string) $r['price'] : '';
+            if (str_contains($src, 'landtop') || $src === '地標' || $src === '地標網通') {
+                $bucket[$key]['landtopPrice'] = $price;
+            } elseif (str_contains($src, 'jyes') || str_contains($src, '傑昇')) {
+                $bucket[$key]['jyesPrice'] = $price;
+            } else {
+                if ($bucket[$key]['landtopPrice'] === '') {
+                    $bucket[$key]['landtopPrice'] = $price;
+                }
+            }
+            if (!empty($r['source_url'])) {
+                $bucket[$key]['sourceUrl'] = $r['source_url'];
+            }
+        }
+        foreach ($bucket as $row) {
+            $cells = [
+                $row['productId'], $row['brand'], $row['name'], $row['sourceUrl'],
+                $row['landtopPrice'], $row['jyesPrice'], $row['snapshotDate'], $row['source'],
+            ];
+            $out = [];
+            foreach ($cells as $c) {
+                $out[] = '"' . str_replace('"', '""', (string) $c) . '"';
+            }
+            echo implode(',', $out) . "\n";
+        }
+        exit;
+    } catch (Throwable $e) {
+        mediaToolsJson(['success' => false, 'error' => $e->getMessage()], 500);
+    }
 }
 
 mediaToolsJson(['success' => false, 'error' => '不支援的動作'], 400);

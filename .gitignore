@@ -2,3 +2,5 @@
 uploads/
 config/database.php
 config/database_alternative.php
+tools/edge-tts/node_modules/
+tools/edge-tts/package-lock.json

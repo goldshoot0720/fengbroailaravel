@@ -21,10 +21,10 @@
 - **手動價格紀錄**（localStorage + CSV 匯出／匯入，對齊 ManualPriceTracker）
 - **鋒兄新聞**：多來源關鍵字搜尋 + 焦點來源開關 + **台鐵便當門市**據點
 - **PNG / JPEG 批次轉換**（瀏覽器 Canvas；網址圖經 `media_proxy.php`）
-- **圖片 + 語音 = 影片**（Windows SAPI TTS 一鍵嵌音軌 + 燒錄字幕；亦可瀏覽器預覽 / 自備音訊）
-- **影片合併**（上傳多段 → ffmpeg concat，可選字幕腳本燒錄）
+- **圖片 + 語音 = 影片**（Google 多語 TTS + 翻譯軌；SAPI 備援；ffmpeg 嵌音軌 + 燒錄字幕）
+- **影片合併**（ffmpeg concat、可選字幕腳本燒錄、瀏覽器 Whisper tiny 自動字幕）
 - **YouTube / Bilibili 轉檔**（伺服器 yt-dlp + ffmpeg → MP3/MP4，可選 cookies）
-- Tube / 金融自訂標的 **CSV 匯出／匯入**
+- Tube / 金融自訂標的 **CSV 匯出／匯入**；手機比價 **歷史價格 CSV**
 - 鋒兄金融：擴充預設標的、可開關預設/新增自訂標的、1Y/5Y/10Y 走勢（後兩者 AJAX 懶載入）
 - 鋒兄tube 過濾 Shorts、強化倒台指數解析與歷史走勢
 - 媒體離線快取：影片 / 音樂 / 播客 / 文件 / 圖片（IndexedDB，各類型上限 500MB）
@@ -48,8 +48,10 @@
 - `ffmpeg`（可用 `FFMPEG_PATH`）
 
 Windows 範例：`winget install yt-dlp.yt-dlp Gyan.FFmpeg`  
-圖+語音一鍵生成另需 **Windows 內建語音**（SAPI，如「Microsoft Hanhan」）。  
-共用主機若禁用 `proc_open` / 無法安裝二進位，伺服器轉檔會顯示「缺少工具」；瀏覽器端 PNG/JPEG、手動價格、新聞、圖+語音預覽錄製仍可用。
+圖+語音一鍵生成需 **ffmpeg** + 可連外網（Google TTS／翻譯）；Windows 可備援 SAPI。  
+`tools/edge-tts` 為可選 Edge TTS 實驗目錄（WebSocket 不穩時不強制）。  
+共用主機若禁用 `proc_open`，伺服器轉檔會顯示「缺少工具」；瀏覽器端工具仍可用。  
+Whisper 自動字幕在瀏覽器下載模型，首次較慢，且部分影片容器無法解碼音訊時請改用 mp3/wav。
 
 ## 不再繼續移植的範圍
 
