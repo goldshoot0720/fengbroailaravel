@@ -4,7 +4,9 @@ require_once __DIR__ . '/../includes/fengbro_tube.php';
 require_once __DIR__ . '/../includes/fengbro_finance.php';
 
 $toolSubpage = $_GET['tool'] ?? 'price';
-$toolSubpage = in_array($toolSubpage, ['price', 'tube', 'finance'], true) ? $toolSubpage : 'price';
+$toolSubpage = in_array($toolSubpage, ['price', 'manual', 'tube', 'finance', 'news', 'image-convert'], true)
+    ? $toolSubpage
+    : 'price';
 if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['tube_action'] ?? '') !== '') {
     $channels = fengbroTubeChannels();
     $action = (string) ($_POST['tube_action'] ?? '');
@@ -96,7 +98,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 <div class="content-header">
     <div>
         <h1>鋒兄工具</h1>
-        <p style="margin-top: 8px; color: var(--muted-text);">比價、手機通路查詢與常用工具入口。</p>
+        <p style="margin-top: 8px; color: var(--muted-text);">比價、新聞、圖片轉換與常用工具（對齊 Appwrite 版可移植模組）。</p>
     </div>
 </div>
 
@@ -105,15 +107,178 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         <a class="tools-subnav-link <?php echo $toolSubpage === 'price' ? 'active' : ''; ?>" href="index.php?page=tools&tool=price">
             <i class="fa-solid fa-tags"></i> 鋒兄比價
         </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'manual' ? 'active' : ''; ?>" href="index.php?page=tools&tool=manual">
+            <i class="fa-solid fa-clipboard-list"></i> 手動價格
+        </a>
         <a class="tools-subnav-link <?php echo $toolSubpage === 'tube' ? 'active' : ''; ?>" href="index.php?page=tools&tool=tube">
             <i class="fa-brands fa-youtube"></i> 鋒兄tube
         </a>
         <a class="tools-subnav-link <?php echo $toolSubpage === 'finance' ? 'active' : ''; ?>" href="index.php?page=tools&tool=finance">
             <i class="fa-solid fa-chart-line"></i> 鋒兄金融
         </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'news' ? 'active' : ''; ?>" href="index.php?page=tools&tool=news">
+            <i class="fa-solid fa-newspaper"></i> 鋒兄新聞
+        </a>
+        <a class="tools-subnav-link <?php echo $toolSubpage === 'image-convert' ? 'active' : ''; ?>" href="index.php?page=tools&tool=image-convert">
+            <i class="fa-solid fa-image"></i> PNG / JPEG
+        </a>
     </div>
 
-    <?php if ($toolSubpage === 'tube'): ?>
+    <?php if ($toolSubpage === 'manual'): ?>
+        <section id="manualPriceTool" class="card">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
+                <div>
+                    <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-clipboard-list"></i> 手動價格紀錄</h3>
+                    <p style="color:var(--muted-text);line-height:1.6;margin:0;">自行登錄商品價格與日期，瀏覽器本機儲存（localStorage），支援 CSV 匯出／匯入合併（對齊 Appwrite ManualPriceTracker）。</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-ghost" data-mp-export><i class="fa-solid fa-download"></i> 匯出 CSV</button>
+                    <button type="button" class="btn btn-ghost" data-mp-import><i class="fa-solid fa-upload"></i> 匯入 CSV</button>
+                    <input type="file" data-mp-file accept=".csv,text/csv" hidden>
+                </div>
+            </div>
+            <div class="mp-layout">
+                <div class="mp-sidebar">
+                    <label style="font-weight:700;">新增商品</label>
+                    <input class="form-control" type="text" data-mp-name placeholder="商品名稱">
+                    <select class="form-control" data-mp-currency style="margin-top:8px;">
+                        <option value="TWD">TWD</option>
+                        <option value="USD">USD</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                    <button type="button" class="btn btn-primary" style="margin-top:10px;width:100%;" data-mp-add-product>
+                        <i class="fa-solid fa-plus"></i> 新增商品
+                    </button>
+                    <div data-mp-list class="mp-product-list" style="margin-top:14px;"></div>
+                </div>
+                <div class="mp-main">
+                    <div class="mp-form-row">
+                        <label>價錢</label>
+                        <input class="form-control" type="number" min="0" step="any" data-mp-price placeholder="0">
+                        <label>日期</label>
+                        <input class="form-control" type="date" data-mp-date>
+                        <label>備註</label>
+                        <input class="form-control" type="text" data-mp-note placeholder="可選">
+                        <button type="button" class="btn btn-primary" data-mp-add-record>
+                            <i class="fa-solid fa-check"></i> 登錄價格
+                        </button>
+                    </div>
+                    <p data-mp-error style="color:#dc2626;min-height:1.2em;"></p>
+                    <div data-mp-detail></div>
+                </div>
+            </div>
+        </section>
+        <script src="assets/js/tool-manual-price.js" defer></script>
+    <?php elseif ($toolSubpage === 'news'): ?>
+        <section id="fengbroNewsTool">
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+                    <div>
+                        <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-newspaper"></i> 鋒兄新聞</h3>
+                        <p style="color:var(--muted-text);line-height:1.6;margin:0;">多來源關鍵字搜尋（Google News RSS + 站內掃描 + YouTube 頻道標題）。可開關焦點來源，並查看台鐵便當門市據點。</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;">
+                    <input class="form-control" style="flex:1;min-width:220px;" type="search" data-news-query placeholder="例如 捷運、桃園、房價">
+                    <button type="button" class="btn btn-primary" data-news-search>
+                        <i class="fa-solid fa-search"></i> 搜尋
+                    </button>
+                </div>
+                <p data-news-status class="tool-muted" style="margin:10px 0 0;"></p>
+                <p data-news-error style="color:#dc2626;margin:6px 0 0;"></p>
+            </div>
+
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                    <h3 class="card-title" style="margin:0;">焦點來源</h3>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-ghost btn-sm" data-news-lock-all>全選</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-news-unlock-all>全不選</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-news-reset-sites>還原預設</button>
+                    </div>
+                </div>
+                <div data-news-sites></div>
+            </div>
+
+            <div class="card" style="margin-bottom:16px;">
+                <h3 class="card-title">搜尋結果</h3>
+                <div data-news-results class="tool-muted" style="margin-top:10px;">輸入關鍵字後開始搜尋。</div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">台鐵便當門市</h3>
+                <div data-news-bento style="margin-top:10px;"></div>
+            </div>
+        </section>
+        <script src="assets/js/tool-news.js" defer></script>
+    <?php elseif ($toolSubpage === 'image-convert'): ?>
+        <section id="imageConvertTool" class="card">
+            <div style="margin-bottom:16px;">
+                <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-image"></i> PNG / JPEG 轉換</h3>
+                <p style="color:var(--muted-text);line-height:1.6;margin:0;">
+                    本機 Canvas 批次轉換，不上傳伺服器。參考
+                    <a href="https://github.com/huang1988pioneer/PNGJPEGConverter" target="_blank" rel="noopener">PNGJPEGConverter</a>
+                    · 網址圖片經 <code>media_proxy.php</code> 避開 CORS。
+                </p>
+            </div>
+            <div class="ic-layout">
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">1</span><strong>加入圖片</strong>
+                        <button type="button" class="btn btn-ghost btn-sm" data-ic-clear>清除全部</button>
+                    </div>
+                    <div class="ic-dropzone" data-ic-drop role="button" tabindex="0" aria-label="上傳圖片">
+                        <div>拖放或點選多張圖片</div>
+                        <small class="tool-muted">PNG / JPEG / WebP / GIF / BMP / AVIF（依瀏覽器）</small>
+                    </div>
+                    <input type="file" data-ic-file multiple hidden>
+                    <input type="file" data-ic-folder multiple hidden>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                        <button type="button" class="btn btn-ghost" data-ic-pick>選擇檔案</button>
+                        <button type="button" class="btn btn-ghost" data-ic-folder-btn>選擇資料夾</button>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:flex-end;">
+                        <label style="flex:1;min-width:200px;">
+                            <span style="display:block;font-weight:700;margin-bottom:6px;">圖片網址</span>
+                            <input class="form-control" type="url" data-ic-url placeholder="https://example.com/photo.png">
+                        </label>
+                        <button type="button" class="btn btn-ghost" data-ic-add-url>加入網址</button>
+                    </div>
+                </div>
+                <div class="ic-card">
+                    <div class="ic-card-head"><span class="ic-step">2</span><strong>輸出設定</strong></div>
+                    <div style="display:flex;gap:8px;margin:10px 0;">
+                        <button type="button" class="btn btn-ghost ic-format-btn active" data-ic-target="jpg">JPEG</button>
+                        <button type="button" class="btn btn-ghost ic-format-btn" data-ic-target="png">PNG</button>
+                    </div>
+                    <div data-ic-jpg-only>
+                        <label style="display:block;font-weight:700;margin-bottom:6px;">
+                            JPEG 品質 <span data-ic-quality-label>100%</span>
+                        </label>
+                        <input type="range" min="1" max="100" value="100" data-ic-quality style="width:100%;">
+                        <label style="display:block;font-weight:700;margin:12px 0 6px;">透明底色（轉 JPEG）</label>
+                        <select class="form-control" data-ic-bg>
+                            <option value="#ffffff">白色（預設）</option>
+                            <option value="#000000">黑色</option>
+                            <option value="#f3f4f6">淺灰</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                        <button type="button" class="btn btn-primary" data-ic-convert><i class="fa-solid fa-wand-magic-sparkles"></i> 開始轉換</button>
+                        <button type="button" class="btn btn-ghost" data-ic-download>全部下載</button>
+                        <button type="button" class="btn btn-ghost" data-ic-zip>下載 ZIP</button>
+                    </div>
+                    <p data-ic-status class="tool-muted" style="margin-top:10px;"></p>
+                    <p data-ic-error style="color:#dc2626;"></p>
+                </div>
+            </div>
+            <div style="margin-top:16px;">
+                <h4 style="margin:0 0 10px;">佇列</h4>
+                <div data-ic-list></div>
+            </div>
+        </section>
+        <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+        <script src="assets/js/tool-image-convert.js" defer></script>
+    <?php elseif ($toolSubpage === 'tube'): ?>
         <section class="card tube-overview">
             <div class="tube-overview-copy">
                 <h3 class="card-title"><i class="fa-brands fa-youtube"></i> 鋒兄tube</h3>
@@ -572,6 +737,136 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         border-color: var(--accent);
         color: #fff;
     }
+
+    .tool-muted { color: var(--muted-text); }
+
+    .mp-layout {
+        display: grid;
+        grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+        gap: 18px;
+    }
+    @media (max-width: 800px) {
+        .mp-layout { grid-template-columns: 1fr; }
+    }
+    .mp-product-list { display: grid; gap: 8px; }
+    .mp-product-item {
+        display: grid; gap: 4px; text-align: left; width: 100%;
+        padding: 10px 12px; border-radius: 12px;
+        border: 1px solid var(--border-color); background: var(--input-bg);
+        color: var(--text-color); cursor: pointer;
+    }
+    .mp-product-item strong { font-size: 0.95rem; }
+    .mp-product-item span { color: var(--muted-text); font-size: 0.8rem; }
+    .mp-product-item.is-active {
+        border-color: var(--accent); background: var(--accent-soft);
+    }
+    .mp-form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px; align-items: end; margin-bottom: 8px;
+    }
+    .mp-form-row label { font-weight: 700; font-size: 0.86rem; }
+    .mp-detail-head {
+        display: flex; justify-content: space-between; gap: 12px;
+        flex-wrap: wrap; align-items: flex-start; margin-bottom: 12px;
+    }
+
+    .news-sites-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 8px; margin-top: 10px;
+    }
+    .news-site-item {
+        display: flex; gap: 10px; align-items: flex-start;
+        padding: 10px 12px; border: 1px solid var(--border-color);
+        border-radius: 12px; background: var(--input-bg); cursor: pointer;
+    }
+    .news-site-item strong { display: block; }
+    .news-site-item small { color: var(--muted-text); }
+    .news-article-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px; margin-top: 12px;
+    }
+    .news-article-card {
+        display: grid; gap: 8px; padding: 14px;
+        border: 1px solid var(--border-color); border-radius: 16px;
+        background: var(--input-bg); color: var(--text-color); text-decoration: none;
+    }
+    .news-article-card:hover { border-color: var(--accent); }
+    .news-article-meta {
+        display: flex; justify-content: space-between; gap: 8px;
+        color: var(--muted-text); font-size: 0.78rem; font-weight: 700;
+    }
+    .news-article-card p {
+        margin: 0; color: var(--muted-text); font-size: 0.86rem; line-height: 1.45;
+    }
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px; margin-top: 12px;
+    }
+    .bento-store-card {
+        padding: 14px; border: 1px solid var(--border-color);
+        border-radius: 14px; background: var(--input-bg);
+    }
+    .bento-store-card p { margin: 8px 0 0; color: var(--muted-text); font-size: 0.88rem; line-height: 1.5; }
+    .bento-hint {
+        display: inline-flex; margin-left: 8px; padding: 2px 8px;
+        border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+        font-size: 0.75rem; font-weight: 800;
+    }
+    .bento-head {
+        display: flex; justify-content: space-between; gap: 12px;
+        flex-wrap: wrap; align-items: flex-start;
+    }
+    .bento-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .ic-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+    }
+    .ic-card {
+        padding: 14px; border: 1px solid var(--border-color);
+        border-radius: 16px; background: var(--input-bg);
+    }
+    .ic-card-head {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .ic-card-head .btn { margin-left: auto; }
+    .ic-step {
+        width: 28px; height: 28px; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--accent); color: #fff; font-weight: 900; font-size: 0.85rem;
+    }
+    .ic-dropzone {
+        border: 2px dashed var(--border-color); border-radius: 14px;
+        padding: 28px 16px; text-align: center; cursor: pointer;
+        background: var(--card-bg);
+    }
+    .ic-dropzone.is-dragover { border-color: var(--accent); background: var(--accent-soft); }
+    .ic-format-btn.active {
+        background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important;
+    }
+    .ic-item {
+        display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
+        gap: 12px; align-items: center; padding: 10px;
+        border: 1px solid var(--border-color); border-radius: 14px;
+        margin-bottom: 8px; background: var(--input-bg);
+    }
+    .ic-thumb {
+        width: 64px; height: 64px; object-fit: cover; border-radius: 10px; background: var(--border-color);
+    }
+    .ic-thumb-empty { background: var(--table-header-bg); }
+    .ic-item-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+    .badge {
+        display: inline-flex; padding: 3px 8px; border-radius: 999px;
+        font-size: 0.75rem; font-weight: 800; background: var(--table-header-bg);
+    }
+    .badge-success { background: rgba(16,185,129,.14); color: #047857; }
+    .badge-danger { background: rgba(239,68,68,.14); color: #b91c1c; }
+    .badge-warning { background: rgba(245,158,11,.16); color: #b45309; }
 
     .phone-compare-panel {
         display: grid;

@@ -503,4 +503,74 @@ if ($action === 'phone_lookup') {
     ]);
 }
 
+if ($action === 'news_sites') {
+    require_once __DIR__ . '/includes/fengbro_news.php';
+    jsonResponse([
+        'success' => true,
+        'sites' => fengbroNewsDefaultSites(),
+        'count' => count(fengbroNewsDefaultSites()),
+    ]);
+}
+
+if ($action === 'news_search') {
+    require_once __DIR__ . '/includes/fengbro_news.php';
+    $payload = [];
+    $raw = file_get_contents('php://input');
+    if (is_string($raw) && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            $payload = $decoded;
+        }
+    }
+    $query = trim((string) ($payload['query'] ?? $_GET['q'] ?? ''));
+    $sites = [];
+    if (!empty($payload['sites']) && is_array($payload['sites'])) {
+        foreach ($payload['sites'] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $id = trim((string) ($row['id'] ?? ''));
+            $name = trim((string) ($row['name'] ?? $id));
+            $domain = trim((string) ($row['domain'] ?? ''));
+            $homeUrl = trim((string) ($row['homeUrl'] ?? ''));
+            $adapter = trim((string) ($row['adapter'] ?? 'generic-keyword-url'));
+            if ($id === '' || ($domain === '' && $homeUrl === '')) {
+                continue;
+            }
+            $sites[] = [
+                'id' => $id,
+                'name' => $name !== '' ? $name : $id,
+                'domain' => $domain,
+                'homeUrl' => $homeUrl,
+                'adapter' => $adapter !== '' ? $adapter : 'generic-keyword-url',
+                'searchUrlTemplate' => isset($row['searchUrlTemplate']) ? (string) $row['searchUrlTemplate'] : null,
+                'locked' => !empty($row['locked']),
+            ];
+        }
+    }
+    if ($sites) {
+        $sites = array_values(array_filter($sites, static fn($s) => !empty($s['locked'])));
+    }
+    @set_time_limit(90);
+    $result = fengbroNewsSearch($query, $sites);
+    if (!empty($result['error']) && empty($result['articles'])) {
+        jsonResponse(array_merge(['success' => false], $result), 400);
+    }
+    jsonResponse(array_merge(['success' => true], $result));
+}
+
+if ($action === 'news_bento') {
+    require_once __DIR__ . '/includes/fengbro_news.php';
+    $focus = ($_GET['focus'] ?? '1') !== '0';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $raw = file_get_contents('php://input');
+        $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+        if (is_array($decoded) && array_key_exists('focus', $decoded)) {
+            $focus = !empty($decoded['focus']);
+        }
+    }
+    $result = fengbroNewsBentoStores($focus);
+    jsonResponse(array_merge(['success' => true], $result));
+}
+
 jsonResponse(['success' => false, 'error' => '不支援的工具動作。'], 400);

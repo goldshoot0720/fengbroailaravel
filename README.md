@@ -6,7 +6,7 @@
 
 - 訂閱 / 食品 / 筆記 / 常用帳號 / 銀行 / 例行事項
 - 圖片、影片、音樂（含歌詞）、播客、文件
-- 工具：BigGo 比價、**手機比價（地標網通 + 傑昇通信）**、鋒兄tube、鋒兄金融
+- 工具：BigGo 比價、手動價格、**手機比價（地標網通 + 傑昇通信）**、鋒兄tube、鋒兄金融、鋒兄新聞、PNG/JPEG 轉換
 - 通知：Resend 郵件、Web Push、語音操作
 
 ## 技術棧
@@ -18,6 +18,9 @@
 
 - 手機比價改為實際抓取地標網通與傑昇通信並合併最佳價（不再只開 Google 站內搜尋）
 - 手機比價商品級每日快照（`tool_phone_product_history`）與歷史走勢
+- **手動價格紀錄**（localStorage + CSV 匯出／匯入，對齊 ManualPriceTracker）
+- **鋒兄新聞**：多來源關鍵字搜尋 + 焦點來源開關 + **台鐵便當門市**據點
+- **PNG / JPEG 批次轉換**（瀏覽器 Canvas；網址圖經 `media_proxy.php`）
 - 鋒兄金融：擴充預設標的、可開關預設/新增自訂標的、1Y/5Y/10Y 走勢（後兩者 AJAX 懶載入）
 - 鋒兄tube 過濾 Shorts、強化倒台指數解析與歷史走勢
 - 媒體離線快取：影片 / 音樂 / 播客 / 文件 / 圖片（IndexedDB，各類型上限 500MB）
@@ -32,6 +35,14 @@
 - 首頁 tube/金融提醒可「今日關閉」
 - 銀行刪除需輸入 `DELETE 名稱` 確認
 - 關於頁程式碼統計即時計算 + 對齊更新說明
+
+## 尚未移植 / 需本機工具鏈
+
+下列功能在 Appwrite 版依賴 FFmpeg、yt-dlp 或瀏覽器 WASM 重型管線，PHP 版暫未內建：
+
+- 圖片 + 語音 = 影片（ImageVoiceVideo）
+- 影片合併（VideoMerge + Whisper）
+- YouTube / Bilibili 轉 MP4/MP3
 
 ## 不再繼續移植的範圍
 

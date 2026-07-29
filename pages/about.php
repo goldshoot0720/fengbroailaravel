@@ -144,7 +144,7 @@
             </tr>
             <tr>
                 <th>工具模組</th>
-                <td>鋒兄比價（BigGo）、手機比價（地標網通 + 傑昇通信）、鋒兄tube（含倒台指數）、鋒兄金融（含 1Y/5Y/10Y 走勢）。</td>
+                <td>鋒兄比價（BigGo）、手動價格、手機比價（地標網通 + 傑昇通信）、鋒兄tube、鋒兄金融、鋒兄新聞（含台鐵便當門市）、PNG/JPEG 轉換。</td>
             </tr>
             <tr>
                 <th>系統設定</th>
@@ -156,7 +156,7 @@
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
-            <li>工具：手機比價（地標+傑昇）、金融標的管理與 1Y/5Y/10Y、tube 倒台指數</li>
+            <li>工具：手機比價（地標+傑昇）、手動價格紀錄、鋒兄新聞、PNG/JPEG 轉換、金融 1Y/5Y/10Y、tube 倒台指數</li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>
             <li>匯入：CSV 遮罩進度；食品/訂閱/銀行/常用與大檔分批寫入</li>
