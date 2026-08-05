@@ -924,7 +924,7 @@ sort($categories);
             previewContent.innerHTML = `<video src="${src}" controls style="max-width:100%;max-height:70vh;border-radius:8px;"></video>`;
         } else if (['mp3', 'wav', 'm4a', 'ogg', 'flac'].includes(ext)) {
             previewContent.innerHTML = `<audio src="${src}" controls style="width:100%;"></audio>`;
-        } else if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql'].includes(ext)) {
+        } else if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv', 'log', 'vsc'].includes(ext)) {
             fetch(src)
                 .then(r => r.text())
                 .then(text => {

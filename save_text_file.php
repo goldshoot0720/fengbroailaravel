@@ -37,7 +37,7 @@ if ($realPath === false) {
 }
 
 // 檢查檔案類型 - 只允許文字檔案
-$allowedExtensions = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv', 'log'];
+$allowedExtensions = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'php', 'py', 'sql', 'csv', 'log', 'vsc'];
 $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 
 if (!in_array($ext, $allowedExtensions)) {
