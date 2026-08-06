@@ -218,6 +218,7 @@ function fengbroFinanceSlugify(string $value): string
 }
 
 const FENGBRO_FINANCE_MAX_IMAGE_URLS = 9;
+const FENGBRO_FINANCE_MAX_RELATED_LINKS = 9;
 
 /**
  * Normalize optional http(s) or site-relative image URL.
@@ -293,6 +294,177 @@ function fengbroFinanceNormalizeImageUrls($input): array
         }
     }
     return $urls;
+}
+
+/**
+ * Guess a short chip label from a page URL when the user only pastes the link.
+ * Aligns with Appwrite guessFinanceRelatedLinkLabel.
+ */
+function fengbroFinanceGuessRelatedLinkLabel(string $url): string
+{
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['host'])) {
+        return '連結';
+    }
+    $host = strtolower((string) $parts['host']);
+    $host = preg_replace('/^www\./i', '', $host) ?? $host;
+    $path = (string) ($parts['path'] ?? '');
+
+    if ($host === 'ptt.cc' || str_ends_with($host, '.ptt.cc')) {
+        if (preg_match('#/bbs/([^/]+)#i', $path, $m)) {
+            $board = rawurldecode($m[1]);
+            if (strcasecmp($board, 'stock') === 0) {
+                return 'PTT 股板';
+            }
+            if (strcasecmp($board, 'home-sale') === 0) {
+                return 'PTT 房屋';
+            }
+            if (strcasecmp($board, 'railway') === 0) {
+                return 'PTT 鐵道';
+            }
+            return mb_substr('PTT ' . $board, 0, 40, 'UTF-8');
+        }
+        return 'PTT';
+    }
+
+    $hostLabels = [
+        'investing.com' => 'Investing',
+        'twse.com.tw' => '證交所',
+        'tpex.org.tw' => '櫃買中心',
+        'cnyes.com' => '鉅亨網',
+        'moneydj.com' => 'MoneyDJ',
+        'cmoney.tw' => 'CMoney',
+        'wantgoo.com' => '玩股網',
+        'goodinfo.tw' => 'Goodinfo',
+        'yahoo.com' => 'Yahoo',
+        'yahoo.co.jp' => 'Yahoo',
+        'cnbc.com' => 'CNBC',
+        'bloomberg.com' => 'Bloomberg',
+        'reuters.com' => 'Reuters',
+        'youtube.com' => 'YouTube',
+        'youtu.be' => 'YouTube',
+        'bilibili.com' => 'Bilibili',
+        'b23.tv' => 'Bilibili',
+    ];
+    foreach ($hostLabels as $needle => $label) {
+        if ($host === $needle || str_ends_with($host, '.' . $needle) || str_contains($host, $needle)) {
+            return $label;
+        }
+    }
+
+    $base = explode('.', $host)[0] ?? $host;
+    if ($base === '') {
+        return '連結';
+    }
+    return mb_substr(mb_strtoupper(mb_substr($base, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($base, 1, null, 'UTF-8'), 0, 40, 'UTF-8');
+}
+
+/**
+ * Parse draft textarea / stored list / CSV cell into relatedLinks.
+ * Accepts plain URL lines, `標籤|網址` / `標籤｜網址`, or `{label,url}` objects.
+ * Multi-value CSV cells use `;` between entries.
+ *
+ * @param mixed $input
+ * @return list<array{label:string,url:string}>
+ */
+function fengbroFinanceNormalizeRelatedLinks($input): array
+{
+    $rawLines = [];
+
+    if (is_string($input)) {
+        // CSV multi-value uses `;`; draft textarea uses newlines.
+        $chunks = preg_split('/[\n;]+/', $input) ?: [];
+        foreach ($chunks as $line) {
+            $trimmed = trim((string) $line);
+            if ($trimmed === '') {
+                continue;
+            }
+            if (preg_match('/^(.+?)\s*[|｜]\s*(https?:\/\/\S+|www\.\S+|\S+\.\S+\/\S.*)$/iu', $trimmed, $m)) {
+                $rawLines[] = ['label' => trim($m[1]), 'url' => trim($m[2])];
+                continue;
+            }
+            $rawLines[] = ['url' => $trimmed];
+        }
+    } elseif (is_array($input)) {
+        foreach ($input as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $rawLines[] = ['url' => trim($item)];
+                continue;
+            }
+            if (is_array($item)) {
+                $url = '';
+                if (isset($item['url']) && is_string($item['url'])) {
+                    $url = $item['url'];
+                } elseif (isset($item['href']) && is_string($item['href'])) {
+                    $url = $item['href'];
+                }
+                if (trim($url) === '') {
+                    continue;
+                }
+                $entry = ['url' => trim($url)];
+                if (isset($item['label']) && is_string($item['label'])) {
+                    $entry['label'] = $item['label'];
+                }
+                $rawLines[] = $entry;
+            }
+        }
+    }
+
+    $seen = [];
+    $links = [];
+    foreach ($rawLines as $raw) {
+        $url = fengbroFinanceNormalizeHttpUrl($raw['url'] ?? '', 800);
+        if ($url === null || isset($seen[$url])) {
+            continue;
+        }
+        // Related links should be absolute http(s) pages (not relative assets)
+        if (!preg_match('#^https?://#i', $url)) {
+            continue;
+        }
+        $seen[$url] = true;
+        $label = isset($raw['label']) && is_string($raw['label']) && trim($raw['label']) !== ''
+            ? mb_substr(trim($raw['label']), 0, 40, 'UTF-8')
+            : fengbroFinanceGuessRelatedLinkLabel($url);
+        $links[] = ['label' => $label, 'url' => $url];
+        if (count($links) >= FENGBRO_FINANCE_MAX_RELATED_LINKS) {
+            break;
+        }
+    }
+    return $links;
+}
+
+/**
+ * Serialize related links for draft textarea (one per line; label only when custom).
+ */
+function fengbroFinanceFormatRelatedLinksText(array $links): string
+{
+    if (!$links) {
+        return '';
+    }
+    $lines = [];
+    foreach ($links as $link) {
+        if (!is_array($link) || empty($link['url'])) {
+            continue;
+        }
+        $url = (string) $link['url'];
+        $label = isset($link['label']) ? trim((string) $link['label']) : '';
+        $guessed = fengbroFinanceGuessRelatedLinkLabel($url);
+        if ($label === '' || $label === $guessed) {
+            $lines[] = $url;
+        } else {
+            $lines[] = $label . '|' . $url;
+        }
+    }
+    return implode("\n", $lines);
+}
+
+/**
+ * Join related links for a single CSV cell (`;` between entries).
+ */
+function fengbroFinanceRelatedLinksToCsvCell(array $links): string
+{
+    $text = fengbroFinanceFormatRelatedLinksText($links);
+    return $text === '' ? '' : str_replace("\n", ';', $text);
 }
 
 /**
@@ -373,7 +545,7 @@ function fengbroFinanceSaveImagesForId(string $id, $urls): void
 /** CSV headers for 鋒兄金融 (align Appwrite + id for default image round-trip). */
 function fengbroFinanceCsvHeaders(): array
 {
-    return ['id', 'name', 'symbol', 'provider', 'group', 'imageUrls', 'featured'];
+    return ['id', 'name', 'symbol', 'provider', 'group', 'imageUrls', 'youtubeUrl', 'bilibiliUrl', 'relatedLinks', 'featured'];
 }
 
 /**
@@ -483,6 +655,16 @@ function fengbroFinanceMapCsvHeader(string $raw): ?string
         '圖片' => 'imageUrls',
         '圖片網址' => 'imageUrls',
         '連結圖片' => 'imageUrls',
+        'youtubeurl' => 'youtubeUrl',
+        'youtube' => 'youtubeUrl',
+        'youtubelink' => 'youtubeUrl',
+        'bilibiliurl' => 'bilibiliUrl',
+        'bilibili' => 'bilibiliUrl',
+        'relatedlinks' => 'relatedLinks',
+        'related_links' => 'relatedLinks',
+        'links' => 'relatedLinks',
+        '自訂網址' => 'relatedLinks',
+        '連結' => 'relatedLinks',
         'featured' => 'featured',
         '精選' => 'featured',
         '精選焦點' => 'featured',
@@ -508,8 +690,9 @@ function fengbroFinanceMapCsvHeader(string $raw): ?string
 }
 
 /**
- * Build CSV text for active instruments (defaults + custom), including imageUrls.
- * imageUrls cell uses `;` between multiple links (Appwrite-compatible).
+ * Build CSV text for active instruments (defaults + custom).
+ * Multi-value cells (imageUrls, relatedLinks) use `;` (Appwrite-compatible).
+ * Columns: id,name,symbol,provider,group,imageUrls,youtubeUrl,bilibiliUrl,relatedLinks,featured
  */
 function fengbroFinanceBuildCsv(?array $config = null): string
 {
@@ -532,6 +715,7 @@ function fengbroFinanceBuildCsv(?array $config = null): string
                 $provider = 'cnbc';
             }
         }
+        $related = fengbroFinanceNormalizeRelatedLinks($row['relatedLinks'] ?? []);
         $cells = [
             fengbroFinanceCsvEscape($id),
             fengbroFinanceCsvEscape($row['name'] ?? ''),
@@ -539,6 +723,9 @@ function fengbroFinanceBuildCsv(?array $config = null): string
             fengbroFinanceCsvEscape($provider),
             fengbroFinanceCsvEscape($row['group'] ?? ''),
             fengbroFinanceCsvEscape(implode(';', $imgs)),
+            fengbroFinanceCsvEscape($row['youtubeUrl'] ?? ''),
+            fengbroFinanceCsvEscape($row['bilibiliUrl'] ?? ''),
+            fengbroFinanceCsvEscape(fengbroFinanceRelatedLinksToCsvCell($related)),
             fengbroFinanceCsvEscape(!empty($featuredSet[$id]) || !empty($row['featured']) ? '1' : '0'),
         ];
         $lines[] = implode(',', $cells);
@@ -554,14 +741,29 @@ function fengbroFinanceBuildCsv(?array $config = null): string
 /**
  * Parse finance CSV into rows keyed by header names.
  *
- * @return array{rows: list<array<string,string>>, errors: list<string>, hasImageColumn: bool, hasFeaturedColumn: bool}
+ * @return array{
+ *   rows: list<array<string,string>>,
+ *   errors: list<string>,
+ *   hasImageColumn: bool,
+ *   hasFeaturedColumn: bool,
+ *   hasYoutubeColumn: bool,
+ *   hasBilibiliColumn: bool,
+ *   hasRelatedLinksColumn: bool
+ * }
  */
 function fengbroFinanceParseCsv(string $text): array
 {
+    $emptyFlags = [
+        'hasImageColumn' => false,
+        'hasFeaturedColumn' => false,
+        'hasYoutubeColumn' => false,
+        'hasBilibiliColumn' => false,
+        'hasRelatedLinksColumn' => false,
+    ];
     $errors = [];
     $matrix = fengbroFinanceParseCsvText($text);
     if (count($matrix) < 1) {
-        return ['rows' => [], 'errors' => ['CSV 檔案是空的'], 'hasImageColumn' => false, 'hasFeaturedColumn' => false];
+        return array_merge(['rows' => [], 'errors' => ['CSV 檔案是空的']], $emptyFlags);
     }
 
     $headerCells = $matrix[0];
@@ -579,8 +781,14 @@ function fengbroFinanceParseCsv(string $text): array
 
     $hasImageColumn = isset($columnIndex['imageUrls']);
     $hasFeaturedColumn = isset($columnIndex['featured']);
+    $hasYoutubeColumn = isset($columnIndex['youtubeUrl']);
+    $hasBilibiliColumn = isset($columnIndex['bilibiliUrl']);
+    $hasRelatedLinksColumn = isset($columnIndex['relatedLinks']);
     $savedImageIdx = $columnIndex['imageUrls'] ?? null;
     $savedFeaturedIdx = $columnIndex['featured'] ?? null;
+    $savedYoutubeIdx = $columnIndex['youtubeUrl'] ?? null;
+    $savedBilibiliIdx = $columnIndex['bilibiliUrl'] ?? null;
+    $savedRelatedIdx = $columnIndex['relatedLinks'] ?? null;
 
     // Legacy positional: name,symbol,provider,group[,imageUrls]
     if (!$looksLikeHeader || !isset($columnIndex['symbol'])) {
@@ -611,12 +819,27 @@ function fengbroFinanceParseCsv(string $text): array
             $columnIndex['featured'] = $savedFeaturedIdx;
             $hasFeaturedColumn = true;
         }
+        if ($savedYoutubeIdx !== null) {
+            $columnIndex['youtubeUrl'] = $savedYoutubeIdx;
+            $hasYoutubeColumn = true;
+        }
+        if ($savedBilibiliIdx !== null) {
+            $columnIndex['bilibiliUrl'] = $savedBilibiliIdx;
+            $hasBilibiliColumn = true;
+        }
+        if ($savedRelatedIdx !== null) {
+            $columnIndex['relatedLinks'] = $savedRelatedIdx;
+            $hasRelatedLinksColumn = true;
+        }
     } else {
         $start = 1;
     }
 
     if (!isset($columnIndex['symbol'])) {
-        return ['rows' => [], 'errors' => ['表頭缺少必要欄位 symbol（代號）'], 'hasImageColumn' => false, 'hasFeaturedColumn' => false];
+        return array_merge(
+            ['rows' => [], 'errors' => ['表頭缺少必要欄位 symbol（代號）']],
+            $emptyFlags
+        );
     }
 
     $rows = [];
@@ -641,6 +864,9 @@ function fengbroFinanceParseCsv(string $text): array
             'provider' => $cell('provider') !== '' ? $cell('provider') : 'yahoo',
             'group' => $cell('group') !== '' ? $cell('group') : 'US',
             'imageUrls' => $cell('imageUrls'),
+            'youtubeUrl' => $cell('youtubeUrl'),
+            'bilibiliUrl' => $cell('bilibiliUrl'),
+            'relatedLinks' => $cell('relatedLinks'),
             'featured' => $cell('featured'),
         ];
     }
@@ -650,6 +876,9 @@ function fengbroFinanceParseCsv(string $text): array
         'errors' => $errors,
         'hasImageColumn' => $hasImageColumn,
         'hasFeaturedColumn' => $hasFeaturedColumn,
+        'hasYoutubeColumn' => $hasYoutubeColumn,
+        'hasBilibiliColumn' => $hasBilibiliColumn,
+        'hasRelatedLinksColumn' => $hasRelatedLinksColumn,
     ];
 }
 
@@ -664,6 +893,9 @@ function fengbroFinanceImportCsv(string $text): array
     $errors = $parsed['errors'];
     $hasImageColumn = !empty($parsed['hasImageColumn']);
     $hasFeaturedColumn = !empty($parsed['hasFeaturedColumn']);
+    $hasYoutubeColumn = !empty($parsed['hasYoutubeColumn']);
+    $hasBilibiliColumn = !empty($parsed['hasBilibiliColumn']);
+    $hasRelatedLinksColumn = !empty($parsed['hasRelatedLinksColumn']);
     $config = fengbroFinanceReadConfig();
     $custom = $config['custom'];
     $defaultCatalog = [];
@@ -684,7 +916,7 @@ function fengbroFinanceImportCsv(string $text): array
     foreach ($parsed['rows'] as $row) {
         $imageUrls = $hasImageColumn
             ? fengbroFinanceNormalizeImageUrls(
-                str_replace([';', '|'], ["\n", "\n"], (string) ($row['imageUrls'] ?? ''))
+                str_replace([';'], ["\n"], (string) ($row['imageUrls'] ?? ''))
             )
             : null;
         $rowId = trim((string) ($row['id'] ?? ''));
@@ -725,6 +957,15 @@ function fengbroFinanceImportCsv(string $text): array
         if ($hasImageColumn) {
             $instrumentInput['imageUrls'] = $imageUrls ?? [];
         }
+        if ($hasYoutubeColumn) {
+            $instrumentInput['youtubeUrl'] = $row['youtubeUrl'] ?? '';
+        }
+        if ($hasBilibiliColumn) {
+            $instrumentInput['bilibiliUrl'] = $row['bilibiliUrl'] ?? '';
+        }
+        if ($hasRelatedLinksColumn) {
+            $instrumentInput['relatedLinks'] = fengbroFinanceNormalizeRelatedLinks($row['relatedLinks'] ?? '');
+        }
         $instrument = fengbroFinanceNormalizeCustomInstrument($instrumentInput, count($custom));
         if (!$instrument) {
             $errors[] = '無法解析標的: ' . $symbol;
@@ -740,7 +981,7 @@ function fengbroFinanceImportCsv(string $text): array
             $sameSym = strtoupper((string) ($existing['symbol'] ?? '')) === $symbol
                 && $symbol !== '';
             if ($sameId || $sameSym) {
-                // No image column → keep existing linked images on the custom instrument
+                // Missing optional columns → keep existing media / link fields
                 if (!$hasImageColumn) {
                     if (!empty($existing['imageUrl'])) {
                         $instrument['imageUrl'] = $existing['imageUrl'];
@@ -748,6 +989,15 @@ function fengbroFinanceImportCsv(string $text): array
                     if (!empty($existing['imageUrls'])) {
                         $instrument['imageUrls'] = $existing['imageUrls'];
                     }
+                }
+                if (!$hasYoutubeColumn && !empty($existing['youtubeUrl'])) {
+                    $instrument['youtubeUrl'] = $existing['youtubeUrl'];
+                }
+                if (!$hasBilibiliColumn && !empty($existing['bilibiliUrl'])) {
+                    $instrument['bilibiliUrl'] = $existing['bilibiliUrl'];
+                }
+                if (!$hasRelatedLinksColumn && !empty($existing['relatedLinks'])) {
+                    $instrument['relatedLinks'] = $existing['relatedLinks'];
                 }
                 $custom[$ci] = $instrument;
                 $replaced = true;
@@ -956,9 +1206,28 @@ function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
                 ? [$input['imageUrl']]
                 : ($input['imageUrlsText'] ?? ($input['image_urls'] ?? '')))
     );
+    $youtubeUrl = fengbroFinanceNormalizeHttpUrl($input['youtubeUrl'] ?? '', 800);
+    if ($youtubeUrl !== null && !preg_match('#^https?://#i', $youtubeUrl)) {
+        $youtubeUrl = null;
+    }
+    $bilibiliUrl = fengbroFinanceNormalizeHttpUrl($input['bilibiliUrl'] ?? '', 800);
+    if ($bilibiliUrl !== null && !preg_match('#^https?://#i', $bilibiliUrl)) {
+        $bilibiliUrl = null;
+    }
+    $relatedLinks = fengbroFinanceNormalizeRelatedLinks(
+        !empty($input['relatedLinks'])
+            ? $input['relatedLinks']
+            : ($input['relatedLinksText'] ?? ($input['related_links'] ?? ''))
+    );
+
+    $id = 'custom-' . $idBase;
+    $inputId = trim((string) ($input['id'] ?? ''));
+    if ($inputId !== '' && str_starts_with($inputId, 'custom-') && strlen($inputId) <= 80) {
+        $id = $inputId;
+    }
 
     $out = [
-        'id' => 'custom-' . $idBase,
+        'id' => $id,
         'name' => $name,
         'symbol' => $symbol,
         'url' => $url,
@@ -975,6 +1244,15 @@ function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
     if ($imageUrls) {
         $out['imageUrl'] = $imageUrls[0];
         $out['imageUrls'] = $imageUrls;
+    }
+    if ($youtubeUrl) {
+        $out['youtubeUrl'] = $youtubeUrl;
+    }
+    if ($bilibiliUrl) {
+        $out['bilibiliUrl'] = $bilibiliUrl;
+    }
+    if ($relatedLinks) {
+        $out['relatedLinks'] = $relatedLinks;
     }
     return $out;
 }
@@ -1404,6 +1682,11 @@ function fengbroFinanceEnrichQuote(array $quote, array $item, bool $withHistory 
         $quote['imageUrl'] = '';
         $quote['imageUrls'] = [];
     }
+    $youtubeUrl = fengbroFinanceNormalizeHttpUrl($item['youtubeUrl'] ?? '', 800);
+    $quote['youtubeUrl'] = ($youtubeUrl && preg_match('#^https?://#i', $youtubeUrl)) ? $youtubeUrl : '';
+    $bilibiliUrl = fengbroFinanceNormalizeHttpUrl($item['bilibiliUrl'] ?? '', 800);
+    $quote['bilibiliUrl'] = ($bilibiliUrl && preg_match('#^https?://#i', $bilibiliUrl)) ? $bilibiliUrl : '';
+    $quote['relatedLinks'] = fengbroFinanceNormalizeRelatedLinks($item['relatedLinks'] ?? []);
     if ($withHistory) {
         $history = fengbroFinanceFetchHistoryRanges($item);
         $quote['historyRanges'] = $history['historyRanges'];

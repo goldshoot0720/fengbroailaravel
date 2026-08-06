@@ -25,7 +25,7 @@
 - **影片合併**（ffmpeg concat、可選字幕腳本燒錄、Whisper tiny 自動字幕；影片先 **伺服器 ffmpeg 抽音**）
 - **YouTube / Bilibili 轉檔**（伺服器 yt-dlp + ffmpeg → MP3/MP4，可選 cookies）
 - Tube / 金融自訂標的 **CSV 匯出／匯入**；手機比價 **歷史價格 CSV**
-- 鋒兄金融：擴充預設標的、可開關預設/新增自訂標的、1Y/5Y/10Y 走勢（後兩者 AJAX 懶載入）
+- 鋒兄金融：擴充預設標的、可開關預設/新增自訂標的、1Y/5Y/10Y 走勢（後兩者 AJAX 懶載入）、連結圖片、自訂標的 YouTube/Bilibili/自訂網址、CSV 含 imageUrls/youtubeUrl/bilibiliUrl/relatedLinks
 - 鋒兄tube 過濾 Shorts、強化倒台指數解析與歷史走勢
 - 媒體離線快取：影片 / 音樂 / 播客 / 文件 / 圖片（IndexedDB，各類型上限 500MB）
 - 圖片/影片/音樂/播客/文件支援全選模式 **批次快取**

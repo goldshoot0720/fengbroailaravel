@@ -30,7 +30,7 @@
 | ManualPriceTracker | `manual` | 完成（localStorage + CSV） |
 | 手機比價 landtop+jyes | `phone` | 完成（獨立分頁、快照、歷史 CSV 匯出/匯入） |
 | 鋒兄Tube | `tube` | 完成（頻道 CSV） |
-| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**） |
+| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**、連結圖片、YouTube/Bilibili/自訂網址） |
 | 鋒兄新聞 + 便當 | `news` | 完成 |
 | PNG/JPEG 轉換 | `image-convert` | 完成 |
 | ImageVoiceVideo | `image-voice` | 完成（多語 TTS、翻譯、人臉選聲、一鍵 MP4） |

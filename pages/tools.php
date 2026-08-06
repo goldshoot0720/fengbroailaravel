@@ -123,11 +123,21 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
             'provider' => $_POST['custom_provider'] ?? 'yahoo',
             'group' => $_POST['custom_group'] ?? 'US',
             'imageUrlsText' => $_POST['custom_image_urls'] ?? '',
+            'youtubeUrl' => $_POST['custom_youtube_url'] ?? '',
+            'bilibiliUrl' => $_POST['custom_bilibili_url'] ?? '',
+            'relatedLinksText' => $_POST['custom_related_links'] ?? '',
         ], count($custom));
         if ($instrument) {
             $replaced = false;
             foreach ($custom as $i => $row) {
-                if (($row['id'] ?? '') === ($instrument['id'] ?? '')) {
+                $sameId = ($row['id'] ?? '') === ($instrument['id'] ?? '');
+                $sameSym = strtoupper((string) ($row['symbol'] ?? '')) === strtoupper((string) ($instrument['symbol'] ?? ''))
+                    && ($instrument['symbol'] ?? '') !== '';
+                if ($sameId || $sameSym) {
+                    // Keep stable custom id when updating by symbol
+                    if (!empty($row['id'])) {
+                        $instrument['id'] = $row['id'];
+                    }
                     $custom[$i] = $instrument;
                     $replaced = true;
                     break;
@@ -170,7 +180,7 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="fengbro-finance.csv"');
         echo "\xEF\xBB\xBF";
-        // id,name,symbol,provider,group,imageUrls,featured — 含連結圖片
+        // id,name,symbol,provider,group,imageUrls,youtubeUrl,bilibiliUrl,relatedLinks,featured
         echo fengbroFinanceBuildCsv();
         exit;
     } elseif ($action === 'toggle_featured') {
@@ -762,12 +772,12 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div class="finance-manager-head">
                 <div>
                     <h3 class="card-title">標的管理</h3>
-                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。指數／股票皆可設定<strong>連結圖片</strong>。CSV 匯出／匯入欄位：<code>id,name,symbol,provider,group,imageUrls,featured</code>（多張圖以 <code>;</code> 分隔，亦相容舊版四欄與「圖片／圖片網址」表頭）。</p>
+                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。指數／股票可設定<strong>連結圖片</strong>；自訂標的另可填 YouTube、Bilibili、自訂網址（對齊 Appwrite）。CSV 欄位：<code>id,name,symbol,provider,group,imageUrls,youtubeUrl,bilibiliUrl,relatedLinks,featured</code>（多值以 <code>;</code> 分隔；自訂網址可用 <code>標籤|網址</code>）。</p>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <form method="post">
                         <input type="hidden" name="finance_action" value="export_csv">
-                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出 CSV（含圖片）</button>
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出 CSV（含圖片／連結）</button>
                     </form>
                     <form method="post" enctype="multipart/form-data" style="display:inline-flex;gap:6px;align-items:center;">
                         <input type="hidden" name="finance_action" value="import_csv">
@@ -832,6 +842,12 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         </select>
                         <label style="font-size:0.82rem;font-weight:700;color:var(--muted-text);">圖片網址（可選，每行一張，最多 9 張）</label>
                         <textarea class="form-control" name="custom_image_urls" id="financeCustomImageUrls" rows="3" placeholder="https://example.com/logo.png&#10;https://…/另一張圖.jpg"></textarea>
+                        <label style="font-size:0.82rem;font-weight:700;color:var(--muted-text);">YouTube（可選）</label>
+                        <input class="form-control" type="url" name="custom_youtube_url" id="financeCustomYoutube" placeholder="https://www.youtube.com/…">
+                        <label style="font-size:0.82rem;font-weight:700;color:var(--muted-text);">Bilibili（可選）</label>
+                        <input class="form-control" type="url" name="custom_bilibili_url" id="financeCustomBilibili" placeholder="https://www.bilibili.com/…">
+                        <label style="font-size:0.82rem;font-weight:700;color:var(--muted-text);">自訂網址（可選，每行一個；可用 標籤|網址）</label>
+                        <textarea class="form-control" name="custom_related_links" id="financeCustomRelatedLinks" rows="2" placeholder="https://www.ptt.cc/bbs/Stock/index.html&#10;PTT 股板|https://www.ptt.cc/bbs/Stock/index.html"></textarea>
                         <button type="submit" class="btn btn-danger"><i class="fa-solid fa-plus"></i> 儲存自訂標的</button>
                         <p id="financeResolveHint" class="tool-muted" style="margin:6px 0 0;font-size:0.86rem;"></p>
                     </form>
@@ -935,6 +951,34 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                                 <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> 儲存圖片</button>
                             </form>
                         </details>
+                    <?php endif; ?>
+
+                    <?php
+                    $ytUrl = trim((string) ($quote['youtubeUrl'] ?? ''));
+                    $biliUrl = trim((string) ($quote['bilibiliUrl'] ?? ''));
+                    $relatedLinks = is_array($quote['relatedLinks'] ?? null) ? $quote['relatedLinks'] : [];
+                    $hasMediaLinks = $ytUrl !== '' || $biliUrl !== '' || $relatedLinks;
+                    ?>
+                    <?php if ($hasMediaLinks): ?>
+                        <div class="finance-link-chips">
+                            <?php if ($ytUrl !== ''): ?>
+                                <a class="finance-link-chip yt" href="<?php echo htmlspecialchars($ytUrl); ?>" target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-brands fa-youtube"></i> YouTube
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($biliUrl !== ''): ?>
+                                <a class="finance-link-chip bili" href="<?php echo htmlspecialchars($biliUrl); ?>" target="_blank" rel="noopener noreferrer">
+                                    <i class="fa-solid fa-play"></i> Bilibili
+                                </a>
+                            <?php endif; ?>
+                            <?php foreach ($relatedLinks as $rel): ?>
+                                <?php if (empty($rel['url'])) continue; ?>
+                                <a class="finance-link-chip ext" href="<?php echo htmlspecialchars((string) $rel['url']); ?>" target="_blank" rel="noopener noreferrer" title="<?php echo htmlspecialchars((string) $rel['url']); ?>">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    <?php echo htmlspecialchars((string) ($rel['label'] ?? '連結')); ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
                     <?php endif; ?>
 
                     <?php if (!empty($quote['error'])): ?>
@@ -1672,6 +1716,49 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         display: grid;
         gap: 8px;
         margin-top: 10px;
+    }
+
+    .finance-link-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .finance-link-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border-color);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-decoration: none;
+        line-height: 1.2;
+        background: var(--input-bg);
+        color: var(--text-color);
+    }
+
+    .finance-link-chip:hover {
+        filter: brightness(0.97);
+    }
+
+    .finance-link-chip.yt {
+        border-color: rgba(220, 38, 38, 0.25);
+        background: rgba(254, 226, 226, 0.65);
+        color: #b91c1c;
+    }
+
+    .finance-link-chip.bili {
+        border-color: rgba(14, 165, 233, 0.28);
+        background: rgba(224, 242, 254, 0.7);
+        color: #0369a1;
+    }
+
+    .finance-link-chip.ext {
+        border-color: rgba(217, 119, 6, 0.28);
+        background: rgba(255, 251, 235, 0.8);
+        color: #b45309;
     }
 
     .finance-group {
