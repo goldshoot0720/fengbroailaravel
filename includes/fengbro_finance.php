@@ -68,6 +68,7 @@ function fengbroFinanceReadConfig()
             'defaultIds' => fengbroFinanceDefaultIds(),
             'custom' => [],
             'featuredIds' => [],
+            'imageById' => [],
         ];
     }
     $data = json_decode((string) @file_get_contents($path), true);
@@ -76,6 +77,7 @@ function fengbroFinanceReadConfig()
             'defaultIds' => fengbroFinanceDefaultIds(),
             'custom' => [],
             'featuredIds' => [],
+            'imageById' => [],
         ];
     }
     $allowed = array_flip(fengbroFinanceDefaultIds());
@@ -110,10 +112,33 @@ function fengbroFinanceReadConfig()
             break;
         }
     }
+    $imageById = [];
+    foreach ((array) ($data['imageById'] ?? []) as $id => $urls) {
+        $id = trim((string) $id);
+        if ($id === '' || (!isset($allowed[$id]) && !isset($customIds[$id]))) {
+            continue;
+        }
+        $normalizedUrls = fengbroFinanceNormalizeImageUrls($urls);
+        if ($normalizedUrls) {
+            $imageById[$id] = $normalizedUrls;
+        }
+    }
+    // Seed imageById from custom instruments that carry image fields
+    foreach ($custom as $c) {
+        $cid = (string) ($c['id'] ?? '');
+        if ($cid === '' || isset($imageById[$cid])) {
+            continue;
+        }
+        $fromCustom = fengbroFinanceResolveImageUrls($c, ['imageById' => []]);
+        if ($fromCustom) {
+            $imageById[$cid] = $fromCustom;
+        }
+    }
     return [
         'defaultIds' => array_values(array_unique($defaultIds)),
         'custom' => $custom,
         'featuredIds' => array_values(array_unique($featuredIds)),
+        'imageById' => $imageById,
     ];
 }
 
@@ -173,7 +198,15 @@ function fengbroFinanceWriteConfig(array $config)
 function fengbroFinanceClearDataCache()
 {
     $cache = fengbroFinanceReadCache();
-    unset($cache['finance_data_v3'], $cache['finance_data_v4'], $cache['finance_data_v5']);
+    foreach (array_keys($cache) as $key) {
+        if (is_string($key) && (
+            str_starts_with($key, 'finance_data_v3')
+            || str_starts_with($key, 'finance_data_v4')
+            || str_starts_with($key, 'finance_data_v5')
+        )) {
+            unset($cache[$key]);
+        }
+    }
     fengbroFinanceWriteCache($cache);
 }
 
@@ -182,6 +215,599 @@ function fengbroFinanceSlugify(string $value): string
     $value = strtolower(trim($value));
     $value = preg_replace('/[^a-z0-9]+/i', '-', $value) ?? $value;
     return substr(trim($value, '-'), 0, 48);
+}
+
+const FENGBRO_FINANCE_MAX_IMAGE_URLS = 9;
+
+/**
+ * Normalize optional http(s) or site-relative image URL.
+ * Relative paths (e.g. /finance/xxx.png or assets/...) are kept for local assets.
+ */
+function fengbroFinanceNormalizeHttpUrl($value, int $maxLen = 800): ?string
+{
+    if (!is_string($value)) {
+        return null;
+    }
+    $trimmed = trim(mb_substr($value, 0, $maxLen, 'UTF-8'));
+    if ($trimmed === '') {
+        return null;
+    }
+    // Site-relative path (local asset)
+    if (isset($trimmed[0]) && $trimmed[0] === '/') {
+        if (preg_match('#^/[A-Za-z0-9_./%+\-]+$#', $trimmed) && !str_contains($trimmed, '..')) {
+            return $trimmed;
+        }
+        return null;
+    }
+    // Relative asset path without leading slash
+    if (preg_match('#^(assets|uploads|finance)/[A-Za-z0-9_./%+\-]+$#', $trimmed) && !str_contains($trimmed, '..')) {
+        return $trimmed;
+    }
+    $withProtocol = preg_match('#^https?://#i', $trimmed) ? $trimmed : ('https://' . $trimmed);
+    if (filter_var($withProtocol, FILTER_VALIDATE_URL) === false) {
+        return null;
+    }
+    $scheme = strtolower((string) (parse_url($withProtocol, PHP_URL_SCHEME) ?? ''));
+    if ($scheme !== 'http' && $scheme !== 'https') {
+        return null;
+    }
+    return $withProtocol;
+}
+
+/**
+ * Parse draft textarea / array / CSV cell into clean image URLs (max 9).
+ * Accepts newlines, commas, or semicolons as separators.
+ *
+ * @param mixed $input
+ * @return list<string>
+ */
+function fengbroFinanceNormalizeImageUrls($input): array
+{
+    $rawList = [];
+    if (is_string($input)) {
+        foreach (preg_split('/[\n,;]+/', $input) ?: [] as $part) {
+            $part = trim((string) $part);
+            if ($part !== '') {
+                $rawList[] = $part;
+            }
+        }
+    } elseif (is_array($input)) {
+        foreach ($input as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $rawList[] = trim($item);
+            }
+        }
+    }
+
+    $seen = [];
+    $urls = [];
+    foreach ($rawList as $raw) {
+        $url = fengbroFinanceNormalizeHttpUrl($raw, 800);
+        if ($url === null || isset($seen[$url])) {
+            continue;
+        }
+        $seen[$url] = true;
+        $urls[] = $url;
+        if (count($urls) >= FENGBRO_FINANCE_MAX_IMAGE_URLS) {
+            break;
+        }
+    }
+    return $urls;
+}
+
+/**
+ * Resolve display image URLs for an instrument (config override > item fields).
+ *
+ * @return list<string>
+ */
+function fengbroFinanceResolveImageUrls(array $item, ?array $config = null): array
+{
+    $id = trim((string) ($item['id'] ?? ''));
+    if ($config === null) {
+        $config = fengbroFinanceReadConfig();
+    }
+    $byId = $config['imageById'] ?? [];
+    if ($id !== '' && !empty($byId[$id])) {
+        $fromConfig = fengbroFinanceNormalizeImageUrls($byId[$id]);
+        if ($fromConfig) {
+            return $fromConfig;
+        }
+    }
+    if (!empty($item['imageUrls'])) {
+        $fromItem = fengbroFinanceNormalizeImageUrls($item['imageUrls']);
+        if ($fromItem) {
+            return $fromItem;
+        }
+    }
+    if (!empty($item['imageUrl'])) {
+        return fengbroFinanceNormalizeImageUrls([$item['imageUrl']]);
+    }
+    return [];
+}
+
+/**
+ * Save image URL list for any instrument id (default or custom). Empty clears.
+ *
+ * @param list<string>|string $urls
+ */
+function fengbroFinanceSaveImagesForId(string $id, $urls): void
+{
+    $id = trim($id);
+    if ($id === '') {
+        return;
+    }
+    $config = fengbroFinanceReadConfig();
+    $allowed = array_flip(fengbroFinanceDefaultIds());
+    foreach ($config['custom'] as $c) {
+        if (!empty($c['id'])) {
+            $allowed[$c['id']] = true;
+        }
+    }
+    if (!isset($allowed[$id])) {
+        return;
+    }
+    $normalized = fengbroFinanceNormalizeImageUrls($urls);
+    if (!isset($config['imageById']) || !is_array($config['imageById'])) {
+        $config['imageById'] = [];
+    }
+    if ($normalized) {
+        $config['imageById'][$id] = $normalized;
+    } else {
+        unset($config['imageById'][$id]);
+    }
+    // Keep custom instrument object in sync when applicable
+    foreach ($config['custom'] as $i => $row) {
+        if (($row['id'] ?? '') === $id) {
+            if ($normalized) {
+                $config['custom'][$i]['imageUrl'] = $normalized[0];
+                $config['custom'][$i]['imageUrls'] = $normalized;
+            } else {
+                unset($config['custom'][$i]['imageUrl'], $config['custom'][$i]['imageUrls']);
+            }
+            break;
+        }
+    }
+    fengbroFinanceWriteConfig($config);
+}
+
+/** CSV headers for 鋒兄金融 (align Appwrite + id for default image round-trip). */
+function fengbroFinanceCsvHeaders(): array
+{
+    return ['id', 'name', 'symbol', 'provider', 'group', 'imageUrls', 'featured'];
+}
+
+/**
+ * Escape a CSV cell (quote when needed for Excel / multi-value imageUrls).
+ */
+function fengbroFinanceCsvEscape($value): string
+{
+    $stringValue = (string) ($value ?? '');
+    if (
+        $stringValue === ''
+        || (
+            !str_contains($stringValue, ',')
+            && !str_contains($stringValue, '"')
+            && !str_contains($stringValue, "\n")
+            && !str_contains($stringValue, "\r")
+            && !str_contains($stringValue, ';')
+            && !str_contains($stringValue, '?')
+            && !str_contains($stringValue, '&')
+        )
+    ) {
+        return $stringValue;
+    }
+    return '"' . str_replace('"', '""', $stringValue) . '"';
+}
+
+/**
+ * RFC-style CSV parse that keeps quoted commas/newlines (image URLs often need this).
+ *
+ * @return list<list<string>>
+ */
+function fengbroFinanceParseCsvText(string $text): array
+{
+    $text = preg_replace('/^\xEF\xBB\xBF/', '', $text) ?? $text;
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $rows = [];
+    $currentRow = [];
+    $currentField = '';
+    $inQuotes = false;
+    $len = strlen($text);
+    for ($i = 0; $i < $len; $i++) {
+        $char = $text[$i];
+        if ($inQuotes) {
+            if ($char === '"') {
+                if ($i + 1 < $len && $text[$i + 1] === '"') {
+                    $currentField .= '"';
+                    $i++;
+                } else {
+                    $inQuotes = false;
+                }
+            } else {
+                $currentField .= $char;
+            }
+        } elseif ($char === '"') {
+            $inQuotes = true;
+        } elseif ($char === ',') {
+            $currentRow[] = $currentField;
+            $currentField = '';
+        } elseif ($char === "\n") {
+            $currentRow[] = $currentField;
+            if ($currentRow && array_filter($currentRow, static fn($f) => trim((string) $f) !== '')) {
+                $rows[] = $currentRow;
+            }
+            $currentRow = [];
+            $currentField = '';
+        } else {
+            $currentField .= $char;
+        }
+    }
+    if ($currentField !== '' || $currentRow) {
+        $currentRow[] = $currentField;
+        if ($currentRow && array_filter($currentRow, static fn($f) => trim((string) $f) !== '')) {
+            $rows[] = $currentRow;
+        }
+    }
+    return $rows;
+}
+
+/**
+ * Map a header cell to a canonical CSV field name.
+ */
+function fengbroFinanceMapCsvHeader(string $raw): ?string
+{
+    $trimmed = trim($raw);
+    if ($trimmed === '') {
+        return null;
+    }
+    $aliases = [
+        'id' => 'id',
+        'instrumentid' => 'id',
+        '標的id' => 'id',
+        'name' => 'name',
+        '名稱' => 'name',
+        '代稱' => 'name',
+        'symbol' => 'symbol',
+        '代號' => 'symbol',
+        '代碼' => 'symbol',
+        'ticker' => 'symbol',
+        'provider' => 'provider',
+        '來源' => 'provider',
+        'group' => 'group',
+        '分類' => 'group',
+        'region' => 'group',
+        'imageurls' => 'imageUrls',
+        'imageurl' => 'imageUrls',
+        'image_urls' => 'imageUrls',
+        'images' => 'imageUrls',
+        '圖片' => 'imageUrls',
+        '圖片網址' => 'imageUrls',
+        '連結圖片' => 'imageUrls',
+        'featured' => 'featured',
+        '精選' => 'featured',
+        '精選焦點' => 'featured',
+    ];
+    $lower = strtolower($trimmed);
+    $compact = strtolower(preg_replace('/[\s_]+/u', '', $trimmed) ?? $trimmed);
+    if (isset($aliases[$lower])) {
+        return $aliases[$lower];
+    }
+    if (isset($aliases[$compact])) {
+        return $aliases[$compact];
+    }
+    if (isset($aliases[$trimmed])) {
+        return $aliases[$trimmed];
+    }
+    // Direct English header match
+    foreach (fengbroFinanceCsvHeaders() as $header) {
+        if (strtolower($header) === $lower) {
+            return $header;
+        }
+    }
+    return null;
+}
+
+/**
+ * Build CSV text for active instruments (defaults + custom), including imageUrls.
+ * imageUrls cell uses `;` between multiple links (Appwrite-compatible).
+ */
+function fengbroFinanceBuildCsv(?array $config = null): string
+{
+    $config = $config ?? fengbroFinanceReadConfig();
+    $featuredSet = array_flip($config['featuredIds'] ?? []);
+    $headers = fengbroFinanceCsvHeaders();
+    $lines = [implode(',', $headers)];
+
+    $appendRow = static function (array $row) use (&$lines, $featuredSet): void {
+        $id = (string) ($row['id'] ?? '');
+        $imgs = fengbroFinanceResolveImageUrls($row);
+        $provider = (string) ($row['provider'] ?? '');
+        if ($provider === '') {
+            $parser = (string) ($row['parser'] ?? 'cnbc');
+            if ($parser === 'yahoo_quote' || $parser === 'yahoo_tw') {
+                $provider = 'yahoo';
+            } elseif ($parser === 'multpl_shiller') {
+                $provider = 'multpl';
+            } else {
+                $provider = 'cnbc';
+            }
+        }
+        $cells = [
+            fengbroFinanceCsvEscape($id),
+            fengbroFinanceCsvEscape($row['name'] ?? ''),
+            fengbroFinanceCsvEscape($row['symbol'] ?? ''),
+            fengbroFinanceCsvEscape($provider),
+            fengbroFinanceCsvEscape($row['group'] ?? ''),
+            fengbroFinanceCsvEscape(implode(';', $imgs)),
+            fengbroFinanceCsvEscape(!empty($featuredSet[$id]) || !empty($row['featured']) ? '1' : '0'),
+        ];
+        $lines[] = implode(',', $cells);
+    };
+
+    foreach (fengbroFinanceActiveItems() as $item) {
+        $appendRow($item);
+    }
+
+    return implode("\n", $lines) . "\n";
+}
+
+/**
+ * Parse finance CSV into rows keyed by header names.
+ *
+ * @return array{rows: list<array<string,string>>, errors: list<string>, hasImageColumn: bool, hasFeaturedColumn: bool}
+ */
+function fengbroFinanceParseCsv(string $text): array
+{
+    $errors = [];
+    $matrix = fengbroFinanceParseCsvText($text);
+    if (count($matrix) < 1) {
+        return ['rows' => [], 'errors' => ['CSV 檔案是空的'], 'hasImageColumn' => false, 'hasFeaturedColumn' => false];
+    }
+
+    $headerCells = $matrix[0];
+    $columnIndex = [];
+    $looksLikeHeader = false;
+    foreach ($headerCells as $i => $cell) {
+        $mapped = fengbroFinanceMapCsvHeader((string) $cell);
+        if ($mapped !== null) {
+            $looksLikeHeader = true;
+            if (!isset($columnIndex[$mapped])) {
+                $columnIndex[$mapped] = $i;
+            }
+        }
+    }
+
+    $hasImageColumn = isset($columnIndex['imageUrls']);
+    $hasFeaturedColumn = isset($columnIndex['featured']);
+    $savedImageIdx = $columnIndex['imageUrls'] ?? null;
+    $savedFeaturedIdx = $columnIndex['featured'] ?? null;
+
+    // Legacy positional: name,symbol,provider,group[,imageUrls]
+    if (!$looksLikeHeader || !isset($columnIndex['symbol'])) {
+        $columnIndex = [
+            'name' => 0,
+            'symbol' => 1,
+            'provider' => 2,
+            'group' => 3,
+        ];
+        $start = 0;
+        if ($looksLikeHeader || preg_match('/name|symbol|名稱|代號/i', implode(',', $headerCells))) {
+            $start = 1;
+        }
+        if ($savedImageIdx !== null) {
+            $columnIndex['imageUrls'] = $savedImageIdx;
+            $hasImageColumn = true;
+        } else {
+            $maxCells = 0;
+            for ($ri = $start; $ri < count($matrix); $ri++) {
+                $maxCells = max($maxCells, count($matrix[$ri]));
+            }
+            if ($maxCells >= 5) {
+                $columnIndex['imageUrls'] = 4;
+                $hasImageColumn = true;
+            }
+        }
+        if ($savedFeaturedIdx !== null) {
+            $columnIndex['featured'] = $savedFeaturedIdx;
+            $hasFeaturedColumn = true;
+        }
+    } else {
+        $start = 1;
+    }
+
+    if (!isset($columnIndex['symbol'])) {
+        return ['rows' => [], 'errors' => ['表頭缺少必要欄位 symbol（代號）'], 'hasImageColumn' => false, 'hasFeaturedColumn' => false];
+    }
+
+    $rows = [];
+    for ($i = $start; $i < count($matrix); $i++) {
+        $values = $matrix[$i];
+        $cell = static function (string $key) use ($columnIndex, $values): string {
+            $idx = $columnIndex[$key] ?? null;
+            if ($idx === null) {
+                return '';
+            }
+            return trim((string) ($values[$idx] ?? ''));
+        };
+        $symbol = $cell('symbol');
+        if ($symbol === '') {
+            $errors[] = '第 ' . ($i + 1) . ' 行: symbol 不能為空';
+            continue;
+        }
+        $rows[] = [
+            'id' => $cell('id'),
+            'name' => $cell('name'),
+            'symbol' => $symbol,
+            'provider' => $cell('provider') !== '' ? $cell('provider') : 'yahoo',
+            'group' => $cell('group') !== '' ? $cell('group') : 'US',
+            'imageUrls' => $cell('imageUrls'),
+            'featured' => $cell('featured'),
+        ];
+    }
+
+    return [
+        'rows' => $rows,
+        'errors' => $errors,
+        'hasImageColumn' => $hasImageColumn,
+        'hasFeaturedColumn' => $hasFeaturedColumn,
+    ];
+}
+
+/**
+ * Import finance CSV: upsert custom instruments; apply imageUrls to default or custom by id/symbol.
+ *
+ * @return array{customCount:int, imageCount:int, errors:list<string>}
+ */
+function fengbroFinanceImportCsv(string $text): array
+{
+    $parsed = fengbroFinanceParseCsv($text);
+    $errors = $parsed['errors'];
+    $hasImageColumn = !empty($parsed['hasImageColumn']);
+    $hasFeaturedColumn = !empty($parsed['hasFeaturedColumn']);
+    $config = fengbroFinanceReadConfig();
+    $custom = $config['custom'];
+    $defaultCatalog = [];
+    foreach (fengbroFinanceDefaultItems() as $item) {
+        $defaultCatalog[$item['id']] = $item;
+        $defaultCatalog['sym:' . strtoupper((string) $item['symbol'])] = $item;
+    }
+    $defaultIds = $config['defaultIds'];
+    $featuredIds = $config['featuredIds'] ?? [];
+    $imageWrites = []; // id => urls[] (only when CSV has image column)
+    $customCount = 0;
+
+    $parseFeatured = static function (string $value): bool {
+        $v = strtolower(trim($value));
+        return in_array($v, ['1', 'true', 'yes', 'y', '是', '精選'], true);
+    };
+
+    foreach ($parsed['rows'] as $row) {
+        $imageUrls = $hasImageColumn
+            ? fengbroFinanceNormalizeImageUrls(
+                str_replace([';', '|'], ["\n", "\n"], (string) ($row['imageUrls'] ?? ''))
+            )
+            : null;
+        $rowId = trim((string) ($row['id'] ?? ''));
+        $symbol = strtoupper(trim((string) $row['symbol']));
+
+        // Match default instrument by id or symbol
+        $defaultItem = null;
+        if ($rowId !== '' && isset($defaultCatalog[$rowId])) {
+            $defaultItem = $defaultCatalog[$rowId];
+        } elseif (isset($defaultCatalog['sym:' . $symbol])) {
+            $defaultItem = $defaultCatalog['sym:' . $symbol];
+        }
+
+        if ($defaultItem) {
+            $id = (string) $defaultItem['id'];
+            if (!in_array($id, $defaultIds, true)) {
+                $defaultIds[] = $id;
+            }
+            if ($hasImageColumn) {
+                $imageWrites[$id] = $imageUrls ?? [];
+            }
+            if ($hasFeaturedColumn && $parseFeatured((string) ($row['featured'] ?? ''))) {
+                if (!in_array($id, $featuredIds, true) && count($featuredIds) < 9) {
+                    $featuredIds[] = $id;
+                }
+            }
+            continue;
+        }
+
+        // Custom instrument
+        $instrumentInput = [
+            'name' => $row['name'] ?? '',
+            'symbol' => $symbol,
+            'provider' => $row['provider'] ?? 'yahoo',
+            'group' => $row['group'] ?? 'US',
+            'featured' => $hasFeaturedColumn && $parseFeatured((string) ($row['featured'] ?? '')),
+        ];
+        if ($hasImageColumn) {
+            $instrumentInput['imageUrls'] = $imageUrls ?? [];
+        }
+        $instrument = fengbroFinanceNormalizeCustomInstrument($instrumentInput, count($custom));
+        if (!$instrument) {
+            $errors[] = '無法解析標的: ' . $symbol;
+            continue;
+        }
+        // Prefer stable id from CSV when it is a custom-* id
+        if ($rowId !== '' && str_starts_with($rowId, 'custom-')) {
+            $instrument['id'] = $rowId;
+        }
+        $replaced = false;
+        foreach ($custom as $ci => $existing) {
+            $sameId = ($existing['id'] ?? '') === ($instrument['id'] ?? '');
+            $sameSym = strtoupper((string) ($existing['symbol'] ?? '')) === $symbol
+                && $symbol !== '';
+            if ($sameId || $sameSym) {
+                // No image column → keep existing linked images on the custom instrument
+                if (!$hasImageColumn) {
+                    if (!empty($existing['imageUrl'])) {
+                        $instrument['imageUrl'] = $existing['imageUrl'];
+                    }
+                    if (!empty($existing['imageUrls'])) {
+                        $instrument['imageUrls'] = $existing['imageUrls'];
+                    }
+                }
+                $custom[$ci] = $instrument;
+                $replaced = true;
+                break;
+            }
+        }
+        if (!$replaced) {
+            if (count($custom) >= 30) {
+                $errors[] = '自訂標的已達 30 上限，略過 ' . $symbol;
+                continue;
+            }
+            $custom[] = $instrument;
+        }
+        $customCount++;
+        $id = (string) ($instrument['id'] ?? '');
+        if ($id !== '') {
+            if ($hasImageColumn) {
+                $imageWrites[$id] = $imageUrls ?? [];
+            }
+            if (!empty($instrument['featured']) && !in_array($id, $featuredIds, true) && count($featuredIds) < 9) {
+                $featuredIds[] = $id;
+            }
+        }
+    }
+
+    $config['defaultIds'] = array_values(array_unique($defaultIds));
+    $config['custom'] = array_slice($custom, 0, 30);
+    $config['featuredIds'] = array_values(array_unique(array_slice($featuredIds, 0, 9)));
+    if (!isset($config['imageById']) || !is_array($config['imageById'])) {
+        $config['imageById'] = [];
+    }
+    $imageCount = 0;
+    foreach ($imageWrites as $id => $urls) {
+        if ($urls) {
+            $config['imageById'][$id] = $urls;
+            $imageCount++;
+            foreach ($config['custom'] as $i => $c) {
+                if (($c['id'] ?? '') === $id) {
+                    $config['custom'][$i]['imageUrl'] = $urls[0];
+                    $config['custom'][$i]['imageUrls'] = $urls;
+                    break;
+                }
+            }
+        } else {
+            unset($config['imageById'][$id]);
+            foreach ($config['custom'] as $i => $c) {
+                if (($c['id'] ?? '') === $id) {
+                    unset($config['custom'][$i]['imageUrl'], $config['custom'][$i]['imageUrls']);
+                    break;
+                }
+            }
+        }
+    }
+    fengbroFinanceWriteConfig($config);
+
+    return [
+        'customCount' => $customCount,
+        'imageCount' => $imageCount,
+        'errors' => $errors,
+    ];
 }
 
 /**
@@ -323,7 +949,15 @@ function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
         $apiSymbol = $symbol;
         $historySymbol = preg_match('/^[A-Z0-9.=^-]+$/', $symbol) ? $symbol : '';
     }
-    return [
+    $imageUrls = fengbroFinanceNormalizeImageUrls(
+        !empty($input['imageUrls'])
+            ? $input['imageUrls']
+            : (!empty($input['imageUrl'])
+                ? [$input['imageUrl']]
+                : ($input['imageUrlsText'] ?? ($input['image_urls'] ?? '')))
+    );
+
+    $out = [
         'id' => 'custom-' . $idBase,
         'name' => $name,
         'symbol' => $symbol,
@@ -336,7 +970,13 @@ function fengbroFinanceNormalizeCustomInstrument($input, int $index = 0): ?array
         'localLabel' => strtoupper($provider) . ': ' . $symbol,
         'isCustom' => true,
         'featured' => !empty($input['featured']),
+        'provider' => $provider,
     ];
+    if ($imageUrls) {
+        $out['imageUrl'] = $imageUrls[0];
+        $out['imageUrls'] = $imageUrls;
+    }
+    return $out;
 }
 
 function fengbroFinanceSaveDefaultIds(array $ids): void
@@ -381,13 +1021,31 @@ function fengbroFinanceActiveItems(): array
 {
     $config = fengbroFinanceReadConfig();
     $selected = array_flip($config['defaultIds']);
+    $imageById = $config['imageById'] ?? [];
     $items = [];
     foreach (fengbroFinanceDefaultItems() as $item) {
-        if (isset($selected[$item['id']])) {
-            $items[] = $item;
+        if (!isset($selected[$item['id']])) {
+            continue;
         }
+        $id = $item['id'];
+        if (!empty($imageById[$id])) {
+            $urls = fengbroFinanceNormalizeImageUrls($imageById[$id]);
+            if ($urls) {
+                $item['imageUrl'] = $urls[0];
+                $item['imageUrls'] = $urls;
+            }
+        }
+        $items[] = $item;
     }
     foreach ($config['custom'] as $custom) {
+        $id = (string) ($custom['id'] ?? '');
+        if ($id !== '' && !empty($imageById[$id])) {
+            $urls = fengbroFinanceNormalizeImageUrls($imageById[$id]);
+            if ($urls) {
+                $custom['imageUrl'] = $urls[0];
+                $custom['imageUrls'] = $urls;
+            }
+        }
         $items[] = $custom;
     }
     return $items;
@@ -738,6 +1396,14 @@ function fengbroFinanceEnrichQuote(array $quote, array $item, bool $withHistory 
     $quote['localLabel'] = $item['localLabel'] ?? '';
     $quote['isCustom'] = !empty($item['isCustom']);
     $quote['historySymbol'] = fengbroFinanceHistorySymbol($item);
+    $imageUrls = fengbroFinanceResolveImageUrls($item);
+    if ($imageUrls) {
+        $quote['imageUrl'] = $imageUrls[0];
+        $quote['imageUrls'] = $imageUrls;
+    } else {
+        $quote['imageUrl'] = '';
+        $quote['imageUrls'] = [];
+    }
     if ($withHistory) {
         $history = fengbroFinanceFetchHistoryRanges($item);
         $quote['historyRanges'] = $history['historyRanges'];
@@ -973,6 +1639,7 @@ function fengbroFinanceGetData($force = false, bool $withHistory = true)
     $configFingerprint = md5(json_encode([
         'defaultIds' => $config['defaultIds'],
         'custom' => array_map(static fn($c) => $c['id'] ?? '', $config['custom']),
+        'imageById' => $config['imageById'] ?? [],
         'history' => $withHistory ? 1 : 0,
     ], JSON_UNESCAPED_UNICODE));
     $dataKey = 'finance_data_v5:' . $configFingerprint;

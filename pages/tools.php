@@ -122,6 +122,7 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
             'symbol' => $_POST['custom_symbol'] ?? '',
             'provider' => $_POST['custom_provider'] ?? 'yahoo',
             'group' => $_POST['custom_group'] ?? 'US',
+            'imageUrlsText' => $_POST['custom_image_urls'] ?? '',
         ], count($custom));
         if ($instrument) {
             $replaced = false;
@@ -136,6 +137,13 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
                 $custom[] = $instrument;
             }
             fengbroFinanceSaveCustomInstruments($custom);
+            // Persist image map for card display / overrides
+            if (!empty($instrument['id'])) {
+                fengbroFinanceSaveImagesForId(
+                    (string) $instrument['id'],
+                    $instrument['imageUrls'] ?? []
+                );
+            }
         }
     } elseif ($action === 'delete_custom') {
         $deleteId = trim((string) ($_POST['instrument_id'] ?? ''));
@@ -144,25 +152,26 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
             static fn($row) => ($row['id'] ?? '') !== $deleteId
         ));
         fengbroFinanceSaveCustomInstruments($custom);
-    } elseif ($action === 'export_csv') {
-        $custom = fengbroFinanceReadConfig()['custom'] ?? [];
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="fengbro-finance-custom.csv"');
-        echo "\xEF\xBB\xBF";
-        echo "name,symbol,provider,group\n";
-        foreach ($custom as $row) {
-            $cells = [
-                (string) ($row['name'] ?? ''),
-                (string) ($row['symbol'] ?? ''),
-                (string) ($row['provider'] ?? 'yahoo'),
-                (string) ($row['group'] ?? 'US'),
-            ];
-            $out = [];
-            foreach ($cells as $c) {
-                $out[] = '"' . str_replace('"', '""', $c) . '"';
+        // Drop image override for deleted custom
+        if ($deleteId !== '') {
+            $cfg = fengbroFinanceReadConfig();
+            if (isset($cfg['imageById'][$deleteId])) {
+                unset($cfg['imageById'][$deleteId]);
+                fengbroFinanceWriteConfig($cfg);
             }
-            echo implode(',', $out) . "\n";
         }
+    } elseif ($action === 'set_images') {
+        $imgId = trim((string) ($_POST['instrument_id'] ?? ''));
+        $imgText = (string) ($_POST['image_urls'] ?? '');
+        if ($imgId !== '') {
+            fengbroFinanceSaveImagesForId($imgId, $imgText);
+        }
+    } elseif ($action === 'export_csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="fengbro-finance.csv"');
+        echo "\xEF\xBB\xBF";
+        // id,name,symbol,provider,group,imageUrls,featured — 含連結圖片
+        echo fengbroFinanceBuildCsv();
         exit;
     } elseif ($action === 'toggle_featured') {
         $fid = trim((string) ($_POST['instrument_id'] ?? ''));
@@ -171,47 +180,11 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
         }
     } elseif ($action === 'import_csv' && !empty($_FILES['finance_csv']['tmp_name'])) {
         $raw = (string) file_get_contents($_FILES['finance_csv']['tmp_name']);
-        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw) ?? $raw;
-        $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
-        $custom = fengbroFinanceReadConfig()['custom'] ?? [];
-        $start = 0;
-        if ($lines && preg_match('/name|symbol|名稱|代號/i', $lines[0])) {
-            $start = 1;
-        }
-        for ($i = $start; $i < count($lines); $i++) {
-            $line = trim($lines[$i]);
-            if ($line === '') {
-                continue;
-            }
-            $parts = str_getcsv($line);
-            $instrument = fengbroFinanceNormalizeCustomInstrument([
-                'name' => $parts[0] ?? '',
-                'symbol' => $parts[1] ?? '',
-                'provider' => $parts[2] ?? 'yahoo',
-                'group' => $parts[3] ?? 'US',
-            ], count($custom));
-            if (!$instrument) {
-                continue;
-            }
-            $replaced = false;
-            foreach ($custom as $ci => $row) {
-                if (($row['id'] ?? '') === ($instrument['id'] ?? '') || (($row['symbol'] ?? '') === ($instrument['symbol'] ?? '') && ($row['symbol'] ?? '') !== '')) {
-                    $custom[$ci] = $instrument;
-                    $replaced = true;
-                    break;
-                }
-            }
-            if (!$replaced) {
-                $custom[] = $instrument;
-            }
-            if (count($custom) >= 30) {
-                break;
-            }
-        }
-        fengbroFinanceSaveCustomInstruments(array_slice($custom, 0, 30));
+        fengbroFinanceImportCsv($raw);
     }
 
-    header('Location: index.php?page=tools&tool=finance&refresh=1#finance-instrument-manager');
+    $redirectHash = ($action === 'set_images') ? '' : '#finance-instrument-manager';
+    header('Location: index.php?page=tools&tool=finance&refresh=1' . $redirectHash);
     exit;
 }
 @set_time_limit(120);
@@ -758,6 +731,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         $customInstruments = $financeConfig['custom'] ?? [];
         $featuredIds = $financeConfig['featuredIds'] ?? [];
         $featuredSet = array_flip($featuredIds);
+        $imageById = $financeConfig['imageById'] ?? [];
         $availableDefaults = array_values(array_filter(
             $financeCatalog,
             static fn($item) => !isset($selectedDefaultSet[$item['id']])
@@ -788,17 +762,17 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div class="finance-manager-head">
                 <div>
                     <h3 class="card-title">標的管理</h3>
-                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。自訂標的支援 CSV（name,symbol,provider,group）匯出／匯入合併。</p>
+                    <p>可開關預設標的、新增 Yahoo/CNBC 自訂標的。指數／股票皆可設定<strong>連結圖片</strong>。CSV 匯出／匯入欄位：<code>id,name,symbol,provider,group,imageUrls,featured</code>（多張圖以 <code>;</code> 分隔，亦相容舊版四欄與「圖片／圖片網址」表頭）。</p>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <form method="post">
                         <input type="hidden" name="finance_action" value="export_csv">
-                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出自訂 CSV</button>
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-download"></i> 匯出 CSV（含圖片）</button>
                     </form>
                     <form method="post" enctype="multipart/form-data" style="display:inline-flex;gap:6px;align-items:center;">
                         <input type="hidden" name="finance_action" value="import_csv">
                         <input type="file" name="finance_csv" accept=".csv,text/csv" required style="max-width:180px;">
-                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-upload"></i> 匯入</button>
+                        <button type="submit" class="btn btn-ghost"><i class="fa-solid fa-upload"></i> 匯入 CSV</button>
                     </form>
                     <form method="post" onsubmit="return confirm('還原全部預設標的並清除自訂標的？');">
                         <input type="hidden" name="finance_action" value="reset">
@@ -856,6 +830,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                                 <option value="<?php echo $g; ?>" <?php echo $g === 'US' ? 'selected' : ''; ?>><?php echo $g; ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <label style="font-size:0.82rem;font-weight:700;color:var(--muted-text);">圖片網址（可選，每行一張，最多 9 張）</label>
+                        <textarea class="form-control" name="custom_image_urls" id="financeCustomImageUrls" rows="3" placeholder="https://example.com/logo.png&#10;https://…/另一張圖.jpg"></textarea>
                         <button type="submit" class="btn btn-danger"><i class="fa-solid fa-plus"></i> 儲存自訂標的</button>
                         <p id="financeResolveHint" class="tool-muted" style="margin:6px 0 0;font-size:0.86rem;"></p>
                     </form>
@@ -889,6 +865,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 }, $history1y)));
                 $qid = (string) ($quote['id'] ?? '');
                 $isFeatured = $qid !== '' && isset($featuredSet[$qid]);
+                $cardImages = [];
+                if (!empty($quote['imageUrls']) && is_array($quote['imageUrls'])) {
+                    $cardImages = fengbroFinanceNormalizeImageUrls($quote['imageUrls']);
+                } elseif (!empty($quote['imageUrl'])) {
+                    $cardImages = fengbroFinanceNormalizeImageUrls([$quote['imageUrl']]);
+                } elseif ($qid !== '' && !empty($imageById[$qid])) {
+                    $cardImages = fengbroFinanceNormalizeImageUrls($imageById[$qid]);
+                }
+                $imageEditText = $cardImages ? implode("\n", $cardImages) : '';
                 ?>
                 <section class="finance-card <?php echo $tone; ?><?php echo $isFeatured ? ' is-featured' : ''; ?>">
                     <div class="finance-card-head">
@@ -917,6 +902,40 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             <?php endif; ?>
                         </div>
                     </div>
+
+                    <?php if ($cardImages): ?>
+                        <div class="finance-carousel" data-finance-carousel>
+                            <img
+                                class="finance-card-image"
+                                src="<?php echo htmlspecialchars($cardImages[0]); ?>"
+                                alt="<?php echo htmlspecialchars(($quote['name'] ?? '') . ' image'); ?>"
+                                loading="lazy"
+                                data-finance-carousel-img
+                                data-urls="<?php echo htmlspecialchars(json_encode(array_values($cardImages), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>"
+                                data-index="0"
+                                title="<?php echo count($cardImages) > 1 ? '點擊切換下一張' : ''; ?>"
+                            >
+                            <?php if (count($cardImages) > 1): ?>
+                                <div class="finance-carousel-dots" role="tablist">
+                                    <?php foreach ($cardImages as $dotIndex => $_url): ?>
+                                        <button type="button" class="finance-carousel-dot<?php echo $dotIndex === 0 ? ' is-active' : ''; ?>" data-finance-dot="<?php echo (int) $dotIndex; ?>" aria-label="第 <?php echo (int) ($dotIndex + 1); ?> 張"></button>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($qid !== ''): ?>
+                        <details class="finance-image-edit">
+                            <summary><i class="fa-regular fa-image"></i> 圖片網址<?php echo $cardImages ? '（' . count($cardImages) . '）' : ''; ?></summary>
+                            <form method="post" class="finance-image-edit-form">
+                                <input type="hidden" name="finance_action" value="set_images">
+                                <input type="hidden" name="instrument_id" value="<?php echo htmlspecialchars($qid); ?>">
+                                <textarea class="form-control" name="image_urls" rows="3" placeholder="每行一張圖片網址（http/https），最多 9 張。清空後儲存可移除。"><?php echo htmlspecialchars($imageEditText); ?></textarea>
+                                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-check"></i> 儲存圖片</button>
+                            </form>
+                        </details>
+                    <?php endif; ?>
 
                     <?php if (!empty($quote['error'])): ?>
                         <p class="finance-empty"><?php echo htmlspecialchars($quote['error']); ?></p>
@@ -1590,6 +1609,69 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         color: var(--accent);
         font-weight: 800;
         text-decoration: none;
+    }
+
+    .finance-carousel {
+        display: grid;
+        gap: 8px;
+    }
+
+    .finance-card-image {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
+        background: var(--input-bg);
+        cursor: pointer;
+    }
+
+    .finance-carousel-dots {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+    }
+
+    .finance-carousel-dot {
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: var(--border-color);
+        cursor: pointer;
+    }
+
+    .finance-carousel-dot.is-active {
+        background: var(--accent);
+        transform: scale(1.15);
+    }
+
+    .finance-image-edit {
+        border: 1px dashed var(--border-color);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: var(--input-bg);
+    }
+
+    .finance-image-edit summary {
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: var(--muted-text);
+        list-style: none;
+    }
+
+    .finance-image-edit summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .finance-image-edit-form {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
     }
 
     .finance-group {
@@ -2312,6 +2394,39 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             const points = JSON.parse(el.getAttribute('data-points') || '[]');
             renderInlineSparkline(el, points);
         } catch (e) {}
+    });
+
+    // Finance image carousel: click image or dots to cycle linked images
+    document.querySelectorAll('[data-finance-carousel]').forEach(function (carousel) {
+        const img = carousel.querySelector('[data-finance-carousel-img]');
+        if (!img) return;
+        let urls = [];
+        try {
+            urls = JSON.parse(img.getAttribute('data-urls') || '[]') || [];
+        } catch (e) {
+            urls = [];
+        }
+        if (!urls.length) return;
+
+        function setIndex(next) {
+            const idx = ((next % urls.length) + urls.length) % urls.length;
+            img.setAttribute('data-index', String(idx));
+            img.src = urls[idx];
+            carousel.querySelectorAll('[data-finance-dot]').forEach(function (dot) {
+                const di = Number(dot.getAttribute('data-finance-dot') || 0);
+                dot.classList.toggle('is-active', di === idx);
+            });
+        }
+
+        img.addEventListener('click', function () {
+            if (urls.length < 2) return;
+            setIndex(Number(img.getAttribute('data-index') || 0) + 1);
+        });
+        carousel.querySelectorAll('[data-finance-dot]').forEach(function (dot) {
+            dot.addEventListener('click', function () {
+                setIndex(Number(dot.getAttribute('data-finance-dot') || 0));
+            });
+        });
     });
 
     document.querySelectorAll('.finance-range-tabs').forEach(function (tabs) {
