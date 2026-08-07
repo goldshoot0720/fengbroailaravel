@@ -662,6 +662,10 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         $downfallPrices = array_values(array_filter(array_map(static function ($p) {
             return isset($p['price']) && is_numeric($p['price']) ? (float) $p['price'] : null;
         }, $downfallHistory)));
+        $downfallIntervalDays = $tubeData['downfallPublishIntervalDays'] ?? null;
+        if ($downfallIntervalDays === null && count($downfallHistory) >= 2) {
+            $downfallIntervalDays = fengbroTubeDownfallPublishIntervalDays($downfallHistory);
+        }
         ?>
         <?php if ($downfallUpdate || count($downfallPrices) >= 2): ?>
             <section class="card tube-downfall-panel">
@@ -682,6 +686,12 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
+                <?php if ($downfallIntervalDays !== null): ?>
+                    <div class="tube-downfall-interval" role="status">
+                        <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+                        最近兩次發布間隔：<strong><?php echo (int) $downfallIntervalDays; ?></strong> 天
+                    </div>
+                <?php endif; ?>
                 <?php if (count($downfallPrices) >= 2): ?>
                     <div class="finance-history-chart tube-downfall-chart" data-points="<?php echo htmlspecialchars(json_encode($downfallPrices), ENT_QUOTES, 'UTF-8'); ?>" style="height:120px;margin-top:12px;"></div>
                     <div style="margin-top:8px;color:var(--muted-text);font-size:0.82rem;font-weight:700;">
@@ -1960,6 +1970,29 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         gap: 12px;
         flex-wrap: wrap;
         align-items: flex-start;
+    }
+
+    .tube-downfall-interval {
+        margin-top: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+        color: var(--text);
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .tube-downfall-interval i {
+        color: var(--accent);
+    }
+
+    .tube-downfall-interval strong {
+        font-size: 1.05rem;
+        font-variant-numeric: tabular-nums;
     }
 
     @media (max-width: 560px) {

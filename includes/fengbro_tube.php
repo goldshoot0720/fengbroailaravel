@@ -69,7 +69,7 @@ function fengbroTubeWriteCache($cache)
 function fengbroTubeClearDataCache()
 {
     $cache = fengbroTubeReadCache();
-    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4']);
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4'], $cache['tube_data_v5']);
     fengbroTubeWriteCache($cache);
 }
 
@@ -464,10 +464,33 @@ function fengbroTubeBuildDownfallHistory($channel, $videos)
     return array_merge($hardcoded, $newPoints);
 }
 
+/**
+ * 最近兩次倒台指數發布的間隔天數（以曆日計算，含不足一天亦算 0）。
+ * history 須依 date 由舊到新排序。
+ */
+function fengbroTubeDownfallPublishIntervalDays(array $history)
+{
+    if (count($history) < 2) {
+        return null;
+    }
+    $prev = $history[count($history) - 2];
+    $last = $history[count($history) - 1];
+    $t1 = strtotime((string) ($prev['date'] ?? ''));
+    $t2 = strtotime((string) ($last['date'] ?? ''));
+    if ($t1 === false || $t2 === false) {
+        return null;
+    }
+    $d1 = (new DateTimeImmutable('@' . $t1))->setTimezone(new DateTimeZone(date_default_timezone_get() ?: 'UTC'))->format('Y-m-d');
+    $d2 = (new DateTimeImmutable('@' . $t2))->setTimezone(new DateTimeZone(date_default_timezone_get() ?: 'UTC'))->format('Y-m-d');
+    $from = new DateTimeImmutable($d1);
+    $to = new DateTimeImmutable($d2);
+    return (int) $from->diff($to)->days;
+}
+
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
-    $dataKey = 'tube_data_v4'; // v4: 倒台指數強化解析 + 歷史
+    $dataKey = 'tube_data_v5'; // v5: 倒台指數最近兩次發布間隔天數
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
@@ -538,6 +561,8 @@ function fengbroTubeGetData($force = false)
         ];
     }
 
+    $downfallPublishIntervalDays = fengbroTubeDownfallPublishIntervalDays($downfallHistory);
+
     $data = [
         'checkedAt' => date('Y-m-d H:i:s'),
         'channels' => $channels,
@@ -545,10 +570,11 @@ function fengbroTubeGetData($force = false)
         'downfallChannel' => $downfallChannel,
         'downfallIndexUpdate' => $downfallIndexUpdate,
         'downfallHistory' => $downfallHistory,
+        'downfallPublishIntervalDays' => $downfallPublishIntervalDays,
     ];
     $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
     // 一併清掉舊 key，避免殘留
-    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3']);
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4']);
     fengbroTubeWriteCache($cache);
     return $data;
 }
