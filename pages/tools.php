@@ -327,9 +327,30 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 <div data-news-results class="tool-muted" style="margin-top:10px;">輸入關鍵字後開始搜尋。</div>
             </div>
 
-            <div class="card">
+            <div class="card" style="margin-bottom:16px;">
                 <h3 class="card-title">台鐵便當門市</h3>
                 <div data-news-bento style="margin-top:10px;"></div>
+            </div>
+
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+                    <div>
+                        <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-chart-line"></i> 桃園人口統計</h3>
+                        <p class="tool-muted" style="margin:0;">桃園市最近三個月人口數、新增人口數，以及近十年人口走勢。</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" data-news-pop-refresh><i class="fa-solid fa-rotate"></i> 更新</button>
+                </div>
+                <div data-news-pop-taoyuan style="margin-top:12px;"><p class="tool-muted">載入人口統計…</p></div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+                    <div>
+                        <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-chart-area"></i> 中壢人口統計</h3>
+                        <p class="tool-muted" style="margin:0;">中壢區最近三個月人口數、新增人口數，以及近十年人口走勢。</p>
+                    </div>
+                </div>
+                <div data-news-pop-zhongli style="margin-top:12px;"><p class="tool-muted">載入人口統計…</p></div>
             </div>
         </section>
         <script src="assets/js/tool-news.js" defer></script>
@@ -1287,6 +1308,48 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         flex-wrap: wrap; align-items: flex-start;
     }
     .bento-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .pop-meta {
+        display: flex; justify-content: space-between; gap: 10px;
+        flex-wrap: wrap; align-items: center; margin-bottom: 12px;
+    }
+    .pop-meta strong { font-size: 1.05rem; }
+    .pop-table-wrap { overflow-x: auto; margin-bottom: 14px; }
+    .pop-table {
+        width: 100%; border-collapse: collapse; min-width: 320px;
+        font-size: 0.92rem;
+    }
+    .pop-table th, .pop-table td {
+        padding: 10px 12px; border-bottom: 1px solid var(--border-color);
+        text-align: right; white-space: nowrap;
+    }
+    .pop-table th:first-child, .pop-table td:first-child { text-align: left; }
+    .pop-table th {
+        color: var(--muted-text); font-weight: 800; font-size: 0.8rem;
+        letter-spacing: 0.02em;
+    }
+    .pop-table tbody tr:last-child td { border-bottom: none; }
+    .pop-delta-up { color: #2563eb; font-weight: 800; }
+    .pop-delta-down { color: #dc2626; font-weight: 800; }
+    .pop-delta-flat { color: #059669; font-weight: 800; }
+    .pop-chart-card {
+        padding: 12px 12px 8px; border: 1px solid var(--border-color);
+        border-radius: 14px; background: var(--input-bg);
+    }
+    .pop-chart-card h4 {
+        margin: 0 0 8px; font-size: 0.92rem; font-weight: 800;
+    }
+    .pop-chart-svg { width: 100%; height: auto; display: block; }
+    .pop-chart-footnote {
+        margin: 8px 0 0; color: var(--muted-text); font-size: 0.78rem; line-height: 1.45;
+    }
+    .pop-sources {
+        margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .pop-sources a {
+        font-size: 0.8rem; color: var(--accent); text-decoration: none; font-weight: 700;
+    }
+    .pop-sources a:hover { text-decoration: underline; }
 
     .ic-layout {
         display: grid;

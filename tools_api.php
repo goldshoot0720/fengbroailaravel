@@ -696,4 +696,11 @@ if ($action === 'news_bento') {
     jsonResponse(array_merge(['success' => true], $result));
 }
 
+if ($action === 'news_population') {
+    require_once __DIR__ . '/includes/fengbro_news.php';
+    @set_time_limit(45);
+    $result = fengbroNewsPopulationStats();
+    jsonResponse(array_merge(['success' => true], $result));
+}
+
 jsonResponse(['success' => false, 'error' => '不支援的工具動作。'], 400);

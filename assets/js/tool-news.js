@@ -1,5 +1,5 @@
 /**
- * 鋒兄新聞 UI — 關鍵字搜尋 + 台鐵便當門市 + 來源管理（localStorage）。
+ * 鋒兄新聞 UI — 關鍵字搜尋 + 台鐵便當門市 + 人口統計 + 來源管理（localStorage）。
  */
 (function () {
   'use strict';
@@ -13,6 +13,243 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function formatInt(n) {
+    if (n == null || n === '' || Number.isNaN(Number(n))) return '—';
+    return Number(n).toLocaleString('zh-TW');
+  }
+
+  function formatDelta(n) {
+    if (n == null || n === '' || Number.isNaN(Number(n))) {
+      return { text: '—', cls: 'pop-delta-flat' };
+    }
+    const v = Number(n);
+    if (v > 0) return { text: '+' + v.toLocaleString('zh-TW'), cls: 'pop-delta-up' };
+    if (v < 0) return { text: v.toLocaleString('zh-TW'), cls: 'pop-delta-down' };
+    return { text: '0', cls: 'pop-delta-flat' };
+  }
+
+  function buildYearChartSvg(years, accent) {
+    const rows = Array.isArray(years) ? years.filter((y) => y && y.population != null) : [];
+    if (rows.length < 2) {
+      return '<p class="tool-muted">近十年資料不足，無法繪圖。</p>';
+    }
+    const w = 640;
+    const h = 220;
+    const padL = 54;
+    const padR = 16;
+    const padT = 18;
+    const padB = 36;
+    const vals = rows.map((r) => Number(r.population));
+    const minV = Math.min.apply(null, vals);
+    const maxV = Math.max.apply(null, vals);
+    const span = Math.max(1, maxV - minV);
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+    const color = accent || '#2563eb';
+
+    function xAt(i) {
+      return padL + (rows.length === 1 ? plotW / 2 : (i / (rows.length - 1)) * plotW);
+    }
+    function yAt(v) {
+      return padT + (1 - (v - minV) / span) * plotH;
+    }
+
+    const points = rows
+      .map((r, i) => xAt(i).toFixed(1) + ',' + yAt(Number(r.population)).toFixed(1))
+      .join(' ');
+    const areaPoints =
+      points +
+      ' ' +
+      xAt(rows.length - 1).toFixed(1) +
+      ',' +
+      (padT + plotH).toFixed(1) +
+      ' ' +
+      xAt(0).toFixed(1) +
+      ',' +
+      (padT + plotH).toFixed(1);
+
+    const grid = [];
+    for (let g = 0; g < 4; g++) {
+      const t = g / 3;
+      const y = padT + t * plotH;
+      const val = Math.round(maxV - t * span);
+      grid.push(
+        '<line x1="' +
+          padL +
+          '" y1="' +
+          y.toFixed(1) +
+          '" x2="' +
+          (w - padR) +
+          '" y2="' +
+          y.toFixed(1) +
+          '" stroke="rgba(148,163,184,0.35)" stroke-width="1" />' +
+          '<text x="' +
+          (padL - 8) +
+          '" y="' +
+          (y + 4).toFixed(1) +
+          '" text-anchor="end" font-size="11" fill="currentColor" opacity="0.65">' +
+          escapeHtml(formatInt(val)) +
+          '</text>'
+      );
+    }
+
+    const dots = rows
+      .map((r, i) => {
+        const cx = xAt(i);
+        const cy = yAt(Number(r.population));
+        return (
+          '<circle cx="' +
+          cx.toFixed(1) +
+          '" cy="' +
+          cy.toFixed(1) +
+          '" r="3.5" fill="' +
+          color +
+          '">' +
+          '<title>' +
+          escapeHtml(String(r.year) + '年：' + formatInt(r.population) + ' 人') +
+          '</title></circle>' +
+          '<text x="' +
+          cx.toFixed(1) +
+          '" y="' +
+          (h - 12) +
+          '" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.75">' +
+          escapeHtml(String(r.year)) +
+          '</text>'
+        );
+      })
+      .join('');
+
+    return (
+      '<svg class="pop-chart-svg" viewBox="0 0 ' +
+      w +
+      ' ' +
+      h +
+      '" role="img" aria-label="近十年人口走勢">' +
+      '<rect x="0" y="0" width="' +
+      w +
+      '" height="' +
+      h +
+      '" fill="transparent" />' +
+      grid.join('') +
+      '<polygon points="' +
+      areaPoints +
+      '" fill="' +
+      color +
+      '" opacity="0.12" />' +
+      '<polyline points="' +
+      points +
+      '" fill="none" stroke="' +
+      color +
+      '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />' +
+      dots +
+      '</svg>'
+    );
+  }
+
+  function renderPopulationRegion(region, options) {
+    options = options || {};
+    if (!region) {
+      return '<p class="tool-muted">尚無資料。</p>';
+    }
+    const months = region.recentMonths || [];
+    const years = region.years || [];
+    const latest = region.latest || (months.length ? months[months.length - 1] : null);
+    const delta = formatDelta(latest && latest.change);
+
+    const monthRows = months
+      .map((m) => {
+        const d = formatDelta(m.change);
+        return (
+          '<tr>' +
+          '<td>' +
+          escapeHtml(m.label || m.period || '') +
+          '</td>' +
+          '<td>' +
+          escapeHtml(formatInt(m.population)) +
+          '</td>' +
+          '<td class="' +
+          d.cls +
+          '">' +
+          escapeHtml(d.text) +
+          '</td></tr>'
+        );
+      })
+      .join('');
+
+    let gapNote = '';
+    if (months.length >= 2) {
+      let consecutive = true;
+      for (let i = 1; i < months.length; i++) {
+        const a = String(months[i - 1].period || '');
+        const b = String(months[i].period || '');
+        const ma = a.match(/^(\d{4})-(\d{2})$/);
+        const mb = b.match(/^(\d{4})-(\d{2})$/);
+        if (!ma || !mb) {
+          consecutive = false;
+          break;
+        }
+        const ia = Number(ma[1]) * 12 + Number(ma[2]);
+        const ib = Number(mb[1]) * 12 + Number(mb[2]);
+        if (ib - ia !== 1) {
+          consecutive = false;
+          break;
+        }
+      }
+      if (!consecutive) {
+        gapNote =
+          '<p class="tool-muted" style="font-size:0.82rem;margin:0 0 10px;">部分月份公開資料尚未齊全，改顯示最近可得之月底人口；無連續上月時「新增人口數」以 — 表示。</p>';
+      }
+    }
+
+    const sources = (region.sourceUrls || [])
+      .slice(0, 3)
+      .map((u) => {
+        let label = u.replace(/^https?:\/\//, '').split('/')[0];
+        if (u.indexOf('ris.gov') >= 0) label = '內政部戶政司';
+        else if (u.indexOf('cab.tycg') >= 0) label = '桃園市民政局';
+        else if (u.indexOf('zhongli-hro') >= 0) label = '中壢戶政';
+        else if (u.indexOf('wikipedia') >= 0) label = '維基百科';
+        return (
+          '<a href="' +
+          escapeHtml(u) +
+          '" target="_blank" rel="noopener">' +
+          escapeHtml(label) +
+          '</a>'
+        );
+      })
+      .join('');
+
+    return (
+      '<div class="pop-meta">' +
+      '<div><strong>' +
+      escapeHtml(region.name || '') +
+      '</strong>' +
+      (region.scope ? '<span class="tool-muted"> · ' + escapeHtml(region.scope) + '</span>' : '') +
+      (latest
+        ? '<div class="tool-muted" style="font-size:0.82rem;margin-top:4px;">最新 ' +
+          escapeHtml(latest.label || latest.period || '') +
+          ' · ' +
+          escapeHtml(formatInt(latest.population)) +
+          ' 人 · 增減 <span class="' +
+          delta.cls +
+          '">' +
+          escapeHtml(delta.text) +
+          '</span></div>'
+        : '') +
+      '</div></div>' +
+      gapNote +
+      '<div class="pop-table-wrap"><table class="pop-table"><thead><tr>' +
+      '<th>月份</th><th>人口數</th><th>新增人口數</th>' +
+      '</tr></thead><tbody>' +
+      (monthRows || '<tr><td colspan="3" class="tool-muted">尚無近三個月資料</td></tr>') +
+      '</tbody></table></div>' +
+      '<div class="pop-chart-card"><h4>近十年走勢（年底人口）</h4>' +
+      buildYearChartSvg(years, options.accent || '#2563eb') +
+      '<p class="pop-chart-footnote">單位：人。新增人口數＝當月人口相對上月消長（正值增加、負值減少）。</p></div>' +
+      (sources ? '<div class="pop-sources">' + sources + '</div>' : '')
+    );
   }
 
   function loadSitesFallback(defaults) {
@@ -71,6 +308,8 @@
       results: root.querySelector('[data-news-results]'),
       siteList: root.querySelector('[data-news-sites]'),
       bento: root.querySelector('[data-news-bento]'),
+      popTy: root.querySelector('[data-news-pop-taoyuan]'),
+      popZl: root.querySelector('[data-news-pop-zhongli]'),
       status: root.querySelector('[data-news-status]'),
       error: root.querySelector('[data-news-error]'),
     };
@@ -261,6 +500,38 @@
       }
     }
 
+    async function loadPopulation() {
+      if (!els.popTy && !els.popZl) return;
+      if (els.popTy) els.popTy.innerHTML = '<p class="tool-muted">讀取桃園人口統計…</p>';
+      if (els.popZl) els.popZl.innerHTML = '<p class="tool-muted">讀取中壢人口統計…</p>';
+      try {
+        const res = await fetch('tools_api.php?action=news_population');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || '讀取失敗');
+        const regions = data.regions || {};
+        const headNote =
+          '<div class="tool-muted" style="font-size:0.82rem;margin-bottom:10px;">' +
+          (data.live ? '即時彙整' : '備援') +
+          (data.fetchedAt ? ' · ' + escapeHtml(formatTime(data.fetchedAt)) : '') +
+          (data.sourceLabel ? ' · ' + escapeHtml(data.sourceLabel) : '') +
+          '</div>' +
+          (data.warning ? '<p style="color:#b45309;margin:0 0 10px;">' + escapeHtml(data.warning) + '</p>' : '');
+
+        if (els.popTy) {
+          els.popTy.innerHTML =
+            headNote + renderPopulationRegion(regions.taoyuan, { accent: '#2563eb' });
+        }
+        if (els.popZl) {
+          els.popZl.innerHTML =
+            headNote + renderPopulationRegion(regions.zhongli, { accent: '#0d9488' });
+        }
+      } catch (e) {
+        const err = '<p style="color:#dc2626;">' + escapeHtml(e.message || '讀取失敗') + '</p>';
+        if (els.popTy) els.popTy.innerHTML = err;
+        if (els.popZl) els.popZl.innerHTML = err;
+      }
+    }
+
     root.addEventListener('change', (ev) => {
       const t = ev.target;
       if (t && t.matches('[data-news-lock]')) {
@@ -273,7 +544,7 @@
 
     root.addEventListener('click', (ev) => {
       const t = ev.target.closest(
-        '[data-news-search], [data-news-lock-all], [data-news-unlock-all], [data-news-reset-sites], [data-bento-focus], [data-bento-refresh]'
+        '[data-news-search], [data-news-lock-all], [data-news-unlock-all], [data-news-reset-sites], [data-bento-focus], [data-bento-refresh], [data-news-pop-refresh]'
       );
       if (!t) return;
       if (t.hasAttribute('data-news-search')) search();
@@ -296,6 +567,7 @@
         loadBento();
       }
       if (t.hasAttribute('data-bento-refresh')) loadBento();
+      if (t.hasAttribute('data-news-pop-refresh')) loadPopulation();
     });
 
     if (els.query) {
@@ -309,7 +581,10 @@
       });
     }
 
-    loadDefaults().then(loadBento);
+    loadDefaults().then(() => {
+      loadBento();
+      loadPopulation();
+    });
   }
 
   if (document.readyState === 'loading') {

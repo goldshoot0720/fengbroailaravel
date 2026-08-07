@@ -611,3 +611,489 @@ function fengbroNewsBentoStores(bool $focusOnly = true): array
         'warning' => $live ? null : '官方頁面讀取失敗，已顯示備援桃園／中壢門市',
     ];
 }
+
+/**
+ * 桃園市／中壢區人口統計：最近三個月 + 近十年走勢。
+ * 優先 Wikimedia Commons 年表、維基百科 TWTSData／條目月資料；失敗時使用備援（內政部戶政／民政局公開數字）。
+ */
+function fengbroNewsPopulationFallback(): array
+{
+    return [
+        'taoyuan' => [
+            'id' => 'taoyuan',
+            'name' => '桃園市',
+            'scope' => '全市',
+            'recentMonths' => [
+                ['period' => '2026-01', 'label' => '2026年1月', 'population' => 2355444, 'change' => 338],
+                ['period' => '2026-02', 'label' => '2026年2月', 'population' => 2355512, 'change' => 68],
+                ['period' => '2026-03', 'label' => '2026年3月', 'population' => 2356734, 'change' => 1222],
+            ],
+            'years' => [
+                ['year' => 2016, 'population' => 2147763],
+                ['year' => 2017, 'population' => 2188017],
+                ['year' => 2018, 'population' => 2220872],
+                ['year' => 2019, 'population' => 2249037],
+                ['year' => 2020, 'population' => 2268807],
+                ['year' => 2021, 'population' => 2272391],
+                ['year' => 2022, 'population' => 2281464],
+                ['year' => 2023, 'population' => 2317445],
+                ['year' => 2024, 'population' => 2338648],
+                ['year' => 2025, 'population' => 2355106],
+            ],
+            'sourceUrls' => [
+                'https://www.ris.gov.tw/app/portal/346',
+                'https://cab.tycg.gov.tw/News.aspx?n=7902&sms=12475',
+            ],
+        ],
+        'zhongli' => [
+            'id' => 'zhongli',
+            'name' => '中壢區',
+            'scope' => '桃園市中壢區',
+            // 備援：近期公開月底人口（戶政／民政局／TWTSData）。非連續月不填增減。
+            'recentMonths' => [
+                ['period' => '2025-12', 'label' => '2025年12月', 'population' => 439213, 'change' => null],
+                ['period' => '2026-03', 'label' => '2026年3月', 'population' => 439275, 'change' => -15],
+                ['period' => '2026-06', 'label' => '2026年6月', 'population' => 439184, 'change' => null],
+            ],
+            'years' => [
+                ['year' => 2016, 'population' => 396453],
+                ['year' => 2017, 'population' => 405216],
+                ['year' => 2018, 'population' => 412063],
+                ['year' => 2019, 'population' => 417380],
+                ['year' => 2020, 'population' => 422471],
+                ['year' => 2021, 'population' => 422529],
+                ['year' => 2022, 'population' => 423722],
+                ['year' => 2023, 'population' => 431255],
+                ['year' => 2024, 'population' => 435050],
+                ['year' => 2025, 'population' => 439213],
+            ],
+            'sourceUrls' => [
+                'https://www.ris.gov.tw/app/portal/346',
+                'https://www.zhongli-hro.tycg.gov.tw/',
+                'https://cab.tycg.gov.tw/News.aspx?n=7902&sms=12475',
+            ],
+        ],
+    ];
+}
+
+function fengbroNewsPopulationParseInt($value): ?int
+{
+    if ($value === null) {
+        return null;
+    }
+    if (is_int($value)) {
+        return $value;
+    }
+    if (is_float($value)) {
+        return (int) round($value);
+    }
+    $raw = preg_replace('/[^\d\-]/u', '', (string) $value);
+    if ($raw === '' || $raw === '-' || !is_numeric($raw)) {
+        return null;
+    }
+    return (int) $raw;
+}
+
+function fengbroNewsPopulationPeriodLabel(string $period): string
+{
+    if (preg_match('/^(\d{4})-(\d{2})$/', $period, $m)) {
+        return ((int) $m[1]) . '年' . ((int) $m[2]) . '月';
+    }
+    if (preg_match('/^(\d{4})$/', $period, $m)) {
+        return ((int) $m[1]) . '年';
+    }
+    return $period;
+}
+
+function fengbroNewsPopulationWikiParseText(string $wikitext): string
+{
+    $url = 'https://zh.wikipedia.org/w/api.php?action=parse&text=' . rawurlencode($wikitext)
+        . '&contentmodel=wikitext&format=json&formatversion=2';
+    $res = fengbroNewsFetchText($url, 12, [
+        'Accept: application/json',
+    ]);
+    if (!$res['ok'] || $res['text'] === '') {
+        return '';
+    }
+    $json = json_decode($res['text'], true);
+    if (!is_array($json)) {
+        return '';
+    }
+    $html = (string) ($json['parse']['text'] ?? '');
+    if ($html === '') {
+        return '';
+    }
+    $plain = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $plain = preg_replace('/\s+/u', ' ', $plain) ?? $plain;
+    return trim($plain);
+}
+
+function fengbroNewsPopulationFetchCommonsYears(string $title, int $lastN = 10): array
+{
+    $url = 'https://commons.wikimedia.org/wiki/Data:' . rawurlencode($title) . '?action=raw';
+    $res = fengbroNewsFetchText($url, 12, ['Accept: application/json,text/plain,*/*']);
+    if (!$res['ok'] || $res['text'] === '') {
+        return [];
+    }
+    $json = json_decode($res['text'], true);
+    if (!is_array($json) || empty($json['data']) || !is_array($json['data'])) {
+        return [];
+    }
+    $rows = [];
+    foreach ($json['data'] as $row) {
+        if (!is_array($row) || count($row) < 2) {
+            continue;
+        }
+        $year = fengbroNewsPopulationParseInt($row[0]);
+        $pop = fengbroNewsPopulationParseInt($row[1]);
+        if ($year === null || $pop === null || $year < 1900) {
+            continue;
+        }
+        $rows[$year] = $pop;
+    }
+    if (!$rows) {
+        return [];
+    }
+    ksort($rows, SORT_NUMERIC);
+    $slice = array_slice($rows, -$lastN, null, true);
+    $out = [];
+    foreach ($slice as $year => $pop) {
+        $out[] = ['year' => (int) $year, 'population' => (int) $pop];
+    }
+    return $out;
+}
+
+function fengbroNewsPopulationParseTaoyuanMonthly(string $wikitext): array
+{
+    $months = [];
+    // Split around each |年份=YYYY marker and parse following month fields.
+    if (!preg_match_all('/\|年份\s*=\s*(\d{4})/u', $wikitext, $yearHits, PREG_OFFSET_CAPTURE)) {
+        return [];
+    }
+
+    $count = count($yearHits[0]);
+    for ($i = 0; $i < $count; $i++) {
+        $year = (int) $yearHits[1][$i][0];
+        if ($year < 2000) {
+            continue;
+        }
+        $start = (int) $yearHits[0][$i][1];
+        $end = ($i + 1 < $count) ? (int) $yearHits[0][$i + 1][1] : strlen($wikitext);
+        $chunk = substr($wikitext, $start, max(0, $end - $start));
+        // Keep chunks modest so age-structure monthly blocks don't leak wrong totals
+        if (strlen($chunk) > 2500) {
+            $chunk = substr($chunk, 0, 2500);
+        }
+        // Prefer blocks that look like total-population monthly series
+        $hasTotal = (bool) preg_match('/\|\d{1,2}月人口\s*=/u', $chunk);
+        if (!$hasTotal) {
+            continue;
+        }
+        // Skip pure age-band series (幼年/壯年/老年) which also use N月人口
+        if (preg_match('/幼年|壯年|老年|老化/u', $chunk) && !preg_match('/人口變化|每月人口|桃園市人口/u', $chunk)) {
+            // still allow if values are city-scale (> 1e6)
+        }
+
+        for ($m = 1; $m <= 12; $m++) {
+            if (!preg_match('/\|' . $m . '月人口\s*=\s*([0-9,]+)/u', $chunk, $pm)) {
+                continue;
+            }
+            $pop = fengbroNewsPopulationParseInt($pm[1]);
+            if ($pop === null) {
+                continue;
+            }
+            // City monthly totals are ~2.3M; age bands are smaller — keep city-scale only
+            if ($pop < 1500000) {
+                continue;
+            }
+            $change = null;
+            if (preg_match('/\|' . $m . '月消長\s*=\s*([+\-−]?[0-9,]+)/u', $chunk, $cm)) {
+                $change = fengbroNewsPopulationParseInt(str_replace('−', '-', $cm[1]));
+            }
+            $period = sprintf('%04d-%02d', $year, $m);
+            $months[$period] = [
+                'period' => $period,
+                'label' => fengbroNewsPopulationPeriodLabel($period),
+                'population' => $pop,
+                'change' => $change,
+            ];
+        }
+    }
+
+    ksort($months);
+    return array_values($months);
+}
+
+function fengbroNewsPopulationMonthIndex(string $period): ?int
+{
+    if (!preg_match('/^(\d{4})-(\d{2})$/', $period, $m)) {
+        return null;
+    }
+    return ((int) $m[1]) * 12 + ((int) $m[2]);
+}
+
+function fengbroNewsPopulationFinalizeMonths(array $months, int $limit = 3): array
+{
+    if (!$months) {
+        return [];
+    }
+    usort($months, static fn($a, $b) => strcmp((string) ($a['period'] ?? ''), (string) ($b['period'] ?? '')));
+
+    // Fill missing change from previous population only when months are consecutive
+    $prevPop = null;
+    $prevIdx = null;
+    foreach ($months as $i => $row) {
+        $pop = fengbroNewsPopulationParseInt($row['population'] ?? null);
+        $period = (string) ($row['period'] ?? '');
+        $idx = fengbroNewsPopulationMonthIndex($period);
+        $change = array_key_exists('change', $row) ? $row['change'] : null;
+        $parsedChange = $change !== null ? fengbroNewsPopulationParseInt($change) : null;
+
+        if ($parsedChange !== null) {
+            $months[$i]['change'] = $parsedChange;
+        } elseif ($pop !== null && $prevPop !== null && $idx !== null && $prevIdx !== null && ($idx - $prevIdx) === 1) {
+            $months[$i]['change'] = $pop - $prevPop;
+        } else {
+            // Non-consecutive snapshot: do not invent a multi-month delta
+            $months[$i]['change'] = null;
+        }
+
+        $months[$i]['population'] = $pop;
+        $months[$i]['label'] = $row['label'] ?? fengbroNewsPopulationPeriodLabel($period);
+        $months[$i]['period'] = $period;
+        $prevPop = $pop;
+        $prevIdx = $idx;
+    }
+
+    $months = array_values(array_filter($months, static fn($r) => !empty($r['population'])));
+    if (count($months) <= $limit) {
+        return $months;
+    }
+
+    // Prefer the latest consecutive window of $limit months (true「最近三個月」)
+    $n = count($months);
+    for ($end = $n - 1; $end >= $limit - 1; $end--) {
+        $ok = true;
+        for ($j = 0; $j < $limit - 1; $j++) {
+            $newer = fengbroNewsPopulationMonthIndex((string) $months[$end - $j]['period']);
+            $older = fengbroNewsPopulationMonthIndex((string) $months[$end - $j - 1]['period']);
+            if ($newer === null || $older === null || ($newer - $older) !== 1) {
+                $ok = false;
+                break;
+            }
+        }
+        if ($ok) {
+            return array_slice($months, $end - $limit + 1, $limit);
+        }
+    }
+
+    // Otherwise fall back to the latest available snapshots
+    return array_slice($months, -$limit);
+}
+
+function fengbroNewsPopulationNormalizeRegion(array $region): array
+{
+    // Normalize full series first (limit large) so latest can use true newest snapshot
+    $allMonths = fengbroNewsPopulationFinalizeMonths($region['recentMonths'] ?? [], 36);
+    $months = fengbroNewsPopulationFinalizeMonths($region['recentMonths'] ?? [], 3);
+    $years = [];
+    foreach ($region['years'] ?? [] as $row) {
+        $year = fengbroNewsPopulationParseInt($row['year'] ?? null);
+        $pop = fengbroNewsPopulationParseInt($row['population'] ?? null);
+        if ($year === null || $pop === null) {
+            continue;
+        }
+        $years[$year] = ['year' => $year, 'population' => $pop];
+    }
+    ksort($years, SORT_NUMERIC);
+    $years = array_values(array_slice($years, -10, null, true));
+
+    $latest = null;
+    $latestSource = $allMonths ?: $months;
+    if ($latestSource) {
+        $last = $latestSource[count($latestSource) - 1];
+        $latest = [
+            'period' => $last['period'],
+            'label' => $last['label'],
+            'population' => $last['population'],
+            'change' => $last['change'] ?? null,
+        ];
+    }
+
+    return [
+        'id' => (string) ($region['id'] ?? ''),
+        'name' => (string) ($region['name'] ?? ''),
+        'scope' => (string) ($region['scope'] ?? ''),
+        'latest' => $latest,
+        'recentMonths' => $months,
+        'years' => $years,
+        'sourceUrls' => array_values(array_unique(array_filter($region['sourceUrls'] ?? []))),
+    ];
+}
+
+function fengbroNewsPopulationStats(): array
+{
+    $fallback = fengbroNewsPopulationFallback();
+    $liveBits = 0;
+    $notes = [];
+
+    $taoyuanYears = fengbroNewsPopulationFetchCommonsYears('Population_of_Taoyuan_City_(1946-).tab', 10);
+    if ($taoyuanYears) {
+        $fallback['taoyuan']['years'] = $taoyuanYears;
+        $liveBits++;
+    }
+
+    $zhongliYears = fengbroNewsPopulationFetchCommonsYears('Population_of_Zhongli_District,_Taoyuan.tab', 10);
+    if ($zhongliYears) {
+        $fallback['zhongli']['years'] = $zhongliYears;
+        $liveBits++;
+    }
+
+    // Latest city / district totals via Wikipedia data templates (內政部戶政月報彙整)
+    $cityLatestText = fengbroNewsPopulationWikiParseText('{{ROCCPD|subdivision=桃園市}}');
+    $cityDateText = fengbroNewsPopulationWikiParseText('{{ROCCPD|TXT=date}}');
+    $cityPop = fengbroNewsPopulationParseInt($cityLatestText);
+    $zlLatestText = fengbroNewsPopulationWikiParseText('{{TWTSData|P|320}}');
+    $zlDateText = fengbroNewsPopulationWikiParseText('{{TWTSData|P|date}}');
+    $zlPop = fengbroNewsPopulationParseInt($zlLatestText);
+
+    $parseWikiDate = static function (string $text): ?string {
+        if (preg_match('/(20\d{2})\s*年\s*(\d{1,2})\s*月/u', $text, $m)) {
+            return sprintf('%04d-%02d', (int) $m[1], (int) $m[2]);
+        }
+        return null;
+    };
+
+    // Monthly series from 桃園市人口 article
+    $pageRes = fengbroNewsFetchText(
+        'https://zh.wikipedia.org/w/api.php?action=parse&page=' . rawurlencode('桃園市人口')
+        . '&prop=wikitext&format=json&formatversion=2',
+        12,
+        ['Accept: application/json']
+    );
+    if ($pageRes['ok'] && $pageRes['text'] !== '') {
+        $pageJson = json_decode($pageRes['text'], true);
+        $wikitext = (string) ($pageJson['parse']['wikitext'] ?? '');
+        if ($wikitext !== '') {
+            $parsedMonths = fengbroNewsPopulationParseTaoyuanMonthly($wikitext);
+            if ($parsedMonths) {
+                $fallback['taoyuan']['recentMonths'] = $parsedMonths;
+                $liveBits++;
+            }
+            // District snapshot table row for 中壢區 (人口數 ~40 萬級)
+            $periodHint = null;
+            if (preg_match('/以下資料時間為\s*(20\d{2})\s*年\s*(\d{1,2})\s*月/u', $wikitext, $dm)) {
+                $periodHint = sprintf('%04d-%02d', (int) $dm[1], (int) $dm[2]);
+            }
+            if ($periodHint && preg_match('/\[\[中壢區[^\]]*\]\]([^\n]+)/u', $wikitext, $zrow)) {
+                $rowText = $zrow[1];
+                $p = null;
+                $c = null;
+                if (preg_match_all('/\|\s*([\d,]{6,})\s*\|/u', $rowText, $nums)) {
+                    foreach ($nums[1] as $numRaw) {
+                        $candidate = fengbroNewsPopulationParseInt($numRaw);
+                        if ($candidate !== null && $candidate >= 300000 && $candidate <= 600000) {
+                            $p = $candidate;
+                            break;
+                        }
+                    }
+                }
+                if (preg_match('/\{\{(?:Red|Blue|Green)\|([+\-−]?\d+)\}\}/u', $rowText, $cm)
+                    || preg_match('/([+\-−]\d+)\s*\|/u', $rowText, $cm)
+                ) {
+                    $c = fengbroNewsPopulationParseInt(str_replace('−', '-', $cm[1]));
+                }
+                if ($p !== null) {
+                    $existing = [];
+                    foreach ($fallback['zhongli']['recentMonths'] as $row) {
+                        $existing[$row['period']] = $row;
+                    }
+                    $existing[$periodHint] = [
+                        'period' => $periodHint,
+                        'label' => fengbroNewsPopulationPeriodLabel($periodHint),
+                        'population' => $p,
+                        'change' => $c,
+                    ];
+                    ksort($existing);
+                    $fallback['zhongli']['recentMonths'] = array_values($existing);
+                    $liveBits++;
+                }
+            }
+        }
+    }
+
+    // Merge latest template totals into monthly series
+    if ($cityPop !== null) {
+        $period = $parseWikiDate($cityDateText) ?: date('Y-m');
+        $months = [];
+        foreach ($fallback['taoyuan']['recentMonths'] as $row) {
+            $months[$row['period']] = $row;
+        }
+        $months[$period] = [
+            'period' => $period,
+            'label' => fengbroNewsPopulationPeriodLabel($period),
+            'population' => $cityPop,
+            'change' => $months[$period]['change'] ?? null,
+        ];
+        ksort($months);
+        $fallback['taoyuan']['recentMonths'] = array_values($months);
+        $liveBits++;
+        $notes[] = '桃園市最新人口：' . fengbroNewsPopulationPeriodLabel($period);
+    }
+
+    if ($zlPop !== null) {
+        $period = $parseWikiDate($zlDateText) ?: ($parseWikiDate($cityDateText) ?: date('Y-m'));
+        $months = [];
+        foreach ($fallback['zhongli']['recentMonths'] as $row) {
+            $months[$row['period']] = $row;
+        }
+        $prev = null;
+        foreach ($months as $p => $row) {
+            if ($p < $period) {
+                $prev = $row;
+            }
+        }
+        $change = null;
+        if ($prev && isset($prev['population'])) {
+            // Only set auto change when previous point is previous calendar month
+            if (preg_match('/^(\d{4})-(\d{2})$/', $period, $pm) && preg_match('/^(\d{4})-(\d{2})$/', (string) $prev['period'], $pp)) {
+                $currIdx = ((int) $pm[1]) * 12 + ((int) $pm[2]);
+                $prevIdx = ((int) $pp[1]) * 12 + ((int) $pp[2]);
+                if ($currIdx - $prevIdx === 1) {
+                    $change = $zlPop - (int) $prev['population'];
+                }
+            }
+        }
+        $months[$period] = [
+            'period' => $period,
+            'label' => fengbroNewsPopulationPeriodLabel($period),
+            'population' => $zlPop,
+            'change' => $change ?? ($months[$period]['change'] ?? null),
+        ];
+        ksort($months);
+        $fallback['zhongli']['recentMonths'] = array_values($months);
+        $liveBits++;
+        $notes[] = '中壢區最新人口：' . fengbroNewsPopulationPeriodLabel($period);
+    }
+
+    $regions = [
+        'taoyuan' => fengbroNewsPopulationNormalizeRegion($fallback['taoyuan']),
+        'zhongli' => fengbroNewsPopulationNormalizeRegion($fallback['zhongli']),
+    ];
+
+    $live = $liveBits > 0;
+    return [
+        'fetchedAt' => gmdate('c'),
+        'live' => $live,
+        'sourceLabel' => '內政部戶政司／桃園市民政局（經 Wikimedia 公開彙整）',
+        'sourceUrls' => [
+            'https://www.ris.gov.tw/app/portal/346',
+            'https://cab.tycg.gov.tw/News.aspx?n=7902&sms=12475',
+            'https://zh.wikipedia.org/wiki/桃園市人口',
+            'https://zh.wikipedia.org/wiki/中壢區',
+        ],
+        'regions' => $regions,
+        'warning' => $live ? null : '即時資料讀取失敗，已顯示備援統計（截至公開年表）',
+        'notes' => $notes,
+    ];
+}
