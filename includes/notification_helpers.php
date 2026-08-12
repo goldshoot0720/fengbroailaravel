@@ -36,6 +36,7 @@ function notifGetExpiringSubscriptions(PDO $pdo, int $withinDays = 3): array
         "SELECT id, name, nextdate, site, account, note, price, currency
          FROM subscription
          WHERE `continue` = 1
+           AND deleted_at IS NULL
            AND nextdate IS NOT NULL
            AND nextdate >= CURDATE()
            AND nextdate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
@@ -57,6 +58,7 @@ function notifGetSubscriptionsDueInDays(PDO $pdo, int $daysAhead): array
         "SELECT id, name, nextdate AS target_date, site, account, note
          FROM subscription
          WHERE `continue` = 1
+           AND deleted_at IS NULL
            AND nextdate IS NOT NULL
            AND DATE(nextdate) = DATE_ADD(CURDATE(), INTERVAL ? DAY)
          ORDER BY nextdate ASC, name ASC"

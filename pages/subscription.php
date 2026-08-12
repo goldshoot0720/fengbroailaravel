@@ -1,7 +1,9 @@
 <?php
 $pageTitle = '訂閱管理';
 $pdo = getConnection();
-$items = $pdo->query("SELECT * FROM subscription ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+$trashMode = ($_GET['trash'] ?? '') === '1';
+try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+$items = $pdo->query("SELECT * FROM subscription WHERE deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL") . " ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
 $availableYears = [];
 foreach ($items as $item) {
     if (!empty($item['nextdate'])) {
@@ -12,9 +14,9 @@ foreach ($items as $item) {
 krsort($availableYears);
 
 // 取得已有的服務名稱、網站、帳號（去重複）
-$existingNames = $pdo->query("SELECT DISTINCT name FROM subscription WHERE name IS NOT NULL AND name != '' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
-$existingSites = $pdo->query("SELECT DISTINCT site FROM subscription WHERE site IS NOT NULL AND site != '' ORDER BY site")->fetchAll(PDO::FETCH_COLUMN);
-$existingAccounts = $pdo->query("SELECT DISTINCT account FROM subscription WHERE account IS NOT NULL AND account != '' ORDER BY account")->fetchAll(PDO::FETCH_COLUMN);
+$existingNames = $pdo->query("SELECT DISTINCT name FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != '' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+$existingSites = $pdo->query("SELECT DISTINCT site FROM subscription WHERE deleted_at IS NULL AND site IS NOT NULL AND site != '' ORDER BY site")->fetchAll(PDO::FETCH_COLUMN);
+$existingAccounts = $pdo->query("SELECT DISTINCT account FROM subscription WHERE deleted_at IS NULL AND account IS NOT NULL AND account != '' ORDER BY account")->fetchAll(PDO::FETCH_COLUMN);
 
 function normalizeSubscriptionDuplicateKey($value)
 {
@@ -168,6 +170,7 @@ function getDaysUntil($date)
 </div>
 
 <div class="content-body">
+    <?php $trashTable = 'subscription'; $trashPage = 'subscription'; include 'includes/trash-controls.php'; ?>
     <?php include 'includes/inline-edit-hint.php'; ?>
     <?php if (!empty($duplicateSubscriptions)): ?>
         <section class="duplicate-subscription-alert" role="alert">

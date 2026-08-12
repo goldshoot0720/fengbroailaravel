@@ -15,9 +15,24 @@ if (!in_array($table, $allowedTables)) {
 
 $pdo = getConnection();
 
+if (in_array($table, ['article', 'subscription'], true)) {
+    try {
+        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `deleted_at` DATETIME NULL");
+    } catch (PDOException $e) {
+        if ((string) $e->getCode() !== '42S21' && stripos($e->getMessage(), 'Duplicate column') === false) {
+            jsonResponse(['error' => 'Unable to initialize trash: ' . $e->getMessage()], 500);
+        }
+    }
+}
+
 switch ($action) {
     case 'list':
-        $data = getAll($table);
+        if (in_array($table, ['article', 'subscription'], true)) {
+            $where = ($_GET['trash'] ?? '') === '1' ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
+            $data = $pdo->query("SELECT * FROM `{$table}` WHERE {$where} ORDER BY created_at DESC")->fetchAll();
+        } else {
+            $data = getAll($table);
+        }
         jsonResponse(['success' => true, 'data' => $data]);
         break;
 
@@ -83,11 +98,33 @@ switch ($action) {
     case 'delete':
         $id = $_GET['id'] ?? '';
         try {
-            deleteById($table, $id);
+            if (in_array($table, ['article', 'subscription'], true) && ($_GET['permanent'] ?? '') !== '1') {
+                $stmt = $pdo->prepare("UPDATE `{$table}` SET deleted_at = NOW() WHERE id = ?");
+                $stmt->execute([$id]);
+            } else {
+                deleteById($table, $id);
+            }
             jsonResponse(['success' => true]);
         } catch (PDOException $e) {
             jsonResponse(['error' => $e->getMessage()], 500);
         }
+        break;
+
+    case 'restore':
+        if (!in_array($table, ['article', 'subscription'], true)) {
+            jsonResponse(['error' => 'This table does not support trash'], 400);
+        }
+        $stmt = $pdo->prepare("UPDATE `{$table}` SET deleted_at = NULL WHERE id = ?");
+        $stmt->execute([$_GET['id'] ?? '']);
+        jsonResponse(['success' => true]);
+        break;
+
+    case 'empty_trash':
+        if (!in_array($table, ['article', 'subscription'], true)) {
+            jsonResponse(['error' => 'This table does not support trash'], 400);
+        }
+        $deleted = $pdo->exec("DELETE FROM `{$table}` WHERE deleted_at IS NOT NULL");
+        jsonResponse(['success' => true, 'deleted' => (int) $deleted]);
         break;
 
     default:

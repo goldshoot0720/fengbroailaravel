@@ -1,7 +1,9 @@
 <?php
 $pageTitle = '筆記本';
 $pdo = getConnection();
-$items = $pdo->query("SELECT * FROM article ORDER BY created_at DESC")->fetchAll();
+$trashMode = ($_GET['trash'] ?? '') === '1';
+try { $pdo->exec("ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+$items = $pdo->query("SELECT * FROM article WHERE deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL") . " ORDER BY created_at DESC")->fetchAll();
 
 function parseNoteCategories($value)
 {
@@ -50,6 +52,7 @@ sort($categories);
 </div>
 
 <div class="content-body">
+    <?php $trashTable = 'article'; $trashPage = 'notes'; include 'includes/trash-controls.php'; ?>
     <?php include 'includes/inline-edit-hint.php'; ?>
 
     <div class="notes-search-toolbar">

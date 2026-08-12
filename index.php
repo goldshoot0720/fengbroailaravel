@@ -19,7 +19,8 @@ $allowedPages = [
     'routine',
     'tools',
     'settings',
-    'about'
+    'about',
+    'service'
 ];
 
 if (!in_array($page, $allowedPages)) {
@@ -43,7 +44,8 @@ $pageTitles = [
     'routine' => '鋒兄例行',
     'tools' => '鋒兄工具 （＋比價）',
     'settings' => '鋒兄設定',
-    'about' => '鋒兄關於'
+    'about' => '鋒兄關於',
+    'service' => '服務資訊'
 ];
 $pageTitle = $pageTitles[$page] ?? '鋒兄首頁';
 

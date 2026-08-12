@@ -16,8 +16,10 @@ $exchangeRates = [
     'AUD' => 23,
 ];
 
-$subscriptionCount = $pdo->query("SELECT COUNT(*) FROM subscription")->fetchColumn();
-$subscriptions = $pdo->query("SELECT price, currency FROM subscription WHERE `continue` = 1")->fetchAll();
+try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+try { $pdo->exec("ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+$subscriptionCount = $pdo->query("SELECT COUNT(*) FROM subscription WHERE deleted_at IS NULL")->fetchColumn();
+$subscriptions = $pdo->query("SELECT price, currency FROM subscription WHERE `continue` = 1 AND deleted_at IS NULL")->fetchAll();
 $subscriptionTotal = 0;
 foreach ($subscriptions as $sub) {
     $currency = strtoupper($sub['currency'] ?? 'TWD');
@@ -26,7 +28,7 @@ foreach ($subscriptions as $sub) {
 }
 
 $foodCount = $pdo->query("SELECT COUNT(*) FROM food")->fetchColumn();
-$noteCount = $pdo->query("SELECT COUNT(*) FROM article")->fetchColumn();
+$noteCount = $pdo->query("SELECT COUNT(*) FROM article WHERE deleted_at IS NULL")->fetchColumn();
 $favoriteCount = $pdo->query("SELECT COUNT(*) FROM commonaccount")->fetchColumn();
 $imageCount = $pdo->query("SELECT COUNT(*) FROM image")->fetchColumn();
 $videoCount = 0;
@@ -56,6 +58,7 @@ $subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
 $subExpiring7Days = $pdo->query(
     "SELECT * FROM subscription
      WHERE `continue` = 1
+       AND deleted_at IS NULL
        AND nextdate IS NOT NULL
        AND nextdate > DATE_ADD(CURDATE(), INTERVAL 3 DAY)
        AND nextdate <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
@@ -78,7 +81,7 @@ try {
     $toolSnapshotCount = 0;
 }
 
-$recentSubscriptions = $pdo->query("SELECT * FROM subscription ORDER BY created_at DESC LIMIT 5")->fetchAll();
+$recentSubscriptions = $pdo->query("SELECT * FROM subscription WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")->fetchAll();
 
 function getFolderSize($dir)
@@ -105,6 +108,9 @@ function formatBytes($bytes, $precision = 2)
 $uploadsDir = __DIR__ . '/../uploads';
 $uploadsFolderSize = getFolderSize($uploadsDir);
 $uploadsFolderSizeFormatted = formatBytes($uploadsFolderSize);
+$storageCapacity = max(1, (int) (getenv('STORAGE_CAPACITY_BYTES') ?: (1024 * 1024 * 1024)));
+$storageUsagePercent = min(100, round(($uploadsFolderSize / $storageCapacity) * 100, 1));
+$storageStatus = $storageUsagePercent >= 90 ? 'critical' : ($storageUsagePercent >= 75 ? 'warning' : 'healthy');
 $uploadsFileCount = 0;
 if (is_dir($uploadsDir)) {
     $uploadsFileCount = count(glob($uploadsDir . '/*'));
@@ -276,6 +282,18 @@ $uploadBucketLabels = [
             <span class="metric-label">Storage</span>
             <strong><?php echo $uploadsFolderSizeFormatted; ?></strong>
             <small><?php echo $uploadsFileCount; ?> files available</small>
+        </div>
+        <div class="metric-card metric-card-storage storage-threshold-<?php echo $storageStatus; ?>">
+            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="metric-label">Storage capacity</span>
+            <strong><?php echo $storageUsagePercent; ?>%</strong>
+            <small><?php echo formatBytes($uploadsFolderSize); ?> / <?php echo formatBytes($storageCapacity); ?></small>
+        </div>
+        <div class="metric-card metric-card-storage" id="mediaTrafficMetric">
+            <span class="metric-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="metric-label">Monthly media traffic</span>
+            <strong id="mediaTrafficValue">--</strong>
+            <small id="mediaTrafficHint">Browser-side estimate</small>
         </div>
         <a href="index.php?page=settings" class="metric-card" id="offlineCacheMetricCard">
             <span class="metric-icon"><i class="fa-solid fa-database"></i></span>
@@ -461,6 +479,23 @@ $uploadBucketLabels = [
         }
     }
 
+    function loadMediaTrafficMetric() {
+        const value = document.getElementById('mediaTrafficValue');
+        const hint = document.getElementById('mediaTrafficHint');
+        if (!value || !window.FengbroMediaTraffic) return;
+        const data = window.FengbroMediaTraffic.read();
+        const bytes = Number(data.bytes) || 0;
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let amount = bytes, unit = 0;
+        while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++; }
+        value.textContent = amount.toFixed(unit === 0 ? 0 : 1) + ' ' + units[unit];
+        hint.textContent = (Number(data.requests) || 0) + ' media requests this month';
+        const limit = 100 * 1024 * 1024 * 1024;
+        if (bytes >= limit * .9) hint.textContent += ' · critical';
+        else if (bytes >= limit * .75) hint.textContent += ' · warning';
+    }
+    window.addEventListener('fengbro:media-traffic', loadMediaTrafficMetric);
+
     function requestDashboardNotifications() {
         if (window.FengbroNotifications) {
             FengbroNotifications.requestDashboardNotifications(dashboardAlerts);
@@ -525,6 +560,7 @@ $uploadBucketLabels = [
     document.addEventListener('DOMContentLoaded', function () {
         sendDashboardNotifications();
         loadOfflineCacheMetric();
+        loadMediaTrafficMetric();
     });
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {

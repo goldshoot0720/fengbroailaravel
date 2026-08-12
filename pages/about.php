@@ -5,6 +5,26 @@
 </div>
 
 <div class="content-body">
+    <div class="card service-directory">
+        <h3 class="card-title"><i class="fa-solid fa-diagram-project"></i> &#26381;&#21209;&#36039;&#35338;</h3>
+        <p>&#20102;&#35299; Bilibili &#33287; AutoSign &#22810;&#23186;&#39636;&#24037;&#20855;&#30340;&#21151;&#33021;&#12289;&#20351;&#29992;&#27969;&#31243;&#33287;&#30456;&#38364;&#36039;&#28304;&#12290;</p>
+        <div class="service-directory-grid">
+            <?php foreach ([
+                'bilibili' => ['Bilibili', 'fa-brands fa-bilibili'],
+                'autosign' => ['AutoSign', 'fa-solid fa-wand-magic-sparkles'],
+                'digen' => ['AutoSign Digen', 'fa-solid fa-pen-ruler'],
+                'litvideo' => ['AutoSign LitVideo', 'fa-solid fa-video'],
+                'mindvideo' => ['AutoSign MindVideo', 'fa-solid fa-brain'],
+                'musicful' => ['AutoSign Musicful', 'fa-solid fa-music'],
+                'oiioii' => ['AutoSign OiiOii', 'fa-solid fa-photo-film'],
+            ] as $key => $service): ?>
+                <a class="service-directory-link" href="index.php?page=service&service=<?php echo $key; ?>">
+                    <i class="<?php echo $service[1]; ?>"></i><span><?php echo htmlspecialchars($service[0]); ?></span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
     <div class="card">
         <h3 class="card-title">系統資訊</h3>
         <table class="table">

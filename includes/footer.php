@@ -45,6 +45,8 @@
 </div>
 <script src="assets/js/media-cache.js?v=20260713cache2"></script>
 <script src="assets/js/main.js?v=20260713theme3"></script>
+<script src="assets/js/media-traffic.js?v=20260812"></script>
+<script src="assets/js/recent-searches.js?v=20260812"></script>
 <script src="assets/js/inline-edit.js?v=20260713delete"></script>
 <script src="assets/js/notifications.js?v=20260714notif2"></script>
 
