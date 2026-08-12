@@ -1,4 +1,4 @@
-// Service Worker for 鋒兄AI Laravel MySQL PWA
+// Service Worker for 鋒兄 AI PWA
 // v2.0 - 支援背景定期同步、推播通知
 
 const CACHE_NAME = 'fengxiong-ai-v3';
@@ -105,7 +105,7 @@ self.addEventListener('push', function (event) {
         try { data = event.data.json(); } catch (e) { data = { title: event.data.text() }; }
     }
 
-    var title = data.title || '鋒兄AI Laravel MySQL';
+    var title = data.title || '鋒兄 AI';
     var options = {
         body: data.body || '有新的通知',
         icon: data.icon || '/icon-192x192.png',

@@ -13,11 +13,11 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增播客"><i class="fas fa-plus"></i></button>
-        <a href="export.php?table=podcast&format=appwrite" class="btn btn-outline">
+        <a href="export.php?table=podcast&format=appwrite" class="btn btn-outline" title="欄位為 $id / $createdAt / $updatedAt">
             <i class="fa-solid fa-file-csv"></i> 匯出 Appwrite
         </a>
-        <a href="export.php?table=podcast&format=laravel" class="btn btn-outline">
-            <i class="fa-solid fa-file-csv"></i> 匯出 Laravel
+        <a href="export.php?table=podcast&format=laravel" class="btn btn-outline" title="欄位為 MySQL 原始名稱">
+            <i class="fa-solid fa-file-csv"></i> 匯出 MySQL CSV
         </a>
         <a href="export_zip_podcast.php" class="btn btn-success">
             <i class="fa-solid fa-file-zipper"></i> 匯出 ZIP

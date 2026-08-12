@@ -391,7 +391,7 @@
             window['importCSV_' + TABLE] = function (input) {
                 if (!input.files || !input.files[0]) return;
 
-                if (!confirm('確定要匯入 CSV 嗎？\n支援 LaravelMySQL 和 Appwrite 雙格式。\n已存在的資料將會被更新。')) {
+                if (!confirm('確定要匯入 CSV 嗎？\n支援 MySQL 與 Appwrite 雙格式。\n已存在的資料將會被更新。')) {
                     input.value = '';
                     return;
                 }

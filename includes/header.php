@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fengbro AI Laravel - <?php echo $pageTitle ?? 'Home'; ?></title>
+    <title>Fengbro AI - <?php echo $pageTitle ?? 'Home'; ?></title>
     <link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -13,7 +13,7 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Fengbro AI Laravel">
+    <meta name="apple-mobile-web-app-title" content="Fengbro AI">
     <link rel="apple-touch-icon" href="icon-192x192.png">
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512x512.png">
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192x192.png">

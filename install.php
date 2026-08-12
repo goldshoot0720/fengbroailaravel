@@ -26,6 +26,7 @@ try {
             account VARCHAR(100),
             currency VARCHAR(100),
             `continue` BOOLEAN DEFAULT TRUE,
+            deleted_at DATETIME NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -62,6 +63,7 @@ try {
             file3 VARCHAR(150),
             file3name VARCHAR(100),
             file3type VARCHAR(100),
+            deleted_at DATETIME NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -210,6 +212,29 @@ try {
             notice TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_tool_query (tool_type, query_text(191), created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "tool_phone_product_history" => "CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+            id VARCHAR(36) PRIMARY KEY,
+            product_id VARCHAR(190) NOT NULL,
+            brand VARCHAR(50),
+            name VARCHAR(500) NOT NULL,
+            source VARCHAR(50) NOT NULL,
+            price INT NULL,
+            source_url VARCHAR(1000),
+            snapshot_day DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_product_day_source (product_id, snapshot_day, source),
+            INDEX idx_product_day (product_id, snapshot_day)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "users" => "CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL,
+            email VARCHAR(100) NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
@@ -249,6 +274,8 @@ try {
         "ALTER TABLE music ADD COLUMN filetype VARCHAR(50) AFTER file",
         "ALTER TABLE podcast ADD COLUMN filetype VARCHAR(50) AFTER file",
         "ALTER TABLE commondocument ADD COLUMN filetype VARCHAR(50) AFTER file",
+        "ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL",
+        "ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL",
     ];
     foreach ($upgrades as $sql) {
         try {
