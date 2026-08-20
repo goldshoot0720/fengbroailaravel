@@ -1,5 +1,6 @@
 <?php
 require_once 'config/database.php';
+require_once 'includes/security.php';
 
 echo "<h1>鋒兄系統 - 資料庫安裝</h1>";
 echo "<pre>";

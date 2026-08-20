@@ -42,7 +42,7 @@
             </tr>
             <tr>
                 <th>PHP 版本</th>
-                <td><?php echo phpversion(); ?></td>
+                <td><?php echo htmlspecialchars(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION); ?> 系列</td>
             </tr>
             <tr>
                 <th>執行環境</th>

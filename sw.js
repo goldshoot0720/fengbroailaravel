@@ -1,8 +1,7 @@
 // Service Worker for 鋒兄 AI PWA
 // v2.0 - 支援背景定期同步、推播通知
 
-const CACHE_NAME = 'fengxiong-ai-v3';
-const OFFLINE_URL = 'index.php?page=dashboard';
+const CACHE_NAME = 'fengxiong-ai-v4-static-only';
 
 // ── 安裝：快取核心頁面 ──────────────────────────────────────────────────────
 self.addEventListener('install', function (event) {
@@ -10,9 +9,9 @@ self.addEventListener('install', function (event) {
     event.waitUntil(
         caches.open(CACHE_NAME).then(function (cache) {
             return cache.addAll([
-                OFFLINE_URL,
                 'assets/css/style.css',
-                'assets/js/main.js'
+                'assets/js/main.js',
+                'assets/js/security.js'
             ]).catch(function () { });
         })
     );
@@ -41,6 +40,8 @@ self.addEventListener('fetch', function (event) {
 
     // 跳過 uploads/ 媒體檔案（音樂、影片、圖片等），讓瀏覽器直接處理 Range Request
     var url = event.request.url;
+    // Never persist authenticated pages or API responses in Cache Storage.
+    if (url.includes('.php') || event.request.mode === 'navigate') return;
     if (url.includes('/uploads/')) return;
     if (url.endsWith('/manifest.json') || url.includes('/manifest.json?')) return;
     // 跳過 Range Request（音樂串流）
@@ -57,7 +58,7 @@ self.addEventListener('fetch', function (event) {
             return response;
         }).catch(function () {
             return caches.match(event.request).then(function (cached) {
-                return cached || caches.match(OFFLINE_URL);
+                return cached || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
             });
         })
     );
@@ -74,12 +75,7 @@ self.addEventListener('periodicsync', function (event) {
 
 async function handlePeriodicSync() {
     try {
-        // 背景靜默更新快取（保持資料最新）
-        var response = await fetch(OFFLINE_URL + '&sw_bg=1', { credentials: 'include' });
-        if (response.ok) {
-            var cache = await caches.open(CACHE_NAME);
-            await cache.put(OFFLINE_URL, response);
-        }
+        await fetch('index.php?page=dashboard&sw_bg=1', { credentials: 'include', cache: 'no-store' });
     } catch (e) {
         // 離線時靜默忽略
     }
@@ -94,7 +90,7 @@ self.addEventListener('sync', function (event) {
 
 async function handleBackgroundSync() {
     try {
-        await fetch(OFFLINE_URL + '&sw_sync=1', { credentials: 'include' });
+        await fetch('index.php?page=dashboard&sw_sync=1', { credentials: 'include', cache: 'no-store' });
     } catch (e) { }
 }
 

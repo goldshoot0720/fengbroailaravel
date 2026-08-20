@@ -53,7 +53,7 @@ include 'includes/header.php';
 include 'includes/sidebar.php';
 ?>
 
-<main class="content">
+<main class="content" id="mainContent" tabindex="-1">
     <?php
     if (file_exists($pageFile)) {
         include $pageFile;

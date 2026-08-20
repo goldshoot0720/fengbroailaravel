@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
 /**
  * 簡易媒體代理：供圖片格式轉換「網址加入」避開 CORS。
  * 僅允許 http/https 圖片類回應，並限制大小。
@@ -12,6 +13,12 @@ if ($url === '' || !preg_match('#^https?://#i', $url)) {
     header('Content-Type: text/plain; charset=utf-8');
     echo 'Missing or invalid url';
     exit;
+}
+$host = strtolower((string) parse_url($url, PHP_URL_HOST));
+$ip = $host !== '' ? gethostbyname($host) : '';
+if ($host === '' || $ip === $host || !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+    http_response_code(403);
+    exit('Private or unresolved hosts are not allowed.');
 }
 
 $parts = parse_url($url);

@@ -14,6 +14,16 @@
 - PHP（無框架）+ MySQL
 - 前端：原生 JS + CSS，支援 PWA / 深色模式
 
+## 安全登入設定
+
+系統預設保護所有管理頁、API、匯入匯出與媒體端點。可使用 `users` 資料表中由 `password_hash()` 建立的密碼，或在伺服器設定：
+
+- `FENGBRO_ADMIN_USER`：管理員帳號（預設 `admin`）
+- `FENGBRO_ADMIN_PASSWORD_HASH`：PHP `password_hash()` 產生的密碼雜湊
+- `FENGBRO_SESSION_IDLE_SECONDS`：閒置登出秒數（預設 3600）
+
+請勿將明文密碼、資料庫憑證或 API Key 提交至 Git。網站會送出 `noindex`、安全 Session Cookie、CSRF 與常用安全標頭；Service Worker 不會快取已登入頁面或 API 回應。
+
 ## 對齊 Appwrite 版的近期補齊
 
 - 手機比價改為實際抓取地標網通與傑昇通信並合併最佳價（不再只開 Google 站內搜尋）

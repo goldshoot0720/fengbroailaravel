@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
+if (($GLOBALS['ENV'] ?? 'remote') === 'remote') { http_response_code(404); exit; }
 // Check what the appwrite-music ZIP actually contains
 $zip = new ZipArchive();
 $zipPath = 'C:/Users/chbon/Downloads/appwrite-music (1).zip';

@@ -94,15 +94,15 @@ $biggoSettings = [
             </tr>
             <tr>
                 <th>資料庫主機</th>
-                <td><?php echo DB_HOST; ?></td>
+                <td><span class="sensitive-mask">已設定</span></td>
             </tr>
             <tr>
                 <th>資料庫名稱</th>
-                <td><?php echo DB_NAME; ?></td>
+                <td><span class="sensitive-mask">已隱藏</span></td>
             </tr>
             <tr>
                 <th>資料庫使用者</th>
-                <td><?php echo DB_USER; ?></td>
+                <td><span class="sensitive-mask">已隱藏</span></td>
             </tr>
         </table>
         <div style="margin-top: 12px;">
@@ -118,11 +118,11 @@ $biggoSettings = [
         <table class="table">
             <tr>
                 <th style="width: 200px;">PHP 版本</th>
-                <td><?php echo phpversion(); ?></td>
+                <td><?php echo htmlspecialchars(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION); ?> 系列</td>
             </tr>
             <tr>
                 <th>伺服器軟體</th>
-                <td><?php echo $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown'; ?></td>
+                <td>已啟用安全網頁伺服器</td>
             </tr>
             <tr>
                 <th>伺服器時間</th>
@@ -219,7 +219,7 @@ $biggoSettings = [
                     <td>
                         <code style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
                             CRON_TZ=Asia/Taipei<br>
-                            0 9 * * * php <?php echo htmlspecialchars($resendScriptPath); ?> &gt;&gt; /var/log/fengbro_resend.log 2&gt;&amp;1
+                            0 9 * * * php /path/to/app/resend_notify.php
                         </code>
                     </td>
                 </tr>
@@ -362,7 +362,7 @@ $biggoSettings = [
                     <code
                         style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
                         CRON_TZ=Asia/Taipei<br>
-                        0 9 * * * php <?php echo htmlspecialchars($scriptPath); ?> &gt;&gt; /var/log/push_send.log 2&gt;&amp;1
+                        0 9 * * * php /path/to/app/push_send.php
                     </code>
                     <div style="font-size:0.8em; color:#888; margin-top:4px;">每天台灣時間上午 09:00 自動發送 3 天內到期訂閱提醒</div>
                 </td>

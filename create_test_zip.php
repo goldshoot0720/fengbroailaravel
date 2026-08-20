@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
+if (($GLOBALS['ENV'] ?? 'remote') === 'remote') { http_response_code(404); exit; }
 // Creates a small test ZIP with music.csv for testing import_zip_music.php
 $zip = new ZipArchive();
 $zipPath = __DIR__ . '/test_music_import.zip';

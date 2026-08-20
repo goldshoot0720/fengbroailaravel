@@ -1,81 +1,28 @@
 <?php
-$menuItems = [
-    'home' => ['label' => '鋒兄首頁', 'icon' => 'fa-house'],
-    'dashboard' => ['label' => '鋒兄儀表', 'icon' => 'fa-gauge-high'],
-    'subscription' => ['label' => '鋒兄訂閱', 'icon' => 'fa-credit-card'],
-    'food' => ['label' => '鋒兄食品', 'hint' => '（＋商品庫存）', 'icon' => 'fa-boxes-stacked'],
-    'notes' => ['label' => '鋒兄筆記', 'icon' => 'fa-note-sticky'],
-    'favorites' => ['label' => '鋒兄常用', 'icon' => 'fa-star'],
-    'images' => ['label' => '鋒兄圖片', 'icon' => 'fa-image'],
-    'videos' => ['label' => '鋒兄影片', 'icon' => 'fa-video'],
-    'music' => ['label' => '鋒兄音樂', 'icon' => 'fa-music'],
-    'documents' => ['label' => '鋒兄文件', 'icon' => 'fa-folder-open'],
-    'podcast' => ['label' => '鋒兄播客', 'icon' => 'fa-podcast'],
-    'bank' => ['label' => '鋒兄銀行', 'hint' => '( +電子票證)', 'icon' => 'fa-building-columns'],
-    'routine' => ['label' => '鋒兄例行', 'icon' => 'fa-clock-rotate-left'],
-    'tools' => ['label' => '鋒兄工具', 'hint' => '（＋比價）', 'icon' => 'fa-wrench'],
-    'settings' => ['label' => '鋒兄設定', 'icon' => 'fa-gear'],
-    'about' => ['label' => '鋒兄關於', 'icon' => 'fa-circle-info']
+$menuGroups = [
+    'overview' => ['label' => '總覽', 'icon' => 'fa-compass', 'items' => ['home' => ['label' => '鋒兄首頁', 'icon' => 'fa-house'], 'dashboard' => ['label' => '鋒兄儀表', 'icon' => 'fa-gauge-high']]],
+    'personal' => ['label' => '生活管理', 'icon' => 'fa-calendar-check', 'items' => ['subscription' => ['label' => '鋒兄訂閱', 'icon' => 'fa-credit-card'], 'food' => ['label' => '鋒兄食品', 'hint' => '商品庫存', 'icon' => 'fa-boxes-stacked'], 'bank' => ['label' => '鋒兄銀行', 'hint' => '電子票證', 'icon' => 'fa-building-columns'], 'routine' => ['label' => '鋒兄例行', 'icon' => 'fa-clock-rotate-left']]],
+    'knowledge' => ['label' => '知識管理', 'icon' => 'fa-book-open', 'items' => ['notes' => ['label' => '鋒兄筆記', 'icon' => 'fa-note-sticky'], 'favorites' => ['label' => '鋒兄常用', 'icon' => 'fa-star'], 'documents' => ['label' => '鋒兄文件', 'icon' => 'fa-folder-open']]],
+    'media' => ['label' => '媒體庫', 'icon' => 'fa-photo-film', 'items' => ['images' => ['label' => '鋒兄圖片', 'icon' => 'fa-image'], 'videos' => ['label' => '鋒兄影片', 'icon' => 'fa-video'], 'music' => ['label' => '鋒兄音樂', 'icon' => 'fa-music'], 'podcast' => ['label' => '鋒兄播客', 'icon' => 'fa-podcast']]],
+    'system' => ['label' => '系統', 'icon' => 'fa-sliders', 'items' => ['tools' => ['label' => '鋒兄工具', 'hint' => '比價', 'icon' => 'fa-wrench'], 'settings' => ['label' => '鋒兄設定', 'icon' => 'fa-gear'], 'about' => ['label' => '鋒兄關於', 'icon' => 'fa-circle-info']]],
 ];
-
 $currentPage = $_GET['page'] ?? 'home';
 ?>
-
-<button class="mobile-menu-btn" onclick="toggleMobileMenu()">
-    <i class="fa-solid fa-bars"></i>
-</button>
-
-<div class="sidebar-overlay" onclick="closeMobileMenu()"></div>
-
-<nav class="sidebar">
-    <div class="sidebar-header">
-        <div class="sidebar-brand-mark">
-            <i class="fa-solid fa-wave-square"></i>
-        </div>
-        <div class="sidebar-brand-copy">
-            <span class="sidebar-kicker">Personal Ops System</span>
-            <h2><i class="fa-solid fa-dragon"></i> Fengbro AI</h2>
-            <p>PHP + MySQL workspace</p>
-        </div>
-        <button id="darkModeToggle" class="dark-mode-btn" onclick="toggleDarkMode()" title="切換深色模式">
-            <i class="fa-solid fa-moon"></i>
-        </button>
-    </div>
-    <button type="button" class="sidebar-voice-btn" onclick="window.FengbroVoiceInput ? window.FengbroVoiceInput.open() : document.getElementById('fengbroVoiceFab')?.click()" title="用語音操作所有選單">
-        <i class="fa-solid fa-microphone-lines"></i>
-        <span>語音操作選單</span>
-    </button>
-    <div class="sidebar-section-label">Workspace</div>
-    <ul class="menu">
-        <?php foreach ($menuItems as $key => $item): ?>
-            <li class="menu-item <?php echo $currentPage === $key ? 'active' : ''; ?>">
-                <a href="index.php?page=<?php echo $key; ?>" data-voice-menu="<?php echo $key; ?>" data-voice-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>" onclick="closeMobileMenu()">
-                    <i class="fa-solid <?php echo $item['icon']; ?>"></i>
-                    <span class="menu-label">
-                        <span class="menu-label-main"><?php echo $item['label']; ?></span>
-                        <?php if (!empty($item['hint'])): ?>
-                            <span class="menu-label-hint"><?php echo $item['hint']; ?></span>
-                        <?php endif; ?>
-                    </span>
-                    <span class="menu-arrow"><i class="fa-solid fa-arrow-up-right-from-square"></i></span>
-                </a>
-            </li>
-        <?php endforeach; ?>
-    </ul>
-</nav>
-
+<button class="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="開啟導覽選單" aria-controls="primarySidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+<div class="sidebar-overlay" onclick="closeMobileMenu()" aria-hidden="true"></div>
+<nav class="sidebar" id="primarySidebar" aria-label="主要導覽">
+<div class="sidebar-header"><div class="sidebar-brand-mark" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></div><div class="sidebar-brand-copy"><span class="sidebar-kicker">Personal Ops System</span><h2><i class="fa-solid fa-dragon" aria-hidden="true"></i> Fengbro AI</h2><p>私人作業中樞</p></div><button id="darkModeToggle" class="dark-mode-btn" type="button" onclick="toggleDarkMode()" aria-label="切換深色模式" title="切換深色模式"><i class="fa-solid fa-moon" aria-hidden="true"></i></button></div>
+<div class="sidebar-quick-actions"><button type="button" class="sidebar-voice-btn" onclick="window.FengbroVoiceInput ? window.FengbroVoiceInput.open() : document.getElementById('fengbroVoiceFab')?.click()"><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i><span>語音操作</span></button><button type="button" class="sidebar-privacy-btn" id="privacyToggle" onclick="togglePrivateValues()" aria-pressed="false"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i><span>顯示私密資料</span></button></div>
+<div class="sidebar-groups">
+<?php foreach ($menuGroups as $groupKey => $group): $isCurrent = array_key_exists($currentPage, $group['items']); ?>
+<section class="menu-group <?php echo $isCurrent ? 'is-open' : ''; ?>" data-menu-group="<?php echo $groupKey; ?>"><button class="menu-group-toggle" type="button" aria-expanded="<?php echo $isCurrent ? 'true' : 'false'; ?>" onclick="toggleMenuGroup(this)"><span><i class="fa-solid <?php echo $group['icon']; ?>" aria-hidden="true"></i><?php echo $group['label']; ?></span><i class="fa-solid fa-chevron-down menu-group-chevron" aria-hidden="true"></i></button><ul class="menu">
+<?php foreach ($group['items'] as $key => $item): ?><li class="menu-item <?php echo $currentPage === $key ? 'active' : ''; ?>"><a href="index.php?page=<?php echo $key; ?>" <?php echo $currentPage === $key ? 'aria-current="page"' : ''; ?> data-voice-menu="<?php echo $key; ?>" data-voice-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>" onclick="closeMobileMenu()"><i class="fa-solid <?php echo $item['icon']; ?>" aria-hidden="true"></i><span class="menu-label"><span class="menu-label-main"><?php echo $item['label']; ?></span><?php if (!empty($item['hint'])): ?><span class="menu-label-hint"><?php echo $item['hint']; ?></span><?php endif; ?></span></a></li><?php endforeach; ?>
+</ul></section><?php endforeach; ?>
+</div><form class="sidebar-logout" method="post" action="logout.php"><input type="hidden" name="_csrf" value="<?php echo htmlspecialchars(fengbroCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>"><button type="submit"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>安全登出</span></button></form></nav>
 <script>
-    function toggleMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        sidebar.classList.toggle('open');
-        overlay.classList.toggle('show');
-    }
-
-    function closeMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.querySelector('.sidebar-overlay');
-        sidebar.classList.remove('open');
-        overlay.classList.remove('show');
-    }
+function toggleMobileMenu(){const s=document.querySelector('.sidebar'),o=document.querySelector('.sidebar-overlay'),b=document.querySelector('.mobile-menu-btn');const open=!s.classList.contains('open');s.classList.toggle('open',open);o.classList.toggle('show',open);b.setAttribute('aria-expanded',String(open));}
+function closeMobileMenu(){document.querySelector('.sidebar')?.classList.remove('open');document.querySelector('.sidebar-overlay')?.classList.remove('show');document.querySelector('.mobile-menu-btn')?.setAttribute('aria-expanded','false');}
+function toggleMenuGroup(button){const group=button.closest('.menu-group');const open=!group.classList.contains('is-open');group.classList.toggle('is-open',open);button.setAttribute('aria-expanded',String(open));localStorage.setItem('fengbro_menu_'+group.dataset.menuGroup,open?'1':'0');}
+document.querySelectorAll('.menu-group:not(.is-open)').forEach(group=>{if(localStorage.getItem('fengbro_menu_'+group.dataset.menuGroup)==='1'){group.classList.add('is-open');group.querySelector('.menu-group-toggle').setAttribute('aria-expanded','true');}});
+function togglePrivateValues(){const show=!document.body.classList.contains('show-private-values');document.body.classList.toggle('show-private-values',show);const b=document.getElementById('privacyToggle');b.setAttribute('aria-pressed',String(show));b.querySelector('span').textContent=show?'隱藏私密資料':'顯示私密資料';b.querySelector('i').className=show?'fa-solid fa-eye':'fa-solid fa-eye-slash';}
 </script>

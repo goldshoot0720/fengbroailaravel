@@ -214,7 +214,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo formatMoney($item['deposit']); ?></span>
+                            <span class="inline-view private-value"><?php echo formatMoney($item['deposit']); ?></span>
                             <div class="inline-edit inline-edit-row">
                                 <input type="number" class="form-control inline-input" data-field="deposit" placeholder="存款">
                             </div>
@@ -233,7 +233,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                             </div>
                         </td>
                         <td>
-                            <span class="inline-view"><?php echo htmlspecialchars($item['account'] ?? '-'); ?></span>
+                            <span class="inline-view private-value"><?php echo htmlspecialchars($item['account'] ?? '-'); ?></span>
                         </td>
                         <td>
                             <span class="inline-view"><?php echo htmlspecialchars($item['card'] ?? '-'); ?></span>
@@ -290,7 +290,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                     <div class="mobile-card-info">
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">存款</span>
-                            <span class="mobile-card-value"
+                            <span class="mobile-card-value private-value"
                                 style="color: #27ae60;"><?php echo formatMoney($item['deposit']); ?></span>
                         </div>
                         <div class="mobile-card-item">
@@ -307,7 +307,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <div style="margin-top: 10px; font-size: 0.85rem; color: #666;">
                             <?php if (!empty($item['account'])): ?>
                                 <div><i class="fas fa-id-card" style="width: 16px;"></i>
-                                    <?php echo htmlspecialchars($item['account']); ?></div>
+                                    <span class="private-value"><?php echo htmlspecialchars($item['account']); ?></span></div>
                             <?php endif; ?>
                             <?php if (!empty($item['card'])): ?>
                                 <div><i class="fas fa-credit-card" style="width: 16px;"></i>

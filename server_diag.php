@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
 // Quick server diagnostic - check ZipArchive, temp dir, PHP config
 header('Content-Type: application/json; charset=utf-8');
 echo json_encode([

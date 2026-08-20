@@ -3,7 +3,14 @@ $pageTitle = '訂閱管理';
 $pdo = getConnection();
 $trashMode = ($_GET['trash'] ?? '') === '1';
 try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
-$items = $pdo->query("SELECT * FROM subscription WHERE deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL") . " ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+$perPage = 25;
+$currentListPage = max(1, (int) ($_GET['p'] ?? 1));
+$subscriptionWhere = "deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL");
+$totalItems = (int) $pdo->query("SELECT COUNT(*) FROM subscription WHERE {$subscriptionWhere}")->fetchColumn();
+$totalPages = max(1, (int) ceil($totalItems / $perPage));
+$currentListPage = min($currentListPage, $totalPages);
+$offset = ($currentListPage - 1) * $perPage;
+$items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC LIMIT {$perPage} OFFSET {$offset}")->fetchAll();
 $availableYears = [];
 foreach ($items as $item) {
     if (!empty($item['nextdate'])) {
@@ -172,6 +179,15 @@ function getDaysUntil($date)
 <div class="content-body">
     <?php $trashTable = 'subscription'; $trashPage = 'subscription'; include 'includes/trash-controls.php'; ?>
     <?php include 'includes/inline-edit-hint.php'; ?>
+    <?php if ($totalPages > 1): ?>
+    <nav class="data-pagination" aria-label="訂閱資料分頁">
+        <span>第 <?php echo $currentListPage; ?> / <?php echo $totalPages; ?> 頁，共 <?php echo $totalItems; ?> 筆</span>
+        <div>
+            <?php if ($currentListPage > 1): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage - 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> 上一頁</a><?php endif; ?>
+            <?php if ($currentListPage < $totalPages): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage + 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>">下一頁 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a><?php endif; ?>
+        </div>
+    </nav>
+    <?php endif; ?>
     <?php if (!empty($duplicateSubscriptions)): ?>
         <section class="duplicate-subscription-alert" role="alert">
             <div class="duplicate-alert-heading">
@@ -291,15 +307,12 @@ function getDaysUntil($date)
                                 <?php else: ?>
                                     <?php echo htmlspecialchars($item['name']); ?>
                                 <?php endif; ?>
-                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
-                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
-                                <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')"
-                                    title="複製項目" style="cursor: pointer; margin-left: 6px;"><i class="fas fa-copy"></i></span>
-                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
-                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                                <button type="button" class="icon-action-btn card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')" aria-label="編輯 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="編輯"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                                <button type="button" class="icon-action-btn card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" aria-label="複製 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="複製項目"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                <button type="button" class="icon-action-btn card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')" aria-label="刪除 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="移至垃圾桶"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
                                 <?php if (!empty($item['account'])): ?>
                                     <br><span
-                                        style="font-size: 0.85rem; color: #666;"><?php echo htmlspecialchars($item['account']); ?></span>
+                                        class="private-value" style="font-size: 0.85rem; color: #666;"><?php echo htmlspecialchars($item['account']); ?></span>
                                 <?php endif; ?>
                                 <?php if (!empty($item['note'])): ?>
                                     <br><span
@@ -397,7 +410,7 @@ function getDaysUntil($date)
                         </div>
                     </div>
                     <?php if (!empty($item['account'])): ?>
-                        <div class="sub-card-account"><i class="fas fa-user"></i> <?php echo htmlspecialchars($item['account']); ?>
+                        <div class="sub-card-account"><i class="fas fa-user"></i> <span class="private-value"><?php echo htmlspecialchars($item['account']); ?></span>
                         </div>
                     <?php endif; ?>
                     <div class="sub-card-info">
@@ -692,11 +705,11 @@ function getDaysUntil($date)
         margin-bottom: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         position: relative;
-        border-left: 4px solid #27ae60;
+        border: 1px solid rgba(39, 174, 96, 0.45);
     }
 
     .sub-card-inactive {
-        border-left-color: #e74c3c;
+        border-color: rgba(231, 76, 60, 0.5);
         opacity: 0.8;
     }
 
@@ -964,7 +977,7 @@ function getDaysUntil($date)
         border-radius: 20px;
         padding: 18px;
         box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
-        border-left-width: 5px;
+        border-width: 1px;
     }
 
     .sub-card-title {

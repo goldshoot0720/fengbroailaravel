@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
 ob_start();
 ini_set('memory_limit', '512M');
 ini_set('display_errors', 0);
