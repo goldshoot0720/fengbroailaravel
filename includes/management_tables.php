@@ -26,7 +26,7 @@ function fengbroReinstallCreateSql(): string
     return "CREATE TABLE IF NOT EXISTS reinstall (
             id VARCHAR(36) PRIMARY KEY,
             name VARCHAR(100) NOT NULL,
-            system VARCHAR(10) DEFAULT 'win',
+            `system` VARCHAR(10) DEFAULT 'win',
             softwareType VARCHAR(20) DEFAULT 'free',
             licenseType VARCHAR(20) DEFAULT 'none',
             serial VARCHAR(500),
@@ -73,7 +73,7 @@ function fengbroEnsureReinstallTable(?PDO $pdo = null): void
     $pdo = $pdo ?: getConnection();
     $pdo->exec(fengbroReinstallCreateSql());
     fengbroEnsureTableColumns($pdo, 'reinstall', [
-        "system VARCHAR(10) DEFAULT 'win'",
+        "`system` VARCHAR(10) DEFAULT 'win'",
         "softwareType VARCHAR(20) DEFAULT 'free'",
         "licenseType VARCHAR(20) DEFAULT 'none'",
         "serial VARCHAR(500)",
@@ -459,7 +459,7 @@ function fengbroFindReinstallImportId(PDO $pdo, array $data): ?string
     $stmt = $pdo->prepare(
         "SELECT id FROM reinstall
          WHERE LOWER(TRIM(name)) = LOWER(?)
-           AND LOWER(TRIM(IFNULL(system, 'win'))) = LOWER(?)
+           AND LOWER(TRIM(IFNULL(`system`, 'win'))) = LOWER(?)
          LIMIT 1"
     );
     $stmt->execute([$name, $system]);

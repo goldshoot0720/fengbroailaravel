@@ -3,7 +3,7 @@ $pageTitle = '鋒兄重灌';
 $pdo = getConnection();
 fengbroEnsureReinstallTable($pdo);
 
-$items = $pdo->query("SELECT * FROM reinstall ORDER BY name ASC, system ASC, created_at ASC")->fetchAll();
+$items = $pdo->query("SELECT * FROM reinstall ORDER BY name ASC, `system` ASC, created_at ASC")->fetchAll();
 $windowsCount = 0;
 $macCount = 0;
 $serialCount = 0;

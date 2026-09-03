@@ -327,7 +327,7 @@ CREATE TABLE IF NOT EXISTS trialpurchase (
 CREATE TABLE IF NOT EXISTS reinstall (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    system VARCHAR(10) DEFAULT 'win',
+    `system` VARCHAR(10) DEFAULT 'win',
     softwareType VARCHAR(20) DEFAULT 'free',
     licenseType VARCHAR(20) DEFAULT 'none',
     serial VARCHAR(500),

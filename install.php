@@ -289,7 +289,7 @@ try {
         "ALTER TABLE trialpurchase ADD COLUMN note VARCHAR(3337)",
         "ALTER TABLE trialpurchase ADD COLUMN trialStatus VARCHAR(20) DEFAULT 'untried'",
         "ALTER TABLE trialpurchase ADD COLUMN purchaseStatus VARCHAR(30) DEFAULT 'not_purchased'",
-        "ALTER TABLE reinstall ADD COLUMN system VARCHAR(10) DEFAULT 'win'",
+        "ALTER TABLE reinstall ADD COLUMN `system` VARCHAR(10) DEFAULT 'win'",
         "ALTER TABLE reinstall ADD COLUMN softwareType VARCHAR(20) DEFAULT 'free'",
         "ALTER TABLE reinstall ADD COLUMN licenseType VARCHAR(20) DEFAULT 'none'",
         "ALTER TABLE reinstall ADD COLUMN serial VARCHAR(500)",
