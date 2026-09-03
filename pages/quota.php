@@ -103,7 +103,7 @@ foreach ($items as $item) {
         <button class="btn btn-success" type="button" onclick="exportQuotaCsv()" title="匯出目前全部額度紀錄為 CSV"><i class="fa-solid fa-download"></i> 匯出 CSV</button>
         <button class="btn" type="button" onclick="document.getElementById('quotaCsvFile').click()" title="從 CSV 匯入額度紀錄（相同服務與帳號會更新）"><i class="fa-solid fa-upload"></i> 匯入 CSV</button>
         <input type="file" id="quotaCsvFile" accept=".csv,text/csv" style="display:none;" onchange="handleQuotaCsvFile(this)">
-        <button class="btn btn-ghost" type="button" onclick="location.reload()" title="重新整理"><i class="fa-solid fa-rotate"></i> 重新整理</button>
+        <?php include 'includes/batch-delete.php'; ?>
     </div>
 
     <form id="quotaForm" class="card mgmt-form" style="display:none;" onsubmit="return saveQuota(event)">
