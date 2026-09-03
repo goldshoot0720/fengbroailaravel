@@ -3,9 +3,15 @@ require_once 'includes/functions.php';
 
 $page = $_GET['page'] ?? 'home';
 
+// 對齊 Appwrite：儀表已合併進首頁（精簡／完整儀表同一頁），舊網址一律落到首頁完整儀表。
+$homeInitialFullView = false;
+if ($page === 'dashboard') {
+    $page = 'home';
+    $homeInitialFullView = true;
+}
+
 $allowedPages = [
     'home',
-    'dashboard',
     'subscription',
     'trialpurchase',
     'reinstall',
@@ -33,7 +39,6 @@ if (!in_array($page, $allowedPages)) {
 $pageFile = "pages/{$page}.php";
 $pageTitles = [
     'home' => '鋒兄首頁',
-    'dashboard' => '鋒兄儀表',
     'subscription' => '鋒兄訂閱',
     'trialpurchase' => '鋒兄試用／首購',
     'reinstall' => '鋒兄重灌',

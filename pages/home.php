@@ -115,8 +115,17 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         </pre>
         <p>&#x500B;&#x4EBA;&#x4F5C;&#x696D;&#x4E2D;&#x6A1E;&#xFF0C;&#x6574;&#x5408;&#x8A02;&#x95B1;&#x3001;&#x7B46;&#x8A18;&#x3001;&#x8CC7;&#x6599;&#x5EAB;&#x8207;&#x65E5;&#x5E38;&#x64CD;&#x4F5C;&#x6D41;&#x7A0B;&#xFF0C;&#x5FEB;&#x901F;&#x638C;&#x63E1;&#x6BCF;&#x500B;&#x95DC;&#x9375;&#x72C0;&#x614B;&#x3002;</p>
     </div>
+    <div class="home-view-toggle" role="group" aria-label="首頁顯示模式">
+        <button type="button" class="home-view-btn" data-home-view="compact" onclick="setHomeView('compact')">
+            <i class="fa-solid fa-list"></i> 精簡
+        </button>
+        <button type="button" class="home-view-btn" data-home-view="full" onclick="setHomeView('full')">
+            <i class="fa-solid fa-gauge-high"></i> 完整儀表
+        </button>
+    </div>
 </div>
 
+<section id="homeViewCompact">
 <div class="content-body">
     <section class="hero-panel hero-panel-home">
         <div class="hero-copy">
@@ -124,9 +133,9 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
             <h2>&#x5C08;&#x6CE8;&#x3001;&#x6E05;&#x6670;&#x3001;&#x53EF;&#x64CD;&#x4F5C;&#x7684;&#x7BA1;&#x7406;&#x4ECB;&#x9762;</h2>
             <p>&#x7528;&#x6E05;&#x695A;&#x7684;&#x8CC7;&#x8A0A;&#x5C64;&#x7D1A;&#x8207;&#x5FEB;&#x901F;&#x52D5;&#x4F5C;&#xFF0C;&#x7DAD;&#x6301;&#x65E5;&#x5E38;&#x7DAD;&#x904B;&#x7684;&#x7BC0;&#x594F;&#xFF0C;&#x8B93;&#x91CD;&#x8981;&#x72C0;&#x614B;&#x4E00;&#x773C;&#x53EF;&#x898B;&#x3002;</p>
             <div class="hero-actions">
-                <a href="index.php?page=dashboard" class="btn btn-primary">
-                    <i class="fa-solid fa-gauge-high"></i> &#x524D;&#x5F80;&#x5100;&#x8868;&#x677F;
-                </a>
+                <button type="button" class="btn btn-primary" onclick="setHomeView('full')">
+                    <i class="fa-solid fa-gauge-high"></i> &#x67E5;&#x770B;&#x5B8C;&#x6574;&#x5100;&#x8868;
+                </button>
                 <a href="index.php?page=subscription" class="btn btn-ghost">
                     <i class="fa-solid fa-credit-card"></i> &#x8A02;&#x95B1;&#x7BA1;&#x7406;
                 </a>
@@ -146,6 +155,15 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         </div>
     </section>
 </div>
+</section>
+
+<section id="homeViewFull" hidden>
+    <?php
+    // 完整儀表：與舊「鋒兄儀表」同內容，合併在首頁切換（對齊 Appwrite EnhancedDashboard）
+    $dashboardEmbedded = true;
+    require __DIR__ . '/dashboard.php';
+    ?>
+</section>
 
 <style>
     .sleep-warning {
@@ -334,6 +352,51 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         color: #d4e2ff;
         border-color: #1f3552;
     }
+
+    .home-view-toggle {
+        display: inline-flex;
+        gap: 4px;
+        align-self: flex-start;
+        margin-top: 14px;
+        padding: 4px;
+        border-radius: 14px;
+        border: 1px solid var(--border-color);
+        background: var(--table-header-bg);
+    }
+
+    .home-view-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted-text);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.18s ease, color 0.18s ease;
+    }
+
+    .home-view-btn:hover {
+        color: var(--text-color);
+    }
+
+    .home-view-btn.active {
+        background: var(--card-bg);
+        color: var(--text-color);
+        box-shadow: 0 4px 12px var(--shadow);
+    }
+
+    [data-theme="dark"] .home-view-btn.active {
+        background: rgba(59, 130, 246, 0.18);
+        color: #fff;
+    }
+
+    .content-header:has(.home-view-toggle) {
+        align-items: flex-start;
+    }
 </style>
 <script>
     function homeNoticeToday() {
@@ -363,5 +426,45 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         const finance = document.getElementById('financeHomeNotice');
         if (tube && !isHomeNoticeDismissed('tube')) tube.style.display = 'block';
         if (finance && !isHomeNoticeDismissed('finance')) finance.style.display = 'block';
+    });
+
+    // ── 首頁 精簡／完整儀表 切換（對齊 Appwrite EnhancedDashboard）────────────
+    const HOME_VIEW_KEY = 'fengbro:home-view';
+    function getHomeView() {
+        try {
+            const saved = localStorage.getItem(HOME_VIEW_KEY);
+            if (saved === 'compact' || saved === 'full') return saved;
+        } catch (e) {}
+        return 'compact';
+    }
+    function applyHomeView(view) {
+        const compact = document.getElementById('homeViewCompact');
+        const full = document.getElementById('homeViewFull');
+        if (!compact || !full) return;
+        const showFull = view === 'full';
+        compact.hidden = showFull;
+        full.hidden = !showFull;
+        document.querySelectorAll('.home-view-btn').forEach(function (btn) {
+            const active = btn.dataset.homeView === view;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', String(active));
+        });
+    }
+    function setHomeView(view) {
+        if (view !== 'compact' && view !== 'full') view = 'compact';
+        try { localStorage.setItem(HOME_VIEW_KEY, view); } catch (e) {}
+        applyHomeView(view);
+        window.dispatchEvent(new CustomEvent('fengbro:home-view-change', { detail: { view: view } }));
+        if (view === 'full') {
+            // 儀表啟用提醒與離線快取統計在切到完整檢視時一併啟動
+            if (typeof sendDashboardNotifications === 'function') sendDashboardNotifications();
+            if (typeof loadOfflineCacheMetric === 'function') loadOfflineCacheMetric();
+            if (typeof loadMediaTrafficMetric === 'function') loadMediaTrafficMetric();
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const serverInitialFull = <?php echo ($homeInitialFullView ?? false) ? 'true' : 'false'; ?>;
+        const initialView = serverInitialFull ? 'full' : getHomeView();
+        applyHomeView(initialView);
     });
 </script>

@@ -236,6 +236,26 @@ try {
 
         "quota" => fengbroQuotaCreateSql(),
 
+        "sitevisit" => "CREATE TABLE IF NOT EXISTS sitevisit (
+            id VARCHAR(36) PRIMARY KEY,
+            count INT NOT NULL DEFAULT 0,
+            lastVisitAt DATETIME NULL,
+            currentStreak INT NOT NULL DEFAULT 0,
+            lastVisitDate VARCHAR(10) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "menuusage" => "CREATE TABLE IF NOT EXISTS menuusage (
+            id VARCHAR(36) PRIMARY KEY,
+            moduleId VARCHAR(100) NOT NULL,
+            count INT NOT NULL DEFAULT 0,
+            lastUsedAt DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_module_id (moduleId)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
         "users" => "CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL,
@@ -314,6 +334,13 @@ try {
         "ALTER TABLE quota ADD COLUMN ratioMonth INT DEFAULT 0",
         "ALTER TABLE quota ADD COLUMN expiryMonth VARCHAR(10) DEFAULT ''",
         "ALTER TABLE quota ADD COLUMN note VARCHAR(3337)",
+        "ALTER TABLE sitevisit ADD COLUMN count INT NOT NULL DEFAULT 0",
+        "ALTER TABLE sitevisit ADD COLUMN lastVisitAt DATETIME NULL",
+        "ALTER TABLE sitevisit ADD COLUMN currentStreak INT NOT NULL DEFAULT 0",
+        "ALTER TABLE sitevisit ADD COLUMN lastVisitDate VARCHAR(10) DEFAULT ''",
+        "ALTER TABLE menuusage ADD COLUMN moduleId VARCHAR(100) NOT NULL",
+        "ALTER TABLE menuusage ADD COLUMN count INT NOT NULL DEFAULT 0",
+        "ALTER TABLE menuusage ADD COLUMN lastUsedAt DATETIME NULL",
     ];
     foreach ($upgrades as $sql) {
         try {

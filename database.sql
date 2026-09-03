@@ -361,6 +361,26 @@ CREATE TABLE IF NOT EXISTS quota (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS sitevisit (
+    id VARCHAR(36) PRIMARY KEY,
+    count INT NOT NULL DEFAULT 0,
+    lastVisitAt DATETIME NULL,
+    currentStreak INT NOT NULL DEFAULT 0,
+    lastVisitDate VARCHAR(10) DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS menuusage (
+    id VARCHAR(36) PRIMARY KEY,
+    moduleId VARCHAR(100) NOT NULL,
+    count INT NOT NULL DEFAULT 0,
+    lastUsedAt DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_module_id (moduleId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- VAPID 金鑰儲存於 settings，user_id = NULL
 -- 由 push_send.php?action=init_vapid 自動插入：
 --   setting_key = 'vapid_public_key'  → base64url 公鑰

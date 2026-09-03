@@ -1,13 +1,13 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 重灌訂閱週期／費用與試用日期標籤。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 首頁合併儀表與網站統計（進站人次／連續天數／選單使用／銀行極值／營運天數）。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
 | Appwrite 模組 | PHP 頁面 | 狀態 |
 |---|---|---|
-| Home | `pages/home.php` | 完成（含 tube/金融今日關閉） |
-| Dashboard | `pages/dashboard.php` | 完成（離線快取／uploads 統計） |
+| Home（含精簡／完整儀表） | `pages/home.php` | 完成（合併儀表、記住上次視圖、tube/金融今日關閉） |
+| Dashboard | `pages/dashboard.php` | 完成（做為首頁「完整儀表」片段載入；獨立選單已移除） |
 | Subscription | `pages/subscription.php` | 完成 |
 | Trial / first purchase | `pages/trialpurchase.php` | 完成（服務分組、狀態篩選、CSV） |
 | Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼、訂閱週期與費用、CSV） |
@@ -49,6 +49,18 @@
 | PWA / Service Worker | 完成 |
 | 語音導航與表單填寫 | 完成（含工具子頁導向） |
 | 主題 system/light/dark | 完成 |
+
+## 網站統計 / 關於頁
+
+| 功能 | 狀態 |
+|---|---|
+| 進站人次（每 session 一次） | 完成（sitevisit 表、`stats_api.php?action=site_visit`） |
+| 連續進站天數（台北日曆日） | 完成（斷一天重算，顯示今天／昨天才保留） |
+| 選單使用 Top 5 | 完成（menuusage 表，點選選單時累加） |
+| 銀行總存款歷史極值與比上次比對 | 完成（localStorage 快照，對齊 useBankSessionCompare） |
+| 網站營運天數（2025-09-28 起算） | 完成 |
+| 關於頁統計 banner 與統計區 | 完成 |
+| 設定頁初始化 sitevisit / menuusage | 完成 |
 
 ## 刻意不移植（架構專屬）
 

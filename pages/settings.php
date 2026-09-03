@@ -111,6 +111,12 @@ $biggoSettings = [
             </a>
             <span style="font-size: 0.82em; color: #888; margin-left: 10px;">建立資料表 或 補齊新欄位</span>
         </div>
+        <div style="margin-top: 10px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="initSiteStatTables()">
+                <i class="fa-solid fa-chart-column"></i> 初始化進站／選單統計表（sitevisit、menuusage）
+            </button>
+            <span id="siteStatInitResult" style="margin-left: 10px; font-size: 0.85em; color: var(--muted-text);"></span>
+        </div>
     </div>
 
     <div class="card" style="margin-top: 20px;">
@@ -589,6 +595,9 @@ $biggoSettings = [
         $pdo = getConnection();
         $tables = [
             'subscription' => '訂閱',
+            'trialpurchase' => '試用/首購',
+            'reinstall' => '重灌',
+            'quota' => '額度',
             'food' => '食品',
             'article' => '筆記/文章',
             'commonaccount' => '常用帳號',
@@ -597,7 +606,9 @@ $biggoSettings = [
             'podcast' => '播客',
             'commondocument' => '文件',
             'bank' => '銀行',
-            'routine' => '例行事項'
+            'routine' => '例行事項',
+            'sitevisit' => '進站統計',
+            'menuusage' => '選單使用'
         ];
         ?>
         <table class="table">
@@ -661,6 +672,25 @@ $biggoSettings = [
 
 <script>
     let unusedStorageFiles = [];
+
+    function initSiteStatTables() {
+        const result = document.getElementById('siteStatInitResult');
+        if (result) result.textContent = '初始化中…';
+        fetch('stats_api.php?action=init_site_tables', { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.error || '初始化失敗');
+                if (result) {
+                    result.innerHTML = '<span style="color:#059669;">✓ sitevisit、menuusage 已建立／補齊</span>';
+                }
+                setTimeout(() => window.location.reload(), 900);
+            })
+            .catch(err => {
+                if (result) {
+                    result.innerHTML = '<span style="color:#e11d48;">✗ ' + String(err.message || err) + '</span>';
+                }
+            });
+    }
 
     function formatStorageSize(bytes) {
         const units = ['B', 'KB', 'MB', 'GB'];

@@ -195,6 +195,7 @@ $uploadBucketLabels = [
 ];
 ?>
 
+<?php if (empty($dashboardEmbedded)): ?>
 <div class="content-header">
     <div class="page-intro">
         <span class="eyebrow">Overview</span>
@@ -209,6 +210,7 @@ $uploadBucketLabels = [
         </button>
     </div>
 </div>
+<?php endif; ?>
 
 <div class="content-body">
     <section class="hero-panel dashboard-hero">

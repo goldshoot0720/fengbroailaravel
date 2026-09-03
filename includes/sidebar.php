@@ -1,6 +1,6 @@
 <?php
 $menuGroups = [
-    'overview' => ['label' => '總覽', 'icon' => 'fa-compass', 'items' => ['home' => ['label' => '鋒兄首頁', 'icon' => 'fa-house'], 'dashboard' => ['label' => '鋒兄儀表', 'icon' => 'fa-gauge-high']]],
+    'overview' => ['label' => '總覽', 'icon' => 'fa-compass', 'items' => ['home' => ['label' => '鋒兄首頁', 'icon' => 'fa-house']]],
     'personal' => ['label' => '生活管理', 'icon' => 'fa-calendar-check', 'items' => ['subscription' => ['label' => '鋒兄訂閱', 'icon' => 'fa-credit-card'], 'trialpurchase' => ['label' => '鋒兄試用/首購', 'icon' => 'fa-flask'], 'reinstall' => ['label' => '鋒兄重灌', 'icon' => 'fa-laptop'], 'quota' => ['label' => '鋒兄額度', 'hint' => '剩餘次數', 'icon' => 'fa-gauge-high'], 'food' => ['label' => '鋒兄食品', 'hint' => '商品庫存', 'icon' => 'fa-boxes-stacked'], 'bank' => ['label' => '鋒兄銀行', 'hint' => '電子票證', 'icon' => 'fa-building-columns'], 'routine' => ['label' => '鋒兄例行', 'icon' => 'fa-clock-rotate-left']]],
     'knowledge' => ['label' => '知識管理', 'icon' => 'fa-book-open', 'items' => ['notes' => ['label' => '鋒兄筆記', 'icon' => 'fa-note-sticky'], 'favorites' => ['label' => '鋒兄常用', 'icon' => 'fa-star'], 'documents' => ['label' => '鋒兄文件', 'icon' => 'fa-folder-open']]],
     'media' => ['label' => '媒體庫', 'icon' => 'fa-photo-film', 'items' => ['images' => ['label' => '鋒兄圖片', 'icon' => 'fa-image'], 'videos' => ['label' => '鋒兄影片', 'icon' => 'fa-video'], 'music' => ['label' => '鋒兄音樂', 'icon' => 'fa-music'], 'podcast' => ['label' => '鋒兄播客', 'icon' => 'fa-podcast']]],
@@ -25,11 +25,18 @@ function closeMobileMenu(){document.querySelector('.sidebar')?.classList.remove(
 function toggleMenuGroup(button){if(window.innerWidth>768)return;const group=button.closest('.menu-group');const open=!group.classList.contains('is-open');group.classList.toggle('is-open',open);button.setAttribute('aria-expanded',String(open));localStorage.setItem('fengbro_menu_'+group.dataset.menuGroup,open?'1':'0');}
 document.querySelectorAll('.menu-group:not(.is-open)').forEach(group=>{if(localStorage.getItem('fengbro_menu_'+group.dataset.menuGroup)==='1'){group.classList.add('is-open');group.querySelector('.menu-group-toggle').setAttribute('aria-expanded','true');}});
 function rememberLastMenu(){const page=document.body.dataset.page||'';if(!page||page==='home')return;let tool=document.body.dataset.tool||'';if(!/^[a-z0-9-]+$/i.test(tool))tool='';const url=(tool?'page='+page+'&tool='+encodeURIComponent(tool):'page='+page);localStorage.setItem('fengbro_last_menu',url);}
-function restoreLastMenu(){const page=document.body.dataset.page||'';if(page&&page!=='home')return;const url=localStorage.getItem('fengbro_last_menu');if(!url||url==='page=home')return;const target='index.php?'+url;const current=window.location.href.split('#')[0];if(current.indexOf('index.php?'+url)>-1||current.indexOf('/?'+url)>-1||current.indexOf('?'+url)>-1)return;window.location.replace(target);}
-function handleMenuNav(link){closeMobileMenu();const m=link.dataset.menuUrl;if(!m)return;if(m==='page=home'){localStorage.removeItem('fengbro_last_menu');}else{localStorage.setItem('fengbro_last_menu',m);}}
+function restoreLastMenu(){const page=document.body.dataset.page||'';if(page&&page!=='home')return;let url=localStorage.getItem('fengbro_last_menu');if(!url||url==='page=home')return;if(url==='page=dashboard'){localStorage.removeItem('fengbro_last_menu');return;}const target='index.php?'+url;const current=window.location.href.split('#')[0];if(current.indexOf('index.php?'+url)>-1||current.indexOf('/?'+url)>-1||current.indexOf('?'+url)>-1)return;window.location.replace(target);}
+function handleMenuNav(link){closeMobileMenu();const m=link.dataset.menuUrl;if(!m)return;if(m==='page=home'){localStorage.removeItem('fengbro_last_menu');}else{localStorage.setItem('fengbro_last_menu',m);}recordMenuUsage(fengbroModuleIdFromUrl(m));}
 restoreLastMenu();
 rememberLastMenu();
 function syncTopbarVar(){const s=document.querySelector('.sidebar');if(!s)return;document.documentElement.style.setProperty('--topbar-h',Math.round(s.getBoundingClientRect().height)+'px');}
 if(window.innerWidth>768){syncTopbarVar();window.addEventListener('resize',syncTopbarVar);document.querySelectorAll('.sidebar .menu-group').forEach(g=>{g.addEventListener('mouseenter',()=>g.classList.add('is-hover'));g.addEventListener('mouseleave',()=>g.classList.remove('is-hover'));});}
 function togglePrivateValues(){const show=!document.body.classList.contains('show-private-values');document.body.classList.toggle('show-private-values',show);const b=document.getElementById('privacyToggle');b.setAttribute('aria-pressed',String(show));b.querySelector('span').textContent=show?'隱藏私密資料':'顯示私密資料';b.querySelector('i').className=show?'fa-solid fa-eye':'fa-solid fa-eye-slash';}
+
+// ── 網站統計（對齊 Appwrite /api/site-visit 與 /api/menu-usage）──────────────
+const SITE_VISIT_SESSION_KEY = 'fengbro-site-visit-logged';
+function fengbroModuleIdFromUrl(url){const m=String(url||'').match(/page=([a-z0-9-]+)/i);if(!m)return '';const page=m[1].toLowerCase();if(page==='home')return 'home';const tool=String(url||'').match(/tool=([a-z0-9-]+)/i);if(page==='tools'&&tool)return 'tool:'+tool[1].toLowerCase();return page;}
+function recordSiteVisit(){try{if(sessionStorage.getItem(SITE_VISIT_SESSION_KEY))return;sessionStorage.setItem(SITE_VISIT_SESSION_KEY,'1');}catch(e){}fetch('stats_api.php?action=site_visit',{method:'POST'}).catch(function(){});}
+function recordMenuUsage(moduleId){if(!moduleId||moduleId==='home')return;fetch('stats_api.php?action=menu_usage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moduleId:moduleId})}).catch(function(){});}
+recordSiteVisit();
 </script>
