@@ -54,7 +54,11 @@ $pageTitles = [
 $pageTitle = $pageTitles[$page] ?? '鋒兄首頁';
 $bodyDataTool = '';
 if (($page ?? '') === 'tools') {
-    $bodyDataTool = (string) ($_GET['tool'] ?? '');
+    $requestedTool = (string) ($_GET['tool'] ?? '');
+    $bodyDataTool = in_array($requestedTool, [
+        'price', 'phone', 'manual', 'tube', 'finance', 'news',
+        'image-convert', 'image-voice', 'video-merge', 'yt-bili',
+    ], true) ? $requestedTool : '';
 }
 
 include 'includes/header.php';
