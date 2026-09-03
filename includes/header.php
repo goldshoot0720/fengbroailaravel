@@ -31,6 +31,6 @@
     <script src="assets/js/security.js?v=20260821"></script>
 </head>
 
-<body>
+<body data-page="<?php echo htmlspecialchars($page ?? '', ENT_QUOTES, 'UTF-8'); ?>" data-tool="<?php echo htmlspecialchars($bodyDataTool ?? '', ENT_QUOTES, 'UTF-8'); ?>">
     <a class="skip-link" href="#mainContent">跳至主要內容</a>
     <div class="container">

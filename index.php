@@ -52,6 +52,10 @@ $pageTitles = [
     'service' => '服務資訊'
 ];
 $pageTitle = $pageTitles[$page] ?? '鋒兄首頁';
+$bodyDataTool = '';
+if (($page ?? '') === 'tools') {
+    $bodyDataTool = (string) ($_GET['tool'] ?? '');
+}
 
 include 'includes/header.php';
 include 'includes/sidebar.php';
