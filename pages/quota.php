@@ -144,7 +144,7 @@ foreach ($items as $item) {
                 <label>5 小時比例（%）
                     <input class="form-control" id="quotaRatio5h" type="number" min="0" max="100" step="1" value="0">
                 </label>
-                <label>5 小時到期（24 小時制）
+                <label>5 小時到期
                     <input class="form-control" id="quotaExpiry5h" type="time" step="60" placeholder="14:30">
                 </label>
                 <label>一週比例（%）
