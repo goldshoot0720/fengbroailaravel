@@ -299,6 +299,8 @@ foreach ($items as $item) {
     .chip-muted { background: #eef2f7; color: #475569; }
     .serial-line { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
     .serial-code { display: block; flex: 1; min-width: 0; word-break: break-all; background: var(--table-header-bg, #f4f7fb); padding: 6px 8px; border-radius: 8px; }
+    .serial-code[data-masked="0"] { filter: none !important; user-select: text !important; }
+    .serial-code[data-masked="1"] { filter: blur(6px); user-select: none; }
     .mgmt-dialog { position: fixed; inset: 0; z-index: 120; background: rgba(15, 23, 42, 0.4); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .mgmt-dialog[hidden] { display: none !important; }
     .mgmt-dialog-card { width: min(420px, 100%); background: var(--card-bg); border-radius: 18px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
