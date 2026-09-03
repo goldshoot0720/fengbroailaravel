@@ -254,7 +254,7 @@ $uploadBucketLabels = [
             <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
             <span class="metric-label">Quota</span>
             <strong><?php echo $quotaCount; ?></strong>
-            <small>AI service points and daily quota</small>
+            <small>Remaining uses, ratio and expiry</small>
         </a>
         <a href="index.php?page=food" class="metric-card">
             <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>
