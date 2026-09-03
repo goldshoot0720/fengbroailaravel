@@ -8,6 +8,22 @@ $toolSubpage = in_array($toolSubpage, [
     'price', 'phone', 'manual', 'tube', 'finance', 'news',
     'image-convert', 'image-voice', 'video-merge', 'yt-bili',
 ], true) ? $toolSubpage : 'price';
+if ($toolSubpage === 'manual') {
+    // 手動價格紀錄以伺服器表為主（跨瀏覽器同步），頁面載入時確保表存在。
+    try {
+        fengbroEnsureManualPriceTable(getConnection());
+    } catch (Throwable $e) {
+        // 表建立失敗時前端仍可離線運作（localStorage 快取）
+    }
+}
+if ($toolSubpage === 'finance') {
+    // 金融自訂標的同步到 financeinstrument 表（JSON 仍為行情主要來源）。
+    try {
+        fengbroEnsureFinanceInstrumentTable(getConnection());
+    } catch (Throwable $e) {
+        // ignore
+    }
+}
 if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['tube_action'] ?? '') !== '') {
     $channels = fengbroTubeChannels();
     $action = (string) ($_POST['tube_action'] ?? '');
@@ -251,7 +267,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
                 <div>
                     <h3 class="card-title" style="margin-bottom:4px;"><i class="fa-solid fa-clipboard-list"></i> 手動價格紀錄</h3>
-                    <p style="color:var(--muted-text);line-height:1.6;margin:0;">自行登錄商品價格與日期，瀏覽器本機儲存（localStorage），支援 CSV 匯出／匯入合併（對齊 Appwrite ManualPriceTracker）。</p>
+                    <p style="color:var(--muted-text);line-height:1.6;margin:0;">自行登錄商品價格與日期；資料存於伺服器（跨瀏覽器同步，對齊 Appwrite ManualPriceTracker），本機僅作離線快取與首次遷移來源。支援 CSV 匯出／匯入合併。</p>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button type="button" class="btn btn-ghost" data-mp-export><i class="fa-solid fa-download"></i> 匯出 CSV</button>

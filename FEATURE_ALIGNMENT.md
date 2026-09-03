@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 購物清單模組與統一五模組到期提醒窗口。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 工具個人清單雲端同步（manualprice／tubechannel／financeinstrument 表）與通知設定密碼保護。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -31,10 +31,10 @@
 | Appwrite 工具 | PHP 入口 `?tool=` | 狀態 |
 |---|---|---|
 | 鋒兄比價 BigGo | `price` | 完成 |
-| ManualPriceTracker | `manual` | 完成（localStorage + CSV） |
+| ManualPriceTracker | `manual` | 完成（**伺服器 manualprice 表為準**，跨瀏覽器同步；localStorage 降為離線快取與首次遷移來源 + CSV） |
 | 手機比價 landtop+jyes | `phone` | 完成（獨立分頁、快照、歷史 CSV 匯出/匯入） |
-| 鋒兄Tube | `tube` | 完成（頻道 CSV） |
-| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**、連結圖片、YouTube/Bilibili/自訂網址） |
+| 鋒兄Tube | `tube` | 完成（頻道 CSV；**tubechannel 表取代 JSON**，舊 JSON 首次自動遷移） |
+| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**、連結圖片、YouTube/Bilibili/自訂網址；**financeinstrument 表寫入同步**） |
 | 鋒兄新聞 + 便當 | `news` | 完成 |
 | PNG/JPEG 轉換 | `image-convert` | 完成 |
 | ImageVoiceVideo | `image-voice` | 完成（多語 TTS、翻譯、人臉選聲、一鍵 MP4） |
@@ -46,6 +46,7 @@
 | 功能 | 狀態 |
 |---|---|
 | Resend 到期通知 | 完成 |
+| 通知設定密碼 | 完成（可選通知密碼，儲存／變更 RESEND／BigGo 金鑰需驗證；對齊 notification-settings，Cron 不受阻擋） |
 | Web Push | 完成 |
 | 通知自檢 notif_diag | 完成 |
 | 到期提醒窗口 | 完成（訂閱/試用首購/購物清單/額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 一週/一月前一天與當天；完整儀表每日本機通知 + 推播彙總） |

@@ -192,7 +192,95 @@ function fengbroFinanceWriteConfig(array $config)
         @mkdir($dir, 0755, true);
     }
     @file_put_contents($path, json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    fengbroFinanceSyncToInstrumentTable($config);
     fengbroFinanceClearDataCache();
+}
+
+/**
+ * 把 finance config（自訂標的＋精選）同步到 financeinstrument 表（additive write-through）。
+ * JSON 仍為行情邏輯主要來源；寫入表失敗不影響原功能。
+ */
+function fengbroFinanceSyncToInstrumentTable(array $config): void
+{
+    if (!function_exists('getConnection') || !function_exists('fengbroEnsureFinanceInstrumentTable')) {
+        return;
+    }
+    try {
+        $pdo = getConnection();
+        fengbroEnsureFinanceInstrumentTable($pdo);
+    } catch (Throwable $e) {
+        return;
+    }
+
+    $featuredIds = array_flip((array) ($config['featuredIds'] ?? []));
+    $imageById = (array) ($config['imageById'] ?? []);
+    $relatedById = (array) ($config['relatedLinksById'] ?? []);
+    $youtubeById = (array) ($config['youtubeById'] ?? []);
+    $bilibiliById = (array) ($config['bilibiliById'] ?? []);
+
+    $rows = [];
+    $index = 0;
+    // 自訂標的（每筆一列）
+    foreach ((array) ($config['custom'] ?? []) as $custom) {
+        if (!is_array($custom)) {
+            continue;
+        }
+        $id = (string) ($custom['id'] ?? ('custom-' . ($index++)));
+        $symbol = strtoupper(trim((string) ($custom['symbol'] ?? '')));
+        $name = trim((string) ($custom['name'] ?? ''));
+        if ($name === '' || $symbol === '') {
+            continue;
+        }
+        $provider = in_array((string) ($custom['provider'] ?? ''), ['yahoo', 'cnbc'], true) ? $custom['provider'] : 'yahoo';
+        $groupRaw = strtolower(trim((string) ($custom['group'] ?? 'other')));
+        $rows[] = [
+            'id' => $id,
+            'name' => fengbroMbCut($name, 200),
+            'symbol' => fengbroMbCut($symbol, 64),
+            'provider' => $provider,
+            'group' => in_array($groupRaw, ['korea', 'japan', 'taiwan', 'us', 'other'], true) ? $groupRaw : 'other',
+            'imageUrls' => is_array($imageById[$id] ?? null) ? implode("\n", array_slice($imageById[$id], 0, 9)) : '',
+            'youtubeUrl' => (string) ($youtubeById[$id] ?? $custom['youtubeUrl'] ?? ''),
+            'bilibiliUrl' => (string) ($bilibiliById[$id] ?? $custom['bilibiliUrl'] ?? ''),
+            'relatedLinks' => is_array($relatedById[$id] ?? null) ? json_encode($relatedById[$id], JSON_UNESCAPED_UNICODE) : '',
+            'featured' => isset($featuredIds[$id]) ? 1 : 0,
+        ];
+    }
+
+    if (!$rows) {
+        return;
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO financeinstrument
+            (id, name, symbol, provider, `group`, imageUrls, youtubeUrl, bilibiliUrl, relatedLinks, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            name = VALUES(name),
+            imageUrls = VALUES(imageUrls),
+            youtubeUrl = VALUES(youtubeUrl),
+            bilibiliUrl = VALUES(bilibiliUrl),
+            relatedLinks = VALUES(relatedLinks),
+            featured = VALUES(featured)"
+    );
+    foreach ($rows as $row) {
+        try {
+            $stmt->execute([
+                $row['id'],
+                $row['name'],
+                $row['symbol'],
+                $row['provider'],
+                $row['group'],
+                $row['imageUrls'],
+                $row['youtubeUrl'],
+                $row['bilibiliUrl'],
+                $row['relatedLinks'],
+                $row['featured'],
+            ]);
+        } catch (Throwable $e) {
+            // 單筆失敗不中斷
+        }
+    }
 }
 
 function fengbroFinanceClearDataCache()

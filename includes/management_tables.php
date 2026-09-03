@@ -750,3 +750,179 @@ function fengbroFindShoppingImportId(PDO $pdo, array $data): ?string
     $id = $stmt->fetchColumn();
     return $id ? (string) $id : null;
 }
+
+function fengbroManualPriceCreateSql(): string
+{
+    return "CREATE TABLE IF NOT EXISTS manualprice (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            currency VARCHAR(10) DEFAULT 'TWD',
+            recordsJson TEXT,
+            localId VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_local_id (localId)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+}
+
+function fengbroEnsureManualPriceTable(?PDO $pdo = null): void
+{
+    $pdo = $pdo ?: getConnection();
+    $pdo->exec(fengbroManualPriceCreateSql());
+    fengbroEnsureTableColumns($pdo, 'manualprice', [
+        "name VARCHAR(200) NOT NULL",
+        "currency VARCHAR(10) DEFAULT 'TWD'",
+        "recordsJson TEXT",
+        "localId VARCHAR(100)",
+    ]);
+}
+
+const FENGBRO_MANUAL_PRICE_CURRENCIES = ['TWD', 'USD', 'JPY'];
+const FENGBRO_MANUAL_PRICE_MAX_RECORDS = 200;
+
+function fengbroManualPriceNormalizeCurrency($value): string
+{
+    $code = strtoupper(trim((string) $value));
+    return in_array($code, FENGBRO_MANUAL_PRICE_CURRENCIES, true) ? $code : 'TWD';
+}
+
+/** 解析並正規化 recordsJson（每筆需 id/price/date，price>=0；note 可選）。 */
+function fengbroManualPriceParseRecordsJson(?string $raw): array
+{
+    if ($raw === null || trim($raw) === '') {
+        return [];
+    }
+    $parsed = json_decode($raw, true);
+    if (!is_array($parsed)) {
+        return [];
+    }
+    $out = [];
+    foreach ($parsed as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $price = filter_var($item['price'] ?? null, FILTER_VALIDATE_FLOAT);
+        if ($price === false || $price < 0) {
+            continue;
+        }
+        $date = trim((string) ($item['date'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            continue;
+        }
+        $id = trim((string) ($item['id'] ?? ''));
+        if ($id === '') {
+            $id = generateUUID();
+        }
+        $note = trim((string) ($item['note'] ?? ''));
+        $rec = [
+            'id' => $id,
+            'price' => (float) $price,
+            'date' => $date,
+        ];
+        if ($note !== '') {
+            $rec['note'] = fengbroMbCut($note, 200);
+        }
+        $out[] = $rec;
+        if (count($out) >= FENGBRO_MANUAL_PRICE_MAX_RECORDS) {
+            break;
+        }
+    }
+    usort($out, static function (array $a, array $b): int {
+        return strcmp((string) $a['date'], (string) $b['date']) ?: strcmp((string) $a['id'], (string) $b['id']);
+    });
+    return $out;
+}
+
+function fengbroManualPriceSerializeRecords(array $records): string
+{
+    $records = fengbroManualPriceParseRecordsJson(json_encode($records, JSON_UNESCAPED_UNICODE));
+    $clean = array_map(static function (array $r): array {
+        $item = ['id' => $r['id'], 'price' => $r['price'], 'date' => $r['date']];
+        if (!empty($r['note'])) {
+            $item['note'] = $r['note'];
+        }
+        return $item;
+    }, $records);
+    return json_encode($clean, JSON_UNESCAPED_UNICODE);
+}
+
+function fengbroSanitizeManualPriceRow(array $input): array
+{
+    $name = fengbroMbCut($input['name'] ?? '', 200);
+    if ($name === '') {
+        throw new InvalidArgumentException('商品名稱為必填');
+    }
+    $recordsSource = $input['records'] ?? null;
+    if ($recordsSource !== null) {
+        $recordsJson = fengbroManualPriceSerializeRecords(is_array($recordsSource) ? $recordsSource : []);
+    } else {
+        $recordsRaw = $input['recordsJson'] ?? '[]';
+        $recordsJson = fengbroManualPriceSerializeRecords(
+            fengbroManualPriceParseRecordsJson(
+                is_string($recordsRaw) ? $recordsRaw : json_encode(is_array($recordsRaw) ? $recordsRaw : [])
+            )
+        );
+    }
+    $localId = trim((string) ($input['localId'] ?? ''));
+    if ($localId !== '' && strlen($localId) > 100) {
+        $localId = substr($localId, 0, 100);
+    }
+    return [
+        'name' => $name,
+        'currency' => fengbroManualPriceNormalizeCurrency($input['currency'] ?? 'TWD'),
+        'recordsJson' => $recordsJson,
+        'localId' => $localId,
+    ];
+}
+
+/** 把 DB row 轉成前端用的 product 物件。 */
+function fengbroManualPriceToClientProduct(array $row): array
+{
+    $created = strtotime((string) ($row['created_at'] ?? 'now')) ?: time();
+    $updated = strtotime((string) ($row['updated_at'] ?? 'now')) ?: time();
+    return [
+        'id' => (string) $row['id'],
+        'name' => (string) ($row['name'] ?? ''),
+        'currency' => fengbroManualPriceNormalizeCurrency($row['currency'] ?? 'TWD'),
+        'localId' => trim((string) ($row['localId'] ?? '')) !== '' ? (string) $row['localId'] : null,
+        'createdAt' => $created * 1000,
+        'updatedAt' => $updated * 1000,
+        'records' => fengbroManualPriceParseRecordsJson($row['recordsJson'] ?? null),
+    ];
+}
+
+function fengbroFinanceInstrumentCreateSql(): string
+{
+    return "CREATE TABLE IF NOT EXISTS financeinstrument (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            symbol VARCHAR(64) NOT NULL,
+            provider VARCHAR(20) NOT NULL DEFAULT 'yahoo',
+            `group` VARCHAR(20) DEFAULT 'other',
+            imageUrls TEXT,
+            youtubeUrl VARCHAR(2000) DEFAULT '',
+            bilibiliUrl VARCHAR(2000) DEFAULT '',
+            relatedLinks TEXT,
+            featured TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_provider_symbol (provider, symbol)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+}
+
+function fengbroEnsureFinanceInstrumentTable(?PDO $pdo = null): void
+{
+    $pdo = $pdo ?: getConnection();
+    $pdo->exec(fengbroFinanceInstrumentCreateSql());
+    fengbroEnsureTableColumns($pdo, 'financeinstrument', [
+        "name VARCHAR(200) NOT NULL",
+        "symbol VARCHAR(64) NOT NULL",
+        "provider VARCHAR(20) NOT NULL DEFAULT 'yahoo'",
+        "`group` VARCHAR(20) DEFAULT 'other'",
+        "imageUrls TEXT",
+        "youtubeUrl VARCHAR(2000) DEFAULT ''",
+        "bilibiliUrl VARCHAR(2000) DEFAULT ''",
+        "relatedLinks TEXT",
+        "featured TINYINT(1) DEFAULT 0",
+    ]);
+}

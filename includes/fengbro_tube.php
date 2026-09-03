@@ -46,6 +46,133 @@ function fengbroTubeChannelsPath()
     return __DIR__ . '/../uploads/temp/fengbro_tube_channels.json';
 }
 
+function fengbroTubeEnsureChannelTable(?PDO $pdo = null): void
+{
+    $pdo = $pdo ?: (function_exists('getConnection') ? getConnection() : null);
+    if (!$pdo) {
+        return;
+    }
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tubechannel (
+        id VARCHAR(36) PRIMARY KEY,
+        sourceUrl VARCHAR(500) NOT NULL,
+        alias VARCHAR(200) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_source_url (sourceUrl(191))
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+/** 讀取 Tube 頻道清單：優先 DB，DB 空且舊 JSON 有資料時自動遷移。 */
+function fengbroTubeReadChannelsFile()
+{
+    $pdo = function_exists('getConnection') ? getConnection() : null;
+    if (!$pdo) {
+        return null;
+    }
+    try {
+        fengbroTubeEnsureChannelTable($pdo);
+        $rows = $pdo->query('SELECT sourceUrl, alias FROM tubechannel ORDER BY created_at ASC, id ASC')->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return null;
+    }
+
+    if (empty($rows)) {
+        // 舊 JSON 一次性遷移（對齊 Appwrite cloud-sync：JSON → 雲端表）
+        $jsonPath = fengbroTubeChannelsPath();
+        if (!is_file($jsonPath)) {
+            return null;
+        }
+        $data = json_decode((string) @file_get_contents($jsonPath), true);
+        if (!is_array($data)) {
+            return null;
+        }
+        $channels = [];
+        $seen = [];
+        foreach ($data as $channel) {
+            $normalized = fengbroTubeNormalizeChannel($channel);
+            if ($normalized !== null && !isset($seen[$normalized['url']])) {
+                $seen[$normalized['url']] = true;
+                $channels[] = $normalized;
+            }
+        }
+        if ($channels) {
+            fengbroTubeSaveChannels($channels);
+        }
+        return $channels ?: null;
+    }
+
+    $channels = [];
+    foreach ($rows as $row) {
+        $normalized = fengbroTubeNormalizeChannel([
+            'url' => (string) ($row['sourceUrl'] ?? ''),
+            'name' => (string) ($row['alias'] ?? ''),
+        ]);
+        if ($normalized !== null) {
+            $channels[] = $normalized;
+        }
+    }
+    return $channels ?: null;
+}
+
+function fengbroTubeSaveChannels($channels)
+{
+    $normalized = [];
+    foreach ($channels as $channel) {
+        $item = fengbroTubeNormalizeChannel($channel);
+        if ($item !== null) {
+            $normalized[] = $item;
+        }
+    }
+
+    $pdo = function_exists('getConnection') ? getConnection() : null;
+    if ($pdo) {
+        try {
+            fengbroTubeEnsureChannelTable($pdo);
+            $pdo->exec('DELETE FROM tubechannel');
+            $insert = $pdo->prepare('INSERT INTO tubechannel (id, sourceUrl, alias) VALUES (?, ?, ?)');
+            foreach ($normalized as $item) {
+                $insert->execute([
+                    generateUUID(),
+                    (string) ($item['url'] ?? ''),
+                    (string) ($item['name'] ?? ''),
+                ]);
+            }
+            fengbroTubeClearDataCache();
+            return;
+        } catch (Throwable $e) {
+            // DB 寫入失敗時退回 JSON 檔，確保工具仍可用
+        }
+    }
+
+    $path = fengbroTubeChannelsPath();
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    @file_put_contents($path, json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    fengbroTubeClearDataCache();
+}
+
+function fengbroTubeResetChannels()
+{
+    $pdo = function_exists('getConnection') ? getConnection() : null;
+    if ($pdo) {
+        try {
+            fengbroTubeEnsureChannelTable($pdo);
+            $pdo->exec('DELETE FROM tubechannel');
+            fengbroTubeClearDataCache();
+            return;
+        } catch (Throwable $e) {
+            // fall through to file removal
+        }
+    }
+    $path = fengbroTubeChannelsPath();
+    if (is_file($path)) {
+        @unlink($path);
+    }
+    fengbroTubeClearDataCache();
+}
+
 function fengbroTubeReadCache()
 {
     $path = fengbroTubeCachePath();
@@ -71,57 +198,6 @@ function fengbroTubeClearDataCache()
     $cache = fengbroTubeReadCache();
     unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4'], $cache['tube_data_v5']);
     fengbroTubeWriteCache($cache);
-}
-
-function fengbroTubeReadChannelsFile()
-{
-    $path = fengbroTubeChannelsPath();
-    if (!is_file($path)) {
-        return null;
-    }
-
-    $data = json_decode((string) @file_get_contents($path), true);
-    if (!is_array($data)) {
-        return null;
-    }
-
-    $channels = [];
-    foreach ($data as $channel) {
-        $normalized = fengbroTubeNormalizeChannel($channel);
-        if ($normalized !== null) {
-            $channels[] = $normalized;
-        }
-    }
-
-    return $channels;
-}
-
-function fengbroTubeSaveChannels($channels)
-{
-    $normalized = [];
-    foreach ($channels as $channel) {
-        $item = fengbroTubeNormalizeChannel($channel);
-        if ($item !== null) {
-            $normalized[] = $item;
-        }
-    }
-
-    $path = fengbroTubeChannelsPath();
-    $dir = dirname($path);
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0755, true);
-    }
-    @file_put_contents($path, json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
-    fengbroTubeClearDataCache();
-}
-
-function fengbroTubeResetChannels()
-{
-    $path = fengbroTubeChannelsPath();
-    if (is_file($path)) {
-        @unlink($path);
-    }
-    fengbroTubeClearDataCache();
 }
 
 function fengbroTubeNormalizeChannel($channel)

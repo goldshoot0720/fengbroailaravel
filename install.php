@@ -238,6 +238,19 @@ try {
 
         "shoppinglist" => fengbroShoppingListCreateSql(),
 
+        "manualprice" => fengbroManualPriceCreateSql(),
+
+        "tubechannel" => "CREATE TABLE IF NOT EXISTS tubechannel (
+            id VARCHAR(36) PRIMARY KEY,
+            sourceUrl VARCHAR(500) NOT NULL,
+            alias VARCHAR(200) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_source_url (sourceUrl(191))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "financeinstrument" => fengbroFinanceInstrumentCreateSql(),
+
         "sitevisit" => "CREATE TABLE IF NOT EXISTS sitevisit (
             id VARCHAR(36) PRIMARY KEY,
             count INT NOT NULL DEFAULT 0,

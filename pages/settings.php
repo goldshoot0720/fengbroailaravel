@@ -8,7 +8,57 @@ $resendSettingsMessage = '';
 $resendSettingsError = '';
 $biggoSettingsMessage = '';
 $biggoSettingsError = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_resend') {
+
+// ── 通知設定密碼（對齊 Appwrite notification-settings）───────────────────────
+$notifPasswordHash = fengbroResendGetSetting($pdo, 'notif_password_hash');
+$notifPasswordSet = $notifPasswordHash !== '';
+$notifPasswordAction = (string) ($_POST['notif_password_action'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $notifPasswordAction !== '') {
+    $enteredPassword = (string) ($_POST['notif_password'] ?? '');
+    $enteredNewPassword = (string) ($_POST['notif_password_new'] ?? '');
+    if ($notifPasswordAction === 'set' && !$notifPasswordSet) {
+        if (strlen($enteredNewPassword) < 4) {
+            $resendSettingsError = '通知密碼至少 4 碼。';
+        } else {
+            fengbroResendSaveSetting($pdo, 'notif_password_hash', password_hash($enteredNewPassword, PASSWORD_DEFAULT));
+            $notifPasswordSet = true;
+            $resendSettingsMessage = '通知密碼已建立。之後顯示或變更 RESEND／BigGo 金鑰前都需驗證此密碼。';
+        }
+    } elseif ($notifPasswordAction === 'change' && $notifPasswordSet) {
+        if (!password_verify($enteredPassword, $notifPasswordHash)) {
+            $resendSettingsError = '目前的通知密碼不正確。';
+        } elseif (strlen($enteredNewPassword) < 4) {
+            $resendSettingsError = '新密碼至少 4 碼。';
+        } else {
+            fengbroResendSaveSetting($pdo, 'notif_password_hash', password_hash($enteredNewPassword, PASSWORD_DEFAULT));
+            $resendSettingsMessage = '通知密碼已更新。';
+        }
+    } elseif ($notifPasswordAction === 'clear' && $notifPasswordSet) {
+        if (!password_verify($enteredPassword, $notifPasswordHash)) {
+            $resendSettingsError = '目前的通知密碼不正確，無法移除密碼保護。';
+        } else {
+            fengbroResendSaveSetting($pdo, 'notif_password_hash', '');
+            $notifPasswordSet = false;
+            $resendSettingsMessage = '通知密碼已移除。';
+        }
+    }
+}
+
+// 已設定通知密碼時，儲存金鑰類設定（RESEND / BigGo）需先驗證密碼
+$resendGatePassed = true;
+$requestedKeyAction = in_array((string) ($_POST['settings_action'] ?? ''), ['save_resend', 'save_biggo'], true)
+    && $_SERVER['REQUEST_METHOD'] === 'POST';
+if ($requestedKeyAction) {
+    if (!$notifPasswordSet) {
+        $resendGatePassed = false;
+        $resendSettingsError = '尚未設定通知密碼。請先在上方「通知設定密碼」建立至少 4 碼密碼，才能儲存 API 金鑰。';
+    } elseif (!password_verify((string) ($_POST['notif_password'] ?? ''), $notifPasswordHash)) {
+        $resendGatePassed = false;
+        $resendSettingsError = '通知密碼不正確，無法儲存金鑰。';
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $resendGatePassed && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
         for ($slot = 1; $slot <= 3; $slot++) {
             $suffix = $slot <= 1 ? '' : (string) $slot;
@@ -38,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') =
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['settings_action'] ?? '') === 'save_biggo') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $resendGatePassed && ($_POST['settings_action'] ?? '') === 'save_biggo') {
     try {
         $biggoKeys = [
             'BIGGO_API_KEY',
@@ -138,6 +188,34 @@ $biggoSettings = [
     </div>
 
     <div class="card" style="margin-top: 20px;">
+        <h3 class="card-title">通知設定密碼</h3>
+        <p style="color: var(--muted-text); font-size: 0.9rem; margin-bottom: 12px;">
+            對齊 Appwrite notification-settings：設定後，儲存或顯示 RESEND／BigGo API 金鑰都需先驗證此密碼。
+            Cron 自動寄信／推播不受此密碼阻擋。
+        </p>
+        <form method="post" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+            <input type="hidden" name="notif_password_action" value="<?php echo $notifPasswordSet ? 'change' : 'set'; ?>">
+            <?php if ($notifPasswordSet): ?>
+                <label style="display:grid;gap:6px;font-weight:600;">目前密碼
+                    <input class="form-control" type="password" name="notif_password" autocomplete="off" placeholder="輸入目前通知密碼">
+                </label>
+            <?php endif; ?>
+            <label style="display:grid;gap:6px;font-weight:600;"><?php echo $notifPasswordSet ? '新密碼' : '建立密碼（至少 4 碼）'; ?>
+                <input class="form-control" type="password" name="notif_password_new" autocomplete="new-password" minlength="4" required placeholder="至少 4 碼">
+            </label>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-lock"></i> <?php echo $notifPasswordSet ? '更新密碼' : '建立通知密碼'; ?>
+            </button>
+            <?php if ($notifPasswordSet): ?>
+                <button type="submit" class="btn btn-danger" name="notif_password_action" value="clear"
+                    onclick="return confirm('確定移除通知密碼保護？需要輸入目前密碼。')">
+                    <i class="fa-solid fa-unlock"></i> 移除密碼
+                </button>
+            <?php endif; ?>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">RESEND Email 通知</h3>
         <?php if ($resendSettingsMessage): ?>
             <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsMessage); ?></div>
@@ -147,6 +225,14 @@ $biggoSettings = [
         <?php endif; ?>
         <form method="post">
             <input type="hidden" name="settings_action" value="save_resend">
+            <?php if ($notifPasswordSet): ?>
+                <div style="margin-bottom:12px;">
+                    <label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--muted-text);">
+                        <i class="fa-solid fa-lock"></i> 通知密碼
+                        <input class="form-control" type="password" name="notif_password" autocomplete="off" placeholder="輸入通知密碼後才能儲存金鑰" style="width:240px;" required>
+                    </label>
+                </div>
+            <?php endif; ?>
             <table class="table">
                 <tr>
                     <th style="width: 200px;"><code>RESEND_API_KEY</code></th>
@@ -258,6 +344,14 @@ $biggoSettings = [
         <?php endif; ?>
         <form method="post">
             <input type="hidden" name="settings_action" value="save_biggo">
+            <?php if ($notifPasswordSet): ?>
+                <div style="margin-bottom:12px;">
+                    <label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--muted-text);">
+                        <i class="fa-solid fa-lock"></i> 通知密碼
+                        <input class="form-control" type="password" name="notif_password" autocomplete="off" placeholder="輸入通知密碼後才能儲存金鑰" style="width:240px;" required>
+                    </label>
+                </div>
+            <?php endif; ?>
             <table class="table">
                 <tr>
                     <th style="width: 240px;"><code>BIGGO_API_KEY</code></th>
@@ -599,6 +693,9 @@ $biggoSettings = [
             'reinstall' => '重灌',
             'quota' => '額度',
             'shoppinglist' => '購物清單',
+            'manualprice' => '手動價格',
+            'tubechannel' => 'Tube 頻道',
+            'financeinstrument' => '金融標的',
             'food' => '食品',
             'article' => '筆記/文章',
             'commonaccount' => '常用帳號',

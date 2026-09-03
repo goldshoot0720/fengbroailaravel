@@ -1,10 +1,15 @@
 /**
- * 手動價格紀錄 — 對齊 Appwrite ManualPriceTracker（localStorage + CSV）。
+ * 手動價格紀錄 — 對齊 Appwrite ManualPriceTracker。
+ *
+ * v2（雲端同步）：資料以伺服器 manualprice 表為主（跨瀏覽器、跨裝置），
+ * localStorage 降為離線快取與「首次遷移」來源。首次載入若伺服器為空且
+ * 本機有舊資料，會把本機資料整批推上伺服器；之後一律讀寫伺服器。
  */
 (function () {
   'use strict';
 
   const STORAGE_KEY = 'fengbro.tools.manualPrice.products';
+  const MIGRATION_FLAG = 'fengbro.tools.manualPrice.migrated.v2';
   const MAX_PRODUCTS = 50;
   const MAX_RECORDS = 200;
   const CURRENCIES = ['TWD', 'USD', 'JPY'];
@@ -19,7 +24,7 @@
     return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
   }
 
-  function loadProducts() {
+  function loadLocalCache() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const list = raw ? JSON.parse(raw) : [];
@@ -29,8 +34,71 @@
     }
   }
 
-  function saveProducts(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_PRODUCTS)));
+  function saveLocalCache(list) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_PRODUCTS)));
+    } catch (e) { /* ignore quota errors */ }
+  }
+
+  function clearLocalCache() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) { /* ignore */ }
+  }
+
+  function serverPayload(product) {
+    return {
+      name: product.name,
+      currency: product.currency || 'TWD',
+      records: (product.records || []).map((r) => ({
+        id: r.id,
+        price: Number(r.price),
+        date: r.date,
+        ...(r.note ? { note: r.note } : {}),
+      })),
+      localId: product.localId || product.id || undefined,
+    };
+  }
+
+  async function fetchServerList() {
+    const res = await fetch('manual_price_api.php', { cache: 'no-store' });
+    const json = await res.json();
+    if (!Array.isArray(json)) throw new Error((json && json.error) || '讀取伺服器資料失敗');
+    return json;
+  }
+
+  async function createServerProduct(payload) {
+    const res = await fetch('manual_price_api.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json || typeof json.id !== 'string') {
+      throw new Error((json && json.error) || '伺服器新增失敗');
+    }
+    return json;
+  }
+
+  async function updateServerProduct(id, payload) {
+    const res = await fetch('manual_price_api.php?id=' + encodeURIComponent(id), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json || typeof json.id !== 'string') {
+      throw new Error((json && json.error) || '伺服器儲存失敗');
+    }
+    return json;
+  }
+
+  async function deleteServerProduct(id) {
+    const res = await fetch('manual_price_api.php?action=delete&id=' + encodeURIComponent(id), { cache: 'no-store' });
+    const json = await res.json();
+    if (!json || json.success !== true) {
+      throw new Error((json && json.error) || '伺服器刪除失敗');
+    }
   }
 
   function formatPrice(price, currency) {
@@ -209,12 +277,43 @@
     );
   }
 
+  async function migrateLocalToServer() {
+    let migrated = false;
+    try {
+      migrated = localStorage.getItem(MIGRATION_FLAG) === '1';
+    } catch (e) { /* ignore */ }
+    if (migrated) return;
+    const local = loadLocalCache();
+    let pushed = false;
+    try {
+      const serverList = await fetchServerList();
+      if (serverList.length === 0 && local.length > 0) {
+        for (const product of local) {
+          try {
+            await createServerProduct(serverPayload(product));
+            pushed = true;
+          } catch (e) { /* keep going */ }
+        }
+      }
+    } catch (e) {
+      // 伺服器暫時不可用：保留本機資料，下次載入再遷移
+      return;
+    }
+    if (pushed || local.length === 0) {
+      clearLocalCache();
+      try {
+        localStorage.setItem(MIGRATION_FLAG, '1');
+      } catch (e) { /* ignore */ }
+    }
+  }
+
   function initManualPriceTool() {
     const root = document.getElementById('manualPriceTool');
     if (!root) return;
 
-    let products = loadProducts();
-    let selectedId = products[0] ? products[0].id : '';
+    let products = [];
+    let selectedId = '';
+    let serverError = '';
 
     const els = {
       list: root.querySelector('[data-mp-list]'),
@@ -238,10 +337,28 @@
       if (els.error) els.error.textContent = msg || '';
     }
 
+    function sortRecords(records) {
+      return (records || []).slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
+    }
+
+    function upsertProduct(serverProduct) {
+      serverProduct.records = sortRecords(serverProduct.records);
+      const idx = products.findIndex((p) => p.id === serverProduct.id);
+      if (idx >= 0) products[idx] = serverProduct;
+      else products.unshift(serverProduct);
+      products = products.slice(0, MAX_PRODUCTS);
+    }
+
+    function refreshCache() {
+      saveLocalCache(products);
+    }
+
     function render() {
-      products = loadProducts();
+      if (els.error) {
+        els.error.textContent = serverError ? '伺服器連線失敗：' + serverError + '（顯示本機快取，恢復連線後會自動同步）' : '';
+      }
       if (selectedId && !products.some((p) => p.id === selectedId)) {
-        selectedId = products[0] ? products[0].id : '';
+        selectedId = products.length ? products[0].id : '';
       }
       if (els.list) {
         if (!products.length) {
@@ -270,24 +387,21 @@
             .join('');
         }
       }
-      const p = selected();
       if (!els.detail) return;
-      if (!p) {
+      const detailProduct = selected();
+      if (!detailProduct) {
         els.detail.innerHTML = '<p class="tool-muted">請選擇或新增商品以登錄價格。</p>';
         return;
       }
-      const records = (p.records || []).slice().sort((a, b) => b.date.localeCompare(a.date));
-      const points = records
-        .slice()
-        .reverse()
-        .map((r) => Number(r.price));
+      const records = (detailProduct.records || []).slice().sort((a, b) => b.date.localeCompare(a.date));
+      const points = records.slice().reverse().map((r) => Number(r.price));
       const rows = records
         .map(
           (r) =>
             '<tr><td>' +
             escapeHtml(r.date) +
             '</td><td>' +
-            escapeHtml(formatPrice(r.price, p.currency)) +
+            escapeHtml(formatPrice(r.price, detailProduct.currency)) +
             '</td><td>' +
             escapeHtml(r.note || '') +
             '</td><td><button type="button" class="btn btn-ghost btn-sm" data-del-record="' +
@@ -297,14 +411,14 @@
         .join('');
       els.detail.innerHTML =
         '<div class="mp-detail-head"><div><h3 style="margin:0;">' +
-        escapeHtml(p.name) +
+        escapeHtml(detailProduct.name) +
         '</h3><p class="tool-muted" style="margin:4px 0 0;">幣別 ' +
-        escapeHtml(p.currency || 'TWD') +
+        escapeHtml(detailProduct.currency || 'TWD') +
         ' · ' +
         records.length +
         ' 筆紀錄</p></div>' +
         '<button type="button" class="btn btn-ghost" data-del-product="' +
-        escapeHtml(p.id) +
+        escapeHtml(detailProduct.id) +
         '"><i class="fa-solid fa-trash"></i> 刪除商品</button></div>' +
         sparkline(points) +
         (rows
@@ -312,6 +426,20 @@
             rows +
             '</tbody></table></div>'
           : '<p class="tool-muted" style="margin-top:12px;">尚無價格紀錄，請於上方表單新增。</p>');
+    }
+
+    async function loadFromServer() {
+      try {
+        await migrateLocalToServer();
+        products = await fetchServerList();
+        serverError = '';
+      } catch (e) {
+        serverError = (e && e.message) || '讀取失敗';
+        products = loadLocalCache();
+      }
+      if (!selectedId && products.length) selectedId = products[0].id;
+      refreshCache();
+      render();
     }
 
     root.addEventListener('click', (ev) => {
@@ -323,20 +451,40 @@
         return;
       }
       if (t.hasAttribute('data-del-product')) {
+        const id = t.getAttribute('data-del-product');
+        const row = products.find((p) => p.id === id);
+        if (!row) return;
         if (!confirm('刪除此商品與所有價格紀錄？')) return;
-        products = products.filter((p) => p.id !== t.getAttribute('data-del-product'));
-        saveProducts(products);
-        selectedId = products[0] ? products[0].id : '';
-        render();
+        setError('');
+        deleteServerProduct(id)
+          .then(() => {
+            products = products.filter((p) => p.id !== id);
+            if (selectedId === id) selectedId = products.length ? products[0].id : '';
+            refreshCache();
+            render();
+          })
+          .catch((e) => {
+            serverError = (e && e.message) || '刪除失敗';
+            render();
+          });
         return;
       }
       if (t.hasAttribute('data-del-record')) {
         const p = selected();
         if (!p) return;
-        p.records = (p.records || []).filter((r) => r.id !== t.getAttribute('data-del-record'));
-        p.updatedAt = Date.now();
-        saveProducts(products);
-        render();
+        const recordId = t.getAttribute('data-del-record');
+        const nextRecords = (p.records || []).filter((r) => r.id !== recordId);
+        setError('');
+        updateServerProduct(p.id, { records: nextRecords })
+          .then((updated) => {
+            upsertProduct(updated);
+            refreshCache();
+            render();
+          })
+          .catch((e) => {
+            serverError = (e && e.message) || '刪除紀錄失敗';
+            render();
+          });
         return;
       }
       if (t.hasAttribute('data-mp-add-product')) {
@@ -358,12 +506,19 @@
           updatedAt: Date.now(),
           records: [],
         };
-        products.unshift(product);
-        saveProducts(products);
-        selectedId = product.id;
-        if (els.name) els.name.value = '';
         setError('');
-        render();
+        createServerProduct(serverPayload(product))
+          .then((created) => {
+            products.unshift(created);
+            selectedId = created.id;
+            if (els.name) els.name.value = '';
+            refreshCache();
+            render();
+          })
+          .catch((e) => {
+            serverError = (e && e.message) || '新增失敗';
+            render();
+          });
         return;
       }
       if (t.hasAttribute('data-mp-add-record')) {
@@ -383,24 +538,31 @@
           setError('請選擇有效日期');
           return;
         }
-        p.records = p.records || [];
-        p.records.push({
+        const nextRecords = (p.records || []).slice();
+        nextRecords.push({
           id: createId(),
           price,
           date,
           note: els.note && els.note.value.trim() ? els.note.value.trim() : undefined,
         });
-        if (p.records.length > MAX_RECORDS) p.records = p.records.slice(-MAX_RECORDS);
-        p.updatedAt = Date.now();
-        saveProducts(products);
-        if (els.price) els.price.value = '';
-        if (els.note) els.note.value = '';
+        if (nextRecords.length > MAX_RECORDS) nextRecords.splice(0, nextRecords.length - MAX_RECORDS);
         setError('');
-        render();
+        updateServerProduct(p.id, { records: nextRecords })
+          .then((updated) => {
+            upsertProduct(updated);
+            if (els.price) els.price.value = '';
+            if (els.note) els.note.value = '';
+            refreshCache();
+            render();
+          })
+          .catch((e) => {
+            serverError = (e && e.message) || '登錄失敗';
+            render();
+          });
         return;
       }
       if (t.hasAttribute('data-mp-export')) {
-        exportCsv(loadProducts());
+        exportCsv(products.length ? products : loadLocalCache());
         return;
       }
       if (t.hasAttribute('data-mp-import')) {
@@ -420,11 +582,36 @@
               setError('CSV 無有效資料');
               return;
             }
-            products = mergeProducts(loadProducts(), incoming);
-            saveProducts(products);
-            selectedId = products[0] ? products[0].id : '';
+            const currentBase = serverError ? loadLocalCache() : products;
+            const merged = mergeProducts(currentBase, incoming);
+            const currentById = new Map(currentBase.map((p) => [p.id, p]));
             setError('');
-            render();
+            Promise.all(
+              merged.map((p) => {
+                const existing = currentById.get(p.id);
+                return existing
+                  ? updateServerProduct(p.id, {
+                      name: p.name,
+                      currency: p.currency,
+                      records: p.records,
+                    }).catch(() => null)
+                  : createServerProduct(serverPayload(p)).catch(() => null);
+              })
+            )
+              .then((results) => {
+                const ok = results.filter(Boolean);
+                if (ok.length) {
+                  ok.forEach(upsertProduct);
+                  if (ok.length === merged.length) serverError = '';
+                  selectedId = ok[0] ? ok[0].id : selectedId;
+                  refreshCache();
+                  render();
+                }
+                if (ok.length < merged.length) setError('部分 CSV 項目寫入失敗，請重試。');
+              })
+              .catch((e) => {
+                setError('CSV 匯入失敗：' + ((e && e.message) || e));
+              });
           } catch (e) {
             setError('CSV 匯入失敗');
           }
@@ -434,7 +621,7 @@
       });
     }
 
-    render();
+    loadFromServer();
   }
 
   if (document.readyState === 'loading') {
