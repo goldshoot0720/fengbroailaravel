@@ -203,6 +203,10 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
                 <td>依服務追蹤每個帳號的剩餘額度、比例與到期日；AI 服務可記錄 5 小時／一週／一月方案的比例與到期。</td>
             </tr>
             <tr>
+                <th>鋒兄購物清單</th>
+                <td>記錄「想買的商品 × 一次預定購買」；有預定購買日的項目，到期前 3 天進入提醒窗口，支援 CSV 匯入匯出。</td>
+            </tr>
+            <tr>
                 <th>食品管理</th>
                 <td>追蹤食品、庫存、到期日與快速新增常用項目。</td>
             </tr>
@@ -261,6 +265,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li>儀表板合併進首頁：精簡／完整儀表同一頁切換並記住上次選擇（移除獨立「儀表」選單）</li>
             <li>網站統計：進站人次、連續進站天數（台北日曆日）、選單使用 Top 5 與銀行總存款歷史極值（sitevisit、menuusage 表，對齊 Appwrite /api/site-visit 與 /api/menu-usage）</li>
             <li>網站營運天數自起源日 2025-09-28 起算</li>
+            <li>新增鋒兄購物清單（shoppinglist 表；CRUD／複製／刪除確認／CSV 匯入匯出）並統一五模組到期提醒窗口：訂閱、試用首購、購物清單、額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 只提醒前一天與當天</li>
             <li>對齊清單：見專案 <code>FEATURE_ALIGNMENT.md</code></li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>
@@ -282,6 +287,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li><code>trialpurchase</code> - 試用／首購</li>
             <li><code>reinstall</code> - 重灌軟體</li>
             <li><code>quota</code> - 鋒兄額度</li>
+            <li><code>shoppinglist</code> - 鋒兄購物清單</li>
             <li><code>food</code> - 食品庫存</li>
             <li><code>notes</code> / <code>article</code> - 筆記與文章</li>
             <li><code>commonaccount</code> - 常用帳號</li>

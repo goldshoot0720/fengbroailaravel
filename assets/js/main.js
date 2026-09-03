@@ -155,6 +155,22 @@ function initFengbroVoiceInput() {
             },
             examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選 AI 服務', '複製這筆', '匯入 CSV', '儲存']
         },
+        shoppinglist: {
+            title: '鋒兄購物清單',
+            aliases: ['購物', '購物清單', '採購', '購物車', 'shopping', 'shoppinglist'],
+            fields: {
+                name: ['購物名稱', '商品', '商品名稱', '名稱'],
+                plannedDate: ['預定購買日', '購買日', '預定日期', '日期'],
+                price: ['預定價格', '價格', '金額'],
+                currency: ['幣別', '幣種', '貨幣'],
+                quantity: ['預定數量', '數量'],
+                shop: ['預定商店', '商店', '店家'],
+                pickupMethod: ['取貨方式', '取貨'],
+                account: ['帳號'],
+                note: ['備註', '說明']
+            },
+            examples: ['新增購物 洗衣精 數量 1', '搜尋 全聯', '篩選 3 天內要買', '複製這筆', '匯入 CSV', '儲存']
+        },
         reinstall: {
             title: '鋒兄重灌',
             aliases: ['重灌', '重裝', '軟體清單', '鋒兄重灌', 'reinstall'],

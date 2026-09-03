@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $table = $_POST['table'] ?? '';
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -148,6 +148,24 @@ $fieldMapping = [
     '一月比例' => 'ratioMonth',
     'expiry_month' => 'expiryMonth',
     '一月到期' => 'expiryMonth',
+    'planned_date' => 'plannedDate',
+    'planneddate' => 'plannedDate',
+    '預定購買日' => 'plannedDate',
+    '購買日' => 'plannedDate',
+    '預定日期' => 'plannedDate',
+    '預定價格' => 'price',
+    '預定數量' => 'quantity',
+    '預定商店' => 'shop',
+    '店家' => 'shop',
+    'pickup_method' => 'pickupMethod',
+    'pickupmethod' => 'pickupMethod',
+    '預定取貨方式' => 'pickupMethod',
+    '取貨方式' => 'pickupMethod',
+    '取貨' => 'pickupMethod',
+    '購物名稱' => 'name',
+    '商品名稱' => 'name',
+    '幣種' => 'currency',
+    '貨幣' => 'currency',
 ];
 // Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
 
@@ -163,6 +181,9 @@ if ($table === 'reinstall') {
 }
 if ($table === 'quota') {
     fengbroEnsureQuotaTable($pdo);
+}
+if ($table === 'shoppinglist') {
+    fengbroEnsureShoppingListTable($pdo);
 }
 
 $csvContent = file_get_contents($file);
@@ -322,6 +343,15 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             continue;
         }
     }
+    if ($table === 'shoppinglist') {
+        try {
+            $data = array_merge($data, fengbroSanitizeShoppingItemRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = "第 {$lineNum} 行: " . $e->getMessage();
+            continue;
+        }
+    }
 
     // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
     // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
@@ -346,6 +376,8 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             $duplicateId = fengbroFindReinstallImportId($pdo, $data);
         } elseif ($table === 'quota') {
             $duplicateId = fengbroFindQuotaImportId($pdo, $data);
+        } elseif ($table === 'shoppinglist') {
+            $duplicateId = fengbroFindShoppingImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }

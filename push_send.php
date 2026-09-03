@@ -72,17 +72,23 @@ if ($action === 'init_vapid') {
     exit;
 }
 
-// ── 動作：發送到期提醒推播 ───────────────────────────────────────────────────
+// ── 動作：發送到期提醒推播（五模組彙總，對齊 Appwrite aggregatePushSummary）────
 
 $pdo = getConnection();
 notifEnsurePushSubscriptionsTable($pdo);
 
-$expiringRows = notifGetExpiringSubscriptions($pdo, 3);
+$subs = notifGetExpiringSubscriptions($pdo, 3);
+$foods = notifGetExpiringFood($pdo, 7);
+$trials = notifGetExpiringTrialPurchases($pdo, 3);
+$quotas = notifGetExpiringQuotas($pdo);
+$shoppings = notifGetExpiringShoppingItems($pdo, 3);
 
-if (empty($expiringRows)) {
+$totalItems = count($subs) + count($foods) + count($trials) + count($quotas) + count($shoppings);
+
+if ($totalItems === 0) {
     pushSendOutput([
         'success' => true,
-        'message' => '無到期訂閱，不發送推播',
+        'message' => '無到期項目，不發送推播',
         'sent' => 0,
         'failed' => 0,
         'details' => [],
@@ -90,9 +96,50 @@ if (empty($expiringRows)) {
     exit;
 }
 
-$message = notifBuildSubscriptionPushMessage($expiringRows);
-$title = $message['title'];
-$body = $message['body'];
+function pushItemLine(string $name, $dateValue, string $unit = '到期'): string
+{
+    $days = notifDayDelta((string) $dateValue);
+    if ($days === null) {
+        return $name;
+    }
+    if ($days === 0) {
+        return $name . ' 今天' . $unit . '！';
+    }
+    return $name . ' ' . $days . ' 天後' . $unit;
+}
+
+$lines = [];
+foreach ($subs as $row) {
+    $lines[] = pushItemLine($row['name'] ?? '未命名訂閱', $row['nextdate'] ?? '');
+}
+foreach ($foods as $row) {
+    $lines[] = pushItemLine($row['name'] ?? '未命名食品', $row['todate'] ?? '', '過期');
+}
+foreach ($trials as $row) {
+    $lines[] = pushItemLine($row['name'] ?? '未命名試用', $row['eventDate'] ?? '');
+}
+foreach ($quotas as $row) {
+    $lines[] = pushItemLine(
+        ($row['name'] ?? '未命名額度') . (!empty($row['label']) ? '（' . $row['label'] . '）' : ''),
+        $row['expiryDate'] ?? ''
+    );
+}
+foreach ($shoppings as $row) {
+    $lines[] = pushItemLine($row['name'] ?? '未命名購物', $row['plannedDate'] ?? '');
+}
+
+$counts = array_values(array_filter([
+    count($subs) ? count($subs) . ' 訂閱' : null,
+    count($foods) ? count($foods) . ' 食品' : null,
+    count($trials) ? count($trials) . ' 試用/首購' : null,
+    count($quotas) ? count($quotas) . ' 額度' : null,
+    count($shoppings) ? count($shoppings) . ' 購物' : null,
+]));
+$title = '⏰ 鋒兄到期提醒';
+$body = $totalItems . ' 個項目即將到期（' . implode(' + ', $counts) . "）\n" . implode("\n", array_slice($lines, 0, 8));
+if (count($lines) > 8) {
+    $body .= "\n…還有 " . (count($lines) - 8) . ' 項';
+}
 
 $subscriptions = notifGetPushSubscriptions($pdo);
 

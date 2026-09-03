@@ -236,6 +236,8 @@ try {
 
         "quota" => fengbroQuotaCreateSql(),
 
+        "shoppinglist" => fengbroShoppingListCreateSql(),
+
         "sitevisit" => "CREATE TABLE IF NOT EXISTS sitevisit (
             id VARCHAR(36) PRIMARY KEY,
             count INT NOT NULL DEFAULT 0,
@@ -334,6 +336,14 @@ try {
         "ALTER TABLE quota ADD COLUMN ratioMonth INT DEFAULT 0",
         "ALTER TABLE quota ADD COLUMN expiryMonth VARCHAR(10) DEFAULT ''",
         "ALTER TABLE quota ADD COLUMN note VARCHAR(3337)",
+        "ALTER TABLE shoppinglist ADD COLUMN plannedDate DATETIME NULL",
+        "ALTER TABLE shoppinglist ADD COLUMN price INT DEFAULT 0",
+        "ALTER TABLE shoppinglist ADD COLUMN currency VARCHAR(10) DEFAULT 'TWD'",
+        "ALTER TABLE shoppinglist ADD COLUMN quantity INT DEFAULT 1",
+        "ALTER TABLE shoppinglist ADD COLUMN shop VARCHAR(100)",
+        "ALTER TABLE shoppinglist ADD COLUMN pickupMethod VARCHAR(100)",
+        "ALTER TABLE shoppinglist ADD COLUMN account VARCHAR(200)",
+        "ALTER TABLE shoppinglist ADD COLUMN note VARCHAR(3337)",
         "ALTER TABLE sitevisit ADD COLUMN count INT NOT NULL DEFAULT 0",
         "ALTER TABLE sitevisit ADD COLUMN lastVisitAt DATETIME NULL",
         "ALTER TABLE sitevisit ADD COLUMN currentStreak INT NOT NULL DEFAULT 0",

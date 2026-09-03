@@ -206,6 +206,223 @@ function notifBuildDashboardAlerts(PDO $pdo): array
 }
 
 /**
+ * 對齊 Appwrite 通知窗口：
+ * - 訂閱／試用首購／購物清單／額度非 AI：剩 0~3 天（含當天）
+ * - 食品：剩 0~7 天
+ * - 額度 AI：一週／一月到期只提醒前一天與當天（剩 0~1 天）
+ * 各查詢在表不存在時安全回退空陣列。
+ */
+
+/** 試用／首購 eventDate 在 0~N 天內（含當天）。 */
+function notifGetExpiringTrialPurchases(PDO $pdo, int $withinDays = 3): array
+{
+    $withinDays = max(0, $withinDays);
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT id, name, eventDate, account
+             FROM trialpurchase
+             WHERE eventDate IS NOT NULL
+               AND eventDate >= CURDATE()
+               AND eventDate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+             ORDER BY eventDate ASC, name ASC"
+        );
+        $stmt->execute([$withinDays]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * 額度到期項目：
+ * - 一般（general）：quotaExpiry 0~3 天
+ * - AI：expiryWeek / expiryMonth 只取 0~1 天
+ * @return list<array<string,mixed>>
+ */
+function notifGetExpiringQuotas(PDO $pdo): array
+{
+    try {
+        $rows = $pdo->query(
+            "SELECT id, name, serviceType, account, quotaExpiry, expiryWeek, expiryMonth
+             FROM quota"
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+    $out = [];
+    foreach ($rows as $row) {
+        $isAi = fengbroNormalizeQuotaServiceType($row['serviceType'] ?? 'general') === 'ai';
+        if ($isAi) {
+            foreach (['week' => 'expiryWeek', 'month' => 'expiryMonth'] as $kind => $col) {
+                $raw = trim((string) ($row[$col] ?? ''));
+                if ($raw === '') {
+                    continue;
+                }
+                $days = notifDayDelta($raw);
+                if ($days !== null && $days >= 0 && $days <= 1) {
+                    $out[] = [
+                        'id' => (string) $row['id'],
+                        'name' => (string) ($row['name'] ?? ''),
+                        'kind' => $kind,
+                        'label' => $kind === 'week' ? '一週到期' : '一月到期',
+                        'expiryDate' => $raw,
+                        'account' => (string) ($row['account'] ?? ''),
+                        'serviceType' => 'ai',
+                        'daysLeft' => $days,
+                    ];
+                }
+            }
+        } else {
+            $raw = trim((string) ($row['quotaExpiry'] ?? ''));
+            if ($raw === '') {
+                continue;
+            }
+            $days = notifDayDelta($raw);
+            if ($days !== null && $days >= 0 && $days <= 3) {
+                $out[] = [
+                    'id' => (string) $row['id'],
+                    'name' => (string) ($row['name'] ?? ''),
+                    'kind' => 'quotaExpiry',
+                    'label' => '額度到期',
+                    'expiryDate' => $raw,
+                    'account' => (string) ($row['account'] ?? ''),
+                    'serviceType' => 'general',
+                    'daysLeft' => $days,
+                ];
+            }
+        }
+    }
+    return $out;
+}
+
+/** 購物清單 plannedDate 在 0~N 天內（含當天）。 */
+function notifGetExpiringShoppingItems(PDO $pdo, int $withinDays = 3): array
+{
+    $withinDays = max(0, $withinDays);
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT id, name, plannedDate, account
+             FROM shoppinglist
+             WHERE plannedDate IS NOT NULL
+               AND plannedDate >= CURDATE()
+               AND plannedDate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+             ORDER BY plannedDate ASC, name ASC"
+        );
+        $stmt->execute([$withinDays]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** 計算目標日期距今天（台北日曆日）的整天差；格式不符回 null。 */
+function notifDayDelta(string $dateStr): ?int
+{
+    $clean = trim($dateStr);
+    if ($clean === '') {
+        return null;
+    }
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $clean, $m)) {
+        $target = DateTimeImmutable::createFromFormat(
+            'Y-m-d',
+            $m[1] . '-' . $m[2] . '-' . $m[3],
+            new DateTimeZone('Asia/Taipei')
+        );
+        if (!$target) {
+            return null;
+        }
+    } else {
+        $ts = strtotime($clean);
+        if ($ts === false) {
+            return null;
+        }
+        $target = (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone('Asia/Taipei'));
+    }
+    $today = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
+    $targetDay = $target->setTime(0, 0);
+    $todayDay = $today->setTime(0, 0);
+    return (int) $todayDay->diff($targetDay)->format('%r%a');
+}
+
+/** 格式化試用／首購提醒列。 */
+function notifFormatTrialPurchaseAlert(array $row): array
+{
+    $date = (string) ($row['eventDate'] ?? $row['target_date'] ?? '');
+    $ts = $date !== '' ? strtotime($date) : false;
+    return [
+        'id' => isset($row['id']) ? (string) $row['id'] : null,
+        'name' => (string) ($row['name'] ?? ''),
+        'date' => $ts ? date('Y-m-d', $ts) : '',
+        'date_full' => $ts ? date('Y-m-d', $ts) : '',
+        'daysText' => $date !== '' ? notifDaysText($date) : '',
+    ];
+}
+
+/** 格式化購物清單提醒列。 */
+function notifFormatShoppingAlert(array $row): array
+{
+    $date = (string) ($row['plannedDate'] ?? $row['target_date'] ?? '');
+    $ts = $date !== '' ? strtotime($date) : false;
+    return [
+        'id' => isset($row['id']) ? (string) $row['id'] : null,
+        'name' => (string) ($row['name'] ?? ''),
+        'date' => $ts ? date('Y-m-d', $ts) : '',
+        'date_full' => $ts ? date('Y-m-d', $ts) : '',
+        'daysText' => $date !== '' ? notifDaysText($date) : '',
+    ];
+}
+
+/**
+ * 完整儀表 / 每日本機通知用的五模組到期彙整。
+ * @return array{
+ *   subscriptions: list<array<string,mixed>>,
+ *   foods: list<array<string,mixed>>,
+ *   expiredFoods: list<array<string,mixed>>,
+ *   trialPurchases: list<array<string,mixed>>,
+ *   quotas: list<array<string,mixed>>,
+ *   shoppingItems: list<array<string,mixed>>
+ * }
+ */
+function notifBuildUnifiedDashboardAlerts(PDO $pdo): array
+{
+    $forDashboard = static function (array $alert): array {
+        if (!empty($alert['date_full'])) {
+            $alert['date'] = $alert['date_full'];
+        }
+        return $alert;
+    };
+
+    $quotas = [];
+    foreach (notifGetExpiringQuotas($pdo) as $q) {
+        $quotas[] = $q;
+    }
+
+    return [
+        'subscriptions' => array_map(
+            $forDashboard,
+            array_map('notifFormatSubscriptionAlert', notifGetExpiringSubscriptions($pdo, 3))
+        ),
+        'foods' => array_map(
+            $forDashboard,
+            array_map('notifFormatFoodAlert', notifGetExpiringFood($pdo, 7))
+        ),
+        'expiredFoods' => array_map(
+            $forDashboard,
+            array_map('notifFormatFoodAlert', notifGetExpiredFood($pdo, 5))
+        ),
+        'trialPurchases' => array_map(
+            $forDashboard,
+            array_map('notifFormatTrialPurchaseAlert', notifGetExpiringTrialPurchases($pdo, 3))
+        ),
+        'quotas' => $quotas,
+        'shoppingItems' => array_map(
+            $forDashboard,
+            array_map('notifFormatShoppingAlert', notifGetExpiringShoppingItems($pdo, 3))
+        ),
+    ];
+}
+
+/**
  * Build Web Push title/body for expiring subscriptions.
  *
  * @param list<array<string,mixed>> $rows
@@ -402,6 +619,9 @@ function notifRunSelfCheck(PDO $pdo): array
         'food_7d_window' => 0,
         'food_7d_exact' => 0,
         'food_expired' => 0,
+        'trial_3d' => 0,
+        'quota_soon' => 0,
+        'shopping_3d' => 0,
         'subscription_samples' => [],
         'food_samples' => [],
     ];
@@ -411,11 +631,17 @@ function notifRunSelfCheck(PDO $pdo): array
         $foodWin = notifGetExpiringFood($pdo, 7);
         $foodExact = notifGetFoodDueInDays($pdo, 7);
         $foodExpired = notifGetExpiredFood($pdo, 5);
+        $trial3 = notifGetExpiringTrialPurchases($pdo, 3);
+        $quotaSoon = notifGetExpiringQuotas($pdo);
+        $shopping3 = notifGetExpiringShoppingItems($pdo, 3);
         $due['subscriptions_3d'] = count($sub3);
         $due['subscriptions_1d'] = count($sub1);
         $due['food_7d_window'] = count($foodWin);
         $due['food_7d_exact'] = count($foodExact);
         $due['food_expired'] = count($foodExpired);
+        $due['trial_3d'] = count($trial3);
+        $due['quota_soon'] = count($quotaSoon);
+        $due['shopping_3d'] = count($shopping3);
         $due['subscription_samples'] = array_map(static function ($row) {
             return [
                 'name' => (string) ($row['name'] ?? ''),
@@ -437,12 +663,15 @@ function notifRunSelfCheck(PDO $pdo): array
             '到期查詢',
             true,
             sprintf(
-                '訂閱3天內 %d / 訂閱明天 %d / 食品7天內 %d / 食品正好7天後 %d / 已過期 %d',
+                '訂閱3天內 %d / 訂閱明天 %d / 食品7天內 %d / 食品正好7天後 %d / 已過期 %d / 試用3天內 %d / 額度 %d / 購物3天內 %d',
                 $due['subscriptions_3d'],
                 $due['subscriptions_1d'],
                 $due['food_7d_window'],
                 $due['food_7d_exact'],
-                $due['food_expired']
+                $due['food_expired'],
+                $due['trial_3d'],
+                $due['quota_soon'],
+                $due['shopping_3d']
             )
         );
         $checks[] = notifSelfCheckItem(
@@ -461,10 +690,13 @@ function notifRunSelfCheck(PDO $pdo): array
             '儀表板提醒候選',
             true,
             sprintf(
-                '訂閱 %d、食品7天 %d、過期 %d（需權限 + 每日去重）',
+                '訂閱 %d、食品7天 %d、過期 %d、試用 %d、額度 %d、購物 %d（需權限 + 每日去重）',
                 $due['subscriptions_3d'],
                 $due['food_7d_window'],
-                $due['food_expired']
+                $due['food_expired'],
+                $due['trial_3d'],
+                $due['quota_soon'],
+                $due['shopping_3d']
             )
         );
     } catch (Throwable $e) {

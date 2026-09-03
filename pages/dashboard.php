@@ -74,8 +74,18 @@ try {
 } catch (Throwable $e) {
     $quotaCount = 0;
 }
+$shoppingCount = 0;
+try {
+    fengbroEnsureShoppingListTable($pdo);
+    $shoppingCount = (int) $pdo->query("SELECT COUNT(*) FROM shoppinglist")->fetchColumn();
+} catch (Throwable $e) {
+    $shoppingCount = 0;
+}
 
 $subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
+$trialExpiring3 = notifGetExpiringTrialPurchases($pdo, 3);
+$quotaExpiringSoon = notifGetExpiringQuotas($pdo);
+$shoppingExpiring3 = notifGetExpiringShoppingItems($pdo, 3);
 $subExpiring7Days = $pdo->query(
     "SELECT * FROM subscription
      WHERE `continue` = 1
@@ -94,7 +104,7 @@ $foodExpiring30Days = $pdo->query(
      ORDER BY todate ASC"
 )->fetchAll();
 $expiredFoods = notifGetExpiredFood($pdo, 5);
-$dashboardNotificationAlerts = notifBuildDashboardAlerts($pdo);
+$dashboardNotificationAlerts = notifBuildUnifiedDashboardAlerts($pdo);
 $toolSnapshotCount = 0;
 try {
     $toolSnapshotCount = $pdo->query("SELECT COUNT(*) FROM tool_price_history")->fetchColumn();
@@ -258,6 +268,12 @@ $uploadBucketLabels = [
             <strong><?php echo $quotaCount; ?></strong>
             <small>Remaining uses, ratio and expiry</small>
         </a>
+        <a href="index.php?page=shoppinglist" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-cart-shopping"></i></span>
+            <span class="metric-label">Shopping list</span>
+            <strong><?php echo $shoppingCount; ?></strong>
+            <small>Planned purchases and due dates</small>
+        </a>
         <a href="index.php?page=food" class="metric-card">
             <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>
             <span class="metric-label">Food</span>
@@ -397,7 +413,7 @@ $uploadBucketLabels = [
         </div>
     </section>
 
-    <?php if (!empty($subExpiring3Days) || !empty($subExpiring7Days) || !empty($foodExpiring7Days) || !empty($foodExpiring30Days) || !empty($expiredFoods)): ?>
+    <?php if (!empty($subExpiring3Days) || !empty($subExpiring7Days) || !empty($foodExpiring7Days) || !empty($foodExpiring30Days) || !empty($expiredFoods) || !empty($trialExpiring3) || !empty($quotaExpiringSoon) || !empty($shoppingExpiring3)): ?>
         <div class="dashboard-section">
             <div class="section-heading">
                 <h3><i class="fa-solid fa-bell"></i> 到期提醒</h3>
@@ -468,6 +484,49 @@ $uploadBucketLabels = [
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
                                     <span><?php echo date('m/d', strtotime($food['todate'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($trialExpiring3)): ?>
+                    <div class="alert-card alert-card-warning">
+                        <h4><i class="fa-solid fa-flask"></i> 試用／首購 3 天內到期</h4>
+                        <ul class="alert-list">
+                            <?php foreach ($trialExpiring3 as $row): ?>
+                                <li>
+                                    <span><strong><?php echo htmlspecialchars($row['name']); ?></strong></span>
+                                    <span><?php echo date('m/d', strtotime($row['eventDate'])); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($quotaExpiringSoon)): ?>
+                    <div class="alert-card alert-card-warning">
+                        <h4><i class="fa-solid fa-gauge-high"></i> 額度即將到期</h4>
+                        <ul class="alert-list">
+                            <?php foreach ($quotaExpiringSoon as $row): ?>
+                                <?php $quotaDateLabel = (string) ($row['expiryDate'] ?? ''); $quotaDateTs = strtotime($quotaDateLabel); ?>
+                                <li>
+                                    <span><strong><?php echo htmlspecialchars($row['name']); ?><?php if (!empty($row['label'])): ?>（<?php echo htmlspecialchars($row['label']); ?>）<?php endif; ?></strong></span>
+                                    <span><?php echo $quotaDateTs !== false ? date('Y-m-d', $quotaDateTs) : htmlspecialchars($quotaDateLabel); ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($shoppingExpiring3)): ?>
+                    <div class="alert-card alert-card-warning">
+                        <h4><i class="fa-solid fa-cart-shopping"></i> 購物清單 3 天內要買</h4>
+                        <ul class="alert-list">
+                            <?php foreach ($shoppingExpiring3 as $row): ?>
+                                <li>
+                                    <span><strong><?php echo htmlspecialchars($row['name']); ?></strong></span>
+                                    <span><?php echo date('m/d', strtotime($row['plannedDate'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>

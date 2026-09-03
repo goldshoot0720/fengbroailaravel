@@ -646,3 +646,107 @@ function fengbroFindQuotaImportId(PDO $pdo, array $data): ?string
     $id = $stmt->fetchColumn();
     return $id ? (string) $id : null;
 }
+
+function fengbroShoppingListCreateSql(): string
+{
+    return "CREATE TABLE IF NOT EXISTS shoppinglist (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            plannedDate DATETIME NULL,
+            price INT DEFAULT 0,
+            currency VARCHAR(10) DEFAULT 'TWD',
+            quantity INT DEFAULT 1,
+            shop VARCHAR(100),
+            pickupMethod VARCHAR(100),
+            account VARCHAR(200),
+            note VARCHAR(3337),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+}
+
+function fengbroEnsureShoppingListTable(?PDO $pdo = null): void
+{
+    $pdo = $pdo ?: getConnection();
+    $pdo->exec(fengbroShoppingListCreateSql());
+    fengbroEnsureTableColumns($pdo, 'shoppinglist', [
+        "plannedDate DATETIME NULL",
+        "price INT DEFAULT 0",
+        "currency VARCHAR(10) DEFAULT 'TWD'",
+        "quantity INT DEFAULT 1",
+        "shop VARCHAR(100)",
+        "pickupMethod VARCHAR(100)",
+        "account VARCHAR(200)",
+        "note VARCHAR(3337)",
+    ]);
+}
+
+function fengbroNormalizeShoppingCurrency($value): string
+{
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return 'TWD';
+    }
+    $ascii = strtoupper($raw);
+    $map = [
+        'TWD' => 'TWD',
+        '台幣' => 'TWD',
+        '新台幣' => 'TWD',
+        'USD' => 'USD',
+        '美元' => 'USD',
+        '美金' => 'USD',
+        'JPY' => 'JPY',
+        '日圓' => 'JPY',
+        '日幣' => 'JPY',
+        'CNY' => 'CNY',
+        '人民幣' => 'CNY',
+        'RMB' => 'CNY',
+        'rmb' => 'CNY',
+    ];
+    if (isset($map[$ascii])) {
+        return $map[$ascii];
+    }
+    if (isset($map[$raw])) {
+        return $map[$raw];
+    }
+    throw new InvalidArgumentException('幣別需為 台幣／美元／日圓／人民幣（TWD/USD/JPY/CNY）');
+}
+
+function fengbroSanitizeShoppingItemRow(array $input): array
+{
+    $name = fengbroMbCut($input['name'] ?? '', 100);
+    if ($name === '') {
+        throw new InvalidArgumentException('請填寫購物名稱');
+    }
+    $quantity = fengbroNonNegativeInt($input['quantity'] ?? 1);
+    if ($quantity < 1) {
+        throw new InvalidArgumentException('預定數量必須是 1 以上的整數');
+    }
+    return [
+        'name' => $name,
+        'plannedDate' => fengbroOptionalDate($input['plannedDate'] ?? ''),
+        'price' => fengbroNonNegativeInt($input['price'] ?? 0),
+        'currency' => fengbroNormalizeShoppingCurrency($input['currency'] ?? 'TWD'),
+        'quantity' => $quantity,
+        'shop' => fengbroMbCut($input['shop'] ?? '', 100),
+        'pickupMethod' => fengbroMbCut($input['pickupMethod'] ?? '', 100),
+        'account' => fengbroMbCut($input['account'] ?? '', 200),
+        'note' => fengbroMbCut($input['note'] ?? '', 3337),
+    ];
+}
+
+function fengbroFindShoppingImportId(PDO $pdo, array $data): ?string
+{
+    $name = trim((string) ($data['name'] ?? ''));
+    if ($name === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare(
+        "SELECT id FROM shoppinglist
+         WHERE LOWER(TRIM(name)) = LOWER(?)
+         LIMIT 1"
+    );
+    $stmt->execute([$name]);
+    $id = $stmt->fetchColumn();
+    return $id ? (string) $id : null;
+}

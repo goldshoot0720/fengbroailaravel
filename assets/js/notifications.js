@@ -159,6 +159,7 @@
 
     /**
      * Dashboard multi-type alerts (once per item per day via localStorage).
+     * 對齊 Appwrite 通知窗口：訂閱/試用/購物 3 天內、食品 7 天內、額度 AI 只取 0~1 天（服務端已過濾）。
      */
     function sendDashboardNotifications(alerts) {
         if (!supportsNotification() || Notification.permission !== 'granted') return;
@@ -180,14 +181,30 @@
             } catch (e) { /* ignore */ }
         }
 
-        (alerts.subscriptions3 || []).slice(0, 3).forEach(function (item, index) {
-            notifyOnce('sub-' + index + '-' + item.name, '訂閱 3 天內到期', item.name + '：' + item.date);
+        var subs = alerts.subscriptions || alerts.subscriptions3 || [];
+        var foods = alerts.foods || alerts.foods7 || [];
+        var expiredFoods = alerts.expiredFoods || [];
+
+        (subs || []).slice(0, 3).forEach(function (item, index) {
+            notifyOnce('sub-' + index + '-' + (item.name || item.id), '訂閱 3 天內到期', item.name + '：' + item.date);
         });
-        (alerts.foods7 || []).slice(0, 3).forEach(function (item, index) {
-            notifyOnce('food-' + index + '-' + item.name, '食品 7 天內到期', item.name + '：' + item.date);
+        (foods || []).slice(0, 3).forEach(function (item, index) {
+            notifyOnce('food-' + index + '-' + (item.name || item.id), '食品 7 天內到期', item.name + '：' + item.date);
         });
-        (alerts.expiredFoods || []).slice(0, 3).forEach(function (item, index) {
-            notifyOnce('expired-' + index + '-' + item.name, '食品已過期', item.name + '：' + item.date);
+        (expiredFoods || []).slice(0, 3).forEach(function (item, index) {
+            notifyOnce('expired-' + index + '-' + (item.name || item.id), '食品已過期', item.name + '：' + item.date);
+        });
+
+        // 試用／首購、額度、購物清單（服務端已依窗口過濾）
+        (alerts.trialPurchases || []).slice(0, 3).forEach(function (item, index) {
+            notifyOnce('trial-' + index + '-' + (item.name || item.id), '試用／首購 3 天內到期', item.name + '：' + item.date);
+        });
+        (alerts.quotas || []).slice(0, 3).forEach(function (item, index) {
+            var label = item.label ? '（' + item.label + '）' : '';
+            notifyOnce('quota-' + index + '-' + (item.name || item.id) + '-' + (item.kind || ''), '額度即將到期', item.name + label + '：' + (item.expiryDate || ''));
+        });
+        (alerts.shoppingItems || []).slice(0, 3).forEach(function (item, index) {
+            notifyOnce('shopping-' + index + '-' + (item.name || item.id), '購物清單 3 天內要買', item.name + '：' + item.date);
         });
 
         localStorage.setItem(storageKey, JSON.stringify(sent));

@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 首頁合併儀表與網站統計（進站人次／連續天數／選單使用／銀行極值／營運天數）。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 購物清單模組與統一五模組到期提醒窗口。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -11,6 +11,8 @@
 | Subscription | `pages/subscription.php` | 完成 |
 | Trial / first purchase | `pages/trialpurchase.php` | 完成（服務分組、狀態篩選、CSV） |
 | Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼、訂閱週期與費用、CSV） |
+| Quota | `pages/quota.php` | 完成 |
+| Shopping list | `pages/shoppinglist.php` | 完成（CRUD、複製、刪除確認、篩選、CSV、3 天內到期窗口） |
 | Food | `pages/food.php` | 完成 |
 | Notes / Article | `pages/notes.php` | 完成 |
 | Common accounts | `pages/favorites.php` | 完成 |
@@ -46,6 +48,7 @@
 | Resend 到期通知 | 完成 |
 | Web Push | 完成 |
 | 通知自檢 notif_diag | 完成 |
+| 到期提醒窗口 | 完成（訂閱/試用首購/購物清單/額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 一週/一月前一天與當天；完整儀表每日本機通知 + 推播彙總） |
 | PWA / Service Worker | 完成 |
 | 語音導航與表單填寫 | 完成（含工具子頁導向） |
 | 主題 system/light/dark | 完成 |

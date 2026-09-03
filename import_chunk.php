@@ -31,7 +31,7 @@ if (!is_array($payload)) {
 }
 
 $table = (string) ($payload['table'] ?? '');
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
 if (!in_array($table, $allowedTables, true)) {
     jsonResponse(['success' => false, 'error' => '無效的資料表'], 400);
 }
@@ -117,6 +117,26 @@ $fieldMapping = [
     '一週到期' => 'expiryWeek',
     '一月比例' => 'ratioMonth',
     '一月到期' => 'expiryMonth',
+    'planned_date' => 'plannedDate',
+    'planneddate' => 'plannedDate',
+    '預定購買日' => 'plannedDate',
+    '購買日' => 'plannedDate',
+    '預定日期' => 'plannedDate',
+    '預定價格' => 'price',
+    '金額' => 'price',
+    '預定數量' => 'quantity',
+    '數量' => 'quantity',
+    '預定商店' => 'shop',
+    '店家' => 'shop',
+    'pickup_method' => 'pickupMethod',
+    'pickupmethod' => 'pickupMethod',
+    '預定取貨方式' => 'pickupMethod',
+    '取貨方式' => 'pickupMethod',
+    '取貨' => 'pickupMethod',
+    '購物名稱' => 'name',
+    '商品名稱' => 'name',
+    '幣種' => 'currency',
+    '貨幣' => 'currency',
 ];
 
 function normalizeImportMoneyChunk($value)
@@ -160,6 +180,9 @@ if ($table === 'reinstall') {
 }
 if ($table === 'quota') {
     fengbroEnsureQuotaTable($pdo);
+}
+if ($table === 'shoppinglist') {
+    fengbroEnsureShoppingListTable($pdo);
 }
 $dbColumns = [];
 try {
@@ -234,6 +257,15 @@ foreach ($rows as $index => $rawRow) {
             continue;
         }
     }
+    if ($table === 'shoppinglist') {
+        try {
+            $data = array_merge($data, fengbroSanitizeShoppingItemRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = '第 ' . ($index + 1) . ' 筆: ' . $e->getMessage();
+            continue;
+        }
+    }
     foreach ($data as $key => $value) {
         if ($value !== null && is_string($value) && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
             $data[$key] = $m[1] . ' ' . $m[2];
@@ -255,6 +287,8 @@ foreach ($rows as $index => $rawRow) {
             $duplicateId = fengbroFindReinstallImportId($pdo, $data);
         } elseif ($table === 'quota') {
             $duplicateId = fengbroFindQuotaImportId($pdo, $data);
+        } elseif ($table === 'shoppinglist') {
+            $duplicateId = fengbroFindShoppingImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }

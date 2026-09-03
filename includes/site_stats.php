@@ -240,6 +240,7 @@ function fengbroMenuModuleLabel(string $moduleId): string
         'trialpurchase' => '試用/首購',
         'reinstall' => '重灌',
         'quota' => '額度',
+        'shoppinglist' => '購物清單',
         'food' => '食品',
         'notes' => '筆記',
         'favorites' => '常用',

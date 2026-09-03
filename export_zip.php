@@ -7,7 +7,7 @@ require_once 'includes/PureZip.php';
 
 $table = $_GET['table'] ?? '';
 // 純資料表（無附件）
-$pureDataTables = ['subscription', 'food', 'commonaccount', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota'];
+$pureDataTables = ['subscription', 'food', 'commonaccount', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
 // 有圖片附件的資料表
 $imageTables = ['image'];
 

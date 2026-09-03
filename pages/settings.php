@@ -598,6 +598,7 @@ $biggoSettings = [
             'trialpurchase' => '試用/首購',
             'reinstall' => '重灌',
             'quota' => '額度',
+            'shoppinglist' => '購物清單',
             'food' => '食品',
             'article' => '筆記/文章',
             'commonaccount' => '常用帳號',
