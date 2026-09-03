@@ -49,37 +49,6 @@ function fengbroRequestCsrfToken(): string
     return (string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_csrf'] ?? '');
 }
 
-function fengbroIsAuthenticated(): bool
-{
-    fengbroStartSecureSession();
-    $idleLimit = max(300, (int) (getenv('FENGBRO_SESSION_IDLE_SECONDS') ?: 3600));
-    if (empty($_SESSION['fengbro_user_id']) || empty($_SESSION['last_activity'])) return false;
-    if (time() - (int) $_SESSION['last_activity'] > $idleLimit) {
-        $_SESSION = [];
-        session_destroy();
-        return false;
-    }
-    $_SESSION['last_activity'] = time();
-    return true;
-}
-
-function fengbroRequireAuth(): void
-{
-    if (PHP_SAPI === 'cli' || defined('FENGBRO_PUBLIC_ENTRY')) return;
-    if (fengbroIsAuthenticated()) return;
-    $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
-    $isApi = str_contains($accept, 'application/json') || str_contains((string) ($_SERVER['SCRIPT_NAME'] ?? ''), '_api.php') || basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'api.php';
-    if ($isApi) {
-        http_response_code(401);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['success' => false, 'error' => 'Authentication required'], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    $next = (string) ($_SERVER['REQUEST_URI'] ?? 'index.php');
-    header('Location: login.php?next=' . rawurlencode($next));
-    exit;
-}
-
 function fengbroRequireCsrf(): void
 {
     if (PHP_SAPI === 'cli' || defined('FENGBRO_PUBLIC_ENTRY')) return;
@@ -101,5 +70,4 @@ function fengbroRequireCsrf(): void
 
 fengbroSecurityHeaders();
 fengbroStartSecureSession();
-fengbroRequireAuth();
 fengbroRequireCsrf();

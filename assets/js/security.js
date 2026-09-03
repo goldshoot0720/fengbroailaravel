@@ -15,10 +15,7 @@
             headers.set('X-Requested-With', 'XMLHttpRequest');
             init.headers = headers;
         }
-        return nativeFetch(input, init).then(function (response) {
-            if (response.status === 401) location.href = 'login.php?next=' + encodeURIComponent(location.pathname + location.search);
-            return response;
-        });
+        return nativeFetch(input, init);
     };
 
     document.addEventListener('submit', function (event) {
