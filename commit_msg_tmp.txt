@@ -1,0 +1,10 @@
+feat(finance/tube): 對齊 financeinstrument 單值欄位與 tube CSV 匯入錯誤提示
+
+- financeinstrument 表改為 imageUrl1..3／linkUrl1..3（含 youtubeUrl/bilibiliUrl），
+  圖片與相關連結各限 3 筆，同步函式以 `label|url` 寫入 linkUrlN
+  （對齊 Appwrite cb3c47f，避開大合併欄位）
+- install.php / database.sql / management_tables 同步升級與建立
+- 鋒兄Tube CSV 匯入：檔案無任何可匯入頻道（含已下架預設頻道）時
+  明確顯示錯誤，不再靜默略過（對齊 cde8d40）
+
+Co-authored-by: CommandCodeBot <noreply@commandcode.ai>

@@ -233,16 +233,27 @@ function fengbroFinanceSyncToInstrumentTable(array $config): void
         }
         $provider = in_array((string) ($custom['provider'] ?? ''), ['yahoo', 'cnbc'], true) ? $custom['provider'] : 'yahoo';
         $groupRaw = strtolower(trim((string) ($custom['group'] ?? 'other')));
+
+        // 對齊 Appwrite financeinstrument：圖片最多 3 張（imageUrl1..3）、相關連結最多 3 條（linkUrl1..3）
+        $images = array_values(array_filter(array_map('trim', (array) ($imageById[$id] ?? []))));
+        $images = array_slice($images, 0, 3);
+        $links = (array) ($relatedById[$id] ?? []);
+        $links = array_slice(array_values($links), 0, 3);
+
         $rows[] = [
             'id' => $id,
             'name' => fengbroMbCut($name, 200),
             'symbol' => fengbroMbCut($symbol, 64),
             'provider' => $provider,
             'group' => in_array($groupRaw, ['korea', 'japan', 'taiwan', 'us', 'other'], true) ? $groupRaw : 'other',
-            'imageUrls' => is_array($imageById[$id] ?? null) ? implode("\n", array_slice($imageById[$id], 0, 9)) : '',
-            'youtubeUrl' => (string) ($youtubeById[$id] ?? $custom['youtubeUrl'] ?? ''),
-            'bilibiliUrl' => (string) ($bilibiliById[$id] ?? $custom['bilibiliUrl'] ?? ''),
-            'relatedLinks' => is_array($relatedById[$id] ?? null) ? json_encode($relatedById[$id], JSON_UNESCAPED_UNICODE) : '',
+            'imageUrl1' => fengbroFinanceLimitSyncText($images[0] ?? '', 2000),
+            'imageUrl2' => fengbroFinanceLimitSyncText($images[1] ?? '', 2000),
+            'imageUrl3' => fengbroFinanceLimitSyncText($images[2] ?? '', 2000),
+            'youtubeUrl' => fengbroFinanceLimitSyncText((string) ($youtubeById[$id] ?? $custom['youtubeUrl'] ?? ''), 2000),
+            'bilibiliUrl' => fengbroFinanceLimitSyncText((string) ($bilibiliById[$id] ?? $custom['bilibiliUrl'] ?? ''), 2000),
+            'linkUrl1' => fengbroFinanceFormatSyncLink($links[0] ?? null),
+            'linkUrl2' => fengbroFinanceFormatSyncLink($links[1] ?? null),
+            'linkUrl3' => fengbroFinanceFormatSyncLink($links[2] ?? null),
             'featured' => isset($featuredIds[$id]) ? 1 : 0,
         ];
     }
@@ -253,14 +264,18 @@ function fengbroFinanceSyncToInstrumentTable(array $config): void
 
     $stmt = $pdo->prepare(
         "INSERT INTO financeinstrument
-            (id, name, symbol, provider, `group`, imageUrls, youtubeUrl, bilibiliUrl, relatedLinks, featured)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, symbol, provider, `group`, imageUrl1, imageUrl2, imageUrl3, youtubeUrl, bilibiliUrl, linkUrl1, linkUrl2, linkUrl3, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             name = VALUES(name),
-            imageUrls = VALUES(imageUrls),
+            imageUrl1 = VALUES(imageUrl1),
+            imageUrl2 = VALUES(imageUrl2),
+            imageUrl3 = VALUES(imageUrl3),
             youtubeUrl = VALUES(youtubeUrl),
             bilibiliUrl = VALUES(bilibiliUrl),
-            relatedLinks = VALUES(relatedLinks),
+            linkUrl1 = VALUES(linkUrl1),
+            linkUrl2 = VALUES(linkUrl2),
+            linkUrl3 = VALUES(linkUrl3),
             featured = VALUES(featured)"
     );
     foreach ($rows as $row) {
@@ -271,16 +286,45 @@ function fengbroFinanceSyncToInstrumentTable(array $config): void
                 $row['symbol'],
                 $row['provider'],
                 $row['group'],
-                $row['imageUrls'],
+                $row['imageUrl1'],
+                $row['imageUrl2'],
+                $row['imageUrl3'],
                 $row['youtubeUrl'],
                 $row['bilibiliUrl'],
-                $row['relatedLinks'],
+                $row['linkUrl1'],
+                $row['linkUrl2'],
+                $row['linkUrl3'],
                 $row['featured'],
             ]);
         } catch (Throwable $e) {
             // 單筆失敗不中斷
         }
     }
+}
+
+/** 截斷同步用文字欄位。 */
+function fengbroFinanceLimitSyncText(string $value, int $max): string
+{
+    return fengbroMbCut($value, $max);
+}
+
+/** 把相關連結物件或字串轉成上游 linkUrlN 的 `label|url` 格式。 */
+function fengbroFinanceFormatSyncLink($link): string
+{
+    if (is_array($link)) {
+        $label = trim((string) ($link['label'] ?? ''));
+        $url = trim((string) ($link['url'] ?? ''));
+    } else {
+        $label = '';
+        $url = trim((string) $link);
+    }
+    if ($url === '') {
+        return '';
+    }
+    if ($label === '') {
+        return fengbroFinanceLimitSyncText($url, 1000);
+    }
+    return fengbroFinanceLimitSyncText($label . '|' . $url, 1000);
 }
 
 function fengbroFinanceClearDataCache()

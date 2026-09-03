@@ -365,6 +365,12 @@ try {
         "ALTER TABLE menuusage ADD COLUMN moduleId VARCHAR(100) NOT NULL",
         "ALTER TABLE menuusage ADD COLUMN count INT NOT NULL DEFAULT 0",
         "ALTER TABLE menuusage ADD COLUMN lastUsedAt DATETIME NULL",
+        "ALTER TABLE financeinstrument ADD COLUMN imageUrl1 VARCHAR(2000) DEFAULT ''",
+        "ALTER TABLE financeinstrument ADD COLUMN imageUrl2 VARCHAR(2000) DEFAULT ''",
+        "ALTER TABLE financeinstrument ADD COLUMN imageUrl3 VARCHAR(2000) DEFAULT ''",
+        "ALTER TABLE financeinstrument ADD COLUMN linkUrl1 VARCHAR(1000) DEFAULT ''",
+        "ALTER TABLE financeinstrument ADD COLUMN linkUrl2 VARCHAR(1000) DEFAULT ''",
+        "ALTER TABLE financeinstrument ADD COLUMN linkUrl3 VARCHAR(1000) DEFAULT ''",
     ];
     foreach ($upgrades as $sql) {
         try {

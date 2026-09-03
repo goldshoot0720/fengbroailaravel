@@ -105,7 +105,12 @@ if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST[
                 $map[$ch['url']] = $ch;
             }
             fengbroTubeSaveChannels(array_values($map));
+            header('Location: index.php?page=tools&tool=tube&refresh=1#tube-channel-manager');
+            exit;
         }
+        // CSV 有內容但沒有任何可匯入的頻道（對齊 Appwrite：已下架預設頻道明確報錯，不靜默略過）
+        header('Location: index.php?page=tools&tool=tube&tube_import_error=1#tube-channel-manager');
+        exit;
     }
 
     header('Location: index.php?page=tools&tool=tube&refresh=1#tube-channel-manager');
@@ -627,6 +632,13 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 <i class="fa-solid fa-rotate-right"></i> 重新檢查
             </a>
         </section>
+
+        <?php if (($_GET['tube_import_error'] ?? '') === '1'): ?>
+            <div class="tube-import-error" role="alert">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>CSV 中沒有任何可匯入的頻道：可能是檔案格式不符，或所包含的都是已下架的預設頻道。請確認每列至少含有頻道網址（alias,sourceUrl）。</span>
+            </div>
+        <?php endif; ?>
 
         <?php if (!empty($tubeData['newVideos'])): ?>
             <section class="tube-new-alert">
@@ -1512,6 +1524,25 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         border-radius: 18px;
         background: rgba(254, 243, 199, 0.68);
         color: #92400e;
+    }
+
+    .tube-import-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 18px;
+        background: rgba(254, 226, 226, 0.6);
+        color: #991b1b;
+        font-size: 0.92rem;
+        line-height: 1.6;
+    }
+
+    .tube-import-error i {
+        margin-top: 2px;
+        color: #dc2626;
     }
 
     .tube-new-alert i {
