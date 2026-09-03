@@ -31,7 +31,7 @@ if (!is_array($payload)) {
 }
 
 $table = (string) ($payload['table'] ?? '');
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota'];
 if (!in_array($table, $allowedTables, true)) {
     jsonResponse(['success' => false, 'error' => '無效的資料表'], 400);
 }
@@ -103,6 +103,20 @@ $fieldMapping = [
     '訂閱費用幣別' => 'subscriptionCurrency',
     '幣別' => 'subscriptionCurrency',
     '軟體網站' => 'site',
+    'service_type' => 'serviceType',
+    '服務類型' => 'serviceType',
+    '剩餘次數' => 'quotaRemaining',
+    '剩餘額度' => 'quotaRemaining',
+    '額度剩餘次數' => 'quotaRemaining',
+    '剩餘比例' => 'quotaRatio',
+    '額度剩餘比例' => 'quotaRatio',
+    '額度到期日' => 'quotaExpiry',
+    '5 小時比例' => 'ratio5h',
+    '5 小時到期' => 'expiry5h',
+    '一週比例' => 'ratioWeek',
+    '一週到期' => 'expiryWeek',
+    '一月比例' => 'ratioMonth',
+    '一月到期' => 'expiryMonth',
 ];
 
 function normalizeImportMoneyChunk($value)
@@ -143,6 +157,9 @@ if ($table === 'trialpurchase') {
 }
 if ($table === 'reinstall') {
     fengbroEnsureReinstallTable($pdo);
+}
+if ($table === 'quota') {
+    fengbroEnsureQuotaTable($pdo);
 }
 $dbColumns = [];
 try {
@@ -208,6 +225,15 @@ foreach ($rows as $index => $rawRow) {
             continue;
         }
     }
+    if ($table === 'quota') {
+        try {
+            $data = array_merge($data, fengbroSanitizeQuotaRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = '第 ' . ($index + 1) . ' 筆: ' . $e->getMessage();
+            continue;
+        }
+    }
     foreach ($data as $key => $value) {
         if ($value !== null && is_string($value) && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
             $data[$key] = $m[1] . ' ' . $m[2];
@@ -227,6 +253,8 @@ foreach ($rows as $index => $rawRow) {
             $duplicateId = fengbroFindTrialPurchaseImportId($pdo, $data);
         } elseif ($table === 'reinstall') {
             $duplicateId = fengbroFindReinstallImportId($pdo, $data);
+        } elseif ($table === 'quota') {
+            $duplicateId = fengbroFindQuotaImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }

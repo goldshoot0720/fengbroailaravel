@@ -67,6 +67,13 @@ try {
 } catch (Throwable $e) {
     $reinstallCount = 0;
 }
+$quotaCount = 0;
+try {
+    fengbroEnsureQuotaTable($pdo);
+    $quotaCount = (int) $pdo->query("SELECT COUNT(*) FROM quota")->fetchColumn();
+} catch (Throwable $e) {
+    $quotaCount = 0;
+}
 
 $subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
 $subExpiring7Days = $pdo->query(
@@ -242,6 +249,12 @@ $uploadBucketLabels = [
             <span class="metric-label">Reinstall</span>
             <strong><?php echo $reinstallCount; ?></strong>
             <small>Windows / Mac software list</small>
+        </a>
+        <a href="index.php?page=quota" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="metric-label">Quota</span>
+            <strong><?php echo $quotaCount; ?></strong>
+            <small>AI service points and daily quota</small>
         </a>
         <a href="index.php?page=food" class="metric-card">
             <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>

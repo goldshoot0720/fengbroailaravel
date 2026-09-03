@@ -135,6 +135,26 @@ function initFengbroVoiceInput() {
             },
             examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選尚未試用', '儲存']
         },
+        quota: {
+            title: '鋒兄額度',
+            aliases: ['額度', '剩餘額度', '鋒兄額度', 'quota'],
+            fields: {
+                name: ['服務', '服務名稱', '名稱'],
+                serviceType: ['服務類型', '類型', 'AI', '一般'],
+                account: ['帳號', '使用者'],
+                quotaRemaining: ['額度剩餘次數', '剩餘次數', '剩餘額度', '次數'],
+                quotaRatio: ['額度剩餘比例', '剩餘比例', '比例'],
+                quotaExpiry: ['額度到期日', '到期日', '到期'],
+                ratio5h: ['5 小時比例'],
+                expiry5h: ['5 小時到期'],
+                ratioWeek: ['一週比例'],
+                expiryWeek: ['一週到期'],
+                ratioMonth: ['一月比例'],
+                expiryMonth: ['一月到期'],
+                note: ['備註', '說明']
+            },
+            examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選 AI 服務', '儲存']
+        },
         reinstall: {
             title: '鋒兄重灌',
             aliases: ['重灌', '重裝', '軟體清單', '鋒兄重灌', 'reinstall'],

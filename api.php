@@ -7,7 +7,7 @@ $action = $_GET['action'] ?? '';
 $table = $_GET['table'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
-$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article', 'trialpurchase', 'reinstall'];
+$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article', 'trialpurchase', 'reinstall', 'quota'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -19,6 +19,9 @@ if ($table === 'trialpurchase') {
 }
 if ($table === 'reinstall') {
     fengbroEnsureReinstallTable($pdo);
+}
+if ($table === 'quota') {
+    fengbroEnsureQuotaTable($pdo);
 }
 
 if (in_array($table, ['article', 'subscription'], true)) {
@@ -63,6 +66,8 @@ switch ($action) {
                 $input = fengbroSanitizeTrialPurchaseRow($input);
             } elseif ($table === 'reinstall') {
                 $input = fengbroSanitizeReinstallRow($input);
+            } elseif ($table === 'quota') {
+                $input = fengbroSanitizeQuotaRow($input);
             }
         } catch (InvalidArgumentException $e) {
             jsonResponse(['error' => $e->getMessage()], 400);
@@ -98,6 +103,8 @@ switch ($action) {
                 $input = fengbroSanitizeTrialPurchaseRow($input);
             } elseif ($table === 'reinstall') {
                 $input = fengbroSanitizeReinstallRow($input);
+            } elseif ($table === 'quota') {
+                $input = fengbroSanitizeQuotaRow($input);
             }
         } catch (InvalidArgumentException $e) {
             jsonResponse(['error' => $e->getMessage()], 400);

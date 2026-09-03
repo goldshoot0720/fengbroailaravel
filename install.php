@@ -234,6 +234,8 @@ try {
 
         "reinstall" => fengbroReinstallCreateSql(),
 
+        "quota" => fengbroQuotaCreateSql(),
+
         "users" => "CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL,
@@ -300,6 +302,18 @@ try {
         "ALTER TABLE reinstall ADD COLUMN subscriptionCurrency VARCHAR(10) DEFAULT 'TWD'",
         "ALTER TABLE reinstall ADD COLUMN site VARCHAR(2000)",
         "ALTER TABLE reinstall ADD COLUMN note VARCHAR(3337)",
+        "ALTER TABLE quota ADD COLUMN serviceType VARCHAR(20) DEFAULT 'general'",
+        "ALTER TABLE quota ADD COLUMN account VARCHAR(200)",
+        "ALTER TABLE quota ADD COLUMN quotaRemaining INT DEFAULT 0",
+        "ALTER TABLE quota ADD COLUMN quotaRatio INT DEFAULT 0",
+        "ALTER TABLE quota ADD COLUMN quotaExpiry DATETIME NULL",
+        "ALTER TABLE quota ADD COLUMN ratio5h INT DEFAULT 0",
+        "ALTER TABLE quota ADD COLUMN expiry5h VARCHAR(10) DEFAULT ''",
+        "ALTER TABLE quota ADD COLUMN ratioWeek INT DEFAULT 0",
+        "ALTER TABLE quota ADD COLUMN expiryWeek VARCHAR(10) DEFAULT ''",
+        "ALTER TABLE quota ADD COLUMN ratioMonth INT DEFAULT 0",
+        "ALTER TABLE quota ADD COLUMN expiryMonth VARCHAR(10) DEFAULT ''",
+        "ALTER TABLE quota ADD COLUMN note VARCHAR(3337)",
     ];
     foreach ($upgrades as $sql) {
         try {

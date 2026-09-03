@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $table = $_POST['table'] ?? '';
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -125,6 +125,29 @@ $fieldMapping = [
     '訂閱費用幣別' => 'subscriptionCurrency',
     '幣別' => 'subscriptionCurrency',
     '軟體網站' => 'site',
+    'service_type' => 'serviceType',
+    '服務類型' => 'serviceType',
+    'quota_remaining' => 'quotaRemaining',
+    '剩餘次數' => 'quotaRemaining',
+    '剩餘額度' => 'quotaRemaining',
+    '額度剩餘次數' => 'quotaRemaining',
+    'quota_ratio' => 'quotaRatio',
+    '剩餘比例' => 'quotaRatio',
+    '額度剩餘比例' => 'quotaRatio',
+    'quota_expiry' => 'quotaExpiry',
+    '額度到期日' => 'quotaExpiry',
+    'ratio5h' => 'ratio5h',
+    '5 小時比例' => 'ratio5h',
+    'expiry5h' => 'expiry5h',
+    '5 小時到期' => 'expiry5h',
+    'ratio_week' => 'ratioWeek',
+    '一週比例' => 'ratioWeek',
+    'expiry_week' => 'expiryWeek',
+    '一週到期' => 'expiryWeek',
+    'ratio_month' => 'ratioMonth',
+    '一月比例' => 'ratioMonth',
+    'expiry_month' => 'expiryMonth',
+    '一月到期' => 'expiryMonth',
 ];
 // Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
 
@@ -137,6 +160,9 @@ if ($table === 'trialpurchase') {
 }
 if ($table === 'reinstall') {
     fengbroEnsureReinstallTable($pdo);
+}
+if ($table === 'quota') {
+    fengbroEnsureQuotaTable($pdo);
 }
 
 $csvContent = file_get_contents($file);
@@ -287,6 +313,15 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             continue;
         }
     }
+    if ($table === 'quota') {
+        try {
+            $data = array_merge($data, fengbroSanitizeQuotaRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = "第 {$lineNum} 行: " . $e->getMessage();
+            continue;
+        }
+    }
 
     // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
     // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
@@ -309,6 +344,8 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             $duplicateId = fengbroFindTrialPurchaseImportId($pdo, $data);
         } elseif ($table === 'reinstall') {
             $duplicateId = fengbroFindReinstallImportId($pdo, $data);
+        } elseif ($table === 'quota') {
+            $duplicateId = fengbroFindQuotaImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }

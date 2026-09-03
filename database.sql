@@ -342,6 +342,25 @@ CREATE TABLE IF NOT EXISTS reinstall (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS quota (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    serviceType VARCHAR(20) DEFAULT 'general',
+    account VARCHAR(200),
+    quotaRemaining INT DEFAULT 0,
+    quotaRatio INT DEFAULT 0,
+    quotaExpiry DATETIME NULL,
+    ratio5h INT DEFAULT 0,
+    expiry5h VARCHAR(10) DEFAULT '',
+    ratioWeek INT DEFAULT 0,
+    expiryWeek VARCHAR(10) DEFAULT '',
+    ratioMonth INT DEFAULT 0,
+    expiryMonth VARCHAR(10) DEFAULT '',
+    note VARCHAR(3337),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- VAPID 金鑰儲存於 settings，user_id = NULL
 -- 由 push_send.php?action=init_vapid 自動插入：
 --   setting_key = 'vapid_public_key'  → base64url 公鑰

@@ -519,3 +519,130 @@ function fengbroManagementImportFieldMap(): array
         '網站' => 'site',
     ];
 }
+
+function fengbroQuotaCreateSql(): string
+{
+    return "CREATE TABLE IF NOT EXISTS quota (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            serviceType VARCHAR(20) DEFAULT 'general',
+            account VARCHAR(200),
+            quotaRemaining INT DEFAULT 0,
+            quotaRatio INT DEFAULT 0,
+            quotaExpiry DATETIME NULL,
+            ratio5h INT DEFAULT 0,
+            expiry5h VARCHAR(10) DEFAULT '',
+            ratioWeek INT DEFAULT 0,
+            expiryWeek VARCHAR(10) DEFAULT '',
+            ratioMonth INT DEFAULT 0,
+            expiryMonth VARCHAR(10) DEFAULT '',
+            note VARCHAR(3337),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+}
+
+function fengbroEnsureQuotaTable(?PDO $pdo = null): void
+{
+    $pdo = $pdo ?: getConnection();
+    $pdo->exec(fengbroQuotaCreateSql());
+    fengbroEnsureTableColumns($pdo, 'quota', [
+        "serviceType VARCHAR(20) DEFAULT 'general'",
+        "account VARCHAR(200)",
+        "quotaRemaining INT DEFAULT 0",
+        "quotaRatio INT DEFAULT 0",
+        "quotaExpiry DATETIME NULL",
+        "ratio5h INT DEFAULT 0",
+        "expiry5h VARCHAR(10) DEFAULT ''",
+        "ratioWeek INT DEFAULT 0",
+        "expiryWeek VARCHAR(10) DEFAULT ''",
+        "ratioMonth INT DEFAULT 0",
+        "expiryMonth VARCHAR(10) DEFAULT ''",
+        "note VARCHAR(3337)",
+    ]);
+}
+
+function fengbroNormalizeQuotaServiceType($value): string
+{
+    $key = trim((string) $value);
+    $map = [
+        'general' => 'general',
+        'ai' => 'ai',
+        '一般' => 'general',
+        '一般服務' => 'general',
+        'AI' => 'ai',
+        'AI 服務' => 'ai',
+        'ai 服務' => 'ai',
+    ];
+    return $map[$key] ?? 'general';
+}
+
+function fengbroQuotaServiceTypeLabel(string $type): string
+{
+    return $type === 'ai' ? 'AI 服務' : '一般';
+}
+
+function fengbroSanitizeQuotaRow(array $input): array
+{
+    $name = fengbroMbCut($input['name'] ?? '', 100);
+    if ($name === '') {
+        throw new InvalidArgumentException('請填寫服務名稱');
+    }
+    $serviceType = fengbroNormalizeQuotaServiceType($input['serviceType'] ?? 'general');
+    $expiry5h = trim((string) ($input['expiry5h'] ?? ''));
+    if ($expiry5h !== '' && !in_array($expiry5h, ['上午', '下午'], true)) {
+        throw new InvalidArgumentException('5 小時到期格式需為 上午 或 下午');
+    }
+    $expiryWeek = trim((string) ($input['expiryWeek'] ?? ''));
+    if ($expiryWeek !== '' && !preg_match('/^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $expiryWeek)) {
+        throw new InvalidArgumentException('一週到期格式需為 月-日（例如 09-30）');
+    }
+    $expiryMonth = trim((string) ($input['expiryMonth'] ?? ''));
+    if ($expiryMonth !== '' && !preg_match('/^\d{4}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $expiryMonth)) {
+        throw new InvalidArgumentException('一月到期格式需為 西元年-月-日');
+    }
+    $payload = [
+        'name' => $name,
+        'serviceType' => $serviceType,
+        'account' => fengbroMbCut($input['account'] ?? '', 200),
+        'quotaRemaining' => fengbroNonNegativeInt($input['quotaRemaining'] ?? 0),
+        'quotaRatio' => fengbroNonNegativeInt($input['quotaRatio'] ?? 0),
+        'note' => fengbroMbCut($input['note'] ?? '', 3337),
+    ];
+    $quotaExpiry = fengbroOptionalDate($input['quotaExpiry'] ?? '');
+    $payload['quotaExpiry'] = $quotaExpiry;
+    if ($serviceType === 'ai') {
+        $payload['ratio5h'] = fengbroNonNegativeInt($input['ratio5h'] ?? 0);
+        $payload['expiry5h'] = $expiry5h;
+        $payload['ratioWeek'] = fengbroNonNegativeInt($input['ratioWeek'] ?? 0);
+        $payload['expiryWeek'] = $expiryWeek;
+        $payload['ratioMonth'] = fengbroNonNegativeInt($input['ratioMonth'] ?? 0);
+        $payload['expiryMonth'] = $expiryMonth;
+    } else {
+        $payload['ratio5h'] = 0;
+        $payload['expiry5h'] = '';
+        $payload['ratioWeek'] = 0;
+        $payload['expiryWeek'] = '';
+        $payload['ratioMonth'] = 0;
+        $payload['expiryMonth'] = '';
+    }
+    return $payload;
+}
+
+function fengbroFindQuotaImportId(PDO $pdo, array $data): ?string
+{
+    $name = trim((string) ($data['name'] ?? ''));
+    if ($name === '') {
+        return null;
+    }
+    $account = trim((string) ($data['account'] ?? ''));
+    $stmt = $pdo->prepare(
+        "SELECT id FROM quota
+         WHERE LOWER(TRIM(name)) = LOWER(?)
+           AND LOWER(TRIM(IFNULL(account, ''))) = LOWER(?)
+         LIMIT 1"
+    );
+    $stmt->execute([$name, $account]);
+    $id = $stmt->fetchColumn();
+    return $id ? (string) $id : null;
+}
