@@ -166,8 +166,8 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
 ?>
 <?php if (!empty($expiringSubscriptionAlerts)): ?>
     <!-- 頁面內通知橫幅（內容由 notifications.js 填充） -->
-    <div id="subExpiringBanner"
-        style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; padding:10px 15px; background:rgba(0,0,0,0.15);">
+    <div id="subExpiringBanner" class="sub-expiring-banner"
+        style="display:none; left:0; right:0; padding:10px 15px; background:rgba(0,0,0,0.15);">
         <div style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:8px;" id="subExpiringList">
         </div>
     </div>
