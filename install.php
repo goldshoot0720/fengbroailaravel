@@ -355,6 +355,7 @@ try {
         "ALTER TABLE shoppinglist ADD COLUMN quantity INT DEFAULT 1",
         "ALTER TABLE shoppinglist ADD COLUMN shop VARCHAR(100)",
         "ALTER TABLE shoppinglist ADD COLUMN pickupMethod VARCHAR(100)",
+        "ALTER TABLE shoppinglist ADD COLUMN imageUrl VARCHAR(2000) DEFAULT ''",
         "ALTER TABLE shoppinglist ADD COLUMN account VARCHAR(200)",
         "ALTER TABLE shoppinglist ADD COLUMN note VARCHAR(3337)",
         "ALTER TABLE sitevisit ADD COLUMN count INT NOT NULL DEFAULT 0",

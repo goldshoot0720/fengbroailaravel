@@ -137,6 +137,11 @@ $fieldMapping = [
     '商品名稱' => 'name',
     '幣種' => 'currency',
     '貨幣' => 'currency',
+    'image_url' => 'imageUrl',
+    'imageurl' => 'imageUrl',
+    '圖片網址' => 'imageUrl',
+    '商品圖片' => 'imageUrl',
+    '商品圖片網址' => 'imageUrl',
 ];
 
 function normalizeImportMoneyChunk($value)

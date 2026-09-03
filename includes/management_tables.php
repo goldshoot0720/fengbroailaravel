@@ -657,7 +657,8 @@ function fengbroShoppingListCreateSql(): string
             currency VARCHAR(10) DEFAULT 'TWD',
             quantity INT DEFAULT 1,
             shop VARCHAR(100),
-            pickupMethod VARCHAR(100),
+            pickupMethod VARCHAR(30),
+            imageUrl VARCHAR(2000) DEFAULT '',
             account VARCHAR(200),
             note VARCHAR(3337),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -675,7 +676,8 @@ function fengbroEnsureShoppingListTable(?PDO $pdo = null): void
         "currency VARCHAR(10) DEFAULT 'TWD'",
         "quantity INT DEFAULT 1",
         "shop VARCHAR(100)",
-        "pickupMethod VARCHAR(100)",
+        "pickupMethod VARCHAR(30)",
+        "imageUrl VARCHAR(2000) DEFAULT ''",
         "account VARCHAR(200)",
         "note VARCHAR(3337)",
     ]);
@@ -722,6 +724,12 @@ function fengbroSanitizeShoppingItemRow(array $input): array
     if ($quantity < 1) {
         throw new InvalidArgumentException('預定數量必須是 1 以上的整數');
     }
+    $pickupMethod = fengbroMbCut($input['pickupMethod'] ?? '', 30);
+    $imageRaw = trim((string) ($input['imageUrl'] ?? ''));
+    $imageUrl = $imageRaw !== '' ? fengbroSafeHttpUrl($imageRaw) : '';
+    if ($imageRaw !== '' && $imageUrl === '') {
+        throw new InvalidArgumentException('商品圖片網址必須是完整 http 或 https 網址');
+    }
     return [
         'name' => $name,
         'plannedDate' => fengbroOptionalDate($input['plannedDate'] ?? ''),
@@ -729,7 +737,8 @@ function fengbroSanitizeShoppingItemRow(array $input): array
         'currency' => fengbroNormalizeShoppingCurrency($input['currency'] ?? 'TWD'),
         'quantity' => $quantity,
         'shop' => fengbroMbCut($input['shop'] ?? '', 100),
-        'pickupMethod' => fengbroMbCut($input['pickupMethod'] ?? '', 100),
+        'pickupMethod' => $pickupMethod,
+        'imageUrl' => $imageUrl,
         'account' => fengbroMbCut($input['account'] ?? '', 200),
         'note' => fengbroMbCut($input['note'] ?? '', 3337),
     ];

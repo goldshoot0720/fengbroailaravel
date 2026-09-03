@@ -79,7 +79,7 @@ foreach ($items as $item) {
 
 natcasesort($shopNames);
 $shopNames = array_values($shopNames);
-$pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自取', '郵寄'];
+$pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '宅配/郵寄', '超商取貨', '蝦皮取貨', '門市取貨'];
 ?>
 
 <div class="content-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
@@ -154,12 +154,20 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                 </datalist>
             </label>
             <label>預定取貨方式
-                <input class="form-control" id="shoppingPickupMethod" maxlength="100" list="shoppingPickupList" placeholder="取貨付款、宅配…">
-                <datalist id="shoppingPickupList">
+                <select class="form-control" id="shoppingPickupMethod" onchange="toggleShoppingPickupCustom(this)">
+                    <option value="">未設定</option>
                     <?php foreach ($pickupPresets as $pickup): ?>
-                        <option value="<?php echo htmlspecialchars($pickup, ENT_QUOTES, 'UTF-8'); ?>">
+                        <option value="<?php echo htmlspecialchars($pickup, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($pickup); ?></option>
                     <?php endforeach; ?>
-                </datalist>
+                    <option value="__custom__">自行輸入…</option>
+                </select>
+                <input class="form-control" id="shoppingPickupCustom" maxlength="30" placeholder="自行輸入取貨方式" style="display:none;margin-top:6px;">
+            </label>
+            <label class="mgmt-span-2">商品圖片網址
+                <input class="form-control" id="shoppingImageUrl" maxlength="2000" type="url" placeholder="https://…（選填）" oninput="previewShoppingImageUrl()">
+                <span id="shoppingImagePreviewWrap" style="display:none;margin-top:8px;">
+                    <img id="shoppingImagePreview" alt="商品圖片預覽" style="max-width:140px;max-height:140px;border-radius:12px;border:1px solid var(--border-color);">
+                </span>
             </label>
             <label>帳號
                 <input class="form-control" id="shoppingAccount" maxlength="200" placeholder="付款或會員帳號（選填）">
@@ -219,6 +227,7 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                 $pickup = trim((string) ($item['pickupMethod'] ?? ''));
                 $account = trim((string) ($item['account'] ?? ''));
                 $note = trim((string) ($item['note'] ?? ''));
+                $imageUrl = trim((string) ($item['imageUrl'] ?? ''));
                 $statusChip = '';
                 $statusTone = '';
                 if ($days !== null && $days < 0) {
@@ -243,11 +252,15 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                     data-quantity="<?php echo (int) $quantity; ?>"
                     data-shop="<?php echo htmlspecialchars($shop, ENT_QUOTES, 'UTF-8'); ?>"
                     data-pickup="<?php echo htmlspecialchars($pickup, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-imageurl="<?php echo htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>"
                     data-account="<?php echo htmlspecialchars($account, ENT_QUOTES, 'UTF-8'); ?>"
                     data-note="<?php echo htmlspecialchars($note, ENT_QUOTES, 'UTF-8'); ?>"
                     data-search="<?php echo htmlspecialchars($searchBlob, ENT_QUOTES, 'UTF-8'); ?>">
                     <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>" onchange="toggleSelectItem(this)">
                     <div class="shopping-cell-main">
+                        <?php if ($imageUrl !== ''): ?>
+                            <img class="shopping-thumb" src="<?php echo htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" loading="lazy" onerror="this.style.display='none';">
+                        <?php endif; ?>
                         <span class="mgmt-mobile-label">購物名稱</span>
                         <strong><?php echo htmlspecialchars($name); ?></strong>
                         <?php if ($shop !== ''): ?><small class="shopping-cell-sub"><?php echo htmlspecialchars($shop); ?></small><?php endif; ?>
@@ -331,6 +344,7 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
     .shopping-item { border-bottom: 1px solid var(--border-color); }
     .shopping-item:last-child { border-bottom: 0; }
     .shopping-cell-main { min-width: 0; }
+    .shopping-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-color); float: left; margin-right: 10px; }
     .shopping-cell-sub { display: block; color: var(--muted-text); font-size: 0.8rem; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .shopping-date { color: var(--text-color); font-size: 0.9rem; margin-bottom: 4px; }
     .shopping-subtotal { font-weight: 800; color: #0f766e; }
@@ -386,10 +400,12 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
         'shop': 'shop', '預定商店': 'shop', '商店': 'shop', '店家': 'shop',
         'pickupmethod': 'pickupMethod', 'pickup_method': 'pickupMethod',
         '預定取貨方式': 'pickupMethod', '取貨方式': 'pickupMethod', '取貨': 'pickupMethod',
+        'imageurl': 'imageUrl', 'image_url': 'imageUrl', 'image': 'imageUrl',
+        '圖片': 'imageUrl', '圖片網址': 'imageUrl', '商品圖片': 'imageUrl', '商品圖片網址': 'imageUrl',
         'account': 'account', '帳號': 'account',
         'note': 'note', '備註': 'note'
     };
-    const SHOPPING_CSV_HEADERS = ['name', 'plannedDate', 'price', 'currency', 'quantity', 'shop', 'pickupMethod', 'account', 'note'];
+    const SHOPPING_CSV_HEADERS = ['name', 'plannedDate', 'price', 'currency', 'quantity', 'shop', 'pickupMethod', 'imageUrl', 'account', 'note'];
     const CURRENCY_ALIASES = {
         'TWD': 'TWD', 'twd': 'TWD', '台幣': 'TWD', '新台幣': 'TWD',
         'USD': 'USD', 'usd': 'USD', '美元': 'USD', '美金': 'USD',
@@ -410,9 +426,67 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
             quantity: document.getElementById('shoppingQuantity'),
             shop: document.getElementById('shoppingShop'),
             pickupMethod: document.getElementById('shoppingPickupMethod'),
+            pickupCustom: document.getElementById('shoppingPickupCustom'),
+            imageUrl: document.getElementById('shoppingImageUrl'),
             account: document.getElementById('shoppingAccount'),
             note: document.getElementById('shoppingNote')
         };
+    }
+
+    const SHOPPING_PICKUP_PRESETS = <?php echo json_encode($pickupPresets, JSON_UNESCAPED_UNICODE); ?>;
+    const PICKUP_CUSTOM_VALUE = '__custom__';
+
+    function shoppingResolvePickupValue(els) {
+        if (els.pickupMethod.value === PICKUP_CUSTOM_VALUE) {
+            return (els.pickupCustom.value || '').trim();
+        }
+        return els.pickupMethod.value;
+    }
+
+    function setShoppingPickupValue(els, value) {
+        const v = (value || '').trim();
+        if (!v) {
+            els.pickupMethod.value = '';
+            els.pickupCustom.value = '';
+            els.pickupCustom.style.display = 'none';
+            return;
+        }
+        if (SHOPPING_PICKUP_PRESETS.indexOf(v) !== -1) {
+            els.pickupMethod.value = v;
+            els.pickupCustom.value = '';
+            els.pickupCustom.style.display = 'none';
+        } else {
+            els.pickupMethod.value = PICKUP_CUSTOM_VALUE;
+            els.pickupCustom.value = v;
+            els.pickupCustom.style.display = '';
+        }
+    }
+
+    function toggleShoppingPickupCustom(select) {
+        const custom = document.getElementById('shoppingPickupCustom');
+        if (!custom) return;
+        custom.style.display = select.value === PICKUP_CUSTOM_VALUE ? '' : 'none';
+        if (select.value !== PICKUP_CUSTOM_VALUE) custom.value = '';
+    }
+
+    function previewShoppingImageUrl() {
+        const input = document.getElementById('shoppingImageUrl');
+        const wrap = document.getElementById('shoppingImagePreviewWrap');
+        const img = document.getElementById('shoppingImagePreview');
+        if (!input || !wrap || !img) return;
+        const url = (input.value || '').trim();
+        if (/^https?:\/\/.+/i.test(url)) {
+            img.src = url;
+            wrap.style.display = '';
+        } else {
+            img.removeAttribute('src');
+            wrap.style.display = 'none';
+        }
+    }
+
+    function setShoppingImageUrl(els, value) {
+        if (els.imageUrl) els.imageUrl.value = value || '';
+        previewShoppingImageUrl();
     }
 
     function fillShoppingFormFromRow(row, editing) {
@@ -426,7 +500,8 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
         els.currency.value = row ? (row.dataset.currency || 'TWD') : 'TWD';
         els.quantity.value = row ? (row.dataset.quantity || '1') : '1';
         els.shop.value = row ? (row.dataset.shop || '') : '';
-        els.pickupMethod.value = row ? (row.dataset.pickup || '') : '';
+        setShoppingPickupValue(els, row ? (row.dataset.pickup || '') : '');
+        setShoppingImageUrl(els, row ? (row.dataset.imageurl || '') : '');
         els.account.value = row ? (row.dataset.account || '') : '';
         els.note.value = row ? (row.dataset.note || '') : '';
         els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -449,7 +524,8 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
             els.currency.value = 'TWD';
             els.quantity.value = '1';
             els.shop.value = '';
-            els.pickupMethod.value = '';
+            setShoppingPickupValue(els, '');
+            setShoppingImageUrl(els, '');
             els.account.value = '';
             els.note.value = '';
             els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -471,7 +547,8 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
         els.currency.value = row.dataset.currency || 'TWD';
         els.quantity.value = row.dataset.quantity || '1';
         els.shop.value = row.dataset.shop || '';
-        els.pickupMethod.value = row.dataset.pickup || '';
+        setShoppingPickupValue(els, row.dataset.pickup || '');
+        setShoppingImageUrl(els, row.dataset.imageurl || '');
         els.account.value = row.dataset.account || '';
         els.note.value = row.dataset.note || '';
         els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -493,7 +570,8 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
             currency: els.currency.value,
             quantity: Number(els.quantity.value || 1),
             shop: els.shop.value.trim(),
-            pickupMethod: els.pickupMethod.value.trim(),
+            pickupMethod: shoppingResolvePickupValue(els),
+            imageUrl: els.imageUrl ? els.imageUrl.value.trim() : '',
             account: els.account.value.trim(),
             note: els.note.value
         };
@@ -591,6 +669,7 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                 row.dataset.quantity || '1',
                 row.dataset.shop || '',
                 row.dataset.pickup || '',
+                row.dataset.imageurl || '',
                 row.dataset.account || '',
                 row.dataset.note || ''
             ].map(shoppingCsvEscape).join(','));
@@ -737,7 +816,13 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
             const shop = cell('shop').trim();
             if (shop.length > 100) { fail('預定商店最多 100 個字元'); continue; }
             const pickupMethod = cell('pickupMethod').trim();
-            if (pickupMethod.length > 100) { fail('預定取貨方式最多 100 個字元'); continue; }
+            if (pickupMethod.length > 30) { fail('預定取貨方式最多 30 個字元'); continue; }
+            const imageUrlRaw = cell('imageUrl').trim();
+            let imageUrl = imageUrlRaw;
+            if (imageUrlRaw) {
+                if (imageUrlRaw.length > 2000) { fail('商品圖片網址最多 2000 個字元'); continue; }
+                if (!/^https?:\/\/.+/i.test(imageUrlRaw)) { fail('商品圖片網址需為完整 http 或 https 網址'); continue; }
+            }
             const account = cell('account').trim();
             if (account.length > 200) { fail('帳號最多 200 個字元'); continue; }
             const note = cell('note').trim();
@@ -751,6 +836,7 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                 quantity: quantity,
                 shop: shop,
                 pickupMethod: pickupMethod,
+                imageUrl: imageUrl,
                 account: account,
                 note: note
             });
@@ -818,6 +904,7 @@ $pickupPresets = ['取貨付款', '宅配', '超商取貨', '面交', '門市自
                     quantity: row.quantity,
                     shop: row.shop,
                     pickupMethod: row.pickupMethod,
+                    imageUrl: row.imageUrl || '',
                     account: row.account,
                     note: row.note
                 };
