@@ -40,13 +40,13 @@ function fengbroQuotaRatioLabel($value): string
 function fengbroQuotaExpiry5hLabel($value): string
 {
     $value = trim((string) $value);
-    return in_array($value, ['上午', '下午'], true) ? $value : '';
+    return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) ? $value : '';
 }
 
 function fengbroQuotaExpiryWeekLabel($value): string
 {
     $value = trim((string) $value);
-    return preg_match('/^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $value) ? $value : '';
+    return preg_match('/^\d{4}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $value) ? $value : '';
 }
 
 function fengbroQuotaExpiryMonthLabel($value): string
@@ -65,6 +65,12 @@ function fengbroFormatQuotaDate($value): string
         return '日期格式錯誤';
     }
     return date('Y-m-d', $ts);
+}
+
+// 前端匯入用的既有紀錄清單（name + account 小寫鍵 → id）
+$existingIndex = [];
+foreach ($items as $item) {
+    $existingIndex[strtolower(trim((string) ($item['name'] ?? ''))) . "\0" . strtolower(trim((string) ($item['account'] ?? '')))] = $item['id'];
 }
 ?>
 
@@ -94,9 +100,10 @@ function fengbroFormatQuotaDate($value): string
 
     <div class="action-buttons-bar">
         <button class="btn btn-primary" type="button" onclick="openQuotaForm()"><i class="fas fa-plus"></i> 新增紀錄</button>
-        <a class="btn btn-success" href="export.php?table=quota"><i class="fa-solid fa-download"></i> 匯出 CSV</a>
-        <?php $csvTable = 'quota'; include 'includes/csv_buttons.php'; ?>
-        <?php include 'includes/batch-delete.php'; ?>
+        <button class="btn btn-success" type="button" onclick="exportQuotaCsv()" title="匯出目前全部額度紀錄為 CSV"><i class="fa-solid fa-download"></i> 匯出 CSV</button>
+        <button class="btn" type="button" onclick="document.getElementById('quotaCsvFile').click()" title="從 CSV 匯入額度紀錄（相同服務與帳號會更新）"><i class="fa-solid fa-upload"></i> 匯入 CSV</button>
+        <input type="file" id="quotaCsvFile" accept=".csv,text/csv" style="display:none;" onchange="handleQuotaCsvFile(this)">
+        <button class="btn btn-ghost" type="button" onclick="location.reload()" title="重新整理"><i class="fa-solid fa-rotate"></i> 重新整理</button>
     </div>
 
     <form id="quotaForm" class="card mgmt-form" style="display:none;" onsubmit="return saveQuota(event)">
@@ -137,18 +144,14 @@ function fengbroFormatQuotaDate($value): string
                 <label>5 小時比例（%）
                     <input class="form-control" id="quotaRatio5h" type="number" min="0" max="100" step="1" value="0">
                 </label>
-                <label>5 小時到期（上午／下午）
-                    <select class="form-control" id="quotaExpiry5h">
-                        <option value="">未填</option>
-                        <option value="上午">上午</option>
-                        <option value="下午">下午</option>
-                    </select>
+                <label>5 小時到期（24 小時制）
+                    <input class="form-control" id="quotaExpiry5h" type="time" step="60" placeholder="14:30">
                 </label>
                 <label>一週比例（%）
                     <input class="form-control" id="quotaRatioWeek" type="number" min="0" max="100" step="1" value="0">
                 </label>
-                <label>一週到期（月／日）
-                    <input class="form-control" id="quotaExpiryWeek" maxlength="5" placeholder="例如 09-30">
+                <label>一週到期（西元年／月／日）
+                    <input class="form-control" id="quotaExpiryWeek" type="date">
                 </label>
                 <label>一月比例（%）
                     <input class="form-control" id="quotaRatioMonth" type="number" min="0" max="100" step="1" value="0">
@@ -287,6 +290,7 @@ function fengbroFormatQuotaDate($value): string
                                     <p class="mgmt-note"><?php echo trim((string) ($item['note'] ?? '')) !== '' ? nl2br(htmlspecialchars($item['note'])) : '—'; ?></p>
                                 </div>
                                 <div class="mgmt-row-actions">
+                                    <button type="button" class="btn btn-sm" onclick="copyQuota('<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>')" title="複製此帳號紀錄（預先填好欄位，供你確認後新增）"><i class="fa-solid fa-copy"></i></button>
                                     <button type="button" class="btn btn-sm btn-primary" onclick="openQuotaForm('<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>')" title="編輯"><i class="fas fa-pen"></i></button>
                                     <button type="button" class="btn btn-sm btn-danger" onclick="deleteQuota('<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>')" title="刪除"><i class="fas fa-trash"></i></button>
                                 </div>
@@ -297,6 +301,20 @@ function fengbroFormatQuotaDate($value): string
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+
+    <div id="quotaImportOverlay" class="quota-import-overlay" style="display:none;">
+        <div class="quota-import-panel" role="dialog" aria-modal="true" aria-labelledby="quotaImportTitle">
+            <h3 class="card-title" id="quotaImportTitle">匯入 CSV 預覽</h3>
+            <p class="muted-copy">相同服務名稱與帳號會更新既有紀錄，其餘新增。有格式錯誤時不會寫入。</p>
+            <div id="quotaImportResult" class="quota-import-result" style="display:none;"></div>
+            <div id="quotaImportErrors" class="quota-import-errors" style="display:none;"></div>
+            <div id="quotaImportRows" class="quota-import-rows"></div>
+            <div class="inline-actions" style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;">
+                <button type="button" class="btn" id="quotaImportCancelBtn" onclick="closeQuotaImport()">取消</button>
+                <button type="button" class="btn btn-primary" id="quotaImportConfirmBtn" onclick="executeQuotaImport()">確認匯入</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -329,7 +347,7 @@ function fengbroFormatQuotaDate($value): string
     .mgmt-group.is-open .mgmt-chevron { transform: rotate(180deg); }
     .mgmt-group-body { display: none; border-top: 1px solid var(--border-color); }
     .mgmt-group.is-open .mgmt-group-body { display: block; }
-    .mgmt-account-head, .mgmt-account { display: grid; grid-template-columns: 28px minmax(0,1.1fr) minmax(8rem,1fr) minmax(10rem,1.2fr) minmax(0,.8fr) minmax(0,1fr) 88px; gap: 12px; align-items: center; padding: 12px 16px; }
+    .mgmt-account-head, .mgmt-account { display: grid; grid-template-columns: 28px minmax(0,1.1fr) minmax(8rem,1fr) minmax(10rem,1.2fr) minmax(0,.8fr) minmax(0,1fr) 132px; gap: 12px; align-items: center; padding: 12px 16px; }
     .mgmt-account-head { color: var(--muted-text); font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid var(--border-color); }
     .mgmt-account { border-bottom: 1px solid var(--border-color); }
     .mgmt-account:last-child { border-bottom: 0; }
@@ -346,6 +364,16 @@ function fengbroFormatQuotaDate($value): string
     .quota-expiry { color: var(--text-color); font-size: 0.9rem; }
     .quota-plan-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
     .quota-plan-chip { background: rgba(124, 58, 237, 0.1); color: #6d28d9; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
+    .quota-import-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .quota-import-panel { width: min(560px, 100%); max-height: 85vh; overflow-y: auto; background: var(--card-bg); border-radius: 18px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+    .quota-import-result { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #d4edda; color: #155724; font-weight: 600; }
+    .quota-import-errors { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #f8d7da; color: #721c24; max-height: 140px; overflow-y: auto; font-size: 0.85rem; }
+    .quota-import-rows { margin-top: 10px; }
+    .quota-import-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+    .quota-import-row:last-child { border-bottom: 0; }
+    .quota-import-row .qname { font-weight: 600; }
+    .quota-import-row .qstatus-new { color: #155724; font-size: 0.75rem; font-weight: 700; background: #d4edda; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .quota-import-row .qstatus-update { color: #856404; font-size: 0.75rem; font-weight: 700; background: #fff3cd; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
     @media (max-width: 900px) {
         .mgmt-account-head { display: none; }
         .mgmt-account { grid-template-columns: 28px 1fr; }
@@ -357,6 +385,26 @@ function fengbroFormatQuotaDate($value): string
 <script>
     const TABLE = 'quota';
     initBatchDelete(TABLE);
+
+    const QUOTA_EXISTING_INDEX = <?php echo json_encode($existingIndex); ?>;
+    const QUOTA_HEADER_ALIASES = {
+        'name': 'name', '服務': 'name', '服務名稱': 'name',
+        'servicetype': 'serviceType', 'service_type': 'serviceType', '服務類型': 'serviceType', '類型': 'serviceType',
+        'account': 'account', '帳號': 'account',
+        'quotaremaining': 'quotaRemaining', 'quota_remaining': 'quotaRemaining', 'remaining': 'quotaRemaining',
+        '額度剩餘次數': 'quotaRemaining', '剩餘次數': 'quotaRemaining', '剩餘額度': 'quotaRemaining',
+        'quotaratio': 'quotaRatio', 'quota_ratio': 'quotaRatio', 'ratio': 'quotaRatio',
+        '額度剩餘比例': 'quotaRatio', '剩餘比例': 'quotaRatio',
+        'quotaexpiry': 'quotaExpiry', 'quota_expiry': 'quotaExpiry', '額度到期日': 'quotaExpiry', '到期日': 'quotaExpiry',
+        'ratio5h': 'ratio5h', '5h': 'ratio5h', '5小時比例': 'ratio5h', '5h比例': 'ratio5h',
+        'expiry5h': 'expiry5h', '5h到期': 'expiry5h', '5小時到期': 'expiry5h',
+        'ratioweek': 'ratioWeek', 'ratio_week': 'ratioWeek', '一週比例': 'ratioWeek', '週比例': 'ratioWeek',
+        'expiryweek': 'expiryWeek', 'expiry_week': 'expiryWeek', '一週到期': 'expiryWeek', '週到期': 'expiryWeek',
+        'ratiomonth': 'ratioMonth', 'ratio_month': 'ratioMonth', '一月比例': 'ratioMonth', '月比例': 'ratioMonth',
+        'expirymonth': 'expiryMonth', 'expiry_month': 'expiryMonth', '一月到期': 'expiryMonth', '月到期': 'expiryMonth',
+        'note': 'note', '備註': 'note'
+    };
+    const QUOTA_CSV_HEADERS = ['name', 'serviceType', 'account', 'quotaRemaining', 'quotaRatio', 'quotaExpiry', 'ratio5h', 'expiry5h', 'ratioWeek', 'expiryWeek', 'ratioMonth', 'expiryMonth', 'note'];
 
     function quotaFormEls() {
         return {
@@ -394,27 +442,35 @@ function fengbroFormatQuotaDate($value): string
         }
     }
 
+    function fillQuotaFormFromRow(row, editing) {
+        const els = quotaFormEls();
+        els.id.value = editing ? row.dataset.id : '';
+        els.title.textContent = editing ? '編輯帳號紀錄' : '新增帳號紀錄';
+        els.save.textContent = editing ? '儲存變更' : '新增紀錄';
+        els.name.value = row ? (row.dataset.name || '') : '';
+        els.serviceType.value = row ? (row.dataset.servicetype || 'general') : 'general';
+        els.account.value = row ? (row.dataset.account || '') : '';
+        els.remaining.value = row ? (row.dataset.quotaremaining || '0') : '0';
+        els.ratio.value = row ? (row.dataset.quotaratio || '0') : '0';
+        els.expiry.value = row ? (row.dataset.quotaexpiry || '') : '';
+        els.ratio5h.value = row ? (row.dataset.ratio5h || '0') : '0';
+        els.expiry5h.value = row ? (row.dataset.expiry5h || '') : '';
+        els.ratioWeek.value = row ? (row.dataset.ratioweek || '0') : '0';
+        els.expiryWeek.value = row ? (row.dataset.expiryweek || '') : '';
+        els.ratioMonth.value = row ? (row.dataset.ratiomonth || '0') : '0';
+        els.expiryMonth.value = row ? (row.dataset.expirymonth || '') : '';
+        els.note.value = row ? (row.dataset.note || '') : '';
+        syncQuotaAiFields();
+        els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        els.name.focus();
+    }
+
     function openQuotaForm(id, presetName) {
         const els = quotaFormEls();
         els.form.style.display = '';
-        if (id) {
-            const row = document.querySelector('.mgmt-account[data-id="' + id + '"]');
-            els.id.value = id;
-            els.title.textContent = '編輯帳號紀錄';
-            els.save.textContent = '儲存變更';
-            els.name.value = row ? (row.dataset.name || '') : '';
-            els.serviceType.value = row ? (row.dataset.servicetype || 'general') : 'general';
-            els.account.value = row ? (row.dataset.account || '') : '';
-            els.remaining.value = row ? (row.dataset.quotaremaining || '0') : '0';
-            els.ratio.value = row ? (row.dataset.quotaratio || '0') : '0';
-            els.expiry.value = row ? (row.dataset.quotaexpiry || '') : '';
-            els.ratio5h.value = row ? (row.dataset.ratio5h || '0') : '0';
-            els.expiry5h.value = row ? (row.dataset.expiry5h || '') : '';
-            els.ratioWeek.value = row ? (row.dataset.ratioweek || '0') : '0';
-            els.expiryWeek.value = row ? (row.dataset.expiryweek || '') : '';
-            els.ratioMonth.value = row ? (row.dataset.ratiomonth || '0') : '0';
-            els.expiryMonth.value = row ? (row.dataset.expirymonth || '') : '';
-            els.note.value = row ? (row.dataset.note || '') : '';
+        const row = id ? document.querySelector('.mgmt-account[data-id="' + id + '"]') : null;
+        if (row) {
+            fillQuotaFormFromRow(row, true);
         } else {
             els.id.value = '';
             els.title.textContent = '新增帳號紀錄';
@@ -432,7 +488,33 @@ function fengbroFormatQuotaDate($value): string
             els.ratioMonth.value = '0';
             els.expiryMonth.value = '';
             els.note.value = '';
+            syncQuotaAiFields();
+            els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            els.name.focus();
         }
+    }
+
+    function copyQuota(id) {
+        const row = document.querySelector('.mgmt-account[data-id="' + id + '"]');
+        if (!row) return;
+        const els = quotaFormEls();
+        els.form.style.display = '';
+        els.id.value = '';
+        els.title.textContent = '新增帳號紀錄（複製）';
+        els.save.textContent = '新增紀錄';
+        els.name.value = (row.dataset.name || '') + ' (複製)';
+        els.serviceType.value = row.dataset.servicetype || 'general';
+        els.account.value = row.dataset.account || '';
+        els.remaining.value = row.dataset.quotaremaining || '0';
+        els.ratio.value = row.dataset.quotaratio || '0';
+        els.expiry.value = row.dataset.quotaexpiry || '';
+        els.ratio5h.value = row.dataset.ratio5h || '0';
+        els.expiry5h.value = row.dataset.expiry5h || '';
+        els.ratioWeek.value = row.dataset.ratioweek || '0';
+        els.expiryWeek.value = row.dataset.expiryweek || '';
+        els.ratioMonth.value = row.dataset.ratiomonth || '0';
+        els.expiryMonth.value = row.dataset.expirymonth || '';
+        els.note.value = row.dataset.note || '';
         syncQuotaAiFields();
         els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         els.name.focus();
@@ -459,16 +541,12 @@ function fengbroFormatQuotaDate($value): string
             payload.ratio5h = Number(els.ratio5h.value || 0);
             payload.expiry5h = els.expiry5h.value;
             payload.ratioWeek = Number(els.ratioWeek.value || 0);
-            payload.expiryWeek = els.expiryWeek.value.trim();
+            payload.expiryWeek = els.expiryWeek.value || null;
             payload.ratioMonth = Number(els.ratioMonth.value || 0);
-            payload.expiryMonth = els.expiryMonth.value;
+            payload.expiryMonth = els.expiryMonth.value || null;
         }
         if (!payload.name) {
             alert('請填寫服務名稱');
-            return false;
-        }
-        if (payload.expiryWeek && !/^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/.test(payload.expiryWeek)) {
-            alert('一週到期格式需為 月-日（例如 09-30）');
             return false;
         }
         const id = els.id.value;
@@ -549,5 +627,320 @@ function fengbroFormatQuotaDate($value): string
 
     function handleAdd() {
         openQuotaForm();
+    }
+
+    // ---- CSV 匯出 ----
+    function quotaCsvEscape(value) {
+        const s = value == null ? '' : String(value);
+        if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+    }
+
+    function exportQuotaCsv() {
+        const rows = document.querySelectorAll('.mgmt-account');
+        if (rows.length === 0) {
+            alert('尚無可匯出的額度紀錄');
+            return;
+        }
+        const lines = [QUOTA_CSV_HEADERS.join(',')];
+        rows.forEach(function (row) {
+            lines.push([
+                row.dataset.name || '',
+                row.dataset.servicetype || 'general',
+                row.dataset.account || '',
+                row.dataset.quotaremaining || '0',
+                row.dataset.quotaratio || '0',
+                row.dataset.quotaexpiry || '',
+                row.dataset.ratio5h || '0',
+                row.dataset.expiry5h || '',
+                row.dataset.ratioweek || '0',
+                row.dataset.expiryweek || '',
+                row.dataset.ratiomonth || '0',
+                row.dataset.expirymonth || '',
+                row.dataset.note || ''
+            ].map(quotaCsvEscape).join(','));
+        });
+        const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'fengbro-quota-' + new Date().toISOString().slice(0, 10) + '.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    // ---- CSV 匯入 ----
+    let quotaImportData = [];
+    let quotaImportErrors = [];
+
+    function quotaNormalizeKey(text) {
+        return (text || '').trim().toLowerCase();
+    }
+
+    function quotaMapHeader(raw) {
+        const key = quotaNormalizeKey(raw).replace(/\s+/g, '').replace(/_/g, '');
+        return QUOTA_HEADER_ALIASES[key] || QUOTA_HEADER_ALIASES[quotaNormalizeKey(raw)] || null;
+    }
+
+    function quotaParseNonNegative(value) {
+        const s = (value || '').trim();
+        if (s === '') return 0;
+        if (!/^\d+$/.test(s)) return null;
+        return Number(s);
+    }
+
+    function quotaNormalizeCsvDate(value) {
+        const s = (value || '').trim();
+        if (!s) return '';
+        let iso = '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+            iso = s;
+        } else {
+            const m = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/);
+            if (!m) return null;
+            iso = m[1] + '-' + String(Number(m[2])).padStart(2, '0') + '-' + String(Number(m[3])).padStart(2, '0');
+        }
+        const d = new Date(iso + 'T00:00:00.000Z');
+        if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso) return null;
+        return iso;
+    }
+
+    function handleQuotaCsvFile(input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        if (!/\.csv$/i.test(file.name)) {
+            alert('請選擇 CSV 檔案');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function () {
+            const preview = parseQuotaCsvText(String(reader.result || ''));
+            quotaImportData = preview.data;
+            quotaImportErrors = preview.errors;
+            renderQuotaImportPreview();
+        };
+        reader.onerror = function () { alert('讀取 CSV 檔案失敗'); };
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    function parseQuotaCsvText(text) {
+        const errors = [];
+        const data = [];
+        const clean = String(text).replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = clean.split('\n').filter(function (line) { return line.trim() !== ''; });
+        if (lines.length < 2) {
+            errors.push('CSV 檔案至少需要表頭和一行資料');
+            return { data: data, errors: errors };
+        }
+        const parseLine = function (line) {
+            const out = [];
+            let cur = '';
+            let inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQ) {
+                    if (ch === '"') {
+                        if (line[i + 1] === '"') { cur += '"'; i++; }
+                        else inQ = false;
+                    } else cur += ch;
+                } else if (ch === '"') {
+                    inQ = true;
+                } else if (ch === ',') {
+                    out.push(cur); cur = '';
+                } else {
+                    cur += ch;
+                }
+            }
+            out.push(cur);
+            return out;
+        };
+
+        const headers = parseLine(lines[0]);
+        const colIndex = {};
+        headers.forEach(function (h, i) {
+            const mapped = quotaMapHeader(h);
+            if (mapped && colIndex[mapped] == null) colIndex[mapped] = i;
+        });
+        if (colIndex.name == null) {
+            errors.push('表頭缺少必要欄位 name（服務名稱）');
+            return { data: data, errors: errors };
+        }
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = parseLine(lines[i]);
+            const cell = function (header) {
+                const idx = colIndex[header];
+                return idx == null ? '' : (values[idx] || '');
+            };
+            const lineNo = i + 1;
+            const fail = function (msg) { errors.push('第 ' + lineNo + ' 行: ' + msg); };
+
+            const name = cell('name').trim();
+            if (!name) { fail('name 欄位不能為空'); continue; }
+            if (name.length > 100) { fail('服務名稱最多 100 個字元'); continue; }
+
+            const typeRaw = cell('serviceType').trim();
+            let serviceType = 'general';
+            if (typeRaw) {
+                const t = quotaNormalizeKey(typeRaw).replace(/\s+/g, '').replace(/_/g, '');
+                if (t === 'ai' || t === 'ai服務' || t === 'ai服务') serviceType = 'ai';
+                else if (t === 'general' || t === '一般' || t === '一般服務') serviceType = 'general';
+                else { fail('服務類型不正確'); continue; }
+            }
+
+            const account = cell('account').trim();
+            if (account.length > 200) { fail('帳號最多 200 個字元'); continue; }
+
+            const quotaRemaining = quotaParseNonNegative(cell('quotaRemaining'));
+            if (quotaRemaining === null) { fail('額度剩餘次數必須是 0 以上的整數'); continue; }
+            const quotaRatio = quotaParseNonNegative(cell('quotaRatio'));
+            if (quotaRatio === null) { fail('額度剩餘比例必須是 0 以上的整數'); continue; }
+
+            const quotaExpiry = quotaNormalizeCsvDate(cell('quotaExpiry'));
+            if (quotaExpiry === null) { fail('額度到期日格式不正確'); continue; }
+
+            const note = cell('note').trim();
+            if (note.length > 3337) { fail('備註最多 3337 個字元'); continue; }
+
+            const row = {
+                name: name, serviceType: serviceType, account: account,
+                quotaRemaining: quotaRemaining, quotaRatio: quotaRatio,
+                quotaExpiry: quotaExpiry, note: note,
+                ratio5h: 0, expiry5h: '', ratioWeek: 0, expiryWeek: '', ratioMonth: 0, expiryMonth: ''
+            };
+
+            if (serviceType === 'ai') {
+                const ratio5h = quotaParseNonNegative(cell('ratio5h'));
+                if (ratio5h === null) { fail('5 小時比例必須是 0 以上的整數'); continue; }
+                const ratioWeek = quotaParseNonNegative(cell('ratioWeek'));
+                if (ratioWeek === null) { fail('一週比例必須是 0 以上的整數'); continue; }
+                const ratioMonth = quotaParseNonNegative(cell('ratioMonth'));
+                if (ratioMonth === null) { fail('一月比例必須是 0 以上的整數'); continue; }
+
+                const expiry5h = cell('expiry5h').trim();
+                if (expiry5h && !/^([01]\d|2[0-3]):[0-5]\d$/.test(expiry5h)) {
+                    fail('5 小時到期需為 HH:mm（24 小時制，例如 14:30）'); continue;
+                }
+
+                const expiryWeekRaw = cell('expiryWeek').trim();
+                let expiryWeek = '';
+                if (expiryWeekRaw) {
+                    const wd = quotaNormalizeCsvDate(expiryWeekRaw);
+                    if (wd === null) { fail('一週到期格式需為 西元年-月-日（例如 2026-09-30）'); continue; }
+                    expiryWeek = wd;
+                }
+
+                const expiryMonthRaw = cell('expiryMonth').trim();
+                let expiryMonth = '';
+                if (expiryMonthRaw) {
+                    const md = quotaNormalizeCsvDate(expiryMonthRaw);
+                    if (md === null) { fail('一月到期格式需為 西元年-月-日（例如 2026-12-31）'); continue; }
+                    expiryMonth = md;
+                }
+
+                row.ratio5h = ratio5h; row.expiry5h = expiry5h;
+                row.ratioWeek = ratioWeek; row.expiryWeek = expiryWeek;
+                row.ratioMonth = ratioMonth; row.expiryMonth = expiryMonth;
+            }
+            data.push(row);
+        }
+        return { data: data, errors: errors };
+    }
+
+    function quotaRowKey(row) {
+        return quotaNormalizeKey(row.name) + '\u0000' + quotaNormalizeKey(row.account);
+    }
+
+    function renderQuotaImportPreview() {
+        const overlay = document.getElementById('quotaImportOverlay');
+        overlay.style.display = 'flex';
+        document.getElementById('quotaImportResult').style.display = 'none';
+        const errorsEl = document.getElementById('quotaImportErrors');
+        if (quotaImportErrors.length > 0) {
+            errorsEl.style.display = '';
+            errorsEl.innerHTML = '<strong>格式錯誤（不會寫入）</strong><br>' + quotaImportErrors.map(function (e) { return '• ' + e; }).join('<br>');
+        } else {
+            errorsEl.style.display = 'none';
+        }
+        const rowsEl = document.getElementById('quotaImportRows');
+        if (quotaImportData.length === 0) {
+            rowsEl.innerHTML = '<p style="color:var(--muted-text);margin:10px 0;">沒有可匯入的資料列。</p>';
+        } else {
+            rowsEl.innerHTML = '<p style="font-weight:600;margin:10px 0 4px;">將匯入 ' + quotaImportData.length + ' 筆</p>' +
+                quotaImportData.map(function (row) {
+                    const key = quotaRowKey(row);
+                    const existing = QUOTA_EXISTING_INDEX[key] != null;
+                    return '<div class="quota-import-row"><span class="qname">' + quotaHtmlEscape(row.name) + '</span>' +
+                        '<span style="color:var(--muted-text);font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;">' + quotaHtmlEscape(row.account || '未填帳號') + '</span>' +
+                        '<span class="' + (existing ? 'qstatus-update' : 'qstatus-new') + '">' + (existing ? '更新' : '新增') + '</span></div>';
+                }).join('');
+        }
+        document.getElementById('quotaImportCancelBtn').style.display = '';
+        document.getElementById('quotaImportConfirmBtn').style.display = quotaImportErrors.length === 0 && quotaImportData.length > 0 ? '' : 'none';
+    }
+
+    function quotaHtmlEscape(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function closeQuotaImport() {
+        document.getElementById('quotaImportOverlay').style.display = 'none';
+        quotaImportData = [];
+        quotaImportErrors = [];
+    }
+
+    async function executeQuotaImport() {
+        if (!quotaImportData || quotaImportData.length === 0) return;
+        document.getElementById('quotaImportCancelBtn').style.display = 'none';
+        document.getElementById('quotaImportConfirmBtn').style.display = 'none';
+        const confirmBtn = document.getElementById('quotaImportConfirmBtn');
+        confirmBtn.disabled = true;
+        const resultEl = document.getElementById('quotaImportResult');
+        resultEl.style.display = '';
+        resultEl.textContent = '匯入中…';
+        let successCount = 0;
+        let failCount = 0;
+        const index = Object.assign({}, QUOTA_EXISTING_INDEX);
+        for (const row of quotaImportData) {
+            const key = quotaRowKey(row);
+            const existingId = index[key];
+            try {
+                const payload = {
+                    name: row.name, serviceType: row.serviceType, account: row.account,
+                    quotaRemaining: row.quotaRemaining, quotaRatio: row.quotaRatio,
+                    quotaExpiry: row.quotaExpiry || null, note: row.note,
+                    ratio5h: row.ratio5h, expiry5h: row.expiry5h,
+                    ratioWeek: row.ratioWeek, expiryWeek: row.expiryWeek || null,
+                    ratioMonth: row.ratioMonth, expiryMonth: row.expiryMonth || null
+                };
+                const url = existingId
+                    ? 'api.php?action=update&table=' + encodeURIComponent(TABLE) + '&id=' + encodeURIComponent(existingId)
+                    : 'api.php?action=create&table=' + encodeURIComponent(TABLE);
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(function (r) { return r.json(); });
+                if (res.success) {
+                    successCount++;
+                    if (!existingId && res.id) index[key] = res.id;
+                } else {
+                    failCount++;
+                }
+            } catch (e) {
+                failCount++;
+            }
+        }
+        confirmBtn.disabled = false;
+        resultEl.textContent = '匯入完成：成功 ' + successCount + ' 筆 · 失敗 ' + failCount + ' 筆';
+        if (failCount === 0) {
+            setTimeout(function () {
+                location.reload();
+            }, 1200);
+        } else {
+            document.getElementById('quotaImportCancelBtn').style.display = '';
+        }
     }
 </script>

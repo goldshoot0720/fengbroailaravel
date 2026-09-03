@@ -153,7 +153,7 @@ function initFengbroVoiceInput() {
                 expiryMonth: ['一月到期'],
                 note: ['備註', '說明']
             },
-            examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選 AI 服務', '儲存']
+            examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選 AI 服務', '複製這筆', '匯入 CSV', '儲存']
         },
         reinstall: {
             title: '鋒兄重灌',

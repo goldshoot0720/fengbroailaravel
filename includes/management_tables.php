@@ -590,16 +590,16 @@ function fengbroSanitizeQuotaRow(array $input): array
     }
     $serviceType = fengbroNormalizeQuotaServiceType($input['serviceType'] ?? 'general');
     $expiry5h = trim((string) ($input['expiry5h'] ?? ''));
-    if ($expiry5h !== '' && !in_array($expiry5h, ['上午', '下午'], true)) {
-        throw new InvalidArgumentException('5 小時到期格式需為 上午 或 下午');
+    if ($expiry5h !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $expiry5h)) {
+        throw new InvalidArgumentException('5 小時到期需為 HH:mm（24 小時制，例如 14:30）');
     }
     $expiryWeek = trim((string) ($input['expiryWeek'] ?? ''));
-    if ($expiryWeek !== '' && !preg_match('/^(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $expiryWeek)) {
-        throw new InvalidArgumentException('一週到期格式需為 月-日（例如 09-30）');
+    if ($expiryWeek !== '' && !preg_match('/^\d{4}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $expiryWeek)) {
+        throw new InvalidArgumentException('一週到期格式需為 西元年-月-日（例如 2026-09-30）');
     }
     $expiryMonth = trim((string) ($input['expiryMonth'] ?? ''));
     if ($expiryMonth !== '' && !preg_match('/^\d{4}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])$/', $expiryMonth)) {
-        throw new InvalidArgumentException('一月到期格式需為 西元年-月-日');
+        throw new InvalidArgumentException('一月到期格式需為 西元年-月-日（例如 2026-12-31）');
     }
     $payload = [
         'name' => $name,
