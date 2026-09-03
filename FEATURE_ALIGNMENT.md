@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：補齊鋒兄試用／首購與鋒兄重灌選單。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 重灌訂閱週期／費用與試用日期標籤。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -10,7 +10,7 @@
 | Dashboard | `pages/dashboard.php` | 完成（離線快取／uploads 統計） |
 | Subscription | `pages/subscription.php` | 完成 |
 | Trial / first purchase | `pages/trialpurchase.php` | 完成（服務分組、狀態篩選、CSV） |
-| Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼） |
+| Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼、訂閱週期與費用、CSV） |
 | Food | `pages/food.php` | 完成 |
 | Notes / Article | `pages/notes.php` | 完成 |
 | Common accounts | `pages/favorites.php` | 完成 |

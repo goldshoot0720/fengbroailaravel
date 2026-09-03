@@ -22,7 +22,7 @@ foreach ($items as $item) {
 <div class="content-header" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
         <h1 style="margin:0;">鋒兄重灌</h1>
-        <p class="muted-copy">整理 Windows 與 Mac 重灌時需要的軟體、網站和授權資訊；付費序號預設保持隱藏，可另設查看密碼。</p>
+        <p class="muted-copy">整理 Windows 與 Mac 重灌時需要的軟體、網站、授權與訂閱資訊；付費序號預設保持隱藏，可另設查看密碼。</p>
     </div>
     <span class="count-pill count-pill-reinstall"><?php echo count($items); ?> 套軟體</span>
 </div>
@@ -75,6 +75,32 @@ foreach ($items as $item) {
                     <option value="paid">付費軟體</option>
                 </select>
             </label>
+            <label>訂閱制軟體
+                <select class="form-control" id="reinstallSubscription" onchange="syncSubscriptionFields()">
+                    <option value="no">否</option>
+                    <option value="yes">是</option>
+                </select>
+            </label>
+            <label id="reinstallSubPeriodWrap">訂閱週期
+                <div class="pair-input">
+                    <input class="form-control" id="reinstallSubPeriodCount" type="number" min="1" step="1" value="1">
+                    <select class="form-control" id="reinstallSubPeriodUnit">
+                        <option value="month">月</option>
+                        <option value="year">年</option>
+                    </select>
+                </div>
+            </label>
+            <label id="reinstallSubPriceWrap">訂閱費用
+                <div class="pair-input">
+                    <input class="form-control" id="reinstallSubPrice" type="number" min="0" step="1" value="0">
+                    <select class="form-control" id="reinstallSubCurrency">
+                        <option value="TWD">台幣</option>
+                        <option value="USD">美元</option>
+                        <option value="JPY">日圓</option>
+                        <option value="CNY">人民幣</option>
+                    </select>
+                </div>
+            </label>
             <label>授權方式
                 <select class="form-control" id="reinstallLicenseType" onchange="syncLicenseFields()">
                     <option value="none">無序號</option>
@@ -122,6 +148,11 @@ foreach ($items as $item) {
             <option value="free">免費軟體</option>
             <option value="paid">付費軟體</option>
         </select>
+        <select id="reinstallSubFilter" class="form-control" onchange="filterReinstall()">
+            <option value="all">全部訂閱狀態</option>
+            <option value="yes">訂閱制</option>
+            <option value="no">非訂閱制</option>
+        </select>
         <span class="food-result-count" id="reinstallVisibleCount"><?php echo count($items); ?> 套</span>
     </div>
 
@@ -137,6 +168,10 @@ foreach ($items as $item) {
                 $system = fengbroNormalizeReinstallSystem($item['system'] ?? 'win');
                 $softwareType = fengbroNormalizeSoftwareType($item['softwareType'] ?? 'free');
                 $licenseType = fengbroNormalizeLicenseType($item['licenseType'] ?? 'none');
+                $isSubscription = fengbroParseBoolean($item['subscriptionSoftware'] ?? 0);
+                $subscriptionPeriod = $isSubscription ? (string) ($item['subscriptionPeriod'] ?? '') : '';
+                $subscriptionPrice = $isSubscription ? fengbroNonNegativeInt($item['subscriptionPrice'] ?? 0) : 0;
+                $subscriptionCurrency = $isSubscription ? (string) ($item['subscriptionCurrency'] ?? 'TWD') : 'TWD';
                 $site = fengbroSafeHttpUrl($item['site'] ?? '');
                 $hasSerial = $licenseType === 'paid_serial';
                 $searchBlob = strtolower(($item['name'] ?? '') . ' ' . ($item['site'] ?? '') . ' ' . ($item['note'] ?? ''));
@@ -149,6 +184,10 @@ foreach ($items as $item) {
                     data-licensetype="<?php echo htmlspecialchars($licenseType, ENT_QUOTES, 'UTF-8'); ?>"
                     data-serial="<?php echo htmlspecialchars($item['serial'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                     data-viewpassword="<?php echo htmlspecialchars($item['viewPassword'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                    data-subscriptionsoftware="<?php echo $isSubscription ? '1' : '0'; ?>"
+                    data-subscriptionperiod="<?php echo htmlspecialchars($subscriptionPeriod, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-subscriptionprice="<?php echo htmlspecialchars((string) $subscriptionPrice, ENT_QUOTES, 'UTF-8'); ?>"
+                    data-subscriptioncurrency="<?php echo htmlspecialchars($subscriptionCurrency, ENT_QUOTES, 'UTF-8'); ?>"
                     data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                     data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                     data-search="<?php echo htmlspecialchars($searchBlob, ENT_QUOTES, 'UTF-8'); ?>">
@@ -164,6 +203,10 @@ foreach ($items as $item) {
                     <div>
                         <span class="mgmt-mobile-label">軟體類型</span>
                         <span class="status-chip <?php echo $softwareType === 'free' ? 'chip-success' : ($softwareType === 'trial' ? 'chip-warning' : 'chip-info'); ?>"><?php echo fengbroSoftwareTypeLabel($softwareType); ?></span>
+                        <?php if ($isSubscription): ?>
+                            <span class="status-chip chip-warning">訂閱制</span>
+                            <p class="mgmt-note"><?php echo htmlspecialchars(fengbroReinstallSubscriptionPeriodLabel($subscriptionPeriod)); ?> · <?php echo htmlspecialchars(fengbroFormatReinstallMoney($subscriptionPrice, $subscriptionCurrency)); ?></p>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <span class="mgmt-mobile-label">序號</span>
@@ -241,7 +284,8 @@ foreach ($items as $item) {
     .secret-input { position: relative; }
     .secret-input input { padding-right: 42px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .secret-toggle { position: absolute; right: 0; top: 0; width: 40px; height: 100%; border: 0; background: transparent; color: var(--muted-text); cursor: pointer; }
-    .reinstall-head, .reinstall-row { display: grid; grid-template-columns: 36px minmax(0,1.1fr) 80px 110px minmax(0,1.3fr) minmax(0,1fr) 88px; gap: 12px; align-items: center; padding: 14px 16px; }
+    .pair-input { display: grid; grid-template-columns: minmax(0,1fr) 6.5rem; gap: 8px; }
+    .reinstall-head, .reinstall-row { display: grid; grid-template-columns: 36px minmax(0,1.1fr) 80px 130px minmax(0,1.3fr) minmax(0,1fr) 88px; gap: 12px; align-items: center; padding: 14px 16px; }
     .reinstall-head { color: var(--muted-text); font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid var(--border-color); }
     .reinstall-row { border-bottom: 1px solid var(--border-color); }
     .reinstall-row:last-child { border-bottom: 0; }
@@ -281,12 +325,23 @@ foreach ($items as $item) {
             name: document.getElementById('reinstallName'),
             system: document.getElementById('reinstallSystem'),
             softwareType: document.getElementById('reinstallSoftwareType'),
+            subscription: document.getElementById('reinstallSubscription'),
+            periodCount: document.getElementById('reinstallSubPeriodCount'),
+            periodUnit: document.getElementById('reinstallSubPeriodUnit'),
+            price: document.getElementById('reinstallSubPrice'),
+            currency: document.getElementById('reinstallSubCurrency'),
             licenseType: document.getElementById('reinstallLicenseType'),
             serial: document.getElementById('reinstallSerial'),
             viewPassword: document.getElementById('reinstallViewPassword'),
             site: document.getElementById('reinstallSite'),
             note: document.getElementById('reinstallNote')
         };
+    }
+
+    function parsePeriod(value) {
+        const match = String(value || '').trim().match(/^([1-9]\d{0,3})(年|月)$/);
+        if (!match) return { count: 1, unit: 'month' };
+        return { count: Number(match[1]), unit: match[2] === '年' ? 'year' : 'month' };
     }
 
     function syncLicenseFields() {
@@ -296,6 +351,18 @@ foreach ($items as $item) {
         if (!paid) {
             document.getElementById('reinstallSerial').value = '';
             document.getElementById('reinstallViewPassword').value = '';
+        }
+    }
+
+    function syncSubscriptionFields() {
+        const enabled = document.getElementById('reinstallSubscription').value === 'yes';
+        document.getElementById('reinstallSubPeriodWrap').style.display = enabled ? '' : 'none';
+        document.getElementById('reinstallSubPriceWrap').style.display = enabled ? '' : 'none';
+        if (!enabled) {
+            document.getElementById('reinstallSubPeriodCount').value = '1';
+            document.getElementById('reinstallSubPeriodUnit').value = 'month';
+            document.getElementById('reinstallSubPrice').value = '0';
+            document.getElementById('reinstallSubCurrency').value = 'TWD';
         }
     }
 
@@ -320,6 +387,12 @@ foreach ($items as $item) {
             els.name.value = row ? (row.dataset.name || '') : '';
             els.system.value = row ? (row.dataset.system || 'win') : 'win';
             els.softwareType.value = row ? (row.dataset.softwaretype || 'free') : 'free';
+            els.subscription.value = row && row.dataset.subscriptionsoftware === '1' ? 'yes' : 'no';
+            const period = parsePeriod(row ? row.dataset.subscriptionperiod : '');
+            els.periodCount.value = String(period.count);
+            els.periodUnit.value = period.unit;
+            els.price.value = row ? (row.dataset.subscriptionprice || '0') : '0';
+            els.currency.value = row ? (row.dataset.subscriptioncurrency || 'TWD') : 'TWD';
             els.licenseType.value = row ? (row.dataset.licensetype || 'none') : 'none';
             els.serial.value = row ? (row.dataset.serial || '') : '';
             els.viewPassword.value = row ? (row.dataset.viewpassword || '') : '';
@@ -332,6 +405,11 @@ foreach ($items as $item) {
             els.name.value = '';
             els.system.value = 'win';
             els.softwareType.value = 'free';
+            els.subscription.value = 'no';
+            els.periodCount.value = '1';
+            els.periodUnit.value = 'month';
+            els.price.value = '0';
+            els.currency.value = 'TWD';
             els.licenseType.value = 'none';
             els.serial.value = '';
             els.viewPassword.value = '';
@@ -339,6 +417,7 @@ foreach ($items as $item) {
             els.note.value = '';
         }
         syncLicenseFields();
+        syncSubscriptionFields();
         els.form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         els.name.focus();
     }
@@ -351,6 +430,12 @@ foreach ($items as $item) {
     function saveReinstall(event) {
         event.preventDefault();
         const els = reinstallEls();
+        const subscribed = els.subscription.value === 'yes';
+        const periodCount = Number(els.periodCount.value || 0);
+        if (subscribed && (!Number.isInteger(periodCount) || periodCount < 1)) {
+            alert('訂閱週期必須是 1 以上的整數');
+            return false;
+        }
         const payload = {
             name: els.name.value.trim(),
             system: els.system.value,
@@ -358,6 +443,11 @@ foreach ($items as $item) {
             licenseType: els.licenseType.value,
             serial: els.licenseType.value === 'paid_serial' ? els.serial.value : '',
             viewPassword: els.licenseType.value === 'paid_serial' ? els.viewPassword.value : '',
+            subscriptionSoftware: subscribed,
+            subscriptionPeriodCount: subscribed ? periodCount : 1,
+            subscriptionPeriodUnit: subscribed ? els.periodUnit.value : 'month',
+            subscriptionPrice: subscribed ? Number(els.price.value || 0) : 0,
+            subscriptionCurrency: subscribed ? els.currency.value : 'TWD',
             site: els.site.value.trim(),
             note: els.note.value
         };
@@ -462,12 +552,16 @@ foreach ($items as $item) {
         const query = (document.getElementById('reinstallSearchInput')?.value || '').trim().toLowerCase();
         const system = document.getElementById('reinstallSystemFilter')?.value || 'all';
         const type = document.getElementById('reinstallTypeFilter')?.value || 'all';
+        const subscription = document.getElementById('reinstallSubFilter')?.value || 'all';
         let visible = 0;
         document.querySelectorAll('.reinstall-row').forEach(function (row) {
             const matchesQuery = !query || (row.dataset.search || '').indexOf(query) !== -1;
             const matchesSystem = system === 'all' || row.dataset.system === system;
             const matchesType = type === 'all' || row.dataset.softwaretype === type;
-            const show = matchesQuery && matchesSystem && matchesType;
+            const matchesSub = subscription === 'all'
+                || (subscription === 'yes' && row.dataset.subscriptionsoftware === '1')
+                || (subscription === 'no' && row.dataset.subscriptionsoftware !== '1');
+            const show = matchesQuery && matchesSystem && matchesType && matchesSub;
             row.style.display = show ? '' : 'none';
             if (show) visible++;
         });
@@ -480,4 +574,5 @@ foreach ($items as $item) {
     }
 
     syncLicenseFields();
+    syncSubscriptionFields();
 </script>

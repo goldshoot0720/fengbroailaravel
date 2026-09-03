@@ -31,6 +31,10 @@ function fengbroReinstallCreateSql(): string
             licenseType VARCHAR(20) DEFAULT 'none',
             serial VARCHAR(500),
             viewPassword VARCHAR(100),
+            subscriptionSoftware TINYINT(1) DEFAULT 0,
+            subscriptionPeriod VARCHAR(20) DEFAULT '',
+            subscriptionPrice INT DEFAULT 0,
+            subscriptionCurrency VARCHAR(10) DEFAULT 'TWD',
             site VARCHAR(2000),
             note VARCHAR(3337),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +78,10 @@ function fengbroEnsureReinstallTable(?PDO $pdo = null): void
         "licenseType VARCHAR(20) DEFAULT 'none'",
         "serial VARCHAR(500)",
         "viewPassword VARCHAR(100)",
+        "subscriptionSoftware TINYINT(1) DEFAULT 0",
+        "subscriptionPeriod VARCHAR(20) DEFAULT ''",
+        "subscriptionPrice INT DEFAULT 0",
+        "subscriptionCurrency VARCHAR(10) DEFAULT 'TWD'",
         "site VARCHAR(2000)",
         "note VARCHAR(3337)",
     ]);
@@ -220,6 +228,141 @@ function fengbroLicenseTypeLabel(string $type): string
     return $type === 'paid_serial' ? '付費序號' : '無序號';
 }
 
+function fengbroParseBoolean($value, bool $default = false, bool $strict = false): bool
+{
+    if ($value === true || $value === 1) {
+        return true;
+    }
+    if ($value === false || $value === 0) {
+        return false;
+    }
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return $default;
+    }
+    $key = function_exists('mb_strtolower') ? mb_strtolower($raw, 'UTF-8') : strtolower($raw);
+    $map = [
+        '1' => true,
+        'true' => true,
+        'yes' => true,
+        'on' => true,
+        '是' => true,
+        '訂閱制' => true,
+        '0' => false,
+        'false' => false,
+        'no' => false,
+        'off' => false,
+        '否' => false,
+    ];
+    if (array_key_exists($key, $map)) {
+        return $map[$key];
+    }
+    if ($strict) {
+        throw new InvalidArgumentException('訂閱制軟體不正確');
+    }
+    return $default;
+}
+
+function fengbroParseReinstallSubscriptionPeriod(?string $value): array
+{
+    if (preg_match('/^([1-9]\d{0,3})(年|月)$/u', trim((string) $value), $m)) {
+        return ['count' => (int) $m[1], 'unit' => $m[2] === '年' ? 'year' : 'month'];
+    }
+    return ['count' => 1, 'unit' => 'month'];
+}
+
+function fengbroFormatReinstallSubscriptionPeriod(int $count, string $unit): string
+{
+    return $count . ($unit === 'year' || $unit === '年' ? '年' : '月');
+}
+
+function fengbroReinstallSubscriptionPeriodLabel(?string $value): string
+{
+    $parsed = fengbroParseReinstallSubscriptionPeriod($value);
+    return $parsed['unit'] === 'year' ? ($parsed['count'] . ' 年') : ($parsed['count'] . ' 個月');
+}
+
+function fengbroNormalizeReinstallSubscriptionPeriod(array $input, bool $enabled): string
+{
+    if (!$enabled) {
+        return '';
+    }
+    $raw = trim((string) ($input['subscriptionPeriod'] ?? ''));
+    if ($raw !== '') {
+        if (!preg_match('/^[1-9]\d{0,3}(年|月)$/u', $raw)) {
+            throw new InvalidArgumentException('訂閱週期必須是 ?年 或 ?月，例如 1年、3月');
+        }
+        return $raw;
+    }
+    $countRaw = $input['subscriptionPeriodCount'] ?? 1;
+    $count = ($countRaw === null || $countRaw === '') ? 1 : fengbroNonNegativeInt($countRaw);
+    if ($count < 1) {
+        throw new InvalidArgumentException('訂閱週期必須是 1 以上的整數');
+    }
+    $unitRaw = trim((string) ($input['subscriptionPeriodUnit'] ?? 'month'));
+    $unitMap = [
+        'year' => 'year',
+        'month' => 'month',
+        '年' => 'year',
+        '月' => 'month',
+    ];
+    if ($unitRaw === '') {
+        $unit = 'month';
+    } elseif (!isset($unitMap[$unitRaw])) {
+        throw new InvalidArgumentException('訂閱週期必須是 ?年 或 ?月，例如 1年、3月');
+    } else {
+        $unit = $unitMap[$unitRaw];
+    }
+    return fengbroFormatReinstallSubscriptionPeriod($count, $unit);
+}
+
+function fengbroNormalizeReinstallCurrency($value, bool $enabled): string
+{
+    if (!$enabled) {
+        return 'TWD';
+    }
+    $raw = trim((string) $value);
+    if ($raw === '') {
+        return 'TWD';
+    }
+    $ascii = strtoupper($raw);
+    $map = [
+        'TWD' => 'TWD',
+        '台幣' => 'TWD',
+        '臺幣' => 'TWD',
+        'USD' => 'USD',
+        '美元' => 'USD',
+        'JPY' => 'JPY',
+        '日圓' => 'JPY',
+        '日元' => 'JPY',
+        'CNY' => 'CNY',
+        '人民幣' => 'CNY',
+    ];
+    if (isset($map[$ascii])) {
+        return $map[$ascii];
+    }
+    if (isset($map[$raw])) {
+        return $map[$raw];
+    }
+    throw new InvalidArgumentException('訂閱費用幣別不正確');
+}
+
+function fengbroFormatReinstallMoney(int $amount, string $currency): string
+{
+    try {
+        $currency = fengbroNormalizeReinstallCurrency($currency ?: 'TWD', true);
+    } catch (InvalidArgumentException $e) {
+        $currency = 'TWD';
+    }
+    $rates = ['TWD' => 1, 'USD' => 35, 'JPY' => 0.35, 'CNY' => 4.5];
+    $symbols = ['TWD' => 'NT$', 'USD' => '$', 'JPY' => '¥', 'CNY' => '¥'];
+    $twd = (int) round($amount * ($rates[$currency] ?? 1));
+    if ($currency === 'TWD') {
+        return 'NT$ ' . number_format($amount);
+    }
+    return 'NT$ ' . number_format($twd) . ' (' . $symbols[$currency] . ' ' . number_format($amount) . ')';
+}
+
 function fengbroSafeHttpUrl($value): string
 {
     $value = trim((string) $value);
@@ -267,6 +410,7 @@ function fengbroSanitizeReinstallRow(array $input): array
     $licenseType = fengbroNormalizeLicenseType($input['licenseType'] ?? 'none');
     $serial = $licenseType === 'paid_serial' ? fengbroMbCut($input['serial'] ?? '', 500) : '';
     $viewPassword = $licenseType === 'paid_serial' ? fengbroMbCut($input['viewPassword'] ?? '', 100) : '';
+    $subscriptionSoftware = fengbroParseBoolean($input['subscriptionSoftware'] ?? false, false, true);
     $site = fengbroSafeHttpUrl($input['site'] ?? '');
     if (trim((string) ($input['site'] ?? '')) !== '' && $site === '') {
         throw new InvalidArgumentException('軟體網站必須是完整 http 或 https 網址');
@@ -278,6 +422,10 @@ function fengbroSanitizeReinstallRow(array $input): array
         'licenseType' => $licenseType,
         'serial' => $serial,
         'viewPassword' => $viewPassword,
+        'subscriptionSoftware' => $subscriptionSoftware ? 1 : 0,
+        'subscriptionPeriod' => fengbroNormalizeReinstallSubscriptionPeriod($input, $subscriptionSoftware),
+        'subscriptionPrice' => $subscriptionSoftware ? fengbroNonNegativeInt($input['subscriptionPrice'] ?? 0) : 0,
+        'subscriptionCurrency' => fengbroNormalizeReinstallCurrency($input['subscriptionCurrency'] ?? 'TWD', $subscriptionSoftware),
         'site' => $site,
         'note' => fengbroMbCut($input['note'] ?? '', 3337),
     ];
@@ -355,6 +503,18 @@ function fengbroManagementImportFieldMap(): array
         '序號' => 'serial',
         'view_password' => 'viewPassword',
         '查看密碼' => 'viewPassword',
+        'subscription_software' => 'subscriptionSoftware',
+        '訂閱制軟體' => 'subscriptionSoftware',
+        '訂閱制' => 'subscriptionSoftware',
+        'subscription_period' => 'subscriptionPeriod',
+        '訂閱週期' => 'subscriptionPeriod',
+        '週期' => 'subscriptionPeriod',
+        'subscription_price' => 'subscriptionPrice',
+        '訂閱費用' => 'subscriptionPrice',
+        '費用' => 'subscriptionPrice',
+        'subscription_currency' => 'subscriptionCurrency',
+        '訂閱費用幣別' => 'subscriptionCurrency',
+        '幣別' => 'subscriptionCurrency',
         '軟體網站' => 'site',
         '網站' => 'site',
     ];

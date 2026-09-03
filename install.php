@@ -294,6 +294,10 @@ try {
         "ALTER TABLE reinstall ADD COLUMN licenseType VARCHAR(20) DEFAULT 'none'",
         "ALTER TABLE reinstall ADD COLUMN serial VARCHAR(500)",
         "ALTER TABLE reinstall ADD COLUMN viewPassword VARCHAR(100)",
+        "ALTER TABLE reinstall ADD COLUMN subscriptionSoftware TINYINT(1) DEFAULT 0",
+        "ALTER TABLE reinstall ADD COLUMN subscriptionPeriod VARCHAR(20) DEFAULT ''",
+        "ALTER TABLE reinstall ADD COLUMN subscriptionPrice INT DEFAULT 0",
+        "ALTER TABLE reinstall ADD COLUMN subscriptionCurrency VARCHAR(10) DEFAULT 'TWD'",
         "ALTER TABLE reinstall ADD COLUMN site VARCHAR(2000)",
         "ALTER TABLE reinstall ADD COLUMN note VARCHAR(3337)",
     ];

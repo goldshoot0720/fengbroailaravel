@@ -185,7 +185,7 @@
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
             <li>工具：比價/手動價格/手機歷史 CSV、新聞、PNG/JPEG、圖+語音、合併+Whisper、YT/B站、tube/金融 CSV 與解析名稱；語音可導向各工具子頁</li>
-            <li>新增鋒兄試用／首購、鋒兄重灌（獨立 trialpurchase、reinstall 表，對齊 Appwrite）</li>
+            <li>新增鋒兄試用／首購、鋒兄重灌（獨立 trialpurchase、reinstall 表；重灌含訂閱週期、費用與幣別，對齊 Appwrite）</li>
             <li>對齊清單：見專案 <code>FEATURE_ALIGNMENT.md</code></li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>

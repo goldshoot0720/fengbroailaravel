@@ -112,6 +112,18 @@ $fieldMapping = [
     '序號' => 'serial',
     'view_password' => 'viewPassword',
     '查看密碼' => 'viewPassword',
+    'subscription_software' => 'subscriptionSoftware',
+    '訂閱制軟體' => 'subscriptionSoftware',
+    '訂閱制' => 'subscriptionSoftware',
+    'subscription_period' => 'subscriptionPeriod',
+    '訂閱週期' => 'subscriptionPeriod',
+    '週期' => 'subscriptionPeriod',
+    'subscription_price' => 'subscriptionPrice',
+    '訂閱費用' => 'subscriptionPrice',
+    '費用' => 'subscriptionPrice',
+    'subscription_currency' => 'subscriptionCurrency',
+    '訂閱費用幣別' => 'subscriptionCurrency',
+    '幣別' => 'subscriptionCurrency',
     '軟體網站' => 'site',
 ];
 // Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
