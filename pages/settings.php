@@ -328,6 +328,16 @@ $biggoSettings = [
                     </td>
                 </tr>
             </table>
+            <div style="margin: 14px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <button type="button" class="btn btn-success" onclick="exportResendSettingsCsv()" <?php echo $notifPasswordSet ? '' : 'disabled'; ?> title="<?php echo $notifPasswordSet ? '匯出 3 組 RESEND 金鑰與收件 Email（需通知密碼）' : '需先建立通知密碼'; ?>">
+                    <i class="fa-solid fa-file-csv"></i> 匯出設定 CSV
+                </button>
+                <button type="button" class="btn" onclick="document.getElementById('resendSettingsCsvFile').click()" <?php echo $notifPasswordSet ? '' : 'disabled'; ?> title="<?php echo $notifPasswordSet ? '從 CSV 匯入並依收件 Email 合併（需通知密碼）' : '需先建立通知密碼'; ?>">
+                    <i class="fa-solid fa-upload"></i> 匯入設定 CSV
+                </button>
+                <input type="file" id="resendSettingsCsvFile" accept=".csv,text/csv" style="display:none;" onchange="handleResendSettingsCsvFile(this)">
+                <span id="resendCsvStatus" style="font-size:0.85em; color:var(--muted-text);"></span>
+            </div>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i> 儲存 RESEND 設定
             </button>
@@ -788,6 +798,148 @@ $biggoSettings = [
                     result.innerHTML = '<span style="color:#e11d48;">✗ ' + String(err.message || err) + '</span>';
                 }
             });
+    }
+
+    // ── Resend 設定 CSV（對齊 Appwrite resendSettingsCsv）─────────────────────
+    const RESEND_CSV_HEADERS = ['RESEND_API_KEY', 'RESEND_TO_EMAIL'];
+    const RESEND_CSV_ALIASES = {
+        'resendapikey': 'RESEND_API_KEY', 'resend_api_key': 'RESEND_API_KEY', 'apikey': 'RESEND_API_KEY', 'api_key': 'RESEND_API_KEY', 'key': 'RESEND_API_KEY',
+        'resendtoemail': 'RESEND_TO_EMAIL', 'resend_to_email': 'RESEND_TO_EMAIL', 'toemail': 'RESEND_TO_EMAIL', 'to_email': 'RESEND_TO_EMAIL', 'email': 'RESEND_TO_EMAIL',
+        '收件': 'RESEND_TO_EMAIL', '收件人': 'RESEND_TO_EMAIL', '收件email': 'RESEND_TO_EMAIL', '收件電子郵件': 'RESEND_TO_EMAIL',
+        '通知email': 'RESEND_TO_EMAIL', '通知收件': 'RESEND_TO_EMAIL', '通知收件email': 'RESEND_TO_EMAIL', '通知收件電子郵件': 'RESEND_TO_EMAIL', '電子郵件': 'RESEND_TO_EMAIL'
+    };
+
+    function resendCsvStatus(msg, ok) {
+        const el = document.getElementById('resendCsvStatus');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.color = ok ? '#059669' : (msg ? '#e11d48' : 'var(--muted-text)');
+    }
+
+    function promptNotifPassword() {
+        return prompt('請輸入通知密碼（匯出／匯入 Resend 金鑰需要）：') || '';
+    }
+
+    function resendCsvEscape(v) {
+        const s = v == null ? '' : String(v);
+        if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+    }
+
+    function exportResendSettingsCsv() {
+        const password = promptNotifPassword();
+        if (!password) return;
+        resendCsvStatus('匯出中…', false);
+        fetch('resend_settings_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'export', password: password })
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.error || '匯出失敗');
+                const rows = (res.slots || []).map(s => [s.apiKey, s.toEmail].map(resendCsvEscape).join(','));
+                const text = '\ufeff' + [RESEND_CSV_HEADERS.join(','), ...rows].join('\n');
+                const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'resend-settings-' + new Date().toISOString().slice(0, 10) + '.csv';
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+                resendCsvStatus('已匯出 ' + rows.length + ' 組設定（CSV 含明文金鑰，請妥善保管）', true);
+            })
+            .catch(err => resendCsvStatus((err && err.message) || '匯出失敗'));
+    }
+
+    function parseResendSettingsCsv(text) {
+        const clean = String(text || '').replace(/^\ufeff/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = clean.split('\n').filter(l => l.trim());
+        const errors = [];
+        const slots = [];
+        if (lines.length < 2) {
+            errors.push('CSV 檔案至少需要表頭（RESEND_API_KEY,RESEND_TO_EMAIL）和一組資料');
+            return { slots, errors };
+        }
+        const splitLine = (line) => {
+            const out = [];
+            let cur = '';
+            let inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQ) {
+                    if (ch === '"') {
+                        if (line[i + 1] === '"') { cur += '"'; i++; }
+                        else inQ = false;
+                    } else cur += ch;
+                } else if (ch === '"') { inQ = true; }
+                else if (ch === ',') { out.push(cur); cur = ''; }
+                else cur += ch;
+            }
+            out.push(cur);
+            return out;
+        };
+        const headers = splitLine(lines[0]).map(h => String(h).trim().toLowerCase());
+        const norm = (h) => String(h).replace(/\s+/g, '').replace(/_/g, '').toLowerCase();
+        let iKey = -1;
+        let iEmail = -1;
+        headers.forEach((h, i) => {
+            const mapped = RESEND_CSV_ALIASES[norm(h)] || RESEND_CSV_ALIASES[h] || null;
+            if (mapped === 'RESEND_API_KEY' && iKey < 0) iKey = i;
+            if (mapped === 'RESEND_TO_EMAIL' && iEmail < 0) iEmail = i;
+        });
+        if (iKey < 0) errors.push('表頭缺少必要欄位 "RESEND_API_KEY"（或 API Key）');
+        if (iEmail < 0) errors.push('表頭缺少必要欄位 "RESEND_TO_EMAIL"（或收件 Email）');
+        if (errors.length) return { slots, errors };
+
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = splitLine(lines[i]);
+            const lineNo = i + 1;
+            const apiKey = String(cols[iKey] || '').trim();
+            const toEmail = String(cols[iEmail] || '').trim();
+            if (!apiKey) { errors.push('第 ' + lineNo + ' 行: RESEND_API_KEY 不能為空'); continue; }
+            if (!toEmail) { errors.push('第 ' + lineNo + ' 行: RESEND_TO_EMAIL 不能為空'); continue; }
+            if (!emailRe.test(toEmail)) { errors.push('第 ' + lineNo + ' 行: 收件 Email「' + toEmail + '」格式不正確'); continue; }
+            if (slots.length >= 3) { errors.push('最多 3 組（本機支援上限），已略過第 ' + lineNo + ' 行以後'); break; }
+            slots.push({ apiKey, toEmail });
+        }
+        return { slots, errors };
+    }
+
+    function handleResendSettingsCsvFile(input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const parsed = parseResendSettingsCsv(String(reader.result || ''));
+            if (parsed.errors.length) {
+                resendCsvStatus('格式錯誤：' + parsed.errors.slice(0, 3).join('；'));
+                return;
+            }
+            if (!parsed.slots.length) {
+                resendCsvStatus('CSV 沒有可匯入的資料');
+                return;
+            }
+            const names = parsed.slots.map(s => s.toEmail).join('、');
+            if (!confirm('將匯入 ' + parsed.slots.length + ' 組 RESEND 設定（依收件 Email 合併：同 Email 覆蓋、新 Email 補位）：\n' + names + '\n\n需輸入通知密碼後寫入。')) return;
+            const password = promptNotifPassword();
+            if (!password) return;
+            resendCsvStatus('合併寫入中…', false);
+            fetch('resend_settings_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'import_merge', password: password, slots: parsed.slots })
+            })
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) throw new Error(res.error || '匯入失敗');
+                    resendCsvStatus('匯入完成：新增 ' + res.added + '、更新 ' + res.updated + '、略過 ' + res.skipped + ' 組');
+                    setTimeout(() => window.location.reload(), 1200);
+                })
+                .catch(err => resendCsvStatus((err && err.message) || '匯入失敗'));
+        };
+        reader.readAsText(file, 'UTF-8');
     }
 
     function formatStorageSize(bytes) {

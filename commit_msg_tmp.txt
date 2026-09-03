@@ -1,0 +1,9 @@
+feat(notify): Resend 設定 CSV 匯入匯出與 Email 合併
+
+- 新增 resend_settings_api.php：驗證通知密碼後匯出明文 slots／匯入
+  依收件 Email 合併寫回（同 Email 覆蓋、新 Email 補位、上限 3 組）
+- 設定頁 RESEND 卡片新增「匯出設定 CSV／匯入設定 CSV」按鈕：
+  匯出需通知密碼（CSV 含明文金鑰）；匯入先解析驗證與預覽再寫回
+- 對齊上游 resendSettingsCsv（RESEND_API_KEY,RESEND_TO_EMAIL 兩欄、中文別名）
+
+Co-authored-by: CommandCodeBot <noreply@commandcode.ai>

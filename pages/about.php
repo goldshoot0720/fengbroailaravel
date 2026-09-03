@@ -268,6 +268,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li>新增鋒兄購物清單（shoppinglist 表；CRUD／複製／刪除確認／CSV 匯入匯出）並統一五模組到期提醒窗口：訂閱、試用首購、購物清單、額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 只提醒前一天與當天</li>
             <li>工具個人清單雲端同步：手動價格改存伺服器 manualprice 表（跨瀏覽器同步）、Tube 頻道存 tubechannel 表、金融自訂標的同步寫入 financeinstrument 表</li>
             <li>通知設定密碼：設定頁可建立通知密碼，儲存／變更 RESEND／BigGo API 金鑰需驗證</li>
+            <li>Resend 設定 CSV 匯入／匯出：驗證通知密碼後匯出金鑰＋收件 Email；匯入依收件 Email 合併寫回</li>
             <li>對齊清單：見專案 <code>FEATURE_ALIGNMENT.md</code></li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>

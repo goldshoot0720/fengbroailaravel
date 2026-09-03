@@ -47,6 +47,7 @@
 |---|---|
 | Resend 到期通知 | 完成 |
 | 通知設定密碼 | 完成（可選通知密碼，儲存／變更 RESEND／BigGo 金鑰需驗證；對齊 notification-settings，Cron 不受阻擋） |
+| Resend 設定 CSV | 完成（匯出 3 組金鑰＋收件 Email CSV；匯入先預覽並依收件 Email 合併：同 Email 覆蓋、新 Email 補位；需通知密碼） |
 | Web Push | 完成 |
 | 通知自檢 notif_diag | 完成 |
 | 到期提醒窗口 | 完成（訂閱/試用首購/購物清單/額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 一週/一月前一天與當天；完整儀表每日本機通知 + 推播彙總） |
