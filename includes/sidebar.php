@@ -4,18 +4,47 @@ $menuGroups = [
     'personal' => ['label' => '生活管理', 'icon' => 'fa-calendar-check', 'items' => ['subscription' => ['label' => '鋒兄訂閱', 'icon' => 'fa-credit-card'], 'trialpurchase' => ['label' => '鋒兄試用/首購', 'icon' => 'fa-flask'], 'reinstall' => ['label' => '鋒兄重灌', 'icon' => 'fa-laptop'], 'quota' => ['label' => '鋒兄額度', 'hint' => '剩餘次數', 'icon' => 'fa-gauge-high'], 'shoppinglist' => ['label' => '鋒兄購物清單', 'icon' => 'fa-cart-shopping'], 'food' => ['label' => '鋒兄食品', 'hint' => '商品庫存', 'icon' => 'fa-boxes-stacked'], 'bank' => ['label' => '鋒兄銀行', 'hint' => '電子票證', 'icon' => 'fa-building-columns'], 'routine' => ['label' => '鋒兄例行', 'icon' => 'fa-clock-rotate-left']]],
     'knowledge' => ['label' => '知識管理', 'icon' => 'fa-book-open', 'items' => ['notes' => ['label' => '鋒兄筆記', 'icon' => 'fa-note-sticky'], 'favorites' => ['label' => '鋒兄常用', 'icon' => 'fa-star'], 'documents' => ['label' => '鋒兄文件', 'icon' => 'fa-folder-open']]],
     'media' => ['label' => '媒體庫', 'icon' => 'fa-photo-film', 'items' => ['images' => ['label' => '鋒兄圖片', 'icon' => 'fa-image'], 'videos' => ['label' => '鋒兄影片', 'icon' => 'fa-video'], 'music' => ['label' => '鋒兄音樂', 'icon' => 'fa-music'], 'podcast' => ['label' => '鋒兄播客', 'icon' => 'fa-podcast']]],
-    'system' => ['label' => '系統', 'icon' => 'fa-sliders', 'items' => ['tools' => ['label' => '鋒兄工具', 'hint' => '比價', 'icon' => 'fa-wrench'], 'settings' => ['label' => '鋒兄設定', 'icon' => 'fa-gear'], 'about' => ['label' => '鋒兄關於', 'icon' => 'fa-circle-info']]],
+    'tools-group' => ['label' => '鋒兄工具', 'icon' => 'fa-wrench', 'items' => [
+        'tool:price' => ['label' => '鋒兄比價', 'icon' => 'fa-tags', 'page' => 'tools', 'tool' => 'price'],
+        'tool:manual' => ['label' => '手動價格', 'icon' => 'fa-clipboard-list', 'page' => 'tools', 'tool' => 'manual'],
+        'tool:phone' => ['label' => '手機比價', 'icon' => 'fa-mobile-screen-button', 'page' => 'tools', 'tool' => 'phone'],
+        'tool:tube' => ['label' => '鋒兄tube', 'icon' => 'fa-brands fa-youtube', 'page' => 'tools', 'tool' => 'tube'],
+        'tool:finance' => ['label' => '鋒兄金融', 'icon' => 'fa-chart-line', 'page' => 'tools', 'tool' => 'finance'],
+        'tool:news' => ['label' => '鋒兄新聞', 'icon' => 'fa-newspaper', 'page' => 'tools', 'tool' => 'news'],
+        'tool:image-convert' => ['label' => 'PNG / JPEG', 'icon' => 'fa-image', 'page' => 'tools', 'tool' => 'image-convert'],
+        'tool:image-voice' => ['label' => '圖+語音', 'icon' => 'fa-clapperboard', 'page' => 'tools', 'tool' => 'image-voice'],
+        'tool:video-merge' => ['label' => '影片合併', 'icon' => 'fa-film', 'page' => 'tools', 'tool' => 'video-merge'],
+        'tool:yt-bili' => ['label' => 'YT / B站', 'icon' => 'fa-brands fa-youtube', 'page' => 'tools', 'tool' => 'yt-bili'],
+    ]],
+    'system' => ['label' => '系統', 'icon' => 'fa-sliders', 'items' => ['settings' => ['label' => '鋒兄設定', 'icon' => 'fa-gear'], 'about' => ['label' => '鋒兄關於', 'icon' => 'fa-circle-info']]],
 ];
 $currentPage = $_GET['page'] ?? 'home';
+$currentTool = (string) ($_GET['tool'] ?? '');
+function fengbroSidebarIsActive($key, $item): bool
+{
+    global $currentPage, $currentTool;
+    $itemPage = $item['page'] ?? ($key === 'home' ? 'home' : $key);
+    if (str_starts_with((string) $key, 'tool:')) {
+        return $currentPage === 'tools' && $currentTool === ($item['tool'] ?? '');
+    }
+    return $currentPage === $itemPage;
+}
 ?>
 <button class="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="開啟導覽選單" aria-controls="primarySidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
 <div class="sidebar-overlay" onclick="closeMobileMenu()" aria-hidden="true"></div>
 <nav class="sidebar" id="primarySidebar" aria-label="主要導覽">
 <div class="sidebar-header"><a class="sidebar-home-link" href="index.php?page=home" data-menu-url="page=home" onclick="handleMenuNav(this)" aria-label="前往鋒兄首頁"><span class="sidebar-brand-mark" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span><span class="sidebar-brand-copy"><span class="sidebar-kicker">Personal Ops System</span><h2><i class="fa-solid fa-dragon" aria-hidden="true"></i> Fengbro AI</h2><p>私人作業中樞</p></span></a><button id="darkModeToggle" class="dark-mode-btn" type="button" onclick="toggleDarkMode()" aria-label="切換深色模式" title="切換深色模式"><i class="fa-solid fa-moon" aria-hidden="true"></i></button></div>
 <div class="sidebar-groups">
-<?php foreach ($menuGroups as $groupKey => $group): $isCurrent = array_key_exists($currentPage, $group['items']); ?>
-<section class="menu-group <?php echo $isCurrent ? 'is-open' : ''; ?>" data-menu-group="<?php echo $groupKey; ?>"><button class="menu-group-toggle" type="button" aria-expanded="<?php echo $isCurrent ? 'true' : 'false'; ?>" onclick="toggleMenuGroup(this)"><span><i class="fa-solid <?php echo $group['icon']; ?>" aria-hidden="true"></i><?php echo $group['label']; ?></span><i class="fa-solid fa-chevron-down menu-group-chevron" aria-hidden="true"></i></button><ul class="menu">
-<?php foreach ($group['items'] as $key => $item): ?><li class="menu-item <?php echo $currentPage === $key ? 'active' : ''; ?>"><a href="index.php?page=<?php echo $key; ?>" <?php echo $currentPage === $key ? 'aria-current="page"' : ''; ?> data-voice-menu="<?php echo $key; ?>" data-voice-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>" data-menu-url="page=<?php echo $key; ?>" onclick="handleMenuNav(this)"><i class="fa-solid <?php echo $item['icon']; ?>" aria-hidden="true"></i><span class="menu-label"><span class="menu-label-main"><?php echo $item['label']; ?></span><?php if (!empty($item['hint'])): ?><span class="menu-label-hint"><?php echo $item['hint']; ?></span><?php endif; ?></span></a></li><?php endforeach; ?>
+<?php foreach ($menuGroups as $groupKey => $group): $groupActive = false; foreach ($group['items'] as $k => $it) { if (fengbroSidebarIsActive($k, $it)) { $groupActive = true; break; } } ?>
+<section class="menu-group <?php echo $groupActive ? 'is-open' : ''; ?>" data-menu-group="<?php echo $groupKey; ?>"><button class="menu-group-toggle" type="button" aria-expanded="<?php echo $groupActive ? 'true' : 'false'; ?>" onclick="toggleMenuGroup(this)"><span><i class="fa-solid <?php echo $group['icon']; ?>" aria-hidden="true"></i><?php echo $group['label']; ?></span><i class="fa-solid fa-chevron-down menu-group-chevron" aria-hidden="true"></i></button><ul class="menu">
+<?php foreach ($group['items'] as $key => $item):
+    $itemPage = $item['page'] ?? ($key === 'home' ? 'home' : $key);
+    $itemTool = isset($item['tool']) ? '&tool=' . rawurlencode($item['tool']) : '';
+    $itemHref = 'index.php?page=' . rawurlencode($itemPage) . $itemTool;
+    $itemUrlData = 'page=' . rawurlencode($itemPage) . $itemTool;
+    $itemActive = fengbroSidebarIsActive($key, $item);
+    $voiceMenu = str_starts_with((string) $key, 'tool:') ? ($item['tool'] ?? '') : $key;
+    ?><li class="menu-item <?php echo $itemActive ? 'active' : ''; ?>"><a href="<?php echo $itemHref; ?>" <?php echo $itemActive ? 'aria-current="page"' : ''; ?> data-voice-menu="<?php echo htmlspecialchars($voiceMenu, ENT_QUOTES, 'UTF-8'); ?>" data-voice-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>" data-menu-url="<?php echo htmlspecialchars($itemUrlData, ENT_QUOTES, 'UTF-8'); ?>" onclick="handleMenuNav(this)"><i class="fa-solid <?php echo $item['icon']; ?>" aria-hidden="true"></i><span class="menu-label"><span class="menu-label-main"><?php echo $item['label']; ?></span><?php if (!empty($item['hint'])): ?><span class="menu-label-hint"><?php echo $item['hint']; ?></span><?php endif; ?></span></a></li><?php endforeach; ?>
 </ul></section><?php endforeach; ?>
 </div>
 <div class="sidebar-quick-actions"><button type="button" class="sidebar-voice-btn" onclick="window.FengbroVoiceInput ? window.FengbroVoiceInput.open() : document.getElementById('fengbroVoiceFab')?.click()"><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i><span>語音操作</span></button><button type="button" class="sidebar-privacy-btn" id="privacyToggle" onclick="togglePrivateValues()" aria-pressed="false"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i><span>顯示私密資料</span></button></div></nav>
