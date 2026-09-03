@@ -3,14 +3,63 @@ $pageTitle = '訂閱管理';
 $pdo = getConnection();
 $trashMode = ($_GET['trash'] ?? '') === '1';
 try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+
+// ── 相似服務（對齊 Appwrite subscriptionSimilarity）──────────────────────────
+require_once __DIR__ . '/../includes/subscription_similarity.php';
+
+// 相似服務檢視：?sim=關鍵字 時列出名稱/備註含關鍵字的所有訂閱（不分頁）
+$similarityTerm = trim((string) ($_GET['sim'] ?? ''));
+$allActiveForSim = [];
+if ($similarityTerm !== '') {
+    $stmt = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (fengbroSubContainsTerm($row['name'] ?? '', $row['note'] ?? '', $similarityTerm)) {
+            $allActiveForSim[] = $row['id'];
+        }
+    }
+    // 也把「家族前綴／雙向相似」納入：以任一相似列的群組詞涵蓋（與上游一致）
+    $stmt2 = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''");
+    $allRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allRows as $row) {
+        if (in_array($row['id'], $allActiveForSim, true)) {
+            continue;
+        }
+        $term = fengbroSubStripCopySuffix($row['name'] ?? '');
+        if ($term === '' || !fengbroSubContainsTerm($row['name'] ?? '', $row['note'] ?? '', $similarityTerm)) {
+            foreach (fengbroSubFamilyTerms($similarityTerm) as $family) {
+                if (in_array($family, fengbroSubFamilyTerms($row['name'] ?? ''), true)) {
+                    $allActiveForSim[] = $row['id'];
+                    break;
+                }
+            }
+        }
+    }
+    $allActiveForSim = array_values(array_unique($allActiveForSim));
+}
+
 $perPage = 25;
 $currentListPage = max(1, (int) ($_GET['p'] ?? 1));
 $subscriptionWhere = "deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL");
-$totalItems = (int) $pdo->query("SELECT COUNT(*) FROM subscription WHERE {$subscriptionWhere}")->fetchColumn();
-$totalPages = max(1, (int) ceil($totalItems / $perPage));
-$currentListPage = min($currentListPage, $totalPages);
-$offset = ($currentListPage - 1) * $perPage;
-$items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC LIMIT {$perPage} OFFSET {$offset}")->fetchAll();
+
+if ($similarityTerm !== '' && !$trashMode) {
+    if (empty($allActiveForSim)) {
+        $items = [];
+        $totalItems = 0;
+    } else {
+        $inList = implode(',', array_map(static fn($id) => $pdo->quote($id), $allActiveForSim));
+        $items = $pdo->query("SELECT * FROM subscription WHERE id IN ({$inList}) ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+        $totalItems = count($items);
+    }
+    $totalPages = 1;
+    $currentListPage = 1;
+    $offset = 0;
+} else {
+    $totalItems = (int) $pdo->query("SELECT COUNT(*) FROM subscription WHERE {$subscriptionWhere}")->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalItems / $perPage));
+    $currentListPage = min($currentListPage, $totalPages);
+    $offset = ($currentListPage - 1) * $perPage;
+    $items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC LIMIT {$perPage} OFFSET {$offset}")->fetchAll();
+}
 $availableYears = [];
 foreach ($items as $item) {
     if (!empty($item['nextdate'])) {
@@ -57,6 +106,28 @@ foreach ($items as $item) {
 $duplicateSubscriptions = array_values(array_filter($duplicateSubscriptionMap, function ($group) {
     return count($group['items']) > 1;
 }));
+
+// 每列的相似服務摘要：以「所有啟用訂閱」計算（對齊 Appwrite buildSimilarSubscriptionMatches）
+$subscriptionSimilarityById = [];
+if (!$trashMode && $similarityTerm === '') {
+    $simRows = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($simRows as $simSelf) {
+        $similar = [];
+        foreach ($simRows as $simOther) {
+            if (fengbroSubIsSimilar($simSelf, $simOther)) {
+                $similar[] = $simOther;
+            }
+        }
+        if (!$similar) {
+            continue;
+        }
+        $subscriptionSimilarityById[(string) $simSelf['id']] = [
+            'term' => fengbroSubPickTerm($simSelf, $similar),
+            'count' => count($similar),
+        ];
+    }
+}
+$activeSimilarityTerm = $similarityTerm;
 
 // 匯率轉換 (轉為新台幣，對齊 Appwrite formatters.ts)
 $exchangeRates = [
@@ -105,6 +176,26 @@ function renderCurrencyOptions(array $options, $selected = 'TWD')
         $html .= '<option value="' . htmlspecialchars($selected) . '" selected>' . htmlspecialchars($selected) . '</option>';
     }
     return $html;
+}
+
+function renderSubscriptionNoteToolbar(): string
+{
+    $banks = ['台新銀行', '中國信託', '玉山銀行', '台北富邦', '國泰世華'];
+    $platforms = ['PayPal', 'Google Play'];
+    $bankOptions = '';
+    foreach ($banks as $bank) {
+        $bankOptions .= '<option value="' . htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($bank) . '</option>';
+    }
+    $platformOptions = '';
+    foreach ($platforms as $platform) {
+        $platformOptions .= '<option value="' . htmlspecialchars($platform, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($platform) . '</option>';
+    }
+    return '<span class="subscription-note-toolbar">'
+        . '<select class="form-control form-control-sm subscription-bank-select" title="選擇銀行">' . $bankOptions . '</select>'
+        . '<button type="button" class="btn btn-sm" data-kind="bank" onclick="handleSubscriptionAppend(this)" title="把銀行名稱加到備註最後一行">加入銀行</button>'
+        . '<select class="form-control form-control-sm subscription-platform-select" title="選擇付款平台">' . $platformOptions . '</select>'
+        . '<button type="button" class="btn btn-sm" data-kind="platform" onclick="handleSubscriptionAppend(this)" title="把付款平台加到備註最後一行">加入付款平台</button>'
+        . '</span>';
 }
 
 function formatDaysFromToday($date)
@@ -188,15 +279,26 @@ function getDaysUntil($date)
         </div>
     </nav>
     <?php endif; ?>
+    <?php if ($activeSimilarityTerm !== ''): ?>
+        <div class="similarity-view-bar" role="status">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            <span>
+                相似服務檢視：<strong><?php echo htmlspecialchars($activeSimilarityTerm, ENT_QUOTES); ?></strong>
+                共 <?php echo $totalItems; ?> 筆（名稱或備註含此關鍵字／同路徑群組）
+            </span>
+            <a class="btn btn-sm" href="index.php?page=subscription">離開相似檢視</a>
+        </div>
+    <?php endif; ?>
     <?php if (!empty($duplicateSubscriptions)): ?>
-        <section class="duplicate-subscription-alert" role="alert">
-            <div class="duplicate-alert-heading">
+        <section class="duplicate-subscription-alert is-collapsed" role="alert">
+            <button type="button" class="duplicate-alert-heading" aria-expanded="false" onclick="toggleDuplicateAlert(this)">
                 <i class="fa-solid fa-triangle-exclamation"></i>
-                <div>
-                    <h3>重複訂閱提醒</h3>
-                    <p>發現 <?php echo count($duplicateSubscriptions); ?> 組仍在續訂的同名服務，請確認是否重複付款。</p>
-                </div>
-            </div>
+                <span>
+                    <strong>重複訂閱提醒</strong>
+                    <small>發現 <?php echo count($duplicateSubscriptions); ?> 組仍在續訂的同名服務，請確認是否重複付款。</small>
+                </span>
+                <i class="fa-solid fa-chevron-down duplicate-alert-chevron" aria-hidden="true"></i>
+            </button>
             <div class="duplicate-alert-list">
                 <?php foreach ($duplicateSubscriptions as $group): ?>
                     <div class="duplicate-alert-item">
@@ -245,6 +347,7 @@ function getDaysUntil($date)
                         <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
                         <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
                         <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                        <div style="margin-top:6px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
                         <div class="inline-actions">
                             <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
                             <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
@@ -309,6 +412,11 @@ function getDaysUntil($date)
                                 <?php endif; ?>
                                 <button type="button" class="icon-action-btn card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')" aria-label="編輯 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="編輯"><i class="fas fa-pen" aria-hidden="true"></i></button>
                                 <button type="button" class="icon-action-btn card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" aria-label="複製 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="複製項目"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                <?php $simInfo = $subscriptionSimilarityById[$item['id']] ?? null; ?>
+                                <?php if ($simInfo): ?>
+                                    <a class="icon-action-btn card-sim-btn" href="index.php?page=subscription&sim=<?php echo urlencode($simInfo['term']); ?>" aria-label="查看相似服務 <?php echo htmlspecialchars($simInfo['term'], ENT_QUOTES); ?>" title="查看相似服務（<?php echo $simInfo['count']; ?> 筆相關）"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><small class="sim-count-badge"><?php echo $simInfo['count']; ?></small></a>
+                                <?php endif; ?>
+                                <?php unset($simInfo); ?>
                                 <button type="button" class="icon-action-btn card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')" aria-label="刪除 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="移至垃圾桶"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
                                 <?php if (!empty($item['account'])): ?>
                                     <br><span
@@ -324,6 +432,7 @@ function getDaysUntil($date)
                                 <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
                                 <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
                                 <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                                <div style="margin-top:6px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
                                 <div class="inline-actions">
                                     <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
                                     <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
@@ -384,6 +493,11 @@ function getDaysUntil($date)
                     data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
                     data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>">
                     <div class="sub-card-actions">
+                        <?php $cardSimInfo = $subscriptionSimilarityById[$item['id']] ?? null; ?>
+                        <?php if ($cardSimInfo): ?>
+                            <a class="card-sim-btn" href="index.php?page=subscription&sim=<?php echo urlencode($cardSimInfo['term']); ?>" title="查看相似服務（<?php echo $cardSimInfo['count']; ?> 筆相關）"><i class="fa-solid fa-magnifying-glass"></i><small class="sim-count-badge"><?php echo $cardSimInfo['count']; ?></small></a>
+                        <?php endif; ?>
+                        <?php unset($cardSimInfo); ?>
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
                         <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" title="複製項目"><i
@@ -503,6 +617,7 @@ function getDaysUntil($date)
             <div class="form-group">
                 <label>備註</label>
                 <textarea class="form-control" id="note" name="note" rows="3"></textarea>
+                <div style="margin-top:8px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
             </div>
             <div class="form-group">
                 <label><input type="checkbox" id="continue" name="continue" checked> 續訂</label>
@@ -513,9 +628,11 @@ function getDaysUntil($date)
 </div>
 
 <style>
+    .subscription-note-toolbar { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .subscription-note-toolbar select { width: auto; min-width: 120px; }
     .duplicate-subscription-alert {
         margin-bottom: 18px;
-        padding: 18px;
+        padding: 12px 16px;
         border: 1px solid rgba(245, 158, 11, 0.36);
         border-radius: 20px;
         background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
@@ -523,32 +640,60 @@ function getDaysUntil($date)
         color: #78350f;
     }
 
+    .duplicate-subscription-alert.is-collapsed .duplicate-alert-list {
+        display: none;
+    }
+
     .duplicate-alert-heading {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 12px;
-        margin-bottom: 14px;
+        width: 100%;
+        padding: 4px 2px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
     }
 
-    .duplicate-alert-heading i {
-        margin-top: 2px;
+    .duplicate-alert-heading > i:first-child {
         color: #d97706;
         font-size: 1.2rem;
+        flex-shrink: 0;
     }
 
-    .duplicate-alert-heading h3 {
-        margin: 0 0 4px;
-        font-size: 1.05rem;
+    .duplicate-alert-heading > span {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        gap: 2px;
     }
 
-    .duplicate-alert-heading p {
-        margin: 0;
+    .duplicate-alert-heading strong {
+        font-size: 1.02rem;
+    }
+
+    .duplicate-alert-heading small {
         color: #92400e;
+        font-size: 0.86rem;
+    }
+
+    .duplicate-alert-chevron {
+        color: #b45309;
+        transition: transform 0.18s ease;
+        flex-shrink: 0;
+    }
+
+    .duplicate-subscription-alert:not(.is-collapsed) .duplicate-alert-chevron {
+        transform: rotate(180deg);
     }
 
     .duplicate-alert-list {
         display: grid;
         gap: 10px;
+        padding-top: 12px;
     }
 
     .duplicate-alert-item {
@@ -578,7 +723,8 @@ function getDaysUntil($date)
         color: #fef3c7;
     }
 
-    [data-theme="dark"] .duplicate-alert-heading p,
+    [data-theme="dark"] .duplicate-alert-heading small,
+    [data-theme="dark"] .duplicate-alert-heading .duplicate-alert-chevron,
     [data-theme="dark"] .duplicate-alert-item small {
         color: #fde68a;
     }
@@ -1080,6 +1226,51 @@ function getDaysUntil($date)
 </style>
 
 <script>
+    // ── 加入銀行／付款平台（對齊 Appwrite SubscriptionManagement）────────────
+    const SUBSCRIPTION_BANK_OPTIONS = ['台新銀行', '中國信託', '玉山銀行', '台北富邦', '國泰世華'];
+    const SUBSCRIPTION_PAYMENT_PLATFORM_OPTIONS = ['PayPal', 'Google Play'];
+
+    function subscriptionAppendNoteValue(textarea, value) {
+        if (!textarea || !value) return;
+        const current = textarea.value || '';
+        const lines = current.split('\n');
+        const lastLine = (lines[lines.length - 1] || '').trim();
+        // 最後一行已是該值（含舊「銀行: xxx」寫法）則不重複加入
+        if (lastLine === value || lastLine === '銀行: ' + value) return;
+        textarea.value = current ? current + '\n' + value : value;
+    }
+
+    function subscriptionNoteToolbarTarget(button) {
+        // 依賴容器找最近的 data-field=note textarea；modal 退而求其次用 #note
+        const container = button.closest('.inline-edit') || button.closest('.subscription-note-wrap') || button.closest('.form-group');
+        const ta = container ? container.querySelector('textarea[data-field="note"], #note') : null;
+        return ta || document.getElementById('note');
+    }
+
+    function handleSubscriptionAppend(button) {
+        const kind = button.getAttribute('data-kind');
+        const toolbar = button.closest('.subscription-note-toolbar');
+        let value = '';
+        if (toolbar && kind === 'bank') {
+            const sel = toolbar.querySelector('.subscription-bank-select');
+            if (sel) value = sel.value;
+        } else if (toolbar && kind === 'platform') {
+            const sel = toolbar.querySelector('.subscription-platform-select');
+            if (sel) value = sel.value;
+        }
+        if (!value) return;
+        const textarea = subscriptionNoteToolbarTarget(button);
+        subscriptionAppendNoteValue(textarea, value);
+        if (textarea) textarea.focus();
+    }
+
+    function toggleDuplicateAlert(button) {
+        const section = button.closest('.duplicate-subscription-alert');
+        if (!section) return;
+        const collapsed = section.classList.toggle('is-collapsed');
+        button.setAttribute('aria-expanded', String(!collapsed));
+    }
+
     // +30天 / -30天 日期位移
     function shiftDate(input, days) {
         if (!input) return;
