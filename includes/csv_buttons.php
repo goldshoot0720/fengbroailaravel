@@ -2,7 +2,7 @@
     // 有專屬 ZIP 匯出腳本的資料表
     $zipDedicatedTables = ['article', 'image', 'music', 'podcast', 'commondocument', 'video'];
     // 純資料表（用通用 export_zip.php?table=xxx）
-    $zipGenericTables = ['subscription', 'food', 'commonaccount', 'bank', 'routine'];
+    $zipGenericTables = ['subscription', 'food', 'commonaccount', 'bank', 'routine', 'trialpurchase', 'reinstall'];
 
     if (in_array($csvTable, $zipDedicatedTables)) {
         $zipUrl = "export_zip_{$csvTable}.php";
@@ -398,7 +398,7 @@
 
                 const file = input.files[0];
                 // 食品/訂閱/銀行/常用與超過 200KB 的 CSV 走前端分批寫入
-                const useChunked = ['food', 'subscription', 'bank', 'commonaccount'].indexOf(TABLE) !== -1
+                const useChunked = ['food', 'subscription', 'bank', 'commonaccount', 'trialpurchase', 'reinstall'].indexOf(TABLE) !== -1
                     || file.size > 200 * 1024;
                 showImportOverlay(useChunked ? ('解析 ' + file.name + '…') : ('上傳 ' + file.name + '…'));
 

@@ -2,7 +2,7 @@
 require_once 'includes/functions.php';
 
 $table = $_GET['table'] ?? '';
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'commondocument', 'bank', 'routine'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall'];
 
 if (!in_array($table, $allowedTables)) {
     die('無效的資料表');

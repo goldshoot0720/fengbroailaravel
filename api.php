@@ -7,13 +7,19 @@ $action = $_GET['action'] ?? '';
 $table = $_GET['table'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
-$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article'];
+$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article', 'trialpurchase', 'reinstall'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
 }
 
 $pdo = getConnection();
+if ($table === 'trialpurchase') {
+    fengbroEnsureTrialPurchaseTable($pdo);
+}
+if ($table === 'reinstall') {
+    fengbroEnsureReinstallTable($pdo);
+}
 
 if (in_array($table, ['article', 'subscription'], true)) {
     try {
@@ -52,6 +58,16 @@ switch ($action) {
             jsonResponse(['error' => '未收到資料，請確認表單已填寫'], 400);
         }
 
+        try {
+            if ($table === 'trialpurchase') {
+                $input = fengbroSanitizeTrialPurchaseRow($input);
+            } elseif ($table === 'reinstall') {
+                $input = fengbroSanitizeReinstallRow($input);
+            }
+        } catch (InvalidArgumentException $e) {
+            jsonResponse(['error' => $e->getMessage()], 400);
+        }
+
         $input['id'] = generateUUID();
         $columns = array_map(function ($col) {
             return "`{$col}`"; }, array_keys($input));
@@ -76,6 +92,16 @@ switch ($action) {
 
         unset($input['id']);
         unset($input['created_at']);
+
+        try {
+            if ($table === 'trialpurchase') {
+                $input = fengbroSanitizeTrialPurchaseRow($input);
+            } elseif ($table === 'reinstall') {
+                $input = fengbroSanitizeReinstallRow($input);
+            }
+        } catch (InvalidArgumentException $e) {
+            jsonResponse(['error' => $e->getMessage()], 400);
+        }
 
         $sets = [];
         foreach (array_keys($input) as $col) {

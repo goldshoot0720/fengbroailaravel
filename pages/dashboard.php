@@ -53,6 +53,20 @@ try {
 $bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
 $bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
 $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
+$trialPurchaseCount = 0;
+$reinstallCount = 0;
+try {
+    fengbroEnsureTrialPurchaseTable($pdo);
+    $trialPurchaseCount = (int) $pdo->query("SELECT COUNT(*) FROM trialpurchase")->fetchColumn();
+} catch (Throwable $e) {
+    $trialPurchaseCount = 0;
+}
+try {
+    fengbroEnsureReinstallTable($pdo);
+    $reinstallCount = (int) $pdo->query("SELECT COUNT(*) FROM reinstall")->fetchColumn();
+} catch (Throwable $e) {
+    $reinstallCount = 0;
+}
 
 $subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
 $subExpiring7Days = $pdo->query(
@@ -216,6 +230,18 @@ $uploadBucketLabels = [
             <span class="metric-label">Subscriptions</span>
             <strong><?php echo $subscriptionCount; ?></strong>
             <small>Estimated <?php echo formatMoney($subscriptionTotal); ?></small>
+        </a>
+        <a href="index.php?page=trialpurchase" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-flask"></i></span>
+            <span class="metric-label">Trial / first purchase</span>
+            <strong><?php echo $trialPurchaseCount; ?></strong>
+            <small>Services and account trials</small>
+        </a>
+        <a href="index.php?page=reinstall" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-laptop"></i></span>
+            <span class="metric-label">Reinstall</span>
+            <strong><?php echo $reinstallCount; ?></strong>
+            <small>Windows / Mac software list</small>
         </a>
         <a href="index.php?page=food" class="metric-card">
             <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>

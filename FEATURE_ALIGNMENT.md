@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：終態收尾（手機獨立分頁、金融精選、影片截圖）。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：補齊鋒兄試用／首購與鋒兄重灌選單。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -9,6 +9,8 @@
 | Home | `pages/home.php` | 完成（含 tube/金融今日關閉） |
 | Dashboard | `pages/dashboard.php` | 完成（離線快取／uploads 統計） |
 | Subscription | `pages/subscription.php` | 完成 |
+| Trial / first purchase | `pages/trialpurchase.php` | 完成（服務分組、狀態篩選、CSV） |
+| Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼） |
 | Food | `pages/food.php` | 完成 |
 | Notes / Article | `pages/notes.php` | 完成 |
 | Common accounts | `pages/favorites.php` | 完成 |
@@ -71,7 +73,5 @@
 
 **狀態：完成（DONE）**
 
-在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成。  
+在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成，含日常工作台新增的試用／首購與重灌。  
 刻意不移植項目見上表；其餘缺口屬執行環境或第三方服務限制，不屬功能未做。
-
-後續僅維護／hotfix／環境優化，**不再以功能缺口為主軸無限擴充**。

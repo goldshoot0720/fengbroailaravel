@@ -123,6 +123,14 @@
                 <td>管理服務名稱、費用、付款日期、續訂狀態與重複訂閱提醒。</td>
             </tr>
             <tr>
+                <th>試用／首購</th>
+                <td>依服務展開多帳號，追蹤試用、首購狀態與試用／首購／到期日（扣款日），支援 CSV。</td>
+            </tr>
+            <tr>
+                <th>重灌軟體</th>
+                <td>整理 Windows／Mac 重灌軟體清單；付費序號預設隱藏，可設查看密碼。</td>
+            </tr>
+            <tr>
                 <th>食品管理</th>
                 <td>追蹤食品、庫存、到期日與快速新增常用項目。</td>
             </tr>
@@ -177,7 +185,8 @@
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
             <li>工具：比價/手動價格/手機歷史 CSV、新聞、PNG/JPEG、圖+語音、合併+Whisper、YT/B站、tube/金融 CSV 與解析名稱；語音可導向各工具子頁</li>
-            <li>對齊清單：見專案 <code>FEATURE_ALIGNMENT.md</code>（可移植模組已完成）</li>
+            <li>新增鋒兄試用／首購、鋒兄重灌（獨立 trialpurchase、reinstall 表，對齊 Appwrite）</li>
+            <li>對齊清單：見專案 <code>FEATURE_ALIGNMENT.md</code></li>
             <li>媒體：影片/音樂/播客/文件/圖片 IndexedDB 離線快取（500MB/類型）與批次快取</li>
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>
             <li>匯入：CSV 遮罩進度；食品/訂閱/銀行/常用與大檔分批寫入</li>
@@ -195,6 +204,8 @@
         </p>
         <ul style="line-height: 2; padding-left: 20px; margin-top: 10px;">
             <li><code>subscription</code> - 訂閱管理</li>
+            <li><code>trialpurchase</code> - 試用／首購</li>
+            <li><code>reinstall</code> - 重灌軟體</li>
             <li><code>food</code> - 食品庫存</li>
             <li><code>notes</code> / <code>article</code> - 筆記與文章</li>
             <li><code>commonaccount</code> - 常用帳號</li>

@@ -310,6 +310,34 @@ CREATE TABLE IF NOT EXISTS tool_phone_product_history (
     INDEX idx_product_day (product_id, snapshot_day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS trialpurchase (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    eventDate DATETIME NULL,
+    firstPurchasePrice INT DEFAULT 0,
+    regularPrice INT DEFAULT 0,
+    account VARCHAR(200),
+    note VARCHAR(3337),
+    trialStatus VARCHAR(20) DEFAULT 'untried',
+    purchaseStatus VARCHAR(30) DEFAULT 'not_purchased',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS reinstall (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    system VARCHAR(10) DEFAULT 'win',
+    softwareType VARCHAR(20) DEFAULT 'free',
+    licenseType VARCHAR(20) DEFAULT 'none',
+    serial VARCHAR(500),
+    viewPassword VARCHAR(100),
+    site VARCHAR(2000),
+    note VARCHAR(3337),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- VAPID 金鑰儲存於 settings，user_id = NULL
 -- 由 push_send.php?action=init_vapid 自動插入：
 --   setting_key = 'vapid_public_key'  → base64url 公鑰

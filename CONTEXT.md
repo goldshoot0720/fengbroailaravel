@@ -2,7 +2,9 @@
 
 ## Domain Terms
 
-- **Workspace**: the personal operations system that groups subscriptions, food inventory, notes, media, documents, banks, routines, tools, settings, and notifications.
+- **Workspace**: the personal operations system that groups subscriptions, trial/first-purchase accounts, reinstall software lists, food inventory, notes, media, documents, banks, routines, tools, settings, and notifications.
+- **Trial / first purchase**: one `trialpurchase` row is a service × account pair, grouped by service name, with trial/purchase status and an event date.
+- **Reinstall software**: one `reinstall` row is a Windows or Mac package, with optional paid serial hidden behind a view password.
 - **Bank account**: a stored financial account in `bank` whose balance is tracked through the `deposit` field.
 - **E-ticket**: a stored non-bank balance account in `bank`, such as transport cards or wallet-like stored value.
 - **Bank balance adjustment**: a user action that changes one or more bank account `deposit` values by setting a target number or applying a plus/minus amount.

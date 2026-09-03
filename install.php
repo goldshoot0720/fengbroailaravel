@@ -1,6 +1,7 @@
 <?php
 require_once 'config/database.php';
 require_once 'includes/security.php';
+require_once 'includes/management_tables.php';
 
 echo "<h1>鋒兄系統 - 資料庫安裝</h1>";
 echo "<pre>";
@@ -229,6 +230,10 @@ try {
             INDEX idx_product_day (product_id, snapshot_day)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
 
+        "trialpurchase" => fengbroTrialPurchaseCreateSql(),
+
+        "reinstall" => fengbroReinstallCreateSql(),
+
         "users" => "CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) NOT NULL,
@@ -277,6 +282,20 @@ try {
         "ALTER TABLE commondocument ADD COLUMN filetype VARCHAR(50) AFTER file",
         "ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL",
         "ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL",
+        "ALTER TABLE trialpurchase ADD COLUMN eventDate DATETIME NULL",
+        "ALTER TABLE trialpurchase ADD COLUMN firstPurchasePrice INT DEFAULT 0",
+        "ALTER TABLE trialpurchase ADD COLUMN regularPrice INT DEFAULT 0",
+        "ALTER TABLE trialpurchase ADD COLUMN account VARCHAR(200)",
+        "ALTER TABLE trialpurchase ADD COLUMN note VARCHAR(3337)",
+        "ALTER TABLE trialpurchase ADD COLUMN trialStatus VARCHAR(20) DEFAULT 'untried'",
+        "ALTER TABLE trialpurchase ADD COLUMN purchaseStatus VARCHAR(30) DEFAULT 'not_purchased'",
+        "ALTER TABLE reinstall ADD COLUMN system VARCHAR(10) DEFAULT 'win'",
+        "ALTER TABLE reinstall ADD COLUMN softwareType VARCHAR(20) DEFAULT 'free'",
+        "ALTER TABLE reinstall ADD COLUMN licenseType VARCHAR(20) DEFAULT 'none'",
+        "ALTER TABLE reinstall ADD COLUMN serial VARCHAR(500)",
+        "ALTER TABLE reinstall ADD COLUMN viewPassword VARCHAR(100)",
+        "ALTER TABLE reinstall ADD COLUMN site VARCHAR(2000)",
+        "ALTER TABLE reinstall ADD COLUMN note VARCHAR(3337)",
     ];
     foreach ($upgrades as $sql) {
         try {

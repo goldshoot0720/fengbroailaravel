@@ -44,7 +44,7 @@
     <pre id="globalLyricsContent" class="global-lyrics-content"></pre>
 </div>
 <script src="assets/js/media-cache.js?v=20260713cache2"></script>
-<script src="assets/js/main.js?v=20260713theme3"></script>
+<script src="assets/js/main.js?v=20260903trial"></script>
 <script src="assets/js/media-traffic.js?v=20260812"></script>
 <script src="assets/js/recent-searches.js?v=20260812"></script>
 <script src="assets/js/inline-edit.js?v=20260713delete"></script>

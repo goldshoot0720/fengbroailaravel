@@ -31,7 +31,7 @@ if (!is_array($payload)) {
 }
 
 $table = (string) ($payload['table'] ?? '');
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall'];
 if (!in_array($table, $allowedTables, true)) {
     jsonResponse(['success' => false, 'error' => '無效的資料表'], 400);
 }
@@ -58,6 +58,39 @@ $fieldMapping = [
     '有效期限' => 'todate',
     '照片' => 'photo',
     '圖片' => 'photo',
+    '服務' => 'name',
+    '服務名稱' => 'name',
+    'event_date' => 'eventDate',
+    '日期' => 'eventDate',
+    '試用日' => 'eventDate',
+    '首購日' => 'eventDate',
+    '到期日' => 'eventDate',
+    '扣款日' => 'eventDate',
+    '試用／首購／到期日' => 'eventDate',
+    '試用/首購/到期日' => 'eventDate',
+    '試用／首購／到期日（扣款日）' => 'eventDate',
+    'first_purchase_price' => 'firstPurchasePrice',
+    '首購價格' => 'firstPurchasePrice',
+    'regular_price' => 'regularPrice',
+    '非首購價格' => 'regularPrice',
+    '一般價格' => 'regularPrice',
+    '帳號' => 'account',
+    '備註' => 'note',
+    'trial_status' => 'trialStatus',
+    '試用狀態' => 'trialStatus',
+    'purchase_status' => 'purchaseStatus',
+    '首購狀態' => 'purchaseStatus',
+    '使用系統' => 'system',
+    '系統' => 'system',
+    'software_type' => 'softwareType',
+    '軟體類型' => 'softwareType',
+    'license_type' => 'licenseType',
+    '授權方式' => 'licenseType',
+    '付費序號' => 'serial',
+    '序號' => 'serial',
+    'view_password' => 'viewPassword',
+    '查看密碼' => 'viewPassword',
+    '軟體網站' => 'site',
 ];
 
 function normalizeImportMoneyChunk($value)
@@ -93,6 +126,12 @@ function mapImportRowKeys(array $row, array $fieldMapping): array
 }
 
 $pdo = getConnection();
+if ($table === 'trialpurchase') {
+    fengbroEnsureTrialPurchaseTable($pdo);
+}
+if ($table === 'reinstall') {
+    fengbroEnsureReinstallTable($pdo);
+}
 $dbColumns = [];
 try {
     $colStmt = $pdo->query("SHOW COLUMNS FROM `{$table}`");
@@ -139,6 +178,24 @@ foreach ($rows as $index => $rawRow) {
     if ($table === 'subscription' && array_key_exists('note', $data) && $data['note'] !== null) {
         $data['note'] = mb_substr((string) $data['note'], 0, 100);
     }
+    if ($table === 'trialpurchase') {
+        try {
+            $data = array_merge($data, fengbroSanitizeTrialPurchaseRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = '第 ' . ($index + 1) . ' 筆: ' . $e->getMessage();
+            continue;
+        }
+    }
+    if ($table === 'reinstall') {
+        try {
+            $data = array_merge($data, fengbroSanitizeReinstallRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = '第 ' . ($index + 1) . ' 筆: ' . $e->getMessage();
+            continue;
+        }
+    }
     foreach ($data as $key => $value) {
         if ($value !== null && is_string($value) && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
             $data[$key] = $m[1] . ' ' . $m[2];
@@ -153,7 +210,14 @@ foreach ($rows as $index => $rawRow) {
     $recordName = $data['name'] ?? ('#' . ($index + 1));
     $hasSourceId = !empty($data['id']);
     if (!$hasSourceId) {
-        $duplicateId = findExistingImportRecordId($pdo, $table, $data);
+        $duplicateId = null;
+        if ($table === 'trialpurchase') {
+            $duplicateId = fengbroFindTrialPurchaseImportId($pdo, $data);
+        } elseif ($table === 'reinstall') {
+            $duplicateId = fengbroFindReinstallImportId($pdo, $data);
+        } else {
+            $duplicateId = findExistingImportRecordId($pdo, $table, $data);
+        }
         if ($duplicateId) {
             $data['id'] = $duplicateId;
         } else {

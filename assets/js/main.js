@@ -120,6 +120,36 @@ function initFengbroVoiceInput() {
             },
             examples: ['新增訂閱 Netflix 價格 299 下月 5 號', '搜尋 Netflix', '篩選 7 天內', '不續訂', '儲存']
         },
+        trialpurchase: {
+            title: '鋒兄試用／首購',
+            aliases: ['試用', '首購', '試用首購', '試用/首購', '鋒兄試用', '鋒兄首購', 'trial', 'trialpurchase'],
+            fields: {
+                name: ['服務', '服務名稱', '名稱'],
+                account: ['帳號', '使用者'],
+                eventDate: ['日期', '到期', '扣款日', '試用日', '首購日'],
+                firstPurchasePrice: ['首購價格', '首購'],
+                regularPrice: ['非首購價格', '一般價格', '價格'],
+                trialStatus: ['試用狀態'],
+                purchaseStatus: ['首購狀態'],
+                note: ['備註', '說明']
+            },
+            examples: ['新增紀錄 ChatGPT 帳號 demo@example.com', '搜尋 ChatGPT', '篩選尚未試用', '儲存']
+        },
+        reinstall: {
+            title: '鋒兄重灌',
+            aliases: ['重灌', '重裝', '軟體清單', '鋒兄重灌', 'reinstall'],
+            fields: {
+                name: ['服務', '服務名稱', '軟體名稱', '名稱'],
+                system: ['系統', 'Windows', 'Mac'],
+                softwareType: ['軟體類型', '試用', '免費', '付費'],
+                licenseType: ['授權', '序號', '無序號'],
+                serial: ['付費序號', '序號'],
+                viewPassword: ['查看密碼', '密碼'],
+                site: ['網站', '網址'],
+                note: ['備註', '說明']
+            },
+            examples: ['新增軟體 7-Zip 系統 Windows', '搜尋 Adobe', '篩選 Mac', '儲存']
+        },
         food: {
             title: '鋒兄食品',
             aliases: ['食品', '食材', '商品庫存', '鋒兄食品', 'food'],
