@@ -2629,3 +2629,523 @@ table.desktop-only {
 .mp-product-wrap { display:flex; align-items:flex-start; gap:8px; }
 .mp-product-wrap .mp-product-item { flex:1; min-width:0; }
 .mp-select { display:inline-flex; align-items:center; gap:4px; font-size:0.78rem; color:var(--muted-text); padding-top:8px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   行動與平板介面（Claude 風格重構）
+   ── 手機 ≤768px：頂部 app bar + 底部分頁列 + 全高抽屜選單
+   ── 平板 769–1024px：左側 76px 圖示軌（群組飛出選單）+ 兩欄內容
+   ── 只調整版面與觸控尺度，沿用既有暖色紙感色票。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --m-appbar-h: 56px;
+    --m-tabbar-h: 62px;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --rail-w: 76px;
+}
+
+.m-appbar,
+.m-tabbar,
+.m-drawer-close { display: none; }
+
+/* ─────────────────────────── 手機 ─────────────────────────── */
+@media (max-width: 768px) {
+
+    /* 舊的浮動圓形選單鈕由 app bar 取代 */
+    .mobile-menu-btn { display: none !important; }
+
+    /* ── 頂部 app bar ── */
+    .m-appbar {
+        position: fixed;
+        inset: 0 0 auto 0;
+        z-index: 2100;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        height: calc(var(--m-appbar-h) + var(--safe-t));
+        padding: var(--safe-t) 8px 0;
+        background: var(--nav-bg);
+        background: color-mix(in srgb, var(--nav-bg) 84%, transparent);
+        -webkit-backdrop-filter: saturate(180%) blur(18px);
+        backdrop-filter: saturate(180%) blur(18px);
+        border-bottom: 1px solid var(--nav-border);
+    }
+
+    .m-appbar-btn {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        padding: 0;
+        border: 0;
+        border-radius: 13px;
+        background: transparent;
+        color: var(--nav-text);
+        font-size: 1.06rem;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: background-color .16s ease;
+    }
+
+    .m-appbar-btn:active { background: var(--nav-hover-bg); }
+
+    .m-appbar-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        padding-inline-start: 2px;
+    }
+
+    .m-appbar-kicker {
+        font-size: .58rem;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--nav-muted);
+        line-height: 1;
+    }
+
+    .m-appbar-name {
+        font-family: var(--font-display);
+        font-size: 1.02rem;
+        font-weight: 600;
+        line-height: 1.25;
+        color: var(--nav-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .m-appbar-actions {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    /* ── 底部分頁列 ── */
+    .m-tabbar {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: 2100;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding-bottom: var(--safe-b);
+        background: var(--nav-bg);
+        background: color-mix(in srgb, var(--nav-bg) 88%, transparent);
+        -webkit-backdrop-filter: saturate(180%) blur(18px);
+        backdrop-filter: saturate(180%) blur(18px);
+        border-top: 1px solid var(--nav-border);
+    }
+
+    .m-tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: var(--m-tabbar-h);
+        padding: 0 2px;
+        border: 0;
+        background: transparent;
+        color: var(--nav-muted);
+        font: inherit;
+        font-size: .68rem;
+        font-weight: 600;
+        letter-spacing: .01em;
+        text-decoration: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .m-tab-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 27px;
+        border-radius: 999px;
+        font-size: 1.02rem;
+        transition: background-color .2s ease, color .2s ease;
+    }
+
+    .m-tab.is-active { color: var(--nav-active-text); }
+    .m-tab.is-active .m-tab-icon { background: var(--nav-active-bg); }
+    .m-tab:active .m-tab-icon { background: var(--nav-hover-bg); }
+
+    /* ── 內容區讓出上下兩條列 ── */
+    .content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-top: calc(var(--m-appbar-h) + var(--safe-t) + 14px) !important;
+        padding-inline: 14px !important;
+        padding-bottom: calc(var(--m-tabbar-h) + var(--safe-b) + 22px) !important;
+    }
+
+    /* ── 抽屜選單 ── */
+    .sidebar {
+        width: min(86vw, 328px) !important;
+        height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding-top: var(--safe-t);
+        padding-bottom: calc(var(--safe-b) + 6px);
+        background: var(--nav-surface);
+        border-right: 1px solid var(--nav-border);
+        border-radius: 0 22px 22px 0;
+        box-shadow: 0 22px 60px var(--nav-shadow);
+        overflow: hidden;
+        z-index: 2200;
+    }
+
+    .sidebar .sidebar-header { flex: none; }
+
+    .sidebar .sidebar-groups {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sidebar .sidebar-quick-actions { flex: none; padding-top: 10px; }
+
+    .sidebar .menu-group-toggle { min-height: 44px; }
+
+    .sidebar .menu-item a {
+        min-height: 46px;
+        padding: 10px 12px;
+        border-radius: 12px;
+    }
+
+    .sidebar-overlay {
+        z-index: 2150;
+        background: rgba(20, 19, 18, .44);
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
+    }
+
+    .sidebar.open ~ .m-drawer-close {
+        display: grid;
+        place-items: center;
+        position: fixed;
+        top: calc(var(--safe-t) + 12px);
+        right: 14px;
+        z-index: 2400;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 1px solid var(--border-color);
+        border-radius: 50%;
+        background: var(--card-bg);
+        color: var(--text-color);
+        font-size: 1.05rem;
+        box-shadow: 0 8px 22px var(--shadow-strong);
+        cursor: pointer;
+    }
+
+    /* ── 卡片與字級：手機比例重新校正 ── */
+    .content-header,
+    .hero-panel,
+    .content-body,
+    .card,
+    .table-card {
+        border-radius: 18px;
+    }
+
+    .content-header,
+    .content-body,
+    .hero-panel {
+        padding: 18px 16px;
+    }
+
+    .content-header h1 {
+        font-size: 1.34rem;
+        line-height: 1.32;
+    }
+
+    .hero-panel-copy h2,
+    .hero-panel-home h2 {
+        font-size: 1.3rem;
+        line-height: 1.34;
+    }
+
+    /* ── 動作列改為橫向捲動藥丸列，不再整排堆疊 ── */
+    .action-buttons-bar {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x proximity;
+        margin-inline: -16px;
+        padding-inline: 16px;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+    }
+
+    .action-buttons-bar::-webkit-scrollbar { display: none; }
+
+    .action-buttons-bar .btn {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        min-height: 42px;
+        border-radius: 999px;
+        white-space: nowrap !important;
+        scroll-snap-align: start;
+    }
+
+    /* ── 檢視工具列：搜尋整行、切換整行、按鈕兩欄 ── */
+    .media-toolbar {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: stretch !important;
+        gap: 10px;
+    }
+
+    .media-toolbar input,
+    .media-toolbar select,
+    .media-toolbar .view-switch {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-height: 44px;
+    }
+
+    .media-toolbar .view-switch { justify-content: space-between; }
+    .media-toolbar .view-btn { flex: 1 1 0; justify-content: center; }
+
+    .media-toolbar .btn {
+        flex: 1 1 calc(50% - 5px) !important;
+        width: auto !important;
+        min-height: 44px;
+        border-radius: 999px;
+    }
+
+    /* ── 抽屜品牌列：橫排、去底線 ── */
+    .sidebar .sidebar-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--nav-border);
+    }
+
+    .sidebar .sidebar-home-link {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        flex: 1 1 auto;
+        min-width: 0;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .sidebar .sidebar-brand-mark {
+        flex: none;
+        width: 40px;
+        height: 40px;
+        margin: 0;
+        border-radius: 13px;
+        font-size: 1rem;
+    }
+
+    .sidebar .sidebar-brand-copy {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 1px;
+    }
+
+    .sidebar .sidebar-brand-copy .sidebar-kicker { font-size: .55rem; letter-spacing: .12em; }
+    .sidebar .sidebar-brand-copy h2 { margin: 0; font-size: 1.05rem; }
+    .sidebar .sidebar-brand-copy p { margin: 0; font-size: .74rem; }
+
+    .sidebar .dark-mode-btn {
+        position: static;
+        flex: none;
+        width: 40px;
+        height: 40px;
+        margin: 0;
+    }
+
+    /* ── 浮動元件避開底部分頁列 ── */
+    .voice-fab { bottom: calc(var(--m-tabbar-h) + var(--safe-b) + 16px) !important; }
+    .voice-panel { bottom: calc(var(--m-tabbar-h) + var(--safe-b) + 74px) !important; }
+    .global-media-shell { bottom: calc(var(--m-tabbar-h) + var(--safe-b) + 10px) !important; }
+    .global-lyrics-panel { bottom: calc(var(--m-tabbar-h) + var(--safe-b) + 122px) !important; }
+    .sub-expiring-banner { top: calc(var(--m-appbar-h) + var(--safe-t)) !important; }
+}
+
+@media (max-width: 480px) {
+    .m-tab-label { font-size: .64rem; }
+    .m-tab-icon { width: 42px; }
+    .m-appbar-name { font-size: .96rem; }
+
+    .content {
+        padding-inline: 12px !important;
+    }
+
+    .content-header,
+    .content-body,
+    .hero-panel {
+        padding: 16px 14px;
+    }
+}
+
+/* ─────────────────────────── 平板 ─────────────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+
+    /* 頂部橫向選單改為左側圖示軌 */
+    .sidebar {
+        top: 0;
+        left: 0;
+        right: auto;
+        width: var(--rail-w) !important;
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 8px;
+        border-right: 1px solid var(--nav-border);
+        border-bottom: none;
+        overflow: visible;
+    }
+
+    .sidebar .sidebar-header {
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        padding: 4px 0 10px;
+        border-bottom: 1px solid var(--nav-border);
+    }
+
+    .sidebar .sidebar-home-link { justify-content: center; padding: 4px; }
+    .sidebar .sidebar-brand-copy { display: none; }
+    .sidebar .sidebar-brand-mark { margin: 0; }
+    .sidebar .dark-mode-btn { margin: 0; width: 36px; height: 36px; }
+
+    .sidebar .sidebar-groups {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 4px;
+        padding: 10px 0;
+        overflow: visible;
+    }
+
+    .sidebar .menu-group { width: 100%; position: relative; }
+
+    .sidebar .menu-group-toggle {
+        justify-content: center;
+        width: 100%;
+        height: 48px;
+        padding: 0;
+        border-radius: 14px;
+    }
+
+    .sidebar .menu-group-toggle > span { font-size: 0; gap: 0; }
+    .sidebar .menu-group-toggle i { font-size: 1.06rem; width: auto; }
+    .sidebar .menu-group-chevron { display: none; }
+
+    /* 群組飛出選單：改由右側展開 */
+    .sidebar .menu-group .menu {
+        top: 0;
+        left: calc(100% + 10px);
+        min-width: 232px;
+        max-width: 300px;
+        transform: translateX(-6px);
+    }
+
+    .sidebar .menu-group:hover .menu,
+    .sidebar .menu-group.is-hover .menu {
+        opacity: 1;
+        transform: translateX(0);
+        pointer-events: auto;
+    }
+
+    .sidebar .menu-group.is-open > .menu-group-toggle {
+        background: var(--nav-active-bg);
+        color: var(--nav-active-text);
+        border-color: var(--nav-active-border);
+    }
+
+    .sidebar .menu-group .menu::before {
+        top: 0;
+        bottom: 0;
+        left: -10px;
+        right: auto;
+        width: 10px;
+        height: auto;
+    }
+
+    .sidebar .menu-item a { min-height: 44px; }
+
+    .sidebar .sidebar-quick-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 6px;
+        margin-top: auto;
+        margin-inline-start: 0;
+        padding: 0;
+    }
+
+    .sidebar .sidebar-quick-actions .sidebar-voice-btn,
+    .sidebar .sidebar-quick-actions .sidebar-privacy-btn {
+        width: 100%;
+        height: 44px;
+        min-height: 44px;
+        padding: 0;
+        justify-content: center;
+        border-radius: 14px;
+    }
+
+    .sidebar .sidebar-quick-actions span { display: none; }
+
+    /* 內容區：讓出圖示軌，兩欄卡片 */
+    .content {
+        margin-left: var(--rail-w) !important;
+        width: auto !important;
+        max-width: none !important;
+        padding-top: 26px !important;
+        padding-inline: 22px !important;
+        padding-bottom: 34px !important;
+    }
+
+    .card-grid,
+    .dashboard-metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 16px;
+    }
+
+    .dashboard-columns,
+    .alert-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .content-header,
+    .hero-panel,
+    .content-body {
+        padding: 22px;
+    }
+
+    .sub-expiring-banner {
+        top: 0 !important;
+        left: var(--rail-w);
+        right: 0;
+    }
+
+    .global-media-shell {
+        left: calc(var(--rail-w) + 16px) !important;
+        right: 16px !important;
+    }
+
+    .global-lyrics-panel { right: 16px !important; }
+}

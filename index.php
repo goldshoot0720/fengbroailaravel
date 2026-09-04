@@ -72,6 +72,7 @@ if (($page ?? '') === 'tools') {
 
 include 'includes/header.php';
 include 'includes/sidebar.php';
+include 'includes/mobile-nav.php';
 ?>
 
 <main class="content" id="mainContent" tabindex="-1">
