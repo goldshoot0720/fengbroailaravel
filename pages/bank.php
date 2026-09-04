@@ -21,9 +21,9 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 
 <div class="content-header">
     <h1>鋒兄銀行 (+電子票證) <span
-            style="font-size:0.55em;background:#27ae60;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">銀行帳戶 <?php echo $bankAccountCount; ?></span>
+            style="font-size:0.55em;background:#4a8f63;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">銀行帳戶 <?php echo $bankAccountCount; ?></span>
         <span
-            style="font-size:0.55em;background:#8e44ad;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">電子票證 <?php echo $eTicketCount; ?></span>
+            style="font-size:0.55em;background:#b4552f;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">電子票證 <?php echo $eTicketCount; ?></span>
     </h1>
 </div>
 
@@ -40,7 +40,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         include 'includes/csv_buttons.php'; ?>
         <?php include 'includes/batch-delete.php'; ?>
     </div>
-    <div id="bankBatchAdjustPanel" class="card" style="display:none; margin-bottom: 24px; border-left: 4px solid #f39c12;">
+    <div id="bankBatchAdjustPanel" class="card" style="display:none; margin-bottom: 24px; border-left: 4px solid #c8873a;">
         <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
             <div>
                 <h3 class="card-title" style="margin-bottom:6px;">多選銀行存款數字</h3>
@@ -79,28 +79,28 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     <style>
         .bank-select-checkbox {
             display: inline-block !important;
-            accent-color: #f39c12;
+            accent-color: #c8873a;
         }
     </style>
     <div
         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
-        <div class="card" style="background: linear-gradient(135deg, #27ae60, #219a52); color: #fff;">
+        <div class="card" style="background: #3f7d5c; color: #fff;">
             <h3>所有資產</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($totalDeposit); ?></p>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
+        <div class="card" style="background: #b4552f; color: #fff;">
             <h3>銀行總資產</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($bankTotalAsset); ?></p>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #8e44ad, #6c3483); color: #fff;">
+        <div class="card" style="background: #9c4726; color: #fff;">
             <h3>電子票證總資產</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo formatMoney($eTicketTotalAsset); ?></p>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;">
+        <div class="card" style="background: #b4552f; color: #fff;">
             <h3>銀行帳戶總數</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $bankAccountCount; ?></p>
         </div>
-        <div class="card" style="background: linear-gradient(135deg, #8e44ad, #6c3483); color: #fff;">
+        <div class="card" style="background: #9c4726; color: #fff;">
             <h3>電子票證總數</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $eTicketCount; ?></p>
         </div>
@@ -257,7 +257,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         <?php else: ?>
             <?php foreach ($items as $item): ?>
                 <?php $bankSiteUrl = bankDisplayUrl($item['site'] ?? ''); ?>
-                <div class="mobile-card" style="border-left: 4px solid #3498db;"
+                <div class="mobile-card" style="border-left: 4px solid #d97757;"
                     data-id="<?php echo $item['id']; ?>"
                     data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
                     data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
@@ -275,7 +275,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                             <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=32"
                                 style="width: 32px; height: 32px; border-radius: 6px;">
                         <?php else: ?>
-                            <i class="fas fa-university" style="font-size: 1.5rem; color: #3498db;"></i>
+                            <i class="fas fa-university" style="font-size: 1.5rem; color: #d97757;"></i>
                         <?php endif; ?>
                         <div class="mobile-card-title">
                             <?php if ($bankSiteUrl): ?>
@@ -291,12 +291,12 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">存款</span>
                             <span class="mobile-card-value private-value"
-                                style="color: #27ae60;"><?php echo formatMoney($item['deposit']); ?></span>
+                                style="color: #4a8f63;"><?php echo formatMoney($item['deposit']); ?></span>
                         </div>
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">提款</span>
                             <span class="mobile-card-value"
-                                style="color: #e74c3c;"><?php echo formatMoney($item['withdrawals']); ?></span>
+                                style="color: #c1554a;"><?php echo formatMoney($item['withdrawals']); ?></span>
                         </div>
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">轉帳</span>
@@ -597,7 +597,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <strong>${escapeHtmlBank(bank.name || '')}</strong>
                         <div style="font-size:0.85rem; color:var(--muted-text);">目前 ${formatAmount(current)}</div>
                     </div>
-                    <div style="color:${direction === 'minus' ? '#e74c3c' : '#27ae60'}; font-weight:800;">${actionLabel}</div>
+                    <div style="color:${direction === 'minus' ? '#c1554a' : '#4a8f63'}; font-weight:800;">${actionLabel}</div>
                     <input class="form-control bank-batch-amount" data-id="${escapeHtmlBank(id)}" type="number" min="0" step="1" placeholder="${direction === 'set' ? '存款數字' : '調整金額'}" value="${escapeHtmlBank(value)}" oninput="renderBankBatchPreview()" style="${inputStyle}">
                 </div>
             `;

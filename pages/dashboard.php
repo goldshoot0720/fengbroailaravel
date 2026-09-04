@@ -653,7 +653,7 @@ $uploadBucketLabels = [
             if (valueEl) valueEl.textContent = '--';
             if (hintEl) hintEl.textContent = '讀取失敗';
             if (totalEl) totalEl.textContent = '--';
-            if (listEl) listEl.innerHTML = '<p style="color:#e74c3c;margin:0;">讀取失敗</p>';
+            if (listEl) listEl.innerHTML = '<p style="color:#c1554a;margin:0;">讀取失敗</p>';
         }
     }
 

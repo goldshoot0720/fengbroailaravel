@@ -8,7 +8,7 @@ sort($categories);
 
 <div class="content-header">
     <h1>鋒兄文件 <span
-            style="font-size:0.55em;background:#e67e22;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+            style="font-size:0.55em;background:#c07a3d;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
     </h1>
 </div>
 
@@ -22,7 +22,7 @@ sort($categories);
     <?php endif; ?>
     <?php if (isset($_GET['error'])): ?>
         <div class="alert alert-danger"
-            style="background:#dc3545;color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:15px;">
+            style="background:#bd4034;color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:15px;">
             <i class="fa-solid fa-exclamation-circle"></i> <?php echo htmlspecialchars($_GET['error']); ?>
         </div>
     <?php endif; ?>
@@ -64,7 +64,7 @@ sort($categories);
     <?php endif; ?>
     <style>
         .category-filter-btn {
-            background: #f0f0f0;
+            background: #f2f0e9;
             color: #555;
             border: none;
             border-radius: 20px;
@@ -74,17 +74,17 @@ sort($categories);
         }
 
         .category-filter-btn.active {
-            background: #3498db;
+            background: #d97757;
             color: #fff;
         }
 
         .category-filter-btn:hover:not(.active) {
             background: #d0e8f8;
-            color: #2c3e50;
+            color: #2a2724;
         }
 
         .document-view-btn {
-            background: #f0f0f0;
+            background: #f2f0e9;
             color: #555;
             border: none;
             border-radius: 20px;
@@ -94,13 +94,13 @@ sort($categories);
         }
 
         .document-view-btn.active {
-            background: #2c3e50;
+            background: #2a2724;
             color: #fff;
         }
 
         .document-view-btn:hover:not(.active) {
             background: #dde6ed;
-            color: #1f2d3d;
+            color: #292826;
         }
 
         .document-card-grid {
@@ -126,14 +126,14 @@ sort($categories);
             height: 160px;
             border-radius: 12px;
             object-fit: cover;
-            background: linear-gradient(135deg, #f8f9fb, #eef3f7);
+            background: #f2f0e9;
         }
 
         .document-card-fallback {
             width: 100%;
             height: 160px;
             border-radius: 12px;
-            background: linear-gradient(135deg, #f39c12, #e67e22);
+            background: #c07a3d;
             color: #fff;
             display: flex;
             align-items: center;
@@ -151,7 +151,7 @@ sort($categories);
         .document-card-badge {
             font-size: 0.75rem;
             background: #fff3e8;
-            color: #d35400;
+            color: #a85a2a;
             padding: 4px 10px;
             border-radius: 999px;
             font-weight: 700;
@@ -159,7 +159,7 @@ sort($categories);
 
         .document-card-time {
             font-size: 0.8rem;
-            color: #7f8c8d;
+            color: #6f6c65;
         }
 
         .document-card-note {
@@ -327,7 +327,7 @@ sort($categories);
                 <?php endif; ?>
 
                 <div>
-                    <h3 style="margin:0 0 8px 0;color:#2c3e50;line-height:1.4;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                    <h3 style="margin:0 0 8px 0;color:#2a2724;line-height:1.4;"><?php echo htmlspecialchars($item['name']); ?></h3>
                     <div class="document-card-meta">
                         <?php if (!empty($item['category'])): ?>
                             <span class="document-card-badge"><?php echo htmlspecialchars($item['category']); ?></span>
@@ -381,7 +381,7 @@ sort($categories);
                     data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
                     data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
                     data-cover="<?php echo htmlspecialchars($item['cover'] ?? '', ENT_QUOTES); ?>"
-                    style="border-left: 4px solid #e67e22;">
+                    style="border-left: 4px solid #c07a3d;">
                     <div class="mobile-card-actions">
                         <?php if (!empty($item['file'])): ?>
                             <button class="btn btn-sm btn-primary"
@@ -402,14 +402,14 @@ sort($categories);
                     </div>
                     <div class="mobile-card-header">
                         <div
-                            style="width: 45px; height: 45px; background: linear-gradient(135deg, #e67e22, #d35400); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            style="width: 45px; height: 45px; background: #a85a2a; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-file-alt" style="color: #fff; font-size: 1.2rem;"></i>
                         </div>
                         <div style="flex: 1;">
                             <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
                             <?php if (!empty($item['category'])): ?>
                                 <span
-                                    style="font-size: 0.75rem; background: #ffeaa7; color: #d35400; padding: 2px 8px; border-radius: 10px;"><?php echo htmlspecialchars($item['category']); ?></span>
+                                    style="font-size: 0.75rem; background: #ffeaa7; color: #a85a2a; padding: 2px 8px; border-radius: 10px;"><?php echo htmlspecialchars($item['category']); ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -909,7 +909,7 @@ sort($categories);
             previewContent.innerHTML = `<iframe src="${src}" style="width:100%;height:70vh;border:none;border-radius:8px;"></iframe>`;
         } else if (['pptx', 'ppt', 'docx', 'doc', 'xlsx', 'xls'].includes(ext)) {
             const iconClass = ext.includes('ppt') ? 'fa-file-powerpoint' : (ext.includes('doc') ? 'fa-file-word' : 'fa-file-excel');
-            const iconColor = ext.includes('ppt') ? '#e67e22' : (ext.includes('doc') ? '#3498db' : '#27ae60');
+            const iconColor = ext.includes('ppt') ? '#c07a3d' : (ext.includes('doc') ? '#d97757' : '#4a8f63');
             previewContent.innerHTML = `
                 <div style="text-align:center;padding:50px;">
                     <i class="fa-solid ${iconClass} fa-5x" style="color:${iconColor};margin-bottom:25px;"></i>
@@ -938,7 +938,7 @@ sort($categories);
                     `;
                 })
                 .catch(err => {
-                    previewContent.innerHTML = `<p style="color:#e74c3c;">無法載入檔案內容</p>`;
+                    previewContent.innerHTML = `<p style="color:#c1554a;">無法載入檔案內容</p>`;
                 });
         } else {
             previewContent.innerHTML = `

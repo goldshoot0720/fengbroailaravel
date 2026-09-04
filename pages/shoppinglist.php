@@ -319,20 +319,20 @@ $pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '�
 <style>
     .muted-copy { margin: 8px 0 0; color: var(--muted-text); line-height: 1.6; }
     .count-pill { color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
-    .count-pill-shopping { background: linear-gradient(135deg, #0f766e, #2563eb); }
+    .count-pill-shopping { background: #c1613d; }
     .mgmt-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .food-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; padding: 14px 16px; box-shadow: 0 12px 26px var(--shadow); }
     .food-stat-card span { display: block; color: var(--muted-text); font-size: 0.82rem; margin-bottom: 6px; }
     .food-stat-card strong { font-size: 1.35rem; }
     .food-stat-card small { color: var(--muted-text); font-size: 0.78rem; }
-    .food-stat-warning strong { color: #b45309; }
-    .food-stat-danger strong { color: #b91c1c; }
-    .food-stat-highlight strong { color: #0f766e; }
+    .food-stat-warning strong { color: #96601f; }
+    .food-stat-danger strong { color: #992e24; }
+    .food-stat-highlight strong { color: #b06a3f; }
     .action-buttons-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .mgmt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .mgmt-form-grid label { display: grid; gap: 6px; font-weight: 600; }
     .mgmt-span-2 { grid-column: 1 / -1; }
-    .req { color: #e74c3c; }
+    .req { color: #c1554a; }
     .mgmt-filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 18px; }
     .food-search-box { position: relative; flex: 1 1 260px; }
     .food-search-box i { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: var(--muted-text); }
@@ -340,34 +340,34 @@ $pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '�
     .mgmt-filter-bar select { min-width: 150px; }
     .shopping-table-wrap { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; overflow: hidden; }
     .shopping-row { display: grid; grid-template-columns: 28px minmax(11rem, 1.3fr) minmax(8.5rem, 0.9fr) minmax(8.5rem, 1fr) minmax(6rem, 0.7fr) minmax(9rem, 1fr) minmax(8rem, 0.9fr) minmax(9rem, 1fr) 116px; gap: 12px; align-items: center; padding: 12px 16px; }
-    .shopping-head { color: var(--muted-text); font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid var(--border-color); background: var(--table-header-bg, #f4f7fb); }
+    .shopping-head { color: var(--muted-text); font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid var(--border-color); background: var(--table-header-bg, #faf9f5); }
     .shopping-item { border-bottom: 1px solid var(--border-color); }
     .shopping-item:last-child { border-bottom: 0; }
     .shopping-cell-main { min-width: 0; }
     .shopping-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-color); float: left; margin-right: 10px; }
     .shopping-cell-sub { display: block; color: var(--muted-text); font-size: 0.8rem; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .shopping-date { color: var(--text-color); font-size: 0.9rem; margin-bottom: 4px; }
-    .shopping-subtotal { font-weight: 800; color: #0f766e; }
+    .shopping-subtotal { font-weight: 800; color: #b06a3f; }
     .shopping-chip { white-space: nowrap; }
     .status-chip { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
-    .chip-info { background: #dbeafe; color: #1e40af; }
-    .chip-warning { background: #fff3cd; color: #856404; }
-    .chip-danger { background: #f8d7da; color: #721c24; }
-    .chip-muted { background: #eef2f7; color: #475569; }
+    .chip-info { background: #f6e5db; color: #9c4726; }
+    .chip-warning { background: #f7ecd9; color: #6f5518; }
+    .chip-danger { background: #f6e0dd; color: #6e2a23; }
+    .chip-muted { background: #f0eee6; color: #57534a; }
     .muted-dash { color: var(--muted-text); }
     .mgmt-note { margin: 0; white-space: pre-wrap; color: var(--muted-text); font-size: 0.9rem; }
     .mgmt-mobile-label { display: none; }
     .mgmt-row-actions { display: flex; gap: 6px; }
-    .quota-import-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .quota-import-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(30, 26, 20, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .quota-import-panel { width: min(560px, 100%); max-height: 85vh; overflow-y: auto; background: var(--card-bg); border-radius: 18px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28); }
-    .quota-import-result { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #d4edda; color: #155724; font-weight: 600; }
-    .quota-import-errors { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #f8d7da; color: #721c24; max-height: 140px; overflow-y: auto; font-size: 0.85rem; }
+    .quota-import-result { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #e3efe5; color: #2b5c40; font-weight: 600; }
+    .quota-import-errors { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #f6e0dd; color: #6e2a23; max-height: 140px; overflow-y: auto; font-size: 0.85rem; }
     .quota-import-rows { margin-top: 10px; }
     .quota-import-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
     .quota-import-row:last-child { border-bottom: 0; }
     .quota-import-row .qname { font-weight: 600; }
-    .quota-import-row .qstatus-new { color: #155724; font-size: 0.75rem; font-weight: 700; background: #d4edda; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-    .quota-import-row .qstatus-update { color: #856404; font-size: 0.75rem; font-weight: 700; background: #fff3cd; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .quota-import-row .qstatus-new { color: #2b5c40; font-size: 0.75rem; font-weight: 700; background: #e3efe5; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .quota-import-row .qstatus-update { color: #6f5518; font-size: 0.75rem; font-weight: 700; background: #f7ecd9; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
     @media (max-width: 1100px) {
         .shopping-row { grid-template-columns: 28px minmax(10rem, 1.2fr) minmax(8rem, 0.9fr) minmax(7rem, 0.8fr) minmax(9rem, 1fr) minmax(8rem, 0.9fr) 116px; }
         .shopping-head { display: none; }

@@ -226,7 +226,7 @@
             (it.width ? ' · ' + it.width + '×' + it.height : '') +
             (it.resultBlob ? ' · ' + formatBytes(it.resultBlob.size) : '') +
             '</div>' +
-            (it.error ? '<div style="color:#dc2626;font-size:0.82rem;">' + escapeHtml(it.error) + '</div>' : '') +
+            (it.error ? '<div style="color:#b3392c;font-size:0.82rem;">' + escapeHtml(it.error) + '</div>' : '') +
             '</div><div class="ic-item-actions">' +
             badge +
             (it.resultUrl

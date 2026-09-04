@@ -187,20 +187,20 @@ sort($categories);
             <?php
             // 分類色彩對應
             $categoryColors = [
-                '#3498db',
-                '#e74c3c',
-                '#2ecc71',
-                '#f39c12',
-                '#9b59b6',
-                '#1abc9c',
-                '#e67e22',
-                '#34495e',
-                '#16a085',
-                '#c0392b',
-                '#8e44ad',
-                '#d35400',
-                '#27ae60',
-                '#2980b9',
+                '#d97757',
+                '#c1554a',
+                '#63a97c',
+                '#c8873a',
+                '#c1613d',
+                '#4fa892',
+                '#c07a3d',
+                '#3d3a35',
+                '#3f8b76',
+                '#a63e34',
+                '#b4552f',
+                '#a85a2a',
+                '#4a8f63',
+                '#b4552f',
                 '#f1c40f'
             ];
             $categoryColorMap = [];
@@ -213,7 +213,7 @@ sort($categories);
             <?php foreach ($items as $item):
                 $cardCategories = parseNoteCategories($item['category'] ?? '');
                 $primaryCategory = $cardCategories[0] ?? '';
-                $catColor = $categoryColorMap[$primaryCategory] ?? '#95a5a6';
+                $catColor = $categoryColorMap[$primaryCategory] ?? '#8a857c';
                 $hasRef = !empty($item['ref']);
                 $hasUrls = !empty($item['url1']) || !empty($item['url2']) || !empty($item['url3']);
                 ?>
@@ -254,7 +254,7 @@ sort($categories);
                     <div class="note-category-badges">
                         <?php if (!empty($cardCategories)): ?>
                             <?php foreach ($cardCategories as $category): ?>
-                                <?php $badgeColor = $categoryColorMap[$category] ?? '#95a5a6'; ?>
+                                <?php $badgeColor = $categoryColorMap[$category] ?? '#8a857c'; ?>
                                 <div class="note-category-badge"
                                     style="background: <?php echo $badgeColor; ?>15; color: <?php echo $badgeColor; ?>; border: 1px solid <?php echo $badgeColor; ?>40;">
                                     <i class="fas fa-tag"></i> <?php echo htmlspecialchars($category); ?>
@@ -342,16 +342,16 @@ sort($categories);
                                             <?php else: ?>
                                                 <?php
                                                 $iconClass = 'fa-file';
-                                                $iconBg = '#3498db';
+                                                $iconBg = '#d97757';
                                                 if (strpos($filetype, 'video/') === 0) {
                                                     $iconClass = 'fa-video';
-                                                    $iconBg = '#34495e';
+                                                    $iconBg = '#3d3a35';
                                                 } elseif (strpos($filetype, 'audio/') === 0) {
                                                     $iconClass = 'fa-music';
-                                                    $iconBg = '#9b59b6';
+                                                    $iconBg = '#c1613d';
                                                 } elseif ($filetype === 'application/pdf') {
                                                     $iconClass = 'fa-file-pdf';
-                                                    $iconBg = '#e74c3c';
+                                                    $iconBg = '#c1554a';
                                                 }
                                                 ?>
                                                 <div class="note-file-icon" style="background: <?php echo $iconBg; ?>;">
@@ -592,16 +592,16 @@ sort($categories);
         align-items: center;
         padding: 8px 14px;
         border-radius: 999px;
-        background: linear-gradient(135deg, #8b5cf6, #d946ef);
+        background: #c1613d;
         color: #fff;
         font-size: 0.9rem;
         font-weight: 700;
-        box-shadow: 0 10px 24px rgba(139, 92, 246, 0.2);
+        box-shadow: 0 10px 24px rgba(217, 119, 87, 0.2);
     }
 
     .notes-subtitle {
         margin: 0;
-        color: #6b7280;
+        color: #6f6c65;
         font-size: 1rem;
         line-height: 1.7;
     }
@@ -613,9 +613,9 @@ sort($categories);
         padding: 10px 16px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(226, 232, 240, 0.9);
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
-        color: #64748b;
+        border: 1px solid rgba(232, 227, 217, 0.9);
+        box-shadow: 0 14px 30px rgba(30, 26, 20, 0.06);
+        color: #7a756c;
     }
 
     .notes-filter-select {
@@ -623,7 +623,7 @@ sort($categories);
         border: none;
         background: transparent;
         padding: 0;
-        color: #111827;
+        color: #1f1e1d;
         font-weight: 600;
     }
 
@@ -648,12 +648,12 @@ sort($categories);
         padding: 0 20px;
         border-radius: 24px;
         background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(226, 232, 240, 0.9);
-        box-shadow: 0 18px 34px rgba(15, 23, 42, 0.05);
+        border: 1px solid rgba(232, 227, 217, 0.9);
+        box-shadow: 0 18px 34px rgba(30, 26, 20, 0.05);
     }
 
     .notes-search-box i {
-        color: #94a3b8;
+        color: #a8a29a;
         font-size: 1.2rem;
     }
 
@@ -682,11 +682,11 @@ sort($categories);
     }
 
     .file-preview a {
-        color: #3498db;
+        color: #d97757;
     }
 
     .file-preview .remove-file {
-        color: #e74c3c;
+        color: #c1554a;
         cursor: pointer;
         margin-left: 10px;
     }
@@ -698,12 +698,12 @@ sort($categories);
         justify-content: space-between;
         gap: 16px;
         flex-wrap: wrap;
-        background: linear-gradient(135deg, rgba(226, 248, 255, 0.88), rgba(214, 239, 247, 0.78));
+        background: rgba(244, 240, 232, 0.88);
         padding: 18px 24px;
         border-radius: 22px;
         margin-bottom: 18px;
         border: 1px solid rgba(191, 219, 254, 0.5);
-        box-shadow: 0 20px 34px rgba(148, 163, 184, 0.14);
+        box-shadow: 0 20px 34px rgba(140, 130, 116, 0.14);
     }
 
     .notes-primary-actions {
@@ -722,12 +722,12 @@ sort($categories);
         justify-content: center;
         padding: 0;
         font-size: 1.35rem;
-        box-shadow: 0 16px 30px rgba(99, 102, 241, 0.26);
+        box-shadow: 0 16px 30px rgba(217, 119, 87, 0.26);
     }
 
     .notes-total-count {
         font-size: 1rem;
-        color: #475569;
+        color: #57534a;
         font-weight: 600;
     }
 
@@ -736,12 +736,12 @@ sort($categories);
         min-height: 52px;
         border-radius: 18px;
         padding: 0 20px;
-        background: linear-gradient(135deg, #7c3aed, #8b5cf6);
-        box-shadow: 0 14px 24px rgba(124, 58, 237, 0.18);
+        background: #b4552f;
+        box-shadow: 0 14px 24px rgba(180, 85, 47, 0.18);
     }
 
     #selectModeBtn.btn-select-mode.active {
-        background: linear-gradient(135deg, #ea580c, #ef4444);
+        background: #b3392c;
     }
 
     #batchSelectAllWrap {
@@ -819,9 +819,9 @@ sort($categories);
         gap: 6px;
         padding: 4px 10px;
         border-radius: 999px;
-        background: #eef4ff;
-        border: 1px solid #c7d7fe;
-        color: #3451b2;
+        background: #fbf4ef;
+        border: 1px solid #f2cdb9;
+        color: #b4552f;
         font-size: 0.8rem;
         font-weight: 600;
     }
@@ -845,7 +845,7 @@ sort($categories);
     .category-option-chip {
         border: 1px solid #d7deea;
         background: #fff;
-        color: #5b6472;
+        color: #57534a;
         border-radius: 999px;
         padding: 5px 10px;
         font-size: 0.8rem;
@@ -854,8 +854,8 @@ sort($categories);
     }
 
     .category-option-chip.is-active {
-        background: #3451b2;
-        border-color: #3451b2;
+        background: #b4552f;
+        border-color: #b4552f;
         color: #fff;
     }
 
@@ -869,8 +869,8 @@ sort($categories);
         padding: 14px 16px;
         border-radius: 18px;
         border: 1px solid #eadfce;
-        background: linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(250, 244, 255, 0.92));
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        background: rgba(252, 250, 245, 0.96);
+        box-shadow: 0 12px 30px rgba(30, 26, 20, 0.06);
     }
 
     .batch-category-bar.show {
@@ -888,7 +888,7 @@ sort($categories);
         align-items: center;
         gap: 10px;
         font-size: 0.95rem;
-        color: #4b5563;
+        color: #57534a;
         font-weight: 600;
         cursor: pointer;
     }
@@ -896,7 +896,7 @@ sort($categories);
     .batch-category-check input {
         width: 18px;
         height: 18px;
-        accent-color: #8b5cf6;
+        accent-color: #d97757;
     }
 
     .batch-category-controls {
@@ -922,7 +922,7 @@ sort($categories);
     /* 參考來源 */
     .note-ref {
         font-size: 0.8rem;
-        color: #8e8e93;
+        color: #8a857c;
         margin: 4px 16px 0;
         display: flex;
         align-items: center;
@@ -930,7 +930,7 @@ sort($categories);
     }
 
     .note-ref i {
-        color: #f39c12;
+        color: #c8873a;
         font-size: 0.7rem;
     }
 
@@ -963,13 +963,13 @@ sort($categories);
         align-items: center;
         gap: 5px;
         padding: 4px 10px;
-        background: #ebf5fb;
-        color: #2980b9;
+        background: #fbf4ef;
+        color: #b4552f;
         border-radius: 6px;
         font-size: 0.78rem;
         text-decoration: none;
         transition: background 0.2s;
-        border: 1px solid #bee5eb;
+        border: 1px solid #f2cdb9;
     }
 
     [data-theme="dark"] .note-link {
@@ -979,7 +979,7 @@ sort($categories);
     }
 
     .note-link:hover {
-        background: #d4effc;
+        background: #f6e5db;
     }
 
     .note-link i {
@@ -1019,18 +1019,18 @@ sort($categories);
         justify-content: center;
         gap: 3px;
         font-size: 0.65rem;
-        color: #3498db;
+        color: #d97757;
         text-decoration: none;
         padding: 2px 6px;
         border-radius: 4px;
-        border: 1px solid #bee5eb;
-        background: #ebf5fb;
+        border: 1px solid #f2cdb9;
+        background: #fbf4ef;
         transition: background 0.2s;
         white-space: nowrap;
     }
 
     .note-file-download:hover {
-        background: #d4effc;
+        background: #f6e5db;
     }
 
     [data-theme="dark"] .note-file-download {
@@ -1046,9 +1046,9 @@ sort($categories);
         width: 26px;
         height: 26px;
         border-radius: 6px;
-        border: 1px solid #c8f0d1;
+        border: 1px solid #dceede;
         background: #e9fbef;
-        color: #27ae60;
+        color: #4a8f63;
         cursor: pointer;
         transition: background 0.2s, transform 0.2s;
     }
@@ -1059,9 +1059,9 @@ sort($categories);
     }
 
     [data-theme="dark"] .note-file-preview {
-        background: #163b2a;
-        color: #71d49a;
-        border-color: #2c7a57;
+        background: #1d4231;
+        color: #8cc4a0;
+        border-color: #3f7d5c;
     }
 
     .note-file-thumb img {
@@ -1116,7 +1116,7 @@ sort($categories);
     .note-action-btn {
         background: none;
         border: 1px solid var(--border-color);
-        color: #8e8e93;
+        color: #8a857c;
         padding: 3px 10px;
         border-radius: 6px;
         font-size: 0.75rem;
@@ -1129,8 +1129,8 @@ sort($categories);
 
     .note-action-btn:hover {
         background: var(--bg-color);
-        color: #3498db;
-        border-color: #3498db;
+        color: #d97757;
+        border-color: #d97757;
     }
 
     .note-time {
@@ -1640,7 +1640,7 @@ sort($categories);
             if (nameEl) nameEl.value = fileName;
             if (typeEl) typeEl.value = fileType;
             if (prevEl) prevEl.innerHTML = fileVal
-                ? `<a href="${fileVal}" target="_blank">${fileName || '檔案'}</a> <span style="color:#e74c3c;cursor:pointer;" onclick="clearInlineFile(${fi},'${id}')">&#10005; 移除</span>`
+                ? `<a href="${fileVal}" target="_blank">${fileName || '檔案'}</a> <span style="color:#c1554a;cursor:pointer;" onclick="clearInlineFile(${fi},'${id}')">&#10005; 移除</span>`
                 : '';
         }
     }
@@ -1697,7 +1697,7 @@ sort($categories);
                 if (nameEl) nameEl.value = file.name;
                 const extMatch = file.name.match(/(\.[^.]+)$/);
                 if (typeEl) typeEl.value = extMatch ? extMatch[1] : '';
-                if (prevEl) prevEl.innerHTML = `<a href="${res.file}" target="_blank">${file.name}</a> <span style="color:#e74c3c;cursor:pointer;" onclick="clearInlineFile(${fi},'${id}')">&#10005; 移除</span>`;
+                if (prevEl) prevEl.innerHTML = `<a href="${res.file}" target="_blank">${file.name}</a> <span style="color:#c1554a;cursor:pointer;" onclick="clearInlineFile(${fi},'${id}')">&#10005; 移除</span>`;
                 fileInput.value = '';
             },
             function (err) { alert('上傳失敗: ' + err); }
@@ -1849,12 +1849,12 @@ sort($categories);
             } else if (filetype && filetype.startsWith('audio/')) {
                 previewHtml = `<div style="margin-bottom: 5px;"><audio src="${file}" controls style="max-width: 250px;"></audio></div>`;
             } else if (filetype === 'application/pdf') {
-                previewHtml = `<div style="margin-bottom: 5px;"><i class="fa-solid fa-file-pdf" style="font-size: 2rem; color: #e74c3c;"></i></div>`;
+                previewHtml = `<div style="margin-bottom: 5px;"><i class="fa-solid fa-file-pdf" style="font-size: 2rem; color: #c1554a;"></i></div>`;
             } else {
-                previewHtml = `<div style="margin-bottom: 5px;"><i class="fa-solid fa-file" style="font-size: 2rem; color: #3498db;"></i></div>`;
+                previewHtml = `<div style="margin-bottom: 5px;"><i class="fa-solid fa-file" style="font-size: 2rem; color: #d97757;"></i></div>`;
             }
 
-            previewHtml += `<a href="${file}" target="_blank">${filename}</a> <a href="${file}" download="${filename}" style="color:#27ae60;margin-left:8px;"><i class="fa-solid fa-download"></i> 下載</a> <span class="remove-file" onclick="removeFile(${num})">✕ 移除</span>`;
+            previewHtml += `<a href="${file}" target="_blank">${filename}</a> <a href="${file}" download="${filename}" style="color:#4a8f63;margin-left:8px;"><i class="fa-solid fa-download"></i> 下載</a> <span class="remove-file" onclick="removeFile(${num})">✕ 移除</span>`;
             preview.innerHTML = previewHtml;
         } else {
             preview.innerHTML = '';

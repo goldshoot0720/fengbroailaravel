@@ -47,7 +47,7 @@ usort($years, function ($a, $b) use ($currentYear) {
 
 <div class="content-header" style="display: flex; align-items: center; gap: 12px;">
     <h1 style="margin: 0;">鋒兄食品 <span style="font-size: 0.48em; color: var(--muted-text); font-weight: 600;">（＋商品庫存）</span></h1>
-    <span style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+    <span style="background: #4a8f63; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
         <?php echo count($items); ?> 項
     </span>
 </div>
@@ -308,7 +308,7 @@ usort($years, function ($a, $b) use ($currentYear) {
                     data-year="<?php echo !empty($item['todate']) ? date('Y', strtotime($item['todate'])) : ''; ?>"
                     data-month="<?php echo !empty($item['todate']) ? (int) date('n', strtotime($item['todate'])) : ''; ?>"
                     data-expiry="<?php echo $isExpired ? 'expired' : ($isExpiringSoon ? '7days' : (!empty($item['todate']) ? 'normal' : 'nodate')); ?>"
-                    style="border-left: 4px solid <?php echo $isExpired ? '#e74c3c' : ($isExpiringSoon ? '#f39c12' : '#27ae60'); ?>;">
+                    style="border-left: 4px solid <?php echo $isExpired ? '#c1554a' : ($isExpiringSoon ? '#c8873a' : '#4a8f63'); ?>;">
                     <div class="mobile-card-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -322,8 +322,8 @@ usort($years, function ($a, $b) use ($currentYear) {
                                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
                         <?php else: ?>
                             <div
-                                style="width: 50px; height: 50px; background: #ecf0f1; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-utensils" style="color: #95a5a6; font-size: 1.2rem;"></i>
+                                style="width: 50px; height: 50px; background: #f0eee6; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-utensils" style="color: #8a857c; font-size: 1.2rem;"></i>
                             </div>
                         <?php endif; ?>
                         <div>
@@ -352,7 +352,7 @@ usort($years, function ($a, $b) use ($currentYear) {
                         <div class="mobile-card-item">
                             <span class="mobile-card-label">有效期限</span>
                             <span class="mobile-card-value"
-                                style="color: <?php echo $isExpired ? '#e74c3c' : ($isExpiringSoon ? '#f39c12' : 'inherit'); ?>;">
+                                style="color: <?php echo $isExpired ? '#c1554a' : ($isExpiringSoon ? '#c8873a' : 'inherit'); ?>;">
                                 <?php echo formatDate($item['todate']) ?: '-'; ?>
                                 <?php if ($isExpired): ?><span style="font-size: 0.75rem;"> (已過期)</span><?php endif; ?>
                             </span>
@@ -444,11 +444,11 @@ usort($years, function ($a, $b) use ($currentYear) {
     }
 
     .food-stat-danger strong {
-        color: #e74c3c;
+        color: #c1554a;
     }
 
     .food-stat-warning strong {
-        color: #f39c12;
+        color: #c8873a;
     }
 
     .food-filter-panel {
@@ -507,7 +507,7 @@ usort($years, function ($a, $b) use ($currentYear) {
     .food-mobile-list .mobile-card {
         border-radius: 20px;
         padding: 18px 16px;
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 36px rgba(30, 26, 20, 0.08);
     }
 
     .food-mobile-list .mobile-card-header {

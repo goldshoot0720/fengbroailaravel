@@ -267,16 +267,16 @@ foreach ($items as $item) {
 <style>
     .muted-copy { margin: 8px 0 0; color: var(--muted-text); line-height: 1.6; }
     .count-pill { color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-    .count-pill-reinstall { background: linear-gradient(135deg, #2980b9, #3498db); }
+    .count-pill-reinstall { background: #b4552f; }
     .mgmt-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .food-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; padding: 14px 16px; box-shadow: 0 12px 26px var(--shadow); }
     .food-stat-card span { display: block; color: var(--muted-text); font-size: 0.82rem; margin-bottom: 6px; }
     .food-stat-card strong { font-size: 1.35rem; }
-    .food-stat-warning strong { color: #f39c12; }
+    .food-stat-warning strong { color: #c8873a; }
     .mgmt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .mgmt-form-grid label { display: grid; gap: 6px; font-weight: 600; }
     .mgmt-span-2 { grid-column: 1 / -1; }
-    .req { color: #e74c3c; }
+    .req { color: #c1554a; }
     .mgmt-filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 18px; }
     .food-search-box { position: relative; flex: 1 1 260px; }
     .food-search-box i { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: var(--muted-text); }
@@ -293,18 +293,18 @@ foreach ($items as $item) {
     .mgmt-note { margin: 6px 0 0; white-space: pre-wrap; color: var(--muted-text); font-size: 0.92rem; }
     .mgmt-row-actions { display: flex; gap: 6px; }
     .status-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
-    .chip-success { background: #d4edda; color: #155724; }
-    .chip-warning { background: #fff3cd; color: #856404; }
-    .chip-info { background: #dbeafe; color: #1e40af; }
-    .chip-muted { background: #eef2f7; color: #475569; }
+    .chip-success { background: #e3efe5; color: #2b5c40; }
+    .chip-warning { background: #f7ecd9; color: #6f5518; }
+    .chip-info { background: #f6e5db; color: #9c4726; }
+    .chip-muted { background: #f0eee6; color: #57534a; }
     .serial-line { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-    .serial-code { display: block; flex: 1; min-width: 0; word-break: break-all; background: var(--table-header-bg, #f4f7fb); padding: 6px 8px; border-radius: 8px; }
+    .serial-code { display: block; flex: 1; min-width: 0; word-break: break-all; background: var(--table-header-bg, #faf9f5); padding: 6px 8px; border-radius: 8px; }
     .serial-code[data-masked="0"] { filter: none !important; user-select: text !important; }
     .serial-code[data-masked="1"] { filter: blur(6px); user-select: none; }
-    .mgmt-dialog { position: fixed; inset: 0; z-index: 120; background: rgba(15, 23, 42, 0.4); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .mgmt-dialog { position: fixed; inset: 0; z-index: 120; background: rgba(30, 26, 20, 0.4); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .mgmt-dialog[hidden] { display: none !important; }
     .mgmt-dialog-card { width: min(420px, 100%); background: var(--card-bg); border-radius: 18px; padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
-    .form-error { color: #c0392b; font-weight: 600; margin-top: 8px; }
+    .form-error { color: #a63e34; font-weight: 600; margin-top: 8px; }
     @media (max-width: 900px) {
         .reinstall-head { display: none; }
         .reinstall-row { grid-template-columns: 28px 1fr; }

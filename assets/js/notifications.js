@@ -76,7 +76,7 @@
             var item = document.createElement('div');
             item.className = 'notif-banner-item';
             item.style.cssText =
-                'background:#e74c3c;color:#fff;padding:12px 16px;border-radius:8px;' +
+                'background:#c1554a;color:#fff;padding:12px 16px;border-radius:8px;' +
                 'display:flex;justify-content:space-between;align-items:center;' +
                 'box-shadow:0 2px 12px rgba(0,0,0,0.2);font-size:0.9rem;' +
                 'animation:slideDown 0.3s ease ' + (i * 0.1) + 's both;';

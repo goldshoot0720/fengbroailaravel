@@ -6,7 +6,7 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
 ?>
 
 <div class="content-header">
-    <h1>鋒兄播客 <span style="display: inline-block; background: linear-gradient(135deg, #8e44ad, #9b59b6); color: #fff; font-size: 0.5em; padding: 3px 12px; border-radius: 20px; vertical-align: middle; margin-left: 8px;"><?php echo count($items); ?> 集</span></h1>
+    <h1>鋒兄播客 <span style="display: inline-block; background: #b4552f; color: #fff; font-size: 0.5em; padding: 3px 12px; border-radius: 20px; vertical-align: middle; margin-left: 8px;"><?php echo count($items); ?> 集</span></h1>
 </div>
 
 <div class="content-body">
@@ -576,7 +576,7 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
     }
 
     .podcast-time-label {
-        color: #64748b !important;
+        color: #7a756c !important;
         font-weight: 600;
     }
 

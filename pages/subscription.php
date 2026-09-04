@@ -234,7 +234,7 @@ function getDaysUntil($date)
 <div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
     <div style="display: flex; align-items: center; gap: 12px;">
         <h1 style="margin: 0;">鋒兄訂閱</h1>
-        <span style="background: linear-gradient(135deg, #e67e22, #f39c12); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+        <span style="background: #c07a3d; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
             <?php echo count($items); ?> 項
         </span>
     </div>
@@ -633,11 +633,11 @@ function getDaysUntil($date)
     .duplicate-subscription-alert {
         margin-bottom: 18px;
         padding: 12px 16px;
-        border: 1px solid rgba(245, 158, 11, 0.36);
+        border: 1px solid rgba(200, 135, 58, 0.36);
         border-radius: 20px;
-        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
-        box-shadow: 0 14px 34px rgba(120, 53, 15, 0.12);
-        color: #78350f;
+        background: rgba(246, 235, 214, 0.96);
+        box-shadow: 0 14px 34px rgba(95, 61, 22, 0.12);
+        color: #5f3d16;
     }
 
     .duplicate-subscription-alert.is-collapsed .duplicate-alert-list {
@@ -659,7 +659,7 @@ function getDaysUntil($date)
     }
 
     .duplicate-alert-heading > i:first-child {
-        color: #d97706;
+        color: #b8792e;
         font-size: 1.2rem;
         flex-shrink: 0;
     }
@@ -676,12 +676,12 @@ function getDaysUntil($date)
     }
 
     .duplicate-alert-heading small {
-        color: #92400e;
+        color: #7d4a1c;
         font-size: 0.86rem;
     }
 
     .duplicate-alert-chevron {
-        color: #b45309;
+        color: #96601f;
         transition: transform 0.18s ease;
         flex-shrink: 0;
     }
@@ -703,35 +703,35 @@ function getDaysUntil($date)
         padding: 12px 14px;
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.68);
-        border: 1px solid rgba(245, 158, 11, 0.18);
+        border: 1px solid rgba(200, 135, 58, 0.18);
     }
 
     .duplicate-alert-item span {
         font-weight: 700;
-        color: #b45309;
+        color: #96601f;
     }
 
     .duplicate-alert-item small {
         grid-column: 1 / -1;
-        color: #7c2d12;
+        color: #6b3418;
         line-height: 1.5;
     }
 
     [data-theme="dark"] .duplicate-subscription-alert {
-        background: linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(69, 26, 3, 0.82));
-        border-color: rgba(251, 191, 36, 0.32);
-        color: #fef3c7;
+        background: rgba(95, 61, 22, 0.86);
+        border-color: rgba(224, 178, 106, 0.32);
+        color: #f7ecd9;
     }
 
     [data-theme="dark"] .duplicate-alert-heading small,
     [data-theme="dark"] .duplicate-alert-heading .duplicate-alert-chevron,
     [data-theme="dark"] .duplicate-alert-item small {
-        color: #fde68a;
+        color: #ecd6a8;
     }
 
     [data-theme="dark"] .duplicate-alert-item {
-        background: rgba(15, 23, 42, 0.42);
-        border-color: rgba(251, 191, 36, 0.18);
+        background: rgba(30, 26, 20, 0.42);
+        border-color: rgba(224, 178, 106, 0.18);
     }
 
     .suggestions-dropdown {
@@ -755,26 +755,26 @@ function getDaysUntil($date)
     }
 
     .suggestion-item:hover {
-        background: var(--table-header-bg, #f8f9fa);
+        background: var(--table-header-bg, #faf9f5);
     }
 
     .filter-btn.active {
-        background: #3498db;
+        background: #d97757;
         color: #fff;
         border-color: transparent;
     }
 
     .filter-btn {
         background: rgba(255, 255, 255, 0.86);
-        color: #1e293b;
-        border: 1px solid rgba(100, 116, 139, 0.24);
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        color: #292826;
+        border: 1px solid rgba(122, 117, 108, 0.24);
+        box-shadow: 0 8px 18px rgba(30, 26, 20, 0.06);
     }
 
     .filter-btn:hover {
         background: #ffffff;
         border-color: rgba(52, 152, 219, 0.34);
-        color: #0f172a;
+        color: #1f1e1d;
     }
 
     .inline-add-row {
@@ -810,7 +810,7 @@ function getDaysUntil($date)
 
     .subscription-date-secondary {
         font-size: 0.85rem;
-        color: #6b7280;
+        color: #6f6c65;
     }
 
     .inline-actions {
@@ -851,11 +851,11 @@ function getDaysUntil($date)
         margin-bottom: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         position: relative;
-        border: 1px solid rgba(39, 174, 96, 0.45);
+        border: 1px solid rgba(74, 143, 99, 0.45);
     }
 
     .sub-card-inactive {
-        border-color: rgba(231, 76, 60, 0.5);
+        border-color: rgba(193, 85, 74, 0.5);
         opacity: 0.8;
     }
 
@@ -891,19 +891,19 @@ function getDaysUntil($date)
     .sub-card-icon-placeholder {
         width: 32px;
         height: 32px;
-        background: #ecf0f1;
+        background: #f0eee6;
         border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #95a5a6;
+        color: #8a857c;
     }
 
     .sub-card-title {
         flex: 1;
         font-size: 1.1rem;
         font-weight: 600;
-        color: var(--header-color, #2c3e50);
+        color: var(--header-color, #2a2724);
     }
 
     .sub-card-title a {
@@ -924,13 +924,13 @@ function getDaysUntil($date)
     }
 
     .sub-card-badge.badge-success {
-        background: #d4edda;
-        color: #155724;
+        background: #e3efe5;
+        color: #2b5c40;
     }
 
     .sub-card-badge.badge-danger {
-        background: #f8d7da;
-        color: #721c24;
+        background: #f6e0dd;
+        color: #6e2a23;
     }
 
     .sub-card-account {
@@ -1008,12 +1008,12 @@ function getDaysUntil($date)
     .btn-date-shift:hover { opacity: 0.85; }
 
     .btn-date-shift.btn-minus {
-        background: #e74c3c;
+        background: #c1554a;
         color: #fff;
     }
 
     .btn-date-shift.btn-plus {
-        background: #27ae60;
+        background: #4a8f63;
         color: #fff;
     }
 
@@ -1026,7 +1026,7 @@ function getDaysUntil($date)
         min-width: 120px;
         border-radius: 999px;
         padding: 10px 16px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(140, 130, 116, 0.35);
         background: rgba(255, 255, 255, 0.88);
     }
 
@@ -1037,10 +1037,10 @@ function getDaysUntil($date)
         align-items: center;
         gap: 8px;
         padding: 0 14px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(140, 130, 116, 0.35);
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.88);
-        color: #64748b;
+        color: #7a756c;
     }
 
     .subscription-search-box input {
@@ -1073,7 +1073,7 @@ function getDaysUntil($date)
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(140, 130, 116, 0.35);
         border-radius: 999px;
         padding: 4px 6px 4px 10px;
         background: rgba(255, 255, 255, 0.78);
@@ -1108,8 +1108,8 @@ function getDaysUntil($date)
     }
 
     .subscription-search-chip-remove:hover {
-        background: rgba(239, 68, 68, 0.14);
-        color: #dc2626;
+        background: rgba(179, 57, 44, 0.14);
+        color: #b3392c;
     }
 
     .subscription-search-history-label {
@@ -1122,7 +1122,7 @@ function getDaysUntil($date)
     .sub-card {
         border-radius: 20px;
         padding: 18px;
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 36px rgba(30, 26, 20, 0.08);
         border-width: 1px;
     }
 

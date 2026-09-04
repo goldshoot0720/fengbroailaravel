@@ -2,7 +2,7 @@
 <style>
     .batch-delete-bar {
         display: none;
-        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        background: #a63e34;
         color: #fff;
         padding: 12px 20px;
         border-radius: 8px;
@@ -23,19 +23,19 @@
 
     .batch-delete-bar .btn {
         background: #fff;
-        color: #e74c3c;
+        color: #c1554a;
         border: none;
     }
 
     .batch-delete-bar .btn:hover {
-        background: #f8f8f8;
+        background: #faf9f5;
     }
 
     .select-checkbox {
         width: 18px;
         height: 18px;
         cursor: pointer;
-        accent-color: #e74c3c;
+        accent-color: #c1554a;
         display: none;
     }
 
@@ -44,18 +44,18 @@
     }
 
     .btn-select-mode {
-        background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        background: #b4552f;
         color: #fff;
         border: none;
         margin-left: 8px;
     }
 
     .btn-select-mode:hover {
-        background: linear-gradient(135deg, #8e44ad, #7d3c98);
+        background: #9c4726;
     }
 
     .btn-select-mode.active {
-        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        background: #a63e34;
     }
 </style>
 
@@ -280,7 +280,7 @@
 <label id="batchSelectAllWrap"
     style="display: none; align-items: center; gap: 6px; cursor: pointer; color: #666; font-weight: 500; font-size: 0.9rem; margin-left: 4px;">
     <input type="checkbox" id="batchSelectAllCb" onchange="toggleSelectAll(this)"
-        style="width: 16px; height: 16px; accent-color: #e74c3c;">
+        style="width: 16px; height: 16px; accent-color: #c1554a;">
     全選
 </label>
 
@@ -294,11 +294,11 @@
             <i class="fas fa-times"></i> 取消選擇
         </button>
         <button id="batchCacheBtn" class="btn btn-sm" onclick="confirmBatchCache()"
-            style="display:none; background: #eef2ff; color: #4338ca;">
+            style="display:none; background: #fbf4ef; color: #9c4726;">
             <i class="fas fa-cloud-arrow-down"></i> 批次快取
         </button>
         <button class="btn btn-sm" onclick="confirmBatchDelete()"
-            style="background: #fff; color: #c0392b;">
+            style="background: #fff; color: #a63e34;">
             <i class="fas fa-trash"></i> 批量刪除
         </button>
     </div>

@@ -42,7 +42,7 @@
             position: fixed;
             inset: 0;
             z-index: 100000;
-            background: rgba(15, 23, 42, 0.55);
+            background: rgba(30, 26, 20, 0.55);
             display: none;
             align-items: center;
             justify-content: center;
@@ -61,7 +61,7 @@
         }
         .csv-import-spinner {
             font-size: 2rem;
-            color: var(--accent, #3498db);
+            color: var(--accent, #d97757);
             margin-bottom: 12px;
         }
         .csv-import-panel h3 { margin: 0 0 8px; }
@@ -69,14 +69,14 @@
         .csv-import-bar-track {
             height: 10px;
             border-radius: 999px;
-            background: var(--table-header-bg, #eef2f7);
+            background: var(--table-header-bg, #f0eee6);
             overflow: hidden;
             margin-bottom: 12px;
         }
         .csv-import-bar-fill {
             height: 100%;
             width: 0;
-            background: linear-gradient(90deg, #3498db, #2ecc71);
+            background: #d97757;
             transition: width 0.18s ease;
         }
         .csv-import-debug {

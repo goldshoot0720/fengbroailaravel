@@ -6,7 +6,7 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
 
 <div class="content-header" style="display: flex; align-items: center; gap: 12px;">
     <h1 style="margin: 0;">鋒兄圖片</h1>
-    <span style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+    <span style="background: #a63e34; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
         <?php echo count($items); ?> 張
     </span>
 </div>
@@ -110,7 +110,7 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                                 data-src="<?php echo htmlspecialchars($imageSrc); ?>"
                                 src="<?php echo htmlspecialchars($imageSrc); ?>"
                                 alt="<?php echo htmlspecialchars($item['name'] ?? ''); ?>"
-                                style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8; cursor: zoom-in;"
+                                style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #faf9f5; cursor: zoom-in;"
                                 onclick="openImageLightbox('<?php echo htmlspecialchars($item['id']); ?>', '<?php echo htmlspecialchars($imageSrc, ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($item['name'] ?? '')); ?>')">
                         <?php endif; ?>
                         <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
@@ -282,7 +282,7 @@ function addCardToGrid(id, data) {
         return d.innerHTML;
     }
     const imgHtml = data.file
-        ? `<img src="${esc(data.file)}" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #f8f8f8;">`
+        ? `<img src="${esc(data.file)}" style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #faf9f5;">`
         : '';
     const newCard = document.createElement('div');
     newCard.className = 'card';
@@ -764,7 +764,7 @@ async function openImageLightbox(id, filePath, title) {
             if (e.target === modal) closeImageLightbox();
         };
         modal.innerHTML = `
-            <div class="modal-content" style="max-width:960px;width:95%;background:rgba(15,23,42,0.96);color:#fff;">
+            <div class="modal-content" style="max-width:960px;width:95%;background:rgba(30, 26, 20,0.96);color:#fff;">
                 <span class="modal-close" onclick="closeImageLightbox()" style="color:#fff;">&times;</span>
                 <h3 id="imageLightboxTitle" style="margin:0 0 12px;"></h3>
                 <div style="text-align:center;">

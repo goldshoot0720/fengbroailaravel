@@ -47,7 +47,7 @@
     const span = Math.max(1, maxV - minV);
     const plotW = w - padL - padR;
     const plotH = h - padT - padB;
-    const color = accent || '#2563eb';
+    const color = accent || '#b4552f';
 
     function xAt(i) {
       return padL + (rows.length === 1 ? plotW / 2 : (i / (rows.length - 1)) * plotW);
@@ -246,7 +246,7 @@
       (monthRows || '<tr><td colspan="3" class="tool-muted">尚無近三個月資料</td></tr>') +
       '</tbody></table></div>' +
       '<div class="pop-chart-card"><h4>近十年走勢（年底人口）</h4>' +
-      buildYearChartSvg(years, options.accent || '#2563eb') +
+      buildYearChartSvg(years, options.accent || '#b4552f') +
       '<p class="pop-chart-footnote">單位：人。新增人口數＝當月人口相對上月消長（正值增加、負值減少）。</p></div>' +
       (sources ? '<div class="pop-sources">' + sources + '</div>' : '')
     );
@@ -491,12 +491,12 @@
           '<a class="btn btn-ghost btn-sm" href="' +
           escapeHtml(data.sourceUrl || '#') +
           '" target="_blank" rel="noopener">官方頁</a></div></div>' +
-          (data.warning ? '<p style="color:#b45309;">' + escapeHtml(data.warning) + '</p>' : '') +
+          (data.warning ? '<p style="color:#96601f;">' + escapeHtml(data.warning) + '</p>' : '') +
           '<div class="bento-grid">' +
           cards +
           '</div>';
       } catch (e) {
-        els.bento.innerHTML = '<p style="color:#dc2626;">' + escapeHtml(e.message || '讀取失敗') + '</p>';
+        els.bento.innerHTML = '<p style="color:#b3392c;">' + escapeHtml(e.message || '讀取失敗') + '</p>';
       }
     }
 
@@ -515,18 +515,18 @@
           (data.fetchedAt ? ' · ' + escapeHtml(formatTime(data.fetchedAt)) : '') +
           (data.sourceLabel ? ' · ' + escapeHtml(data.sourceLabel) : '') +
           '</div>' +
-          (data.warning ? '<p style="color:#b45309;margin:0 0 10px;">' + escapeHtml(data.warning) + '</p>' : '');
+          (data.warning ? '<p style="color:#96601f;margin:0 0 10px;">' + escapeHtml(data.warning) + '</p>' : '');
 
         if (els.popTy) {
           els.popTy.innerHTML =
-            headNote + renderPopulationRegion(regions.taoyuan, { accent: '#2563eb' });
+            headNote + renderPopulationRegion(regions.taoyuan, { accent: '#b4552f' });
         }
         if (els.popZl) {
           els.popZl.innerHTML =
-            headNote + renderPopulationRegion(regions.zhongli, { accent: '#0d9488' });
+            headNote + renderPopulationRegion(regions.zhongli, { accent: '#3f7d5c' });
         }
       } catch (e) {
-        const err = '<p style="color:#dc2626;">' + escapeHtml(e.message || '讀取失敗') + '</p>';
+        const err = '<p style="color:#b3392c;">' + escapeHtml(e.message || '讀取失敗') + '</p>';
         if (els.popTy) els.popTy.innerHTML = err;
         if (els.popZl) els.popZl.innerHTML = err;
       }

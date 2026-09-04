@@ -119,7 +119,7 @@ uksort($commonSites, 'strnatcasecmp');
                             <?php if (!empty($item[$siteKey]) || !empty($item[$noteKey])): ?>
                                 <div style="margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee;">
                                     <?php if (!empty($item[$siteKey])): ?>
-                                        <div style="font-weight: 600; color: #2c3e50; margin-bottom: 4px;">
+                                        <div style="font-weight: 600; color: #2a2724; margin-bottom: 4px;">
                                             <img src="https://www.google.com/s2/favicons?domain=<?php echo urlencode($item[$siteKey]); ?>&sz=16"
                                                 style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"
                                                 onerror="this.style.display='none'">
@@ -203,10 +203,10 @@ uksort($commonSites, 'strnatcasecmp');
                     <tbody>
                         <?php foreach ($commonSites as $siteName => $accounts): ?>
                             <tr>
-                                <td style="font-weight: 600; color: #2c3e50;"><?php echo htmlspecialchars($siteName); ?></td>
+                                <td style="font-weight: 600; color: #2a2724;"><?php echo htmlspecialchars($siteName); ?></td>
                                 <td>
                                     <span
-                                        style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">
+                                        style="background: #b4552f; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">
                                         <?php echo count($accounts); ?>
                                     </span>
                                 </td>
@@ -224,16 +224,16 @@ uksort($commonSites, 'strnatcasecmp');
 
 <style>
 .filter-btn {
-    background: #f0f0f0;
+    background: #f2f0e9;
     border: 1px solid #ddd;
     color: #555;
     transition: all 0.2s;
 }
 .filter-btn:hover {
-    background: #e0e0e0;
+    background: #e0dcd3;
 }
 .filter-btn.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: #b4552f;
     color: white;
     border-color: transparent;
 }

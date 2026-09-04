@@ -320,16 +320,16 @@ foreach ($items as $item) {
 <style>
     .muted-copy { margin: 8px 0 0; color: var(--muted-text); line-height: 1.6; }
     .count-pill { color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-    .count-pill-quota { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+    .count-pill-quota { background: #b4552f; }
     .mgmt-stat-grid, .food-ops-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .food-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; padding: 14px 16px; box-shadow: 0 12px 26px var(--shadow); }
     .food-stat-card span { display: block; color: var(--muted-text); font-size: 0.82rem; margin-bottom: 6px; }
     .food-stat-card strong { font-size: 1.35rem; }
-    .food-stat-highlight strong { color: #7c3aed; }
+    .food-stat-highlight strong { color: #b4552f; }
     .mgmt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .mgmt-form-grid label { display: grid; gap: 6px; font-weight: 600; }
     .mgmt-span-2 { grid-column: 1 / -1; }
-    .req { color: #e74c3c; }
+    .req { color: #c1554a; }
     .mgmt-filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 18px; }
     .food-search-box { position: relative; flex: 1 1 260px; }
     .food-search-box i { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: var(--muted-text); }
@@ -338,8 +338,8 @@ foreach ($items as $item) {
     .mgmt-group { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; margin-bottom: 12px; overflow: hidden; }
     .mgmt-group-head { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
     .mgmt-group-toggle { flex: 1; display: flex; align-items: center; gap: 12px; border: 0; background: transparent; text-align: left; cursor: pointer; color: inherit; padding: 6px; border-radius: 12px; }
-    .mgmt-group-toggle:hover { background: var(--table-header-bg, #f4f7fb); }
-    .mgmt-group-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+    .mgmt-group-toggle:hover { background: var(--table-header-bg, #faf9f5); }
+    .mgmt-group-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(180, 85, 47, 0.12); color: #b4552f; }
     .mgmt-group-copy { min-width: 0; flex: 1; }
     .mgmt-group-copy strong { display: block; }
     .mgmt-group-copy small { color: var(--muted-text); }
@@ -355,25 +355,25 @@ foreach ($items as $item) {
     .mgmt-note { margin: 0; white-space: pre-wrap; color: var(--muted-text); font-size: 0.92rem; }
     .mgmt-row-actions { display: flex; gap: 6px; }
     .status-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
-    .chip-success { background: #d4edda; color: #155724; }
-    .chip-warning { background: #fff3cd; color: #856404; }
-    .chip-info { background: #dbeafe; color: #1e40af; }
-    .chip-muted { background: #eef2f7; color: #475569; }
-    .quota-remaining { font-weight: 800; color: #2563eb; font-size: 1.05rem; }
+    .chip-success { background: #e3efe5; color: #2b5c40; }
+    .chip-warning { background: #f7ecd9; color: #6f5518; }
+    .chip-info { background: #f6e5db; color: #9c4726; }
+    .chip-muted { background: #f0eee6; color: #57534a; }
+    .quota-remaining { font-weight: 800; color: #c1613d; font-size: 1.05rem; }
     .quota-ratio { color: var(--muted-text); font-size: 0.85rem; margin-top: 2px; }
     .quota-expiry { color: var(--text-color); font-size: 0.9rem; }
     .quota-plan-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .quota-plan-chip { background: rgba(124, 58, 237, 0.1); color: #6d28d9; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
-    .quota-import-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .quota-plan-chip { background: rgba(180, 85, 47, 0.1); color: #b4552f; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
+    .quota-import-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(30, 26, 20, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .quota-import-panel { width: min(560px, 100%); max-height: 85vh; overflow-y: auto; background: var(--card-bg); border-radius: 18px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.28); }
-    .quota-import-result { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #d4edda; color: #155724; font-weight: 600; }
-    .quota-import-errors { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #f8d7da; color: #721c24; max-height: 140px; overflow-y: auto; font-size: 0.85rem; }
+    .quota-import-result { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #e3efe5; color: #2b5c40; font-weight: 600; }
+    .quota-import-errors { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #f6e0dd; color: #6e2a23; max-height: 140px; overflow-y: auto; font-size: 0.85rem; }
     .quota-import-rows { margin-top: 10px; }
     .quota-import-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
     .quota-import-row:last-child { border-bottom: 0; }
     .quota-import-row .qname { font-weight: 600; }
-    .quota-import-row .qstatus-new { color: #155724; font-size: 0.75rem; font-weight: 700; background: #d4edda; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-    .quota-import-row .qstatus-update { color: #856404; font-size: 0.75rem; font-weight: 700; background: #fff3cd; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .quota-import-row .qstatus-new { color: #2b5c40; font-size: 0.75rem; font-weight: 700; background: #e3efe5; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .quota-import-row .qstatus-update { color: #6f5518; font-size: 0.75rem; font-weight: 700; background: #f7ecd9; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
     @media (max-width: 900px) {
         .mgmt-account-head { display: none; }
         .mgmt-account { grid-template-columns: 28px 1fr; }

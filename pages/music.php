@@ -90,7 +90,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
 <div class="content-header">
     <h1>鋒兄音樂 <span
-            style="font-size:0.55em;background:#3498db;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+            style="font-size:0.55em;background:#d97757;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
     </h1>
 </div>
 
@@ -249,7 +249,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                             <?php echo htmlspecialchars($group['name']); ?>
                             <?php if (count($group['items']) > 1): ?>
                                 <span
-                                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 8px;">
+                                    style="background: #b4552f; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; margin-left: 8px;">
                                     <?php echo count($group['items']); ?> 版本
                                 </span>
                             <?php endif; ?>
@@ -258,12 +258,12 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         <div class="music-meta-strip" style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
                             <?php if (!empty($group['category'])): ?>
                                 <span
-                                    style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">
+                                    style="background: #e3f2fd; color: #c1613d; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">
                                     <?php echo htmlspecialchars($group['category']); ?>
                                 </span>
                             <?php endif; ?>
                             <?php if (!empty($group['languageSummary'])): ?>
-                                <span style="background: #f3e5f5; color: #7b1fa2; padding: 2px 6px; border-radius: 4px;">
+                                <span style="background: #fbf4ef; color: #9c4726; padding: 2px 6px; border-radius: 4px;">
                                     <?php echo htmlspecialchars($group['languageSummary']); ?>
                                 </span>
                             <?php endif; ?>
@@ -1125,7 +1125,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 <!-- 兩層分類播放器彈窗 -->
 <div id="twoLayerModal" class="modal" onclick="if(event.target && event.target===this)closeTwoLayerModal()">
     <div class="modal-content"
-        style="max-width:500px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:20px;">
+        style="max-width:500px; background:#b4552f; color:#fff; border-radius:20px;">
         <span class="modal-close" onclick="closeTwoLayerModal()" style="color:#fff;">&times;</span>
         <div style="text-align:center; margin-bottom:20px;">
             <img id="twoLayerCover" src="" alt=""
@@ -1147,13 +1147,13 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                 <div id="twoLayerTrackName" style="font-weight:600; font-size:1.1rem;">請選擇</div>
             </div>
             <button id="twoLayerCacheBtn" onclick="cacheTwoLayerTrack()" title="離線快取（上限 500MB）"
-                style="width:52px; height:52px; border-radius:50%; border:none; background:#eef2ff; color:#764ba2; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                style="width:52px; height:52px; border-radius:50%; border:none; background:#fbf4ef; color:#b4552f; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
                     class="fas fa-cloud-arrow-down"></i></button>
             <button onclick="downloadTwoLayerTrack()"
-                style="width:52px; height:52px; border-radius:50%; border:none; background:#f3f4f6; color:#764ba2; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                style="width:52px; height:52px; border-radius:50%; border:none; background:#f2f0e9; color:#b4552f; font-size:1.2rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
                     class="fas fa-download"></i></button>
             <button onclick="playTwoLayerTrack()"
-                style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#764ba2; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
+                style="width:60px; height:60px; border-radius:50%; border:none; background:#fff; color:#b4552f; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,0,0,0.3);"><i
                     class="fas fa-play"></i></button>
         </div>
     </div>
@@ -1239,7 +1239,7 @@ $languages = $defaultLanguages; // Keep default for quick buttons
 
     .two-layer-lang-btn.active {
         background: #fff;
-        color: #764ba2;
+        color: #b4552f;
         border-color: #fff;
     }
 
@@ -1273,9 +1273,9 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     .music-edit-tab {
         padding: 5px 14px;
         border-radius: 20px;
-        border: 1.5px solid #b39ddb;
+        border: 1.5px solid #eab19a;
         background: transparent;
-        color: #7b1fa2;
+        color: #9c4726;
         font-size: 0.82rem;
         font-weight: 600;
         cursor: pointer;
@@ -1283,13 +1283,13 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     }
 
     .music-edit-tab:hover {
-        background: #f3e5f5;
+        background: #fbf4ef;
     }
 
     .music-edit-tab.active {
-        background: linear-gradient(135deg, #667eea, #764ba2);
+        background: #b4552f;
         color: #fff;
-        border-color: #764ba2;
+        border-color: #b4552f;
     }
 
     @media (max-width: 1024px) {

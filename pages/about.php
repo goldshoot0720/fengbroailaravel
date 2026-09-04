@@ -322,9 +322,9 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
         justify-content: space-between;
         padding: 26px 28px;
         border-radius: 22px;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #064e3b 120%);
+        background: #1f1e1d;
         color: #fff;
-        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18);
+        box-shadow: 0 18px 44px rgba(30, 26, 20, 0.18);
     }
 
     .about-stats-banner-copy {
@@ -333,7 +333,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
     }
 
     .about-stats-banner-copy .eyebrow {
-        color: #6ee7b7;
+        color: #a9d5b6;
         letter-spacing: 0.3em;
     }
 
@@ -349,7 +349,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
         max-width: 46rem;
         font-size: 0.92rem;
         line-height: 1.7;
-        color: #cbd5e1;
+        color: #d3cec4;
     }
 
     .about-stats-banner-cards {
@@ -373,7 +373,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
 
     .about-stat-card .about-stat-label {
         font-size: 0.78rem;
-        color: #a8b3c4;
+        color: #a8a29a;
         white-space: nowrap;
     }
 
@@ -387,7 +387,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
     .about-stat-card small {
         font-size: 0.75rem;
         line-height: 1.5;
-        color: #94a3b8;
+        color: #a8a29a;
     }
 
     .about-usage-grid {
@@ -454,11 +454,11 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
     }
 
     .about-stat-tile .delta-up {
-        color: #059669;
+        color: #3f7d5c;
     }
 
     .about-stat-tile .delta-down {
-        color: #e11d48;
+        color: #bf3c4e;
     }
 
     @media (max-width: 900px) {

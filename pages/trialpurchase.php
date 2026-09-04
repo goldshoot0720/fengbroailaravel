@@ -231,17 +231,17 @@ $pendingCount = count($pendingIds);
 <style>
     .muted-copy { margin: 8px 0 0; color: var(--muted-text); line-height: 1.6; }
     .count-pill { color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-    .count-pill-trial { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+    .count-pill-trial { background: #b4552f; }
     .mgmt-stat-grid, .food-ops-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
     .food-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; padding: 14px 16px; box-shadow: 0 12px 26px var(--shadow); }
     .food-stat-card span { display: block; color: var(--muted-text); font-size: 0.82rem; margin-bottom: 6px; }
     .food-stat-card strong { font-size: 1.35rem; }
     .food-stat-card small { display: block; margin-top: 6px; color: var(--muted-text); }
-    .food-stat-warning strong { color: #f39c12; }
+    .food-stat-warning strong { color: #c8873a; }
     .mgmt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
     .mgmt-form-grid label { display: grid; gap: 6px; font-weight: 600; }
     .mgmt-span-2 { grid-column: 1 / -1; }
-    .req { color: #e74c3c; }
+    .req { color: #c1554a; }
     .mgmt-filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 8px 0 18px; }
     .food-search-box { position: relative; flex: 1 1 260px; }
     .food-search-box i { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: var(--muted-text); }
@@ -250,8 +250,8 @@ $pendingCount = count($pendingIds);
     .mgmt-group { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; margin-bottom: 12px; overflow: hidden; }
     .mgmt-group-head { display: flex; gap: 8px; align-items: center; padding: 10px 12px; }
     .mgmt-group-toggle { flex: 1; display: flex; align-items: center; gap: 12px; border: 0; background: transparent; text-align: left; cursor: pointer; color: inherit; padding: 6px; border-radius: 12px; }
-    .mgmt-group-toggle:hover { background: var(--table-header-bg, #f4f7fb); }
-    .mgmt-group-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(142, 68, 173, 0.12); color: #8e44ad; }
+    .mgmt-group-toggle:hover { background: var(--table-header-bg, #faf9f5); }
+    .mgmt-group-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(142, 68, 173, 0.12); color: #b4552f; }
     .mgmt-group-copy { min-width: 0; flex: 1; }
     .mgmt-group-copy strong { display: block; }
     .mgmt-group-copy small { color: var(--muted-text); }
@@ -267,9 +267,9 @@ $pendingCount = count($pendingIds);
     .mgmt-note { margin: 0; white-space: pre-wrap; color: var(--muted-text); font-size: 0.92rem; }
     .mgmt-row-actions { display: flex; gap: 6px; }
     .status-chip { display: inline-block; margin: 0 4px 4px 0; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
-    .chip-success { background: #d4edda; color: #155724; }
-    .chip-warning { background: #fff3cd; color: #856404; }
-    .chip-muted { background: #eef2f7; color: #475569; }
+    .chip-success { background: #e3efe5; color: #2b5c40; }
+    .chip-warning { background: #f7ecd9; color: #6f5518; }
+    .chip-muted { background: #f0eee6; color: #57534a; }
     @media (max-width: 900px) {
         .mgmt-account-head { display: none; }
         .mgmt-account { grid-template-columns: 28px 1fr; }

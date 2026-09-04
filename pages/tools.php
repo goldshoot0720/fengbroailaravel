@@ -317,7 +317,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             <i class="fa-solid fa-check"></i> 登錄價格
                         </button>
                     </div>
-                    <p data-mp-error style="color:#dc2626;min-height:1.2em;"></p>
+                    <p data-mp-error style="color:#b3392c;min-height:1.2em;"></p>
                     <div data-mp-detail></div>
                 </div>
             </div>
@@ -339,7 +339,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     </button>
                 </form>
                 <p data-news-status class="tool-muted" style="margin:10px 0 0;"></p>
-                <p data-news-error style="color:#dc2626;margin:6px 0 0;"></p>
+                <p data-news-error style="color:#b3392c;margin:6px 0 0;"></p>
             </div>
 
             <div class="card" style="margin-bottom:16px;">
@@ -434,7 +434,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <select class="form-control" data-ic-bg>
                             <option value="#ffffff">白色（預設）</option>
                             <option value="#000000">黑色</option>
-                            <option value="#f3f4f6">淺灰</option>
+                            <option value="#f2f0e9">淺灰</option>
                         </select>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
@@ -443,7 +443,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <button type="button" class="btn btn-ghost" data-ic-zip>下載 ZIP</button>
                     </div>
                     <p data-ic-status class="tool-muted" style="margin-top:10px;"></p>
-                    <p data-ic-error style="color:#dc2626;"></p>
+                    <p data-ic-error style="color:#b3392c;"></p>
                 </div>
             </div>
             <div style="margin-top:16px;">
@@ -538,7 +538,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <button type="button" class="btn btn-ghost" data-ivv-server><i class="fa-solid fa-file-audio"></i> 自備音訊合成</button>
                     </div>
                     <p data-ivv-status class="tool-muted" style="margin-top:10px;"></p>
-                    <p data-ivv-error style="color:#dc2626;"></p>
+                    <p data-ivv-error style="color:#b3392c;"></p>
                 </div>
             </div>
             <video data-ivv-result controls style="display:none;width:100%;max-height:420px;margin-top:16px;border-radius:14px;background:#000;"></video>
@@ -584,7 +584,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             </div>
             <div data-vm-list></div>
             <p data-vm-status class="tool-muted" style="margin-top:10px;"></p>
-            <p data-vm-error style="color:#dc2626;"></p>
+            <p data-vm-error style="color:#b3392c;"></p>
         </section>
         <script src="assets/js/tool-video-merge.js" defer></script>
     <?php elseif ($toolSubpage === 'yt-bili'): ?>
@@ -627,7 +627,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <i class="fa-solid fa-download"></i> 開始轉檔並下載
                     </button>
                     <p data-yb-log class="tool-muted" style="margin-top:10px;"></p>
-                    <p data-yb-error style="color:#dc2626;"></p>
+                    <p data-yb-error style="color:#b3392c;"></p>
                 </div>
             </div>
         </section>
@@ -1206,7 +1206,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
         <section class="card">
             <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px;">
-                <div style="width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--warning-soft); color: #b45309;">
+                <div style="width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--warning-soft); color: #96601f;">
                     <i class="fa-solid fa-magnifying-glass-chart"></i>
                 </div>
                 <div>
@@ -1396,9 +1396,9 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         letter-spacing: 0.02em;
     }
     .pop-table tbody tr:last-child td { border-bottom: none; }
-    .pop-delta-up { color: #2563eb; font-weight: 800; }
-    .pop-delta-down { color: #dc2626; font-weight: 800; }
-    .pop-delta-flat { color: #059669; font-weight: 800; }
+    .pop-delta-up { color: #c1613d; font-weight: 800; }
+    .pop-delta-down { color: #b3392c; font-weight: 800; }
+    .pop-delta-flat { color: #3f7d5c; font-weight: 800; }
     .pop-chart-card {
         padding: 12px 12px 8px; border: 1px solid var(--border-color);
         border-radius: 14px; background: var(--input-bg);
@@ -1460,14 +1460,14 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         display: inline-flex; padding: 3px 8px; border-radius: 999px;
         font-size: 0.75rem; font-weight: 800; background: var(--table-header-bg);
     }
-    .badge-success { background: rgba(16,185,129,.14); color: #047857; }
-    .badge-danger { background: rgba(239,68,68,.14); color: #b91c1c; }
-    .badge-warning { background: rgba(245,158,11,.16); color: #b45309; }
+    .badge-success { background: rgba(63, 139, 118,.14); color: #2f6b4f; }
+    .badge-danger { background: rgba(179, 57, 44,.14); color: #992e24; }
+    .badge-warning { background: rgba(200, 135, 58,.16); color: #96601f; }
 
     [data-yb-status].is-ready,
-    [data-vm-env].is-ready { color: #047857; font-weight: 800; }
+    [data-vm-env].is-ready { color: #2f6b4f; font-weight: 800; }
     [data-yb-status].is-missing,
-    [data-vm-env].is-missing { color: #b91c1c; font-weight: 800; }
+    [data-vm-env].is-missing { color: #992e24; font-weight: 800; }
 
     .vm-item {
         display: grid; grid-template-columns: 36px minmax(0,1fr) auto;
@@ -1559,10 +1559,10 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     .tube-new-alert {
         margin-top: 16px;
         padding: 14px 16px;
-        border: 1px solid rgba(245, 158, 11, 0.38);
+        border: 1px solid rgba(200, 135, 58, 0.38);
         border-radius: 18px;
-        background: rgba(254, 243, 199, 0.68);
-        color: #92400e;
+        background: rgba(246, 235, 214, 0.68);
+        color: #7d4a1c;
     }
 
     .tube-import-error {
@@ -1573,15 +1573,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         padding: 14px 16px;
         border: 1px solid rgba(220, 38, 38, 0.3);
         border-radius: 18px;
-        background: rgba(254, 226, 226, 0.6);
-        color: #991b1b;
+        background: rgba(246, 224, 217, 0.6);
+        color: #8a2b22;
         font-size: 0.92rem;
         line-height: 1.6;
     }
 
     .tube-import-error i {
         margin-top: 2px;
-        color: #dc2626;
+        color: #b3392c;
     }
 
     .tube-new-alert i {
@@ -1633,7 +1633,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 
     .tube-channel-admin-item {
         padding: 12px 14px;
-        border: 1px solid rgba(239, 68, 68, 0.18);
+        border: 1px solid rgba(179, 57, 44, 0.18);
         border-radius: 16px;
         background: rgba(254, 242, 242, 0.58);
     }
@@ -1690,8 +1690,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         gap: 4px;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(239, 68, 68, 0.12);
-        color: #b91c1c;
+        background: rgba(179, 57, 44, 0.12);
+        color: #992e24;
         font-size: 0.8rem;
         font-weight: 900;
         line-height: 1;
@@ -1699,7 +1699,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 
     [data-theme="dark"] .tube-update-badge {
         background: rgba(248, 113, 113, 0.18);
-        color: #fecaca;
+        color: #f2ccc5;
     }
 
     .tube-video-list {
@@ -1721,8 +1721,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     }
 
     .tube-video-item.is-new {
-        border-color: rgba(245, 158, 11, 0.48);
-        background: rgba(254, 243, 199, 0.44);
+        border-color: rgba(200, 135, 58, 0.48);
+        background: rgba(246, 235, 214, 0.44);
     }
 
     .tube-video-item img {
@@ -1784,15 +1784,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     }
 
     .finance-card.up {
-        border-color: rgba(16, 185, 129, 0.26);
+        border-color: rgba(63, 139, 118, 0.26);
     }
 
     .finance-card.down {
-        border-color: rgba(239, 68, 68, 0.24);
+        border-color: rgba(179, 57, 44, 0.24);
     }
 
     .finance-card.is-featured {
-        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35), 0 12px 26px var(--shadow);
+        box-shadow: 0 0 0 2px rgba(200, 135, 58, 0.35), 0 12px 26px var(--shadow);
     }
 
     .finance-card-head {
@@ -1904,20 +1904,20 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
 
     .finance-link-chip.yt {
         border-color: rgba(220, 38, 38, 0.25);
-        background: rgba(254, 226, 226, 0.65);
-        color: #b91c1c;
+        background: rgba(246, 224, 217, 0.65);
+        color: #992e24;
     }
 
     .finance-link-chip.bili {
-        border-color: rgba(14, 165, 233, 0.28);
+        border-color: rgba(217, 119, 87, 0.28);
         background: rgba(224, 242, 254, 0.7);
         color: #0369a1;
     }
 
     .finance-link-chip.ext {
         border-color: rgba(217, 119, 6, 0.28);
-        background: rgba(255, 251, 235, 0.8);
-        color: #b45309;
+        background: rgba(250, 245, 235, 0.8);
+        color: #96601f;
     }
 
     .finance-group {
@@ -1937,18 +1937,18 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     }
 
     .finance-status.high {
-        background: rgba(16, 185, 129, 0.14);
-        color: #047857;
+        background: rgba(63, 139, 118, 0.14);
+        color: #2f6b4f;
     }
 
     .finance-status.low {
-        background: rgba(239, 68, 68, 0.14);
-        color: #b91c1c;
+        background: rgba(179, 57, 44, 0.14);
+        color: #992e24;
     }
 
     .finance-status.breakout {
-        background: rgba(245, 158, 11, 0.16);
-        color: #b45309;
+        background: rgba(200, 135, 58, 0.16);
+        color: #96601f;
     }
 
     .finance-value-row {
@@ -1976,11 +1976,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     }
 
     .finance-change.up {
-        color: #059669;
+        color: #3f7d5c;
     }
 
     .finance-change.down {
-        color: #dc2626;
+        color: #b3392c;
     }
 
     .finance-change.flat {
@@ -2287,7 +2287,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     </div>
                 `);
             })
-            .catch(err => setToolResult('<p style="color:#e74c3c;">' + err.message + '</p>'));
+            .catch(err => setToolResult('<p style="color:#c1554a;">' + err.message + '</p>'));
     }
 
     function getDefaultSamsungPhone() {
@@ -2414,7 +2414,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="width:56px;color:var(--muted-text);font-size:0.78rem;">傑昇</span>
                             <div style="flex:1;background:var(--table-header-bg);border-radius:999px;height:10px;overflow:hidden;">
-                                <div style="width:${product.jyesPrice ? jyesWidth : 4}%;height:100%;background:#0ea5e9;"></div>
+                                <div style="width:${product.jyesPrice ? jyesWidth : 4}%;height:100%;background:#d97757;"></div>
                             </div>
                             <span style="min-width:88px;text-align:right;font-size:0.82rem;">${product.jyesPrice ? formatToolMoney(product.jyesPrice) : '--'}</span>
                         </div>
@@ -2483,7 +2483,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     `<a class="btn btn-ghost" href="${escapeToolHtml(url)}" target="_blank" rel="noopener">${escapeToolHtml(name)}</a>`
                 ).join('');
                 const warningHtml = (res.warnings || []).length
-                    ? `<p style="color:#b45309;">${res.warnings.map(escapeToolHtml).join('；')}</p>`
+                    ? `<p style="color:#96601f;">${res.warnings.map(escapeToolHtml).join('；')}</p>`
                     : '';
                 setToolResult(`
                     <div style="display:grid;gap:12px;">
@@ -2508,7 +2508,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                     </div>
                 `);
             })
-            .catch(err => setToolResult('<p style="color:#e74c3c;">' + escapeToolHtml(err.message) + '</p>'));
+            .catch(err => setToolResult('<p style="color:#c1554a;">' + escapeToolHtml(err.message) + '</p>'));
     }
 
     (function initPhoneCompareDefaults() {
@@ -2678,7 +2678,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             return x.toFixed(1) + ',' + y.toFixed(1);
         }).join(' ');
         const up = last >= points[0];
-        const color = up ? '#059669' : '#dc2626';
+        const color = up ? '#3f7d5c' : '#b3392c';
         const areaCoords = '0,' + height + ' ' + coords + ' ' + width + ',' + height;
         const fmt = function (n) {
             return Number(n).toLocaleString('zh-TW', { maximumFractionDigits: 2 });

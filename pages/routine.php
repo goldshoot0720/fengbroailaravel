@@ -42,7 +42,7 @@ function getRoutineDateGapText($dateA, $dateB): string
 
 <div class="content-header">
     <h1>鋒兄例行 <span
-            style="font-size:0.55em;background:#9b59b6;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+            style="font-size:0.55em;background:#c1613d;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
     </h1>
 </div>
 
@@ -218,7 +218,7 @@ function getRoutineDateGapText($dateA, $dateB): string
                                 <input type="date" class="form-control inline-input" data-field="lastdate2">
                             </div>
                         </td>
-                        <td style="font-weight:600;color:#3498db;"><?php echo $daysDiff; ?></td>
+                        <td style="font-weight:600;color:#d97757;"><?php echo $daysDiff; ?></td>
                         <td>
                             <span class="inline-view"><?php echo formatDate($item['lastdate3']); ?></span>
                             <div class="inline-edit inline-edit-row">
@@ -251,7 +251,7 @@ function getRoutineDateGapText($dateA, $dateB): string
                 $dateGap12 = getRoutineDateGapText($item['lastdate1'] ?? '', $item['lastdate2'] ?? '');
                 $dateGap23 = getRoutineDateGapText($item['lastdate2'] ?? '', $item['lastdate3'] ?? '');
                 ?>
-                <div class="mobile-card routine-mobile-card" style="border-left: 4px solid #9b59b6;">
+                <div class="mobile-card routine-mobile-card" style="border-left: 4px solid #c1613d;">
                     <div class="mobile-card-actions routine-mobile-actions">
                         <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
                                 class="fas fa-pen"></i></span>
@@ -263,7 +263,7 @@ function getRoutineDateGapText($dateA, $dateB): string
                                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
                         <?php else: ?>
                             <div
-                                style="width: 50px; height: 50px; background: linear-gradient(135deg, #9b59b6, #8e44ad); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                style="width: 50px; height: 50px; background: #b4552f; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                                 <i class="fas fa-redo" style="color: #fff; font-size: 1.2rem;"></i>
                             </div>
                         <?php endif; ?>
@@ -275,7 +275,7 @@ function getRoutineDateGapText($dateA, $dateB): string
                         </div>
                         <button type="button" class="routine-mobile-badge"
                             onclick="shiftDates('<?php echo $item['id']; ?>')" title="推進日期"
-                            style="text-align: center; background: linear-gradient(135deg, #3498db, #2980b9); color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
+                            style="text-align: center; background: #b4552f; color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
                             <div class="routine-mobile-badge-icon"><i class="fa-solid fa-arrow-right"></i></div>
                             <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiff === '-' ? '-' : $daysDiffNum; ?></div>
                             <div style="font-size: 0.7rem;">天</div>

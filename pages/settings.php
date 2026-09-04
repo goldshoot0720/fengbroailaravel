@@ -356,7 +356,7 @@ $biggoSettings = [
                 <tr>
                     <th>Cron 指令</th>
                     <td>
-                        <code style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
+                        <code style="background:#f5f3ec; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
                             CRON_TZ=Asia/Taipei<br>
                             0 9 * * * php /path/to/app/resend_notify.php
                         </code>
@@ -517,7 +517,7 @@ $biggoSettings = [
                 <th>Cron 排程</th>
                 <td>
                     <code
-                        style="background:#f4f4f4; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
+                        style="background:#f5f3ec; padding:6px 10px; border-radius:4px; display:inline-block; font-size:0.85em;">
                         CRON_TZ=Asia/Taipei<br>
                         0 9 * * * php /path/to/app/push_send.php
                     </code>
@@ -541,7 +541,7 @@ $biggoSettings = [
             </button>
             <span id="notifSelfCheckSummary" style="font-size:0.9em;"></span>
         </div>
-        <pre id="notifSelfCheckResult" style="display:none; background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow:auto; max-height:420px; font-size:0.82rem; line-height:1.45; white-space:pre-wrap;"></pre>
+        <pre id="notifSelfCheckResult" style="display:none; background:#1f1e1d; color:#e9e6de; padding:12px 14px; border-radius:8px; overflow:auto; max-height:420px; font-size:0.82rem; line-height:1.45; white-space:pre-wrap;"></pre>
         <div id="notifSelfCheckTableWrap" style="display:none; overflow:auto;">
             <table class="table" id="notifSelfCheckTable">
                 <thead>
@@ -650,7 +650,7 @@ $biggoSettings = [
             const pre = document.getElementById('notifSelfCheckResult');
             const s = d.summary || {};
             const overall = d.overall || (d.success ? 'ok' : 'fail');
-            const color = overall === 'ok' ? 'green' : (overall === 'fail' ? 'red' : '#b45309');
+            const color = overall === 'ok' ? 'green' : (overall === 'fail' ? 'red' : '#96601f');
             summaryEl.innerHTML = '<span style="color:' + color + ';font-weight:600;">overall=' + overall +
                 '</span> · OK ' + (s.ok || 0) + ' / WARN ' + (s.warn || 0) + ' / FAIL ' + (s.fail || 0) +
                 ' · ' + (d.checked_at || '');
@@ -836,13 +836,13 @@ $biggoSettings = [
             .then(res => {
                 if (!res.success) throw new Error(res.error || '初始化失敗');
                 if (result) {
-                    result.innerHTML = '<span style="color:#059669;">✓ sitevisit、menuusage 已建立／補齊</span>';
+                    result.innerHTML = '<span style="color:#3f7d5c;">✓ sitevisit、menuusage 已建立／補齊</span>';
                 }
                 setTimeout(() => window.location.reload(), 900);
             })
             .catch(err => {
                 if (result) {
-                    result.innerHTML = '<span style="color:#e11d48;">✗ ' + String(err.message || err) + '</span>';
+                    result.innerHTML = '<span style="color:#bf3c4e;">✗ ' + String(err.message || err) + '</span>';
                 }
             });
     }
@@ -1039,7 +1039,7 @@ $biggoSettings = [
         const el = document.getElementById('resendCsvStatus');
         if (!el) return;
         el.textContent = msg || '';
-        el.style.color = ok ? '#059669' : (msg ? '#e11d48' : 'var(--muted-text)');
+        el.style.color = ok ? '#3f7d5c' : (msg ? '#bf3c4e' : 'var(--muted-text)');
     }
 
     function promptNotifPassword() {
@@ -1212,7 +1212,7 @@ $biggoSettings = [
                     ` : '<p>目前沒有未引用檔案。</p>'}
                 `;
             })
-            .catch(err => box.innerHTML = '<span style="color:#e74c3c;">' + err.message + '</span>');
+            .catch(err => box.innerHTML = '<span style="color:#c1554a;">' + err.message + '</span>');
     }
 
     function deleteUnusedStorageFiles() {
@@ -1243,7 +1243,7 @@ $biggoSettings = [
         const box = document.getElementById('offlineCacheResult');
         if (!box) return;
         if (!window.FengbroMediaCache || !window.FengbroMediaCache.getAllStats) {
-            box.innerHTML = '<span style="color:#e74c3c;">目前瀏覽器不支援 IndexedDB 離線快取。</span>';
+            box.innerHTML = '<span style="color:#c1554a;">目前瀏覽器不支援 IndexedDB 離線快取。</span>';
             return;
         }
         box.textContent = '讀取中...';
@@ -1288,7 +1288,7 @@ $biggoSettings = [
                 </div>
             `;
         } catch (err) {
-            box.innerHTML = '<span style="color:#e74c3c;">讀取失敗：' + (err.message || err) + '</span>';
+            box.innerHTML = '<span style="color:#c1554a;">讀取失敗：' + (err.message || err) + '</span>';
         }
     }
 

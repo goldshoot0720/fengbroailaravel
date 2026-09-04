@@ -3,9 +3,9 @@
     style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
     <div style="background: #fff; padding: 30px; border-radius: 10px; min-width: 350px; max-width: min(92vw, 520px); text-align: center;">
         <h3 id="uploadProgressTitle" style="margin: 0 0 20px 0;">上傳中...</h3>
-        <div style="background: #e0e0e0; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 15px;">
+        <div style="background: #e0dcd3; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 15px;">
             <div id="uploadProgressBar"
-                style="background: linear-gradient(90deg, #4CAF50, #8BC34A); height: 100%; width: 0%; transition: width 0.3s;">
+                style="background: #5a9367; height: 100%; width: 0%; transition: width 0.3s;">
             </div>
         </div>
         <div id="uploadProgressText" style="color: #666;">0%</div>

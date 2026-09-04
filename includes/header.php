@@ -12,7 +12,8 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#f8f7f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Fengbro AI">
@@ -24,10 +25,10 @@
     <link rel="apple-touch-icon-precomposed" href="icon-192x192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="assets/css/style.css?v=20260904backup">
-    <link rel="stylesheet" href="assets/css/inline-edit.css?v=20260206">
+    <link rel="stylesheet" href="assets/css/style.css?v=20260904claude3">
+    <link rel="stylesheet" href="assets/css/inline-edit.css?v=20260904claude3">
     <script src="assets/js/security.js?v=20260821"></script>
 </head>
 

@@ -48,7 +48,7 @@
 <script src="assets/js/media-traffic.js?v=20260812"></script>
 <script src="assets/js/recent-searches.js?v=20260904search"></script>
 <script src="assets/js/inline-edit.js?v=20260713delete"></script>
-<script src="assets/js/notifications.js?v=20260714notif2"></script>
+<script src="assets/js/notifications.js?v=20260904claude2"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
 <script>
@@ -78,7 +78,7 @@
 
 <!-- PWA 安裝提示 (iOS + Android) -->
 <div id="pwaInstallPrompt"
-    style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:99998; padding:16px; background:linear-gradient(135deg,#2c3e50,#3498db); color:#fff; box-shadow:0 -2px 16px rgba(0,0,0,0.3); animation:slideUp 0.4s ease;">
+    style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:99998; padding:16px; background:#2a2724; color:#fff; box-shadow:0 -2px 16px rgba(0,0,0,0.3); animation:slideUp 0.4s ease;">
     <div style="max-width:600px; margin:0 auto; display:flex; align-items:center; gap:14px;">
         <i class="fa-solid fa-mobile-screen-button" style="font-size:2rem;"></i>
         <div style="flex:1;">
@@ -86,7 +86,7 @@
             <p id="pwaInstallText" style="font-size:0.82rem; margin-top:4px; opacity:0.9;"></p>
         </div>
         <button id="pwaInstallBtn" onclick="pwaInstallAction()"
-            style="background:#fff; color:#2c3e50; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; white-space:nowrap;">安裝</button>
+            style="background:#fff; color:#2a2724; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; white-space:nowrap;">安裝</button>
         <span onclick="dismissPwaPrompt()" style="cursor:pointer; font-size:1.3rem; padding:4px 8px;">&times;</span>
     </div>
 </div>
@@ -223,7 +223,7 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
             if (!toast) {
                 toast = document.createElement('div');
                 toast.id = 'sleepPromptToast';
-                toast.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;background:#111827;color:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.25);font-size:0.95rem;line-height:1.5;max-width:320px;';
+                toast.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;background:#1f1e1d;color:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.25);font-size:0.95rem;line-height:1.5;max-width:320px;';
                 document.body.appendChild(toast);
             }
             toast.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">睡眠提示</div>' +
@@ -315,7 +315,7 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
     .april-egg-card {
         position: relative;
         z-index: 1;
-        background: linear-gradient(135deg, rgba(255, 247, 235, 0.98), rgba(230, 244, 255, 0.98));
+        background: rgba(250, 246, 238, 0.98);
         border-radius: 20px;
         padding: 18px 20px;
         box-shadow: 0 16px 40px rgba(10, 20, 40, 0.18);
@@ -348,19 +348,19 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
         margin: 0 0 6px 0;
         font-size: 1.4rem;
         font-weight: 800;
-        color: #1f2a3a;
+        color: #292826;
     }
 
     .april-egg-subtitle {
         margin: 0;
         font-size: 1rem;
         font-weight: 600;
-        color: #42526b;
+        color: #4a463f;
     }
 
     .april-egg-close {
         border: none;
-        background: #1f7ae0;
+        background: #c1613d;
         color: #fff;
         padding: 8px 18px;
         border-radius: 999px;
@@ -408,7 +408,7 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
         var egg = document.getElementById(eggId);
         if (!egg) return;
         var confettiWrap = egg.querySelector('.april-egg-confetti');
-        var colors = ['#ff6b6b', '#ffd93d', '#6bcBef', '#6bcB77', '#c77dff'];
+        var colors = ['#ff6b6b', '#ffd93d', '#e08a68', '#7fb387', '#e08a68'];
         for (var i = 0; i < 42; i++) {
             var piece = document.createElement('span');
             piece.className = 'confetti-piece';

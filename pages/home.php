@@ -174,9 +174,9 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         padding: 16px 20px;
         border-radius: 20px;
         border: 1px solid transparent;
-        box-shadow: 0 16px 38px rgba(15, 23, 42, 0.12);
+        box-shadow: 0 16px 38px rgba(30, 26, 20, 0.12);
         font-size: 1.1rem;
-        color: #111827;
+        color: #1f1e1d;
     }
 
     .sleep-warning i {
@@ -184,14 +184,14 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     .sleep-warning-yellow {
-        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(253, 230, 138, 0.86));
-        border-color: rgba(245, 158, 11, 0.36);
+        background: rgba(246, 235, 214, 0.96);
+        border-color: rgba(200, 135, 58, 0.36);
     }
 
     .sleep-warning-red {
-        background: linear-gradient(180deg, rgba(254, 226, 226, 0.96), rgba(252, 165, 165, 0.9));
-        border-color: rgba(239, 68, 68, 0.42);
-        color: #7f1d1d;
+        background: rgba(246, 224, 217, 0.96);
+        border-color: rgba(179, 57, 44, 0.42);
+        color: #6e2a23;
     }
 
     [data-theme="dark"] .sleep-warning {
@@ -199,15 +199,15 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     [data-theme="dark"] .sleep-warning-yellow {
-        background: linear-gradient(180deg, rgba(146, 64, 14, 0.76), rgba(120, 53, 15, 0.82));
-        border-color: rgba(251, 191, 36, 0.36);
-        color: #fef3c7;
+        background: rgba(125, 74, 28, 0.76);
+        border-color: rgba(224, 178, 106, 0.36);
+        color: #f7ecd9;
     }
 
     [data-theme="dark"] .sleep-warning-red {
-        background: linear-gradient(180deg, rgba(127, 29, 29, 0.78), rgba(153, 27, 27, 0.86));
+        background: rgba(110, 42, 35, 0.78);
         border-color: rgba(248, 113, 113, 0.4);
-        color: #fee2e2;
+        color: #f8e6e2;
     }
 
     .service-notice {
@@ -217,27 +217,27 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         margin-bottom: 18px;
         padding: 16px 20px;
         border-radius: 20px;
-        border: 1px solid rgba(245, 158, 11, 0.36);
-        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
-        color: #78350f;
-        box-shadow: 0 16px 38px rgba(120, 53, 15, 0.12);
+        border: 1px solid rgba(200, 135, 58, 0.36);
+        background: rgba(246, 235, 214, 0.96);
+        color: #5f3d16;
+        box-shadow: 0 16px 38px rgba(95, 61, 22, 0.12);
         font-size: 1.05rem;
     }
 
     .service-notice i {
-        color: #d97706;
+        color: #b8792e;
         font-size: 1.2rem;
     }
 
     [data-theme="dark"] .service-notice {
-        background: linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(69, 26, 3, 0.82));
-        border-color: rgba(251, 191, 36, 0.32);
-        color: #fef3c7;
+        background: rgba(95, 61, 22, 0.86);
+        border-color: rgba(224, 178, 106, 0.32);
+        color: #f7ecd9;
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
     }
 
     [data-theme="dark"] .service-notice i {
-        color: #fde68a;
+        color: #ecd6a8;
     }
 
     .tube-home-notice-wrap {
@@ -258,7 +258,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         height: 28px;
         border: none;
         border-radius: 999px;
-        background: rgba(15, 23, 42, 0.08);
+        background: rgba(30, 26, 20, 0.08);
         color: inherit;
         font-size: 1.1rem;
         line-height: 1;
@@ -266,7 +266,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     .tube-home-notice-dismiss:hover {
-        background: rgba(15, 23, 42, 0.14);
+        background: rgba(30, 26, 20, 0.14);
     }
 
     .tube-home-notice {
@@ -276,15 +276,15 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         margin-bottom: 18px;
         padding: 16px 20px;
         border-radius: 20px;
-        border: 1px solid rgba(239, 68, 68, 0.26);
-        background: linear-gradient(180deg, rgba(254, 226, 226, 0.94), rgba(255, 247, 237, 0.76));
-        color: #7f1d1d;
+        border: 1px solid rgba(179, 57, 44, 0.26);
+        background: rgba(246, 224, 217, 0.94);
+        color: #6e2a23;
         text-decoration: none;
         box-shadow: 0 16px 38px rgba(185, 28, 28, 0.12);
     }
 
     .tube-home-notice > i:first-child {
-        color: #dc2626;
+        color: #b3392c;
         font-size: 1.4rem;
     }
 
@@ -296,41 +296,41 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     .tube-home-notice small {
-        color: #991b1b;
+        color: #8a2b22;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     [data-theme="dark"] .tube-home-notice {
-        background: linear-gradient(180deg, rgba(127, 29, 29, 0.76), rgba(69, 26, 3, 0.76));
+        background: rgba(110, 42, 35, 0.76);
         border-color: rgba(248, 113, 113, 0.32);
-        color: #fee2e2;
+        color: #f8e6e2;
     }
 
     [data-theme="dark"] .tube-home-notice small {
-        color: #fecaca;
+        color: #f2ccc5;
     }
 
     .finance-home-notice {
-        border-color: rgba(245, 158, 11, 0.32);
-        background: linear-gradient(180deg, rgba(254, 243, 199, 0.96), rgba(255, 251, 235, 0.78));
-        color: #78350f;
+        border-color: rgba(200, 135, 58, 0.32);
+        background: rgba(246, 235, 214, 0.96);
+        color: #5f3d16;
         box-shadow: 0 16px 38px rgba(180, 83, 9, 0.12);
     }
 
     .finance-home-notice > i:first-child {
-        color: #d97706;
+        color: #b8792e;
     }
 
     .finance-home-notice small {
-        color: #92400e;
+        color: #7d4a1c;
     }
 
     [data-theme="dark"] .finance-home-notice {
-        background: linear-gradient(180deg, rgba(120, 53, 15, 0.76), rgba(69, 26, 3, 0.76));
-        border-color: rgba(251, 191, 36, 0.34);
-        color: #fef3c7;
+        background: rgba(95, 61, 22, 0.76);
+        border-color: rgba(224, 178, 106, 0.34);
+        color: #f7ecd9;
     }
 
     .ascii-fengbro {
@@ -339,7 +339,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
         border-radius: 12px;
         border: 1px solid #dfe7f3;
         background: #f3f6fb;
-        color: #2c3e50;
+        color: #2a2724;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
         font-size: 0.75rem;
         line-height: 1.2;
@@ -348,9 +348,9 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     [data-theme="dark"] .ascii-fengbro {
-        background: #0f1a2b;
+        background: #1f1e1d;
         color: #d4e2ff;
-        border-color: #1f3552;
+        border-color: #292826;
     }
 
     .home-view-toggle {
@@ -390,7 +390,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
     }
 
     [data-theme="dark"] .home-view-btn.active {
-        background: rgba(59, 130, 246, 0.18);
+        background: rgba(217, 119, 87, 0.18);
         color: #fff;
     }
 

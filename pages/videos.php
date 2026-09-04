@@ -7,7 +7,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
 <div class="content-header">
     <h1>鋒兄影片 <span
-            style="font-size:0.55em;background:#e74c3c;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+            style="font-size:0.55em;background:#c1554a;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
     </h1>
 </div>
 
@@ -143,11 +143,11 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                                         preload="metadata"
                                         muted
                                         playsinline
-                                        style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px; background: #34495e;">
+                                        style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px; background: #3d3a35;">
                                     </video>
                                 <?php else: ?>
                                     <div class="video-thumb-placeholder"
-                                        style="width: 80px; height: 60px; background: #34495e; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                                        style="width: 80px; height: 60px; background: #3d3a35; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
                                         <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
                                     </div>
                                 <?php endif; ?>
@@ -241,26 +241,26 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
     <style>
         .video-experience {
-            --video-shell-bg: linear-gradient(135deg, #f7f7f7 0%, #ffffff 55%, #eef4ff 100%);
+            --video-shell-bg: #f5f3ec;
             --video-shell-border: rgba(0, 0, 0, 0.06);
             --video-shell-shadow: 0 18px 40px rgba(32, 45, 72, 0.08);
             --video-accent: #ff0033;
-            --video-secondary: #111827;
+            --video-secondary: #1f1e1d;
             --video-chip-bg: rgba(17, 24, 39, 0.06);
-            --video-chip-text: #374151;
-            --video-modal-bg: #0f1115;
+            --video-chip-text: #3d3a35;
+            --video-modal-bg: #141413;
             --video-side-bg: rgba(255, 255, 255, 0.06);
         }
 
         .video-experience-bilibili {
-            --video-shell-bg: linear-gradient(135deg, #ecfaff 0%, #ffffff 45%, #ffeef7 100%);
+            --video-shell-bg: #f5f3ec;
             --video-shell-border: rgba(57, 191, 255, 0.18);
             --video-shell-shadow: 0 20px 44px rgba(58, 170, 220, 0.18);
             --video-accent: #00a1d6;
-            --video-secondary: #1f2937;
+            --video-secondary: #292826;
             --video-chip-bg: rgba(0, 161, 214, 0.12);
             --video-chip-text: #0369a1;
-            --video-modal-bg: #101923;
+            --video-modal-bg: #1f1e1d;
             --video-side-bg: rgba(0, 161, 214, 0.12);
         }
 
@@ -294,7 +294,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
         .video-hero p {
             margin: 0;
-            color: #5b6474;
+            color: #57534a;
             max-width: 680px;
             line-height: 1.6;
         }
@@ -321,7 +321,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
         .video-hero-stat span {
             font-size: 0.85rem;
-            color: #6b7280;
+            color: #6f6c65;
         }
 
         .video-interface-switch {
@@ -336,7 +336,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         .video-mode-btn {
             border: none;
             background: transparent;
-            color: #475569;
+            color: #57534a;
             padding: 8px 14px;
             border-radius: 999px;
             font-size: 0.85rem;
@@ -347,7 +347,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         .video-mode-btn.active {
             background: #fff;
             color: var(--video-secondary);
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+            box-shadow: 0 4px 14px rgba(30, 26, 20, 0.1);
         }
 
         .video-list .video-item {
@@ -402,7 +402,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
 
         .video-created-at {
             font-size: 0.78rem;
-            color: #64748b;
+            color: #7a756c;
         }
 
         .video-note-preview {
@@ -459,7 +459,7 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         }
 
         .video-js .vjs-play-progress {
-            background-color: #4CAF50;
+            background-color: #5a9367;
         }
 
         .video-js .vjs-load-progress {
