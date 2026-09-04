@@ -3,13 +3,44 @@ $pageTitle = '播客管理';
 $csvTable = 'podcast';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll();
+
+$pcCategories = [];
+foreach ($items as $item) {
+    $cat = trim((string) ($item['category'] ?? ''));
+    if ($cat === '') { $cat = '未分類'; }
+    if (!in_array($cat, $pcCategories, true)) { $pcCategories[] = $cat; }
+}
+sort($pcCategories);
+$pcCover = '';
+foreach ($items as $item) { if (!empty($item['cover'])) { $pcCover = $item['cover']; break; } }
+$pcPlayable = count(array_filter($items, fn($item) => !empty($item['file'])));
 ?>
 
-<div class="content-header">
-    <h1>鋒兄播客 <span style="display: inline-block; background: #b4552f; color: #fff; font-size: 0.5em; padding: 3px 12px; border-radius: 20px; vertical-align: middle; margin-left: 8px;"><?php echo count($items); ?> 集</span></h1>
+<div class="content-header pc-hero">
+    <div class="pc-hero-art">
+        <?php if ($pcCover !== ''): ?>
+            <img src="<?php echo htmlspecialchars($pcCover); ?>" alt="" loading="lazy">
+        <?php else: ?>
+            <div class="pc-hero-art-empty"><i class="fa-solid fa-podcast"></i></div>
+        <?php endif; ?>
+    </div>
+    <div class="pc-hero-text">
+        <span class="pc-hero-kicker">Podcast</span>
+        <h1 class="pc-hero-title">鋒兄播客</h1>
+        <p class="pc-hero-desc">個人播客庫，集數依建立時間排序，支援離線快取與行內編輯。</p>
+        <div class="pc-hero-meta">
+            <span class="pc-hero-owner"><i class="fa-solid fa-user"></i> 鋒兄</span>
+            <span>·</span>
+            <span><?php echo count($items); ?> 集</span>
+            <span>·</span>
+            <span><?php echo (int) $pcPlayable; ?> 集可播放</span>
+            <span>·</span>
+            <span><?php echo count($pcCategories); ?> 個分類</span>
+        </div>
+    </div>
 </div>
 
-<div class="content-body">
+<div class="content-body pc-shell">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增播客"><i class="fas fa-plus"></i></button>
@@ -34,7 +65,26 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
 
     <?php include 'includes/batch-delete.php'; ?>
 
-    <div class="card-grid podcast-library-grid" style="margin-top: 20px;">
+    <div class="pc-controls">
+        <button type="button" class="pc-bigplay" onclick="playFirstPodcast()" title="播放第一集"><i class="fa-solid fa-play"></i></button>
+        <div class="pc-chips" id="pcChips">
+            <button type="button" class="pc-chip is-active" data-cat="__all" onclick="filterPodcastCategory('__all', this)">全部</button>
+            <?php foreach ($pcCategories as $cat): ?>
+                <button type="button" class="pc-chip" data-cat="<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>"
+                    onclick="filterPodcastCategory(this.dataset.cat, this)"><?php echo htmlspecialchars($cat); ?></button>
+            <?php endforeach; ?>
+        </div>
+        <div class="pc-viewtabs">
+            <button type="button" class="pc-viewtab is-active" data-view="list" onclick="setPodcastView('list')"><i class="fa-solid fa-list"></i> 集數清單</button>
+            <button type="button" class="pc-viewtab" data-view="grid" onclick="setPodcastView('grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片牆</button>
+        </div>
+    </div>
+
+    <div class="pc-listhead">
+        <span>#</span><span>集數</span><span>播放</span>
+    </div>
+
+    <div class="card-grid podcast-library-grid pc-view-list" id="podcastLibrary" style="margin-top: 12px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
                 <div class="form-group">
@@ -84,8 +134,11 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                 <p style="text-align: center; color: #999;">暫無播客</p>
             </div>
         <?php else: ?>
+            <?php $pcIndex = 0; ?>
             <?php foreach ($items as $item): ?>
-                <div class="card"
+                <?php $pcIndex++; $pcItemCat = trim((string) ($item['category'] ?? '')); if ($pcItemCat === '') { $pcItemCat = '未分類'; } ?>
+                <div class="card pc-episode" data-cat="<?php echo htmlspecialchars($pcItemCat, ENT_QUOTES); ?>"
+                    data-index="<?php echo $pcIndex; ?>"
                     data-id="<?php echo $item['id']; ?>"
                     data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
                     data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
@@ -100,14 +153,17 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
                             <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
                             <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
                         </div>
-                        <?php if ($item['cover']): ?>
-                            <img src="<?php echo htmlspecialchars($item['cover']); ?>"
-                                class="podcast-cover-image"
-                                style="width: 100%; height: 150px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;">
-                        <?php endif; ?>
+                        <div class="pc-cover-wrap">
+                            <?php if ($item['cover']): ?>
+                                <img src="<?php echo htmlspecialchars($item['cover']); ?>" class="podcast-cover-image" loading="lazy" alt="">
+                            <?php else: ?>
+                                <div class="podcast-cover-image pc-cover-empty"><i class="fa-solid fa-podcast"></i></div>
+                            <?php endif; ?>
+                            <span class="pc-episode-no"><?php echo $pcIndex; ?></span>
+                        </div>
                         <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                        <p class="podcast-meta-line" style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
-                        <p class="podcast-note-preview" style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
+                        <p class="podcast-meta-line"><span class="pc-cat-chip"><?php echo htmlspecialchars($pcItemCat); ?></span><span class="pc-date"><?php echo !empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : '—'; ?></span></p>
+                        <p class="podcast-note-preview"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
 
                         <?php if ($item['file']): ?>
                             <div class="podcast-play-row" style="margin-top: 10px;">
@@ -533,6 +589,49 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
     function deleteItem(id) {
         deleteInlineItem(id, { table: TABLE });
     }
+    /* ---------- Spotify Podcast 版面互動 ---------- */
+    const PODCAST_VIEW_STORAGE_KEY = 'fengbro_podcast_view';
+
+    function setPodcastView(view) {
+        const mode = view === 'grid' ? 'grid' : 'list';
+        const lib = document.getElementById('podcastLibrary');
+        if (lib) {
+            lib.classList.toggle('pc-view-list', mode === 'list');
+            lib.classList.toggle('pc-view-grid', mode === 'grid');
+        }
+        const head = document.querySelector('.pc-listhead');
+        if (head) head.style.display = mode === 'list' ? 'grid' : 'none';
+        document.querySelectorAll('.pc-viewtab').forEach(function (tab) {
+            tab.classList.toggle('is-active', tab.dataset.view === mode);
+        });
+        try { localStorage.setItem(PODCAST_VIEW_STORAGE_KEY, mode); } catch (e) {}
+    }
+
+    function filterPodcastCategory(cat, btn) {
+        const value = cat || '__all';
+        document.querySelectorAll('#pcChips .pc-chip').forEach(function (el) {
+            el.classList.toggle('is-active', el === btn);
+        });
+        document.querySelectorAll('.card.pc-episode').forEach(function (card) {
+            const match = value === '__all' || card.dataset.cat === value;
+            card.classList.toggle('pc-hidden', !match);
+        });
+    }
+
+    function playFirstPodcast() {
+        const card = document.querySelector('.card.pc-episode:not(.pc-hidden)');
+        if (!card) { alert('目前沒有可播放的集數'); return; }
+        const btn = card.querySelector('[id^="playBtn-"]');
+        if (btn) { btn.click(); return; }
+        alert('這一集沒有音檔');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let saved = 'list';
+        try { saved = localStorage.getItem(PODCAST_VIEW_STORAGE_KEY) || 'list'; } catch (e) {}
+        setPodcastView(saved);
+    });
+
 </script>
 
 <style>
@@ -615,4 +714,391 @@ $items = $pdo->query("SELECT * FROM podcast ORDER BY created_at DESC")->fetchAll
             margin-left: 0;
         }
     }
+/* ==========================================================
+   鋒兄播客 · Spotify Podcast 版面
+   ========================================================== */
+body[data-page="podcast"] {
+    --pc-green: #1db954;
+    --pc-bg: #121212;
+    --pc-elev: #181818;
+    --pc-elev-hi: #2a2a2a;
+    --pc-text: #ffffff;
+    --pc-sub: #b3b3b3;
+}
+
+.pc-hero {
+    display: flex;
+    align-items: flex-end;
+    gap: 26px;
+    flex-wrap: wrap;
+    padding: 34px 30px 26px;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(160deg, #4a3a6b 0%, #2b2340 46%, var(--pc-bg) 100%);
+    color: var(--pc-text);
+    margin-bottom: 0;
+}
+
+.pc-hero-art {
+    width: 190px;
+    height: 190px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    background: #333;
+}
+
+.pc-hero-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.pc-hero-art-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.2rem;
+    color: rgba(255, 255, 255, 0.34);
+    background: linear-gradient(135deg, #3d3550, #221d2e);
+}
+
+.pc-hero-text { min-width: 240px; flex: 1; }
+
+.pc-hero-kicker {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.pc-hero-title {
+    margin: 6px 0 12px;
+    font-size: clamp(2rem, 5vw, 3.9rem);
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #fff;
+}
+
+.pc-hero-desc {
+    margin: 0 0 12px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    max-width: 60ch;
+}
+
+.pc-hero-meta {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 0.86rem;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.pc-hero-owner { font-weight: 700; color: #fff; }
+
+.content-header.pc-hero .pc-hero-title,
+.content-header.pc-hero h1 { color: #fff; }
+
+body[data-page="podcast"] .content-body.pc-shell {
+    background: linear-gradient(180deg, #241f33 0%, var(--pc-bg) 240px);
+    color: var(--pc-text);
+    border-radius: 0 0 16px 16px;
+    padding: 22px 26px 34px;
+}
+
+body[data-page="podcast"] .pc-shell .btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+body[data-page="podcast"] .pc-shell .btn:hover { background: rgba(255, 255, 255, 0.2); }
+body[data-page="podcast"] .pc-shell .btn-primary,
+body[data-page="podcast"] .pc-shell .btn-success { background: var(--pc-green); border-color: var(--pc-green); color: #06180d; font-weight: 700; }
+
+body[data-page="podcast"] .pc-shell .form-control {
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+body[data-page="podcast"] .pc-shell .form-control::placeholder { color: rgba(255, 255, 255, 0.42); }
+body[data-page="podcast"] .pc-shell label { color: var(--pc-sub); }
+body[data-page="podcast"] .pc-shell .select-checkbox { accent-color: var(--pc-green); }
+
+.pc-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.pc-bigplay {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--pc-green);
+    color: #06180d;
+    font-size: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding-left: 3px;
+    box-shadow: 0 8px 20px rgba(29, 185, 84, 0.34);
+    transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.pc-bigplay:hover { transform: scale(1.06); background: #1ed760; }
+
+.pc-chips { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
+
+.pc-chip {
+    border: none;
+    border-radius: 999px;
+    padding: 7px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.pc-chip:hover { background: rgba(255, 255, 255, 0.2); }
+.pc-chip.is-active { background: #fff; color: #121212; font-weight: 700; }
+
+.pc-viewtabs { display: flex; gap: 4px; }
+
+.pc-viewtab {
+    border: none;
+    background: transparent;
+    color: var(--pc-sub);
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pc-viewtab:hover { color: #fff; }
+.pc-viewtab.is-active { color: #fff; background: rgba(255, 255, 255, 0.12); font-weight: 700; }
+
+.pc-listhead {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 220px;
+    gap: 14px;
+    padding: 16px 12px 8px;
+    margin-top: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--pc-sub);
+}
+
+/* ---------- 集數列 ---------- */
+body[data-page="podcast"] .card.pc-episode {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 6px !important;
+    padding: 10px 12px !important;
+    color: var(--pc-text);
+    transition: background 0.18s ease;
+}
+
+body[data-page="podcast"] .card.pc-episode:hover { background: rgba(255, 255, 255, 0.07) !important; }
+
+.pc-cover-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #2a2a2a;
+}
+
+.podcast-cover-image {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+    display: block;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+.pc-cover-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: rgba(255, 255, 255, 0.32);
+    background: linear-gradient(135deg, #3d3550, #221d2e);
+}
+
+.pc-episode-no {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.66);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body[data-page="podcast"] .card.pc-episode .card-title {
+    margin: 0;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.podcast-meta-line {
+    margin: 4px 0 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    color: var(--pc-sub) !important;
+    font-size: 0.8rem !important;
+}
+
+.pc-cat-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 0.72rem;
+}
+
+.pc-date { font-variant-numeric: tabular-nums; }
+
+.podcast-note-preview {
+    margin: 5px 0 0 !important;
+    color: var(--pc-sub) !important;
+    font-size: 0.84rem !important;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.podcast-play-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px !important;
+}
+
+.podcast-time-label { color: var(--pc-sub) !important; font-variant-numeric: tabular-nums; }
+
+body[data-page="podcast"] .pc-episode .card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+body[data-page="podcast"] .pc-episode .card-edit-btn,
+body[data-page="podcast"] .pc-episode .card-delete-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+}
+
+/* ---------- 集數清單版面 ---------- */
+.podcast-library-grid.pc-view-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pc-view-list .pc-episode .inline-view {
+    display: grid;
+    grid-template-columns: 24px 76px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+        "check cover title play actions"
+        "check cover meta  play actions"
+        "check cover note  play actions";
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 0;
+}
+
+.pc-view-list .pc-episode .select-checkbox { grid-area: check; }
+.pc-view-list .pc-episode .card-actions { grid-area: actions; }
+.pc-view-list .pc-cover-wrap { grid-area: cover; width: 76px; }
+.pc-view-list .pc-episode .card-title { grid-area: title; }
+.pc-view-list .podcast-meta-line { grid-area: meta; }
+.pc-view-list .podcast-note-preview { grid-area: note; }
+.pc-view-list .podcast-play-row { grid-area: play; margin-top: 0 !important; }
+.pc-view-list .pc-episode .inline-edit { grid-column: 1 / -1; }
+
+/* ---------- 卡片牆版面 ---------- */
+.podcast-library-grid.pc-view-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+    gap: 20px 18px;
+}
+
+body[data-page="podcast"] .pc-view-grid .card.pc-episode {
+    background: var(--pc-elev) !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+}
+
+body[data-page="podcast"] .pc-view-grid .card.pc-episode:hover { background: var(--pc-elev-hi) !important; }
+.pc-view-grid .pc-cover-wrap { margin-bottom: 13px; }
+.pc-view-grid .pc-episode .card-title { -webkit-line-clamp: 2; }
+
+body[data-page="podcast"] #inlineAddCard {
+    background: var(--pc-elev);
+    color: var(--pc-text);
+    grid-column: 1 / -1;
+}
+
+.pc-episode.pc-hidden { display: none !important; }
+
+/* ---------- RWD ---------- */
+@media (max-width: 900px) {
+    .pc-hero { padding: 24px 18px 20px; gap: 18px; }
+    .pc-hero-art { width: 128px; height: 128px; }
+    body[data-page="podcast"] .content-body.pc-shell { padding: 18px 14px 28px; }
+    .pc-listhead { display: none; }
+    .pc-view-list .pc-episode .inline-view {
+        grid-template-columns: 22px 64px minmax(0, 1fr);
+        grid-template-areas:
+            "check cover title"
+            "check cover meta"
+            "note  note  note"
+            "play  play  actions";
+        row-gap: 6px;
+    }
+    .pc-view-list .pc-cover-wrap { width: 64px; }
+    .podcast-library-grid.pc-view-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 12px; }
+}
+
 </style>

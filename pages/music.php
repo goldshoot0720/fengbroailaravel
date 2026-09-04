@@ -88,10 +88,33 @@ $allLanguages = array_unique(array_merge($defaultLanguages, $existingLanguages))
 $languages = $defaultLanguages; // Keep default for quick buttons
 ?>
 
-<div class="content-header">
-    <h1>鋒兄音樂 <span
-            style="font-size:0.55em;background:#d97757;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
-    </h1>
+<?php
+$spCover = '';
+foreach ($groupedItems as $g) { if (!empty($g['cover'])) { $spCover = $g['cover']; break; } }
+$spLangCount = count($existingLanguages);
+?>
+<div class="content-header sp-hero">
+    <div class="sp-hero-art">
+        <?php if ($spCover !== ''): ?>
+            <img src="<?php echo htmlspecialchars($spCover); ?>" alt="" loading="lazy">
+        <?php else: ?>
+            <div class="sp-hero-art-empty"><i class="fa-solid fa-compact-disc"></i></div>
+        <?php endif; ?>
+    </div>
+    <div class="sp-hero-text">
+        <span class="sp-hero-kicker">播放清單</span>
+        <h1 class="sp-hero-title">鋒兄音樂</h1>
+        <p class="sp-hero-desc">依歌名分組、依語言分版本的個人曲庫，支援兩層語言切換播放器與歌詞檢視。</p>
+        <div class="sp-hero-meta">
+            <span class="sp-hero-owner"><i class="fa-solid fa-user"></i> 鋒兄</span>
+            <span>·</span>
+            <span><?php echo count($groupedItems); ?> 張專輯</span>
+            <span>·</span>
+            <span><?php echo count($items); ?> 首歌曲</span>
+            <span>·</span>
+            <span><?php echo $spLangCount; ?> 種語言</span>
+        </div>
+    </div>
 </div>
 
 <div class="content-body">
@@ -118,7 +141,22 @@ $languages = $defaultLanguages; // Keep default for quick buttons
     <?php include 'includes/batch-delete.php'; ?>
     </div>
 
-    <div class="card-grid music-library-grid" style="margin-top: 20px;">
+    <div class="sp-controls">
+        <button type="button" class="sp-bigplay" onclick="playFirstMusicGroup()" title="播放第一張專輯"><i class="fa-solid fa-play"></i></button>
+        <div class="sp-chips" id="spChips">
+            <button type="button" class="sp-chip is-active" data-cat="__all" onclick="filterMusicCategory('__all', this)">全部</button>
+            <?php foreach ($categories as $cat): ?>
+                <button type="button" class="sp-chip" data-cat="<?php echo htmlspecialchars($cat, ENT_QUOTES); ?>"
+                    onclick="filterMusicCategory(this.dataset.cat, this)"><?php echo htmlspecialchars($cat); ?></button>
+            <?php endforeach; ?>
+        </div>
+        <div class="sp-viewtabs">
+            <button type="button" class="sp-viewtab is-active" data-view="grid" onclick="setMusicView('grid')"><i class="fa-solid fa-table-cells-large"></i> 專輯牆</button>
+            <button type="button" class="sp-viewtab" data-view="list" onclick="setMusicView('list')"><i class="fa-solid fa-list"></i> 歌曲清單</button>
+        </div>
+    </div>
+
+    <div class="card-grid music-library-grid sp-view-grid" id="musicLibrary" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
                 <!-- 防止瀏覽器自動填入：隱藏假帳密欄位 -->
@@ -218,7 +256,8 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                         ];
                     }, $group['items']);
                 ?>
-                <div class="card" data-id="<?php echo $group['items'][0]['id']; ?>"
+                <div class="card sp-album" data-cat="<?php echo htmlspecialchars(trim((string) ($group['category'] ?? '')) !== '' ? $group['category'] : '未分類', ENT_QUOTES); ?>"
+                    data-id="<?php echo $group['items'][0]['id']; ?>"
                     data-name="<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>"
                     data-category="<?php echo htmlspecialchars($group['category'] ?? '', ENT_QUOTES); ?>"
                     data-language="<?php echo htmlspecialchars($group['items'][0]['language'] ?? '', ENT_QUOTES); ?>"
@@ -237,15 +276,22 @@ $languages = $defaultLanguages; // Keep default for quick buttons
                                 data-all-ids="<?php echo htmlspecialchars(implode(',', array_column($group['items'], 'id')), ENT_QUOTES); ?>"
                                 onchange="toggleSelectItem(this)">
                         </div>
-                        <?php if (!empty($group['cover'])): ?>
-                            <div class="music-cover-wrap" style="text-align: center; margin-bottom: 15px;">
-                                <img src="<?php echo htmlspecialchars($group['cover']); ?>"
-                                    class="music-cover-image"
-                                    style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                            </div>
-                        <?php endif; ?>
+                        <div class="music-cover-wrap">
+                            <?php if (!empty($group['cover'])): ?>
+                                <img src="<?php echo htmlspecialchars($group['cover']); ?>" class="music-cover-image" loading="lazy" alt="">
+                            <?php else: ?>
+                                <div class="music-cover-image music-cover-empty"><i class="fa-solid fa-compact-disc"></i></div>
+                            <?php endif; ?>
+                            <?php if (!empty($group['languageGroups'])): ?>
+                                <?php $fabId = 'player_' . md5($group['name']); ?>
+                                <button type="button" class="sp-play-fab" title="播放"
+                                    onclick="openTwoLayerPlayer('<?php echo $fabId; ?>', <?php echo htmlspecialchars(json_encode($group['languageGroups'], JSON_UNESCAPED_UNICODE)); ?>, '<?php echo htmlspecialchars($group['name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($group['cover'] ?? '', ENT_QUOTES); ?>', <?php echo htmlspecialchars(json_encode($group['lyrics'] ?? '', JSON_UNESCAPED_UNICODE)); ?>)">
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+                            <?php endif; ?>
+                        </div>
 
-                        <h3 style="margin: 0 0 10px 0; color: #333;">
+                        <h3 class="sp-album-title">
                             <?php echo htmlspecialchars($group['name']); ?>
                             <?php if (count($group['items']) > 1): ?>
                                 <span
@@ -1120,6 +1166,45 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             closeTwoLayerModal();
         }
     });
+    /* ---------- Spotify 版面互動 ---------- */
+    const MUSIC_VIEW_STORAGE_KEY = 'fengbro_music_view';
+
+    function setMusicView(view) {
+        const mode = view === 'list' ? 'list' : 'grid';
+        const lib = document.getElementById('musicLibrary');
+        if (lib) {
+            lib.classList.toggle('sp-view-grid', mode === 'grid');
+            lib.classList.toggle('sp-view-list', mode === 'list');
+        }
+        document.querySelectorAll('.sp-viewtab').forEach(function (tab) {
+            tab.classList.toggle('is-active', tab.dataset.view === mode);
+        });
+        try { localStorage.setItem(MUSIC_VIEW_STORAGE_KEY, mode); } catch (e) {}
+    }
+
+    function filterMusicCategory(cat, btn) {
+        const value = cat || '__all';
+        document.querySelectorAll('#spChips .sp-chip').forEach(function (el) {
+            el.classList.toggle('is-active', el === btn);
+        });
+        document.querySelectorAll('.card.sp-album').forEach(function (card) {
+            const match = value === '__all' || card.dataset.cat === value;
+            card.classList.toggle('sp-hidden', !match);
+        });
+    }
+
+    function playFirstMusicGroup() {
+        const fab = document.querySelector('.card.sp-album:not(.sp-hidden) .sp-play-fab');
+        if (fab) { fab.click(); return; }
+        alert('目前沒有可播放的專輯');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let saved = 'grid';
+        try { saved = localStorage.getItem(MUSIC_VIEW_STORAGE_KEY) || 'grid'; } catch (e) {}
+        setMusicView(saved);
+    });
+
 </script>
 
 <!-- 兩層分類播放器彈窗 -->
@@ -1377,4 +1462,343 @@ $languages = $defaultLanguages; // Keep default for quick buttons
             height: 52px !important;
         }
     }
+/* ==========================================================
+   鋒兄音樂 · Spotify 版面
+   ========================================================== */
+body[data-page="music"] {
+    --sp-green: #1db954;
+    --sp-bg: #121212;
+    --sp-elev: #181818;
+    --sp-elev-hi: #282828;
+    --sp-text: #ffffff;
+    --sp-sub: #b3b3b3;
+}
+
+.sp-hero {
+    display: flex;
+    align-items: flex-end;
+    gap: 26px;
+    flex-wrap: wrap;
+    padding: 34px 30px 26px;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(160deg, #3f6f52 0%, #23412f 46%, var(--sp-bg) 100%);
+    color: var(--sp-text);
+    margin-bottom: 0;
+}
+
+.sp-hero-art {
+    width: 196px;
+    height: 196px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+    background: #333;
+}
+
+.sp-hero-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.sp-hero-art-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.4rem;
+    color: rgba(255, 255, 255, 0.35);
+    background: linear-gradient(135deg, #3a3a3a, #1f1f1f);
+}
+
+.sp-hero-text { min-width: 240px; flex: 1; }
+
+.sp-hero-kicker {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.sp-hero-title {
+    margin: 6px 0 12px;
+    font-size: clamp(2.1rem, 5.5vw, 4.2rem);
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #fff;
+}
+
+.sp-hero-desc {
+    margin: 0 0 12px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    max-width: 62ch;
+}
+
+.sp-hero-meta {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 0.86rem;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.sp-hero-owner { font-weight: 700; color: #fff; }
+
+.content-header.sp-hero .sp-hero-title,
+.content-header.sp-hero h1 { color: #fff; }
+
+body[data-page="music"] .content-body {
+    background: linear-gradient(180deg, #1c2a21 0%, var(--sp-bg) 240px);
+    color: var(--sp-text);
+    border-radius: 0 0 16px 16px;
+    padding: 22px 26px 34px;
+}
+
+body[data-page="music"] .content-body .btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+body[data-page="music"] .content-body .btn:hover { background: rgba(255, 255, 255, 0.2); }
+body[data-page="music"] .content-body .btn-primary { background: var(--sp-green); border-color: var(--sp-green); color: #06180d; font-weight: 700; }
+body[data-page="music"] .content-body .btn-success { background: #1ed760; border-color: #1ed760; color: #06180d; }
+
+.sp-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.sp-bigplay {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--sp-green);
+    color: #06180d;
+    font-size: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 8px 20px rgba(29, 185, 84, 0.34);
+    transition: transform 0.16s ease, background 0.16s ease;
+    padding-left: 3px;
+}
+
+.sp-bigplay:hover { transform: scale(1.06); background: #1ed760; }
+
+.sp-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.sp-chip {
+    border: none;
+    border-radius: 999px;
+    padding: 7px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.sp-chip:hover { background: rgba(255, 255, 255, 0.2); }
+.sp-chip.is-active { background: #fff; color: #121212; font-weight: 700; }
+
+.sp-viewtabs { display: flex; gap: 4px; }
+
+.sp-viewtab {
+    border: none;
+    background: transparent;
+    color: var(--sp-sub);
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sp-viewtab:hover { color: #fff; }
+.sp-viewtab.is-active { color: #fff; background: rgba(255, 255, 255, 0.12); font-weight: 700; }
+
+/* ---------- 專輯卡 ---------- */
+.music-library-grid.sp-view-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+    gap: 20px 18px;
+}
+
+body[data-page="music"] .card.sp-album {
+    background: var(--sp-elev) !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    color: var(--sp-text);
+    transition: background 0.24s ease;
+}
+
+body[data-page="music"] .card.sp-album:hover { background: var(--sp-elev-hi) !important; }
+
+.music-cover-wrap {
+    position: relative;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.music-cover-image {
+    width: 100% !important;
+    aspect-ratio: 1 / 1;
+    height: auto !important;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45) !important;
+    background: #2a2a2a;
+}
+
+.music-cover-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    color: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(135deg, #3a3a3a, #1f1f1f);
+}
+
+.sp-play-fab {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: none;
+    background: var(--sp-green);
+    color: #06180d;
+    font-size: 1rem;
+    cursor: pointer;
+    padding-left: 3px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, background 0.16s ease;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+}
+
+.sp-album:hover .sp-play-fab,
+.sp-album:focus-within .sp-play-fab { opacity: 1; transform: translateY(0); }
+.sp-play-fab:hover { background: #1ed760; transform: scale(1.06); }
+
+.sp-album-title {
+    margin: 0 0 6px 0 !important;
+    color: #fff !important;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+body[data-page="music"] .music-meta-strip { color: var(--sp-sub) !important; }
+body[data-page="music"] .music-meta-strip span { background: rgba(255, 255, 255, 0.1) !important; color: var(--sp-sub) !important; }
+body[data-page="music"] .music-note-preview { color: var(--sp-sub) !important; }
+
+.music-card-actions { gap: 6px !important; }
+
+body[data-page="music"] .music-card-actions .btn {
+    border-radius: 999px;
+    font-size: 0.75rem;
+    padding: 5px 11px;
+}
+
+body[data-page="music"] .card.sp-album .card-header { margin-bottom: 6px; }
+body[data-page="music"] .select-checkbox { accent-color: var(--sp-green); }
+
+body[data-page="music"] #inlineAddCard,
+body[data-page="music"] .card .inline-edit {
+    background: var(--sp-elev);
+    color: var(--sp-text);
+}
+
+body[data-page="music"] #inlineAddCard { grid-column: 1 / -1; }
+
+body[data-page="music"] .form-control {
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+body[data-page="music"] .form-control::placeholder { color: rgba(255, 255, 255, 0.42); }
+body[data-page="music"] .inline-edit label,
+body[data-page="music"] .form-group label { color: var(--sp-sub); }
+
+/* ---------- 歌曲清單檢視 ---------- */
+.music-library-grid.sp-view-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0;
+}
+
+.music-library-grid.sp-view-list::before {
+    content: '#   標題 / 語言版本';
+    display: block;
+    padding: 8px 14px;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--sp-sub);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 6px;
+}
+
+.sp-view-list .card.sp-album {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-areas: "head head head" "cover title actions" "cover meta actions";
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 2px;
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+}
+
+.sp-view-list .card.sp-album:hover { background: rgba(255, 255, 255, 0.07) !important; }
+.sp-view-list .card.sp-album .card-header { grid-area: head; }
+.sp-view-list .music-cover-wrap { grid-area: cover; margin: 0; width: 56px; }
+.sp-view-list .sp-play-fab { width: 30px; height: 30px; right: 4px; bottom: 4px; font-size: 0.7rem; }
+.sp-view-list .sp-album-title { grid-area: title; margin: 0 !important; font-size: 0.95rem; -webkit-line-clamp: 1; }
+.sp-view-list .music-meta-strip { grid-area: meta; margin: 0 !important; font-size: 0.8rem !important; }
+.sp-view-list .music-card-actions { grid-area: actions; margin-top: 0 !important; flex-wrap: nowrap !important; }
+.sp-view-list .music-note-preview { display: none !important; }
+.sp-view-list .card.sp-album .inline-edit { grid-column: 1 / -1; }
+
+.sp-album.sp-hidden { display: none !important; }
+
+/* ---------- RWD ---------- */
+@media (max-width: 900px) {
+    .sp-hero { padding: 24px 18px 20px; gap: 18px; }
+    .sp-hero-art { width: 132px; height: 132px; }
+    body[data-page="music"] .content-body { padding: 18px 14px 28px; }
+    .music-library-grid.sp-view-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 12px; }
+    .sp-play-fab { opacity: 1; transform: none; width: 38px; height: 38px; }
+    .sp-view-list .card.sp-album {
+        grid-template-columns: 48px minmax(0, 1fr);
+        grid-template-areas: "head head" "cover title" "cover meta" "actions actions";
+    }
+    .sp-view-list .music-card-actions { flex-wrap: wrap !important; margin-top: 8px !important; }
+}
+
 </style>

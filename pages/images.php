@@ -2,18 +2,44 @@
 $pageTitle = '圖片管理';
 $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll();
+
+$imgCategories = [];
+foreach ($items as $item) {
+    $cat = trim((string) ($item['category'] ?? ''));
+    if ($cat === '') { $cat = '未分類'; }
+    if (!isset($imgCategories[$cat])) { $imgCategories[$cat] = ['count' => 0, 'cover' => '']; }
+    $imgCategories[$cat]['count']++;
+    if ($imgCategories[$cat]['cover'] === '') {
+        $imgCategories[$cat]['cover'] = (string) (!empty($item['cover']) ? $item['cover'] : ($item['file'] ?? ''));
+    }
+}
+ksort($imgCategories);
+$imgWithFile = count(array_filter($items, fn($item) => !empty($item['file']) || !empty($item['cover'])));
 ?>
 
-<div class="content-header" style="display: flex; align-items: center; gap: 12px;">
-    <h1 style="margin: 0;">鋒兄圖片</h1>
-    <span style="background: #a63e34; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
-        <?php echo count($items); ?> 張
-    </span>
+<div class="content-header ig-header">
+    <div class="ig-profile">
+        <div class="ig-avatar-ring">
+            <div class="ig-avatar"><i class="fa-solid fa-camera-retro"></i></div>
+        </div>
+        <div class="ig-profile-main">
+            <div class="ig-profile-top">
+                <h1 class="ig-handle">鋒兄圖片</h1>
+                <span class="ig-username">@fengbro.images</span>
+            </div>
+            <div class="ig-stats">
+                <span><strong><?php echo count($items); ?></strong> 貼文</span>
+                <span><strong><?php echo count($imgCategories); ?></strong> 分類</span>
+                <span><strong><?php echo $imgWithFile; ?></strong> 有圖檔</span>
+            </div>
+            <p class="ig-bio">個人相簿牆 · 支援分類限動篩選、方格牆與貼文流兩種檢視，點圖可放大檢視。</p>
+        </div>
+    </div>
 </div>
 
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
-    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+    <div class="action-buttons ig-toolbar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增圖片"><i class="fas fa-plus"></i> 新增圖片</button>
         <button type="button" class="btn" onclick="document.getElementById('multiImageFiles').click()" title="一次上傳多張圖片">
             <i class="fa-solid fa-images"></i> 多圖片上傳
@@ -35,11 +61,34 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
     </div>
     <div id="imageCacheBanner" style="display:none;margin:0 0 12px;padding:10px 14px;border-radius:12px;background:var(--table-header-bg);color:var(--muted-text);font-size:0.9rem;"></div>
 
-    <div class="media-toolbar">
-        <div></div>
+    <?php if (!empty($imgCategories)): ?>
+    <div class="ig-stories" id="igStories">
+        <button type="button" class="ig-story is-active" data-cat="__all" onclick="filterImageCategory('__all', this)">
+            <span class="ig-story-ring"><span class="ig-story-thumb ig-story-all"><i class="fa-solid fa-layer-group"></i></span></span>
+            <span class="ig-story-label">全部</span>
+        </button>
+        <?php foreach ($imgCategories as $catName => $catInfo): ?>
+            <button type="button" class="ig-story" data-cat="<?php echo htmlspecialchars($catName, ENT_QUOTES); ?>"
+                onclick="filterImageCategory('<?php echo htmlspecialchars(addslashes($catName), ENT_QUOTES); ?>', this)">
+                <span class="ig-story-ring">
+                    <?php if (!empty($catInfo['cover'])): ?>
+                        <img class="ig-story-thumb" loading="lazy" alt="" src="<?php echo htmlspecialchars($catInfo['cover']); ?>">
+                    <?php else: ?>
+                        <span class="ig-story-thumb ig-story-all"><i class="fa-solid fa-image"></i></span>
+                    <?php endif; ?>
+                </span>
+                <span class="ig-story-label"><?php echo htmlspecialchars($catName); ?></span>
+                <span class="ig-story-count"><?php echo (int) $catInfo['count']; ?></span>
+            </button>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <div class="media-toolbar ig-viewbar">
+        <div class="ig-viewbar-hint"><i class="fa-solid fa-hashtag"></i> <span id="igVisibleCount"><?php echo count($items); ?></span> 張顯示中</div>
         <div class="view-switch">
-            <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('images', 'grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片</button>
-            <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('images', 'list')"><i class="fa-solid fa-list"></i> 列表</button>
+            <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('images', 'grid')"><i class="fa-solid fa-table-cells"></i> 方格牆</button>
+            <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('images', 'list')"><i class="fa-regular fa-square"></i> 貼文流</button>
         </div>
     </div>
 
@@ -84,7 +133,8 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
             <div class="card"><p style="text-align: center; color: #999;">暫無圖片</p></div>
         <?php else: ?>
             <?php foreach ($items as $item): ?>
-                <div class="card"
+                <?php $itemCat = trim((string) ($item['category'] ?? '')); if ($itemCat === '') { $itemCat = '未分類'; } ?>
+                <div class="card ig-post" data-cat="<?php echo htmlspecialchars($itemCat, ENT_QUOTES); ?>"
                     data-id="<?php echo $item['id']; ?>"
                     data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
                     data-file="<?php echo htmlspecialchars($item['file'] ?? '', ENT_QUOTES); ?>"
@@ -104,18 +154,32 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                         $imageSrc = !empty($item['cover']) ? $item['cover'] : ($item['file'] ?? '');
                         $cacheFile = $item['file'] ?? $imageSrc;
                         ?>
-                        <?php if (!empty($imageSrc)): ?>
-                            <img class="image-thumb"
-                                data-image-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                data-src="<?php echo htmlspecialchars($imageSrc); ?>"
-                                src="<?php echo htmlspecialchars($imageSrc); ?>"
-                                alt="<?php echo htmlspecialchars($item['name'] ?? ''); ?>"
-                                style="width: 100%; max-height: 320px; object-fit: contain; border-radius: 5px; margin-bottom: 10px; background: #faf9f5; cursor: zoom-in;"
-                                onclick="openImageLightbox('<?php echo htmlspecialchars($item['id']); ?>', '<?php echo htmlspecialchars($imageSrc, ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($item['name'] ?? '')); ?>')">
-                        <?php endif; ?>
-                        <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
-                        <p style="color: #666; font-size: 0.9rem;"><?php echo htmlspecialchars($item['category'] ?? '未分類'); ?></p>
-                        <p style="font-size: 0.85rem; color: #999;"><?php echo htmlspecialchars($item['note'] ?? ''); ?></p>
+                        <div class="ig-media">
+                            <?php if (!empty($imageSrc)): ?>
+                                <img class="image-thumb ig-img"
+                                    data-image-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                    data-src="<?php echo htmlspecialchars($imageSrc); ?>"
+                                    src="<?php echo htmlspecialchars($imageSrc); ?>"
+                                    loading="lazy"
+                                    alt="<?php echo htmlspecialchars($item['name'] ?? ''); ?>"
+                                    onclick="openImageLightbox('<?php echo htmlspecialchars($item['id']); ?>', '<?php echo htmlspecialchars($imageSrc, ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($item['name'] ?? '')); ?>')">
+                            <?php else: ?>
+                                <div class="ig-img ig-img-empty"><i class="fa-regular fa-image"></i></div>
+                            <?php endif; ?>
+                            <div class="ig-overlay">
+                                <span class="ig-overlay-name"><?php echo htmlspecialchars($item['name']); ?></span>
+                                <span class="ig-overlay-cat"><i class="fa-solid fa-hashtag"></i><?php echo htmlspecialchars($itemCat); ?></span>
+                            </div>
+                        </div>
+                        <div class="ig-caption">
+                            <div class="ig-caption-head">
+                                <span class="ig-mini-avatar"><i class="fa-solid fa-camera-retro"></i></span>
+                                <h3 class="card-title"><?php echo htmlspecialchars($item['name']); ?></h3>
+                            </div>
+                            <span class="ig-cat-chip">#<?php echo htmlspecialchars($itemCat); ?></span>
+                            <?php if (trim((string) ($item['note'] ?? '')) !== ''): ?>
+                                <p class="ig-note"><?php echo htmlspecialchars($item['note']); ?></p>
+                            <?php endif; ?>
                         <?php if (!empty($cacheFile)): ?>
                             <div style="margin-top:8px;">
                                 <button type="button" class="btn btn-sm btn-ghost image-cache-btn"
@@ -128,6 +192,7 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
                                 </button>
                             </div>
                         <?php endif; ?>
+                        </div>
                     </div>
                     <div class="inline-edit">
                         <div class="form-group">
@@ -216,8 +281,435 @@ $items = $pdo->query("SELECT * FROM image ORDER BY created_at DESC")->fetchAll()
 <?php include 'includes/upload-progress.php'; ?>
 <?php include 'includes/zip-preview.php'; ?>
 
+
+<style>
+    /* ==========================================================
+       鋒兄圖片 · Instagram 版面
+       ========================================================== */
+    .ig-header {
+        border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+        padding-bottom: 22px;
+        margin-bottom: 18px;
+    }
+
+    .ig-profile {
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .ig-avatar-ring {
+        width: 122px;
+        height: 122px;
+        border-radius: 50%;
+        padding: 4px;
+        flex-shrink: 0;
+        background: conic-gradient(from 210deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5, #feda75);
+    }
+
+    .ig-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: var(--card-bg, #fff);
+        border: 3px solid var(--body-bg, #faf9f5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.4rem;
+        color: #d62976;
+    }
+
+    .ig-profile-main { min-width: 240px; flex: 1; }
+
+    .ig-profile-top {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .ig-handle { margin: 0; font-size: 1.6rem; font-weight: 700; }
+
+    .ig-username {
+        color: var(--muted-text, #8e8e8e);
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+    }
+
+    .ig-stats {
+        display: flex;
+        gap: 26px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        font-size: 0.95rem;
+    }
+
+    .ig-stats strong { font-weight: 700; }
+
+    .ig-bio {
+        margin: 0;
+        color: var(--muted-text, #737373);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        max-width: 62ch;
+    }
+
+    /* ---------- 限動列（分類） ---------- */
+    .ig-stories {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding: 4px 2px 16px;
+        margin-bottom: 6px;
+        scrollbar-width: thin;
+        border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    }
+
+    .ig-story {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        width: 82px;
+        flex: 0 0 auto;
+        padding: 0;
+        position: relative;
+    }
+
+    .ig-story-ring {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        padding: 3px;
+        background: linear-gradient(45deg, #d9d9d9, #c7c7c7);
+        display: block;
+        transition: transform 0.18s ease;
+    }
+
+    .ig-story:hover .ig-story-ring { transform: scale(1.06); }
+
+    .ig-story.is-active .ig-story-ring {
+        background: conic-gradient(from 210deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5, #feda75);
+    }
+
+    .ig-story-thumb {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+        border: 2px solid var(--body-bg, #faf9f5);
+        background: var(--card-bg, #fff);
+    }
+
+    .ig-story-all {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #d62976;
+        font-size: 1.2rem;
+    }
+
+    .ig-story-label {
+        font-size: 0.76rem;
+        max-width: 82px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-color, #333);
+    }
+
+    .ig-story.is-active .ig-story-label { font-weight: 700; }
+
+    .ig-story-count {
+        position: absolute;
+        top: 0;
+        right: 4px;
+        min-width: 20px;
+        padding: 1px 5px;
+        border-radius: 999px;
+        background: #d62976;
+        color: #fff;
+        font-size: 0.66rem;
+        font-weight: 700;
+    }
+
+    .ig-viewbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .ig-viewbar-hint {
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted-text, #8e8e8e);
+        font-weight: 600;
+    }
+
+    /* ---------- 貼文卡 ---------- */
+    .media-browser-images .card-grid {
+        margin-top: 16px !important;
+    }
+
+    .media-browser-images .card.ig-post {
+        position: relative;
+        padding: 0 !important;
+        overflow: hidden;
+        border-radius: 4px;
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+        box-shadow: none;
+    }
+
+    .ig-media {
+        position: relative;
+        display: block;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        overflow: hidden;
+        background: #efefef;
+    }
+
+    .ig-img {
+        width: 100% !important;
+        height: 100% !important;
+        max-height: none !important;
+        object-fit: cover;
+        display: block;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        cursor: zoom-in;
+        background: #efefef;
+        transition: transform 0.32s ease;
+    }
+
+    .ig-post:hover .ig-img { transform: scale(1.04); }
+
+    .ig-img-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #b9b9b9;
+        font-size: 2rem;
+    }
+
+    .ig-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px;
+        text-align: center;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.42);
+        opacity: 0;
+        transition: opacity 0.22s ease;
+        pointer-events: none;
+    }
+
+    .ig-post:hover .ig-overlay { opacity: 1; }
+
+    .ig-overlay-name {
+        font-weight: 700;
+        font-size: 0.98rem;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .ig-overlay-cat {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.78rem;
+        opacity: 0.86;
+    }
+
+    .ig-caption { padding: 12px 14px 14px; }
+
+    .ig-caption-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 6px;
+    }
+
+    .ig-mini-avatar {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        color: #fff;
+        background: linear-gradient(45deg, #fa7e1e, #d62976, #962fbf);
+    }
+
+    .ig-caption .card-title {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .ig-cat-chip {
+        display: inline-block;
+        font-size: 0.78rem;
+        color: #0095f6;
+        font-weight: 600;
+    }
+
+    .ig-note {
+        margin: 6px 0 0;
+        font-size: 0.84rem;
+        line-height: 1.55;
+        color: var(--muted-text, #737373);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .media-browser-images .ig-post .card-header {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        z-index: 4;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .media-browser-images .ig-post:hover .card-header,
+    .media-browser-images .ig-post:focus-within .card-header,
+    .media-browser-images .ig-post.is-selected .card-header { opacity: 1; }
+
+    .media-browser-images .ig-post .card-edit-btn,
+    .media-browser-images .ig-post .card-delete-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+    }
+
+    .media-browser-images .ig-post .select-checkbox {
+        width: 18px;
+        height: 18px;
+        accent-color: #d62976;
+    }
+
+    /* ---------- 方格牆 ---------- */
+    .media-browser-images.media-view-grid .card-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .media-browser-images.media-view-grid .ig-post { border-radius: 2px; }
+    .media-browser-images.media-view-grid .ig-caption { display: none; }
+
+    /* ---------- 貼文流 ---------- */
+    .media-browser-images.media-view-list .card-grid {
+        display: block !important;
+        max-width: 512px;
+        margin: 16px auto 0 !important;
+    }
+
+    .media-browser-images.media-view-list .card-grid > .card:not(.inline-add-card) {
+        display: block !important;
+        grid-template-columns: none !important;
+        margin-bottom: 26px;
+        border-radius: 10px;
+    }
+
+    .media-browser-images.media-view-list .card-grid > .card:not(.inline-add-card) .inline-view {
+        display: block !important;
+    }
+
+    .media-browser-images.media-view-list .card-grid > .card:not(.inline-add-card) img {
+        width: 100% !important;
+        max-height: none !important;
+        margin-bottom: 0 !important;
+    }
+
+    .media-browser-images.media-view-list .ig-media { aspect-ratio: 4 / 5; }
+    .media-browser-images.media-view-list .ig-overlay { display: none; }
+    .media-browser-images.media-view-list .ig-note { -webkit-line-clamp: 4; }
+    .media-browser-images.media-view-list .ig-post .card-header { opacity: 1; }
+
+    .media-browser-images.media-view-grid .card-grid > #inlineAddCard {
+        grid-column: 1 / -1;
+        padding: 18px !important;
+        border-radius: 10px;
+    }
+
+    .media-browser-images .card-grid > #inlineAddCard { background: var(--card-bg, #fff); }
+
+    .ig-post.ig-hidden { display: none !important; }
+
+    /* ---------- RWD ---------- */
+    @media (max-width: 768px) {
+        .ig-profile { gap: 18px; }
+        .ig-avatar-ring { width: 86px; height: 86px; }
+        .ig-avatar { font-size: 1.7rem; }
+        .ig-handle { font-size: 1.25rem; }
+        .ig-stats { gap: 16px; font-size: 0.85rem; }
+        .ig-story { width: 68px; }
+        .ig-story-ring { width: 58px; height: 58px; }
+        .media-browser-images.media-view-grid .card-grid { gap: 3px; }
+        .media-browser-images .ig-post .card-header { opacity: 1; }
+    }
+</style>
+
 <script>
 const TABLE = 'image';
+let currentImageCategory = '__all';
+
+function filterImageCategory(cat, btn) {
+    currentImageCategory = cat || '__all';
+    document.querySelectorAll('#igStories .ig-story').forEach(function (el) {
+        el.classList.toggle('is-active', el === btn);
+    });
+    let shown = 0;
+    document.querySelectorAll('.card.ig-post').forEach(function (card) {
+        const match = currentImageCategory === '__all' || card.dataset.cat === currentImageCategory;
+        card.classList.toggle('ig-hidden', !match);
+        if (match) shown++;
+    });
+    const counter = document.getElementById('igVisibleCount');
+    if (counter) counter.textContent = shown;
+}
+
 initBatchDelete(TABLE);
 
 function handleAdd() {

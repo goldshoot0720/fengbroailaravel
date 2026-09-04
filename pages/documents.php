@@ -4,15 +4,49 @@ $pdo = getConnection();
 $items = $pdo->query("SELECT * FROM commondocument WHERE category != 'video' OR category IS NULL ORDER BY created_at DESC")->fetchAll();
 $categories = array_values(array_unique(array_filter(array_column($items, 'category'))));
 sort($categories);
+
+$docWithFile = count(array_filter($items, fn($item) => !empty($item['file'])));
+$docTotal = count($items);
+$docFillPercent = $docTotal > 0 ? (int) round($docWithFile / $docTotal * 100) : 0;
 ?>
 
-<div class="content-header">
-    <h1>鋒兄文件 <span
-            style="font-size:0.55em;background:#c07a3d;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
-    </h1>
+<div class="content-header doc-header">
+    <h1>鋒兄文件 <span class="doc-count-pill"><?php echo count($items); ?></span></h1>
 </div>
 
-<div class="content-body">
+<div class="content-body doc-experience doc-ui-drive" id="docExperience">
+    <div class="doc-topbar">
+        <div class="doc-crumb">
+            <span class="doc-crumb-root"><i class="doc-crumb-icon"></i><span class="doc-crumb-root-text">我的雲端硬碟</span></span>
+            <i class="fa-solid fa-chevron-right doc-crumb-sep"></i>
+            <strong>鋒兄文件</strong>
+        </div>
+        <div class="doc-ui-switch" role="tablist" aria-label="文件介面風格">
+            <button type="button" role="tab" class="doc-ui-btn is-active" data-ui="drive" onclick="setDocumentInterface('drive')">
+                <i class="fa-brands fa-google-drive"></i><span>雲端硬碟</span>
+            </button>
+            <button type="button" role="tab" class="doc-ui-btn" data-ui="mega" onclick="setDocumentInterface('mega')">
+                <i class="fa-solid fa-cloud"></i><span>MEGA</span>
+            </button>
+            <button type="button" role="tab" class="doc-ui-btn" data-ui="dropbox" onclick="setDocumentInterface('dropbox')">
+                <i class="fa-brands fa-dropbox"></i><span>Dropbox</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="doc-storage">
+        <div class="doc-storage-head">
+            <span class="doc-storage-title"><i class="fa-solid fa-hard-drive"></i> 檔案完成度</span>
+            <strong><?php echo (int) $docWithFile; ?> / <?php echo (int) $docTotal; ?> 份已有檔案</strong>
+        </div>
+        <div class="doc-storage-bar"><div class="doc-storage-fill" style="width: <?php echo (int) $docFillPercent; ?>%;"></div></div>
+        <div class="doc-storage-meta">
+            <span><?php echo (int) $docTotal; ?> 份文件</span>
+            <span><?php echo count($categories); ?> 個分類</span>
+            <span id="docStorageCacheHint">離線快取見上方「快取」按鈕</span>
+        </div>
+    </div>
+
     <?php include 'includes/inline-edit-hint.php'; ?>
     <?php if (isset($_GET['success'])): ?>
         <div class="alert alert-success"
@@ -44,10 +78,10 @@ sort($categories);
     <?php include 'includes/zip-preview.php'; ?>
     <?php include 'includes/batch-delete.php'; ?>
 
-    <div class="desktop-only" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div class="desktop-only doc-viewbar" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:0.85rem;color:#888;"><i class="fas fa-table-columns"></i> 檢視：</span>
-        <button class="btn btn-sm document-view-btn active" data-view="list" onclick="setDocumentView('list')">列表式</button>
-        <button class="btn btn-sm document-view-btn" data-view="card" onclick="setDocumentView('card')">卡片式</button>
+        <button class="btn btn-sm document-view-btn active" data-view="list" onclick="setDocumentView('list')"><i class="fa-solid fa-list"></i> 列表</button>
+        <button class="btn btn-sm document-view-btn" data-view="card" onclick="setDocumentView('card')"><i class="fa-solid fa-table-cells-large"></i> 格狀</button>
     </div>
 
     <!-- 分類篩選 -->
@@ -179,6 +213,361 @@ sort($categories);
             flex-wrap: wrap;
             margin-top: auto;
         }
+
+        /* ==========================================================
+           鋒兄文件 · 三介面（Google 雲端硬碟 / MEGA / Dropbox）
+           ========================================================== */
+        .doc-header h1 { display: flex; align-items: center; gap: 10px; }
+
+        .doc-count-pill {
+            font-size: 0.55em;
+            background: #c07a3d;
+            color: #fff;
+            padding: 3px 12px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .doc-experience {
+            --doc-accent: #1a73e8;
+            --doc-surface: #ffffff;
+            --doc-surface-2: #f8f9fa;
+            --doc-border: #dadce0;
+            --doc-text: #202124;
+            --doc-sub: #5f6368;
+            --doc-radius: 8px;
+        }
+
+        .doc-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 4px 0 14px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid var(--doc-border);
+        }
+
+        .doc-crumb {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 1.05rem;
+            color: var(--doc-sub);
+            min-width: 0;
+        }
+
+        .doc-crumb-root { display: inline-flex; align-items: center; gap: 8px; }
+        .doc-crumb strong { color: var(--doc-text); font-weight: 600; }
+        .doc-crumb-sep { font-size: 0.68rem; opacity: 0.55; }
+
+        .doc-crumb-icon {
+            font-family: "Font Awesome 6 Brands";
+            font-weight: 400;
+            font-style: normal;
+            color: var(--doc-accent);
+            font-size: 1.15rem;
+        }
+
+        .doc-crumb-icon::before { content: "\f3aa"; }
+
+        .doc-ui-switch {
+            display: inline-flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 999px;
+            background: var(--doc-surface-2);
+            border: 1px solid var(--doc-border);
+        }
+
+        .doc-ui-btn {
+            border: none;
+            background: transparent;
+            color: var(--doc-sub);
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            transition: background 0.18s ease, color 0.18s ease;
+        }
+
+        .doc-ui-btn:hover { background: rgba(0, 0, 0, 0.06); }
+
+        .doc-ui-btn.is-active {
+            background: var(--doc-surface);
+            color: var(--doc-accent);
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+        }
+
+        /* ---------- 空間列 ---------- */
+        .doc-storage {
+            padding: 14px 16px;
+            border-radius: var(--doc-radius);
+            background: var(--doc-surface-2);
+            border: 1px solid var(--doc-border);
+            margin-bottom: 16px;
+        }
+
+        .doc-storage-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            font-size: 0.88rem;
+            margin-bottom: 9px;
+            color: var(--doc-text);
+        }
+
+        .doc-storage-title { color: var(--doc-sub); display: inline-flex; align-items: center; gap: 7px; }
+
+        .doc-storage-bar {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .doc-storage-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--doc-accent);
+            transition: width 0.4s ease;
+        }
+
+        .doc-storage-meta {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 0.78rem;
+            color: var(--doc-sub);
+        }
+
+        /* ---------- 篩選 / 檢視鈕跟隨介面色 ---------- */
+        .doc-experience .category-filter-btn {
+            background: var(--doc-surface-2);
+            color: var(--doc-sub);
+            border: 1px solid var(--doc-border);
+        }
+
+        .doc-experience .category-filter-btn.active {
+            background: var(--doc-accent);
+            color: #fff;
+            border-color: var(--doc-accent);
+        }
+
+        .doc-experience .category-filter-btn:hover:not(.active) {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--doc-text);
+        }
+
+        .doc-experience .document-view-btn {
+            background: var(--doc-surface-2);
+            color: var(--doc-sub);
+            border: 1px solid var(--doc-border);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .doc-experience .document-view-btn.active {
+            background: var(--doc-accent);
+            color: #fff;
+            border-color: var(--doc-accent);
+        }
+
+        /* ---------- 表格 ---------- */
+        /* inline-edit.css 全域把 .inline-view 設成 block，會讓 <td class="inline-view"> 脫離表格排版 */
+        .doc-experience table.table td.inline-view { display: table-cell; }
+
+        .doc-experience table.table {
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid var(--doc-border);
+            border-radius: var(--doc-radius);
+            overflow: hidden;
+            background: var(--doc-surface);
+        }
+
+        .doc-experience table.table thead tr { background: var(--doc-surface-2); }
+
+        .doc-experience table.table thead th {
+            color: var(--doc-sub);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border-bottom: 1px solid var(--doc-border);
+        }
+
+        .doc-experience table.table tbody tr:hover { background: var(--doc-surface-2); }
+        .doc-experience table.table td { border-bottom: 1px solid var(--doc-border); color: var(--doc-text); }
+
+        /* ---------- 卡片 ---------- */
+        .doc-experience .document-card {
+            background: var(--doc-surface);
+            border: 1px solid var(--doc-border);
+            border-radius: var(--doc-radius);
+            box-shadow: none;
+            transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .doc-experience .document-card:hover {
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+            border-color: var(--doc-accent);
+        }
+
+        .doc-experience .document-card-thumb,
+        .doc-experience .document-card-fallback { border-radius: calc(var(--doc-radius) - 2px); }
+        .doc-experience .document-card-fallback { background: var(--doc-accent); }
+
+        .doc-experience .document-card h3 { color: var(--doc-text) !important; }
+        .doc-experience .document-card-note { color: var(--doc-sub); }
+
+        .doc-experience .document-card-badge {
+            background: color-mix(in srgb, var(--doc-accent) 14%, transparent);
+            color: var(--doc-accent);
+        }
+
+        /* 主要動作鈕跟隨介面主色 */
+        .doc-ui-drive .btn-primary,
+        .doc-ui-dropbox .btn-primary {
+            background: var(--doc-accent);
+            border-color: var(--doc-accent);
+            color: #fff;
+        }
+
+        .doc-ui-drive .btn-success,
+        .doc-ui-dropbox .btn-success {
+            background: transparent;
+            border: 1px solid var(--doc-accent);
+            color: var(--doc-accent);
+        }
+
+        .doc-ui-drive .btn-info,
+        .doc-ui-dropbox .btn-info {
+            background: var(--doc-surface-2);
+            border: 1px solid var(--doc-border);
+            color: var(--doc-text);
+        }
+
+        /* ============================================================
+           MEGA
+           ============================================================ */
+        .doc-ui-mega {
+            --doc-accent: #d9272e;
+            --doc-surface: #2b2b2b;
+            --doc-surface-2: #1f1f1f;
+            --doc-border: rgba(255, 255, 255, 0.12);
+            --doc-text: #f2f2f2;
+            --doc-sub: #a8a8a8;
+            --doc-radius: 6px;
+            background: #171717;
+            color: var(--doc-text);
+            border-radius: 14px;
+            padding: 20px 22px 30px;
+        }
+
+        .doc-ui-mega .doc-crumb-icon {
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+        }
+
+        .doc-ui-mega .doc-crumb-icon::before { content: "\f0c2"; }
+
+        .doc-ui-mega .doc-ui-btn.is-active { background: #3a3a3a; color: #ff5a5f; }
+        .doc-ui-mega .doc-ui-btn:hover { background: rgba(255, 255, 255, 0.08); }
+
+        .doc-ui-mega table.table tbody tr:hover { background: #333; }
+        .doc-ui-mega table.table td,
+        .doc-ui-mega table.table th { color: var(--doc-text); }
+
+        .doc-ui-mega .document-card {
+            border-top: 3px solid var(--doc-accent);
+            background: var(--doc-surface);
+        }
+
+        .doc-ui-mega .document-card:hover { box-shadow: 0 10px 26px rgba(217, 39, 46, 0.28); }
+        .doc-ui-mega .document-card-fallback { background: linear-gradient(135deg, #d9272e, #8b1216); }
+        .doc-ui-mega .document-card-badge { background: rgba(217, 39, 46, 0.18); color: #ff8a8f; }
+        .doc-ui-mega .document-card-time,
+        .doc-ui-mega .document-card-note { color: var(--doc-sub); }
+
+        .doc-ui-mega .btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+        }
+
+        .doc-ui-mega .btn-primary { background: var(--doc-accent); border-color: var(--doc-accent); }
+        .doc-ui-mega .form-control {
+            background: #333;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .doc-ui-mega .doc-storage-bar { background: rgba(255, 255, 255, 0.12); }
+        .doc-ui-mega .mobile-card { background: var(--doc-surface); color: var(--doc-text); }
+
+        /* ============================================================
+           Dropbox
+           ============================================================ */
+        .doc-ui-dropbox {
+            --doc-accent: #0061ff;
+            --doc-surface: #ffffff;
+            --doc-surface-2: #f7f9fc;
+            --doc-border: #e6e8eb;
+            --doc-text: #1e1919;
+            --doc-sub: #637282;
+            --doc-radius: 4px;
+        }
+
+        .doc-ui-dropbox .doc-crumb-icon::before { content: "\f16b"; }
+        .doc-ui-dropbox .doc-crumb { font-size: 1.25rem; font-weight: 700; color: var(--doc-text); }
+        .doc-ui-dropbox .doc-crumb-root-text { font-weight: 400; color: var(--doc-sub); }
+
+        .doc-ui-dropbox .doc-ui-switch { border-radius: 4px; }
+        .doc-ui-dropbox .doc-ui-btn { border-radius: 4px; }
+
+        .doc-ui-dropbox table.table {
+            border-left: none;
+            border-right: none;
+            border-radius: 0;
+        }
+
+        .doc-ui-dropbox table.table thead tr { background: transparent; }
+
+        .doc-ui-dropbox table.table thead th {
+            text-transform: none;
+            font-size: 0.82rem;
+            color: var(--doc-sub);
+            padding-top: 6px;
+            padding-bottom: 10px;
+        }
+
+        .doc-ui-dropbox table.table td { padding-top: 14px; padding-bottom: 14px; }
+        .doc-ui-dropbox table.table tbody tr:hover { background: #f5f8ff; }
+
+        .doc-ui-dropbox .document-card { box-shadow: none; border-radius: 4px; }
+        .doc-ui-dropbox .document-card:hover { box-shadow: 0 2px 10px rgba(0, 97, 255, 0.14); }
+        .doc-ui-dropbox .document-card-fallback { background: #0061ff; }
+        .doc-ui-dropbox .document-card-badge { background: #e8f0ff; color: #0047c2; }
+        .doc-ui-dropbox .doc-storage { background: #f7f9fc; }
+
+        /* ---------- RWD ---------- */
+        @media (max-width: 768px) {
+            .doc-topbar { align-items: flex-start; flex-direction: column; }
+            .doc-ui-switch { width: 100%; justify-content: space-between; }
+            .doc-ui-btn { flex: 1; justify-content: center; padding: 8px 6px; }
+            .doc-ui-btn span { display: none; }
+            .doc-ui-btn i { font-size: 1.05rem; }
+            .doc-ui-mega { padding: 14px 12px 24px; }
+        }
+
     </style>
 
     <!-- 桌面版表格 -->
@@ -1023,6 +1412,41 @@ sort($categories);
             enableBatchCacheButton(true);
         }
     });
+    /* ---------- 三介面切換（Google 雲端硬碟 / MEGA / Dropbox） ---------- */
+    const DOCUMENT_UI_STORAGE_KEY = 'documentInterfaceMode';
+    const DOCUMENT_UI_PRESETS = {
+        drive: { root: '我的雲端硬碟', view: 'list' },
+        mega: { root: '雲端空間', view: 'card' },
+        dropbox: { root: '所有檔案', view: 'list' }
+    };
+
+    function setDocumentInterface(mode, keepView) {
+        const ui = DOCUMENT_UI_PRESETS[mode] ? mode : 'drive';
+        const shell = document.getElementById('docExperience');
+        if (shell) {
+            Object.keys(DOCUMENT_UI_PRESETS).forEach(function (key) {
+                shell.classList.toggle('doc-ui-' + key, key === ui);
+            });
+        }
+        document.querySelectorAll('.doc-ui-btn').forEach(function (btn) {
+            const on = btn.dataset.ui === ui;
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        const rootText = document.querySelector('.doc-crumb-root-text');
+        if (rootText) rootText.textContent = DOCUMENT_UI_PRESETS[ui].root;
+        try { localStorage.setItem(DOCUMENT_UI_STORAGE_KEY, ui); } catch (_) {}
+        if (!keepView && typeof setDocumentView === 'function') {
+            setDocumentView(DOCUMENT_UI_PRESETS[ui].view);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let savedUi = 'drive';
+        try { savedUi = localStorage.getItem(DOCUMENT_UI_STORAGE_KEY) || 'drive'; } catch (_) {}
+        setDocumentInterface(savedUi, true);
+    });
+
 </script>
 
 <!-- 文件預覽彈窗 -->

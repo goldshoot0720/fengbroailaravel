@@ -605,3 +605,94 @@ function formatTime(seconds) {
 
 💡 **提示**: 所有樣式都支援暗黑模式，會自動使用 CSS 變數切換顏色！
 
+---
+
+## 🎬 十二、六大媒體頁「品牌介面」版面（2026-09-04 重建）
+
+六個頁面已改為各自的品牌介面版面。**資料層與 CRUD 完全沿用**（inline-edit、批次刪除、CSV／ZIP 匯入匯出、離線快取都沒有改動），只重建呈現層：版面骨架、卡片結構、CSS 主題變數與介面切換列。
+
+| 頁面 | 介面 | 切換元件 | localStorage key |
+|---|---|---|---|
+| `pages/videos.php` | YouTube / Bilibili / Netflix | `.video-mode-btn` → `setVideoInterface()` | `videoInterfaceMode` |
+| `pages/images.php` | Instagram（方格牆／貼文流） | `.view-btn` → `setMediaView('images', …)` | `fengbroMediaView_images` |
+| `pages/notes.php` | Notion（圖庫／清單／表格） | `.nv-tab` → `setNoteView()`、`.ns-item` → `selectNoteCategory()` | `fengbro_notes_view` |
+| `pages/music.php` | Spotify（專輯牆／歌曲清單） | `.sp-viewtab` → `setMusicView()`、`.sp-chip` → `filterMusicCategory()` | `fengbro_music_view` |
+| `pages/documents.php` | Google 雲端硬碟 / MEGA / Dropbox | `.doc-ui-btn` → `setDocumentInterface()` | `documentInterfaceMode` |
+| `pages/podcast.php` | Spotify Podcast（集數清單／卡片牆） | `.pc-viewtab` → `setPodcastView()`、`.pc-chip` → `filterPodcastCategory()` | `fengbro_podcast_view` |
+
+### 共同作法
+
+1. **主題用 CSS 變數切換**：外層容器掛 `video-experience-*` / `doc-ui-*` 類別，只改變數（accent、surface、border、radius），不重寫元件。
+2. **版面用容器類別切換**：`.video-list`、`.card-grid`、`.podcast-library-grid` 在不同介面下分別是 grid feed／密集 grid／橫向 rail／清單列。
+3. **卡片操作區浮動化**：暗色與網格介面把 `.card-header`（勾選＋編輯＋刪除）改為 `position: absolute` 並在 hover 才顯示，手機版一律顯示。
+4. **編輯狀態保護**：清單／表格類 grid 版面用 `:has(> .inline-edit[style*="display: block"])` 在編輯時退回區塊排版，避免表單被 grid 切碎。
+
+### 影片：Netflix 主打看板
+
+```html
+<div class="video-billboard" style="--vb-image:url('封面網址');">
+    <div class="video-billboard-scrim"></div>
+    <div class="video-billboard-inner">
+        <div class="video-billboard-badge"><span>F</span> 鋒兄原創影片</div>
+        <h2 class="video-billboard-title">影片名稱</h2>
+        <p class="video-billboard-desc">備註</p>
+        <div class="video-billboard-actions">
+            <button class="vb-btn vb-btn-play"><i class="fa-solid fa-play"></i> 播放</button>
+            <button class="vb-btn vb-btn-info"><i class="fa-solid fa-circle-info"></i> 更多</button>
+        </div>
+    </div>
+</div>
+```
+
+### 圖片：Instagram 個人頁標頭 ＋ 分類限動
+
+```html
+<div class="ig-profile">
+    <div class="ig-avatar-ring"><div class="ig-avatar"><i class="fa-solid fa-camera-retro"></i></div></div>
+    <div class="ig-profile-main">
+        <div class="ig-profile-top"><h1 class="ig-handle">標題</h1><span class="ig-username">@handle</span></div>
+        <div class="ig-stats"><span><strong>24</strong> 貼文</span></div>
+    </div>
+</div>
+
+<div class="ig-stories">
+    <button class="ig-story is-active"><span class="ig-story-ring"><img class="ig-story-thumb" src="…"></span><span class="ig-story-label">分類</span></button>
+</div>
+```
+
+### 筆記：Notion 側欄 ＋ 檢視分頁
+
+```html
+<div class="content-body notion-body">
+    <aside class="notion-sidebar">…（分類導覽 .ns-item）…</aside>
+    <div class="notion-pagehead">
+        <div class="notion-breadcrumb"><span>工作區</span><i>/</i><strong>目前檢視</strong></div>
+        <div class="notion-viewtabs"><button class="nv-tab is-active">圖庫</button>…</div>
+    </div>
+    <div class="card-grid notes-database notes-view-gallery">…</div>
+</div>
+```
+
+> `.notion-body` 是 `grid-template-columns: 236px 1fr`，側欄外的所有直接子元素自動落在第二欄，不需要額外包 wrapper。
+
+### 音樂／播客：Spotify 標頭
+
+```html
+<div class="content-header sp-hero">
+    <div class="sp-hero-art"><img src="封面"></div>
+    <div class="sp-hero-text">
+        <span class="sp-hero-kicker">播放清單</span>
+        <h1 class="sp-hero-title">鋒兄音樂</h1>
+        <div class="sp-hero-meta"><span class="sp-hero-owner">鋒兄</span> · <span>N 首歌曲</span></div>
+    </div>
+</div>
+```
+
+專輯卡的綠色播放鈕：`.sp-play-fab`（hover 才淡入，手機版一律顯示）。播客同款前綴為 `pc-`。
+
+### 文件：三雲端介面
+
+三種介面只換 `.doc-experience` 上的 `doc-ui-drive` / `doc-ui-mega` / `doc-ui-dropbox`，其餘元件（表格、卡片、篩選鈕、空間列 `.doc-storage`）自動吃主題變數。
+
+> ⚠️ 已修掉一個既有問題：`assets/css/inline-edit.css` 全域把 `.inline-view` 設成 `display: block`，會讓 `documents.php` 的 `<td class="inline-view">` 脫離表格排版。現在由 `.doc-experience table.table td.inline-view { display: table-cell; }` 修正。
+

@@ -26,13 +26,10 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             <i class="fa-solid fa-file-zipper"></i> 匯入 ZIP
         </button>
         <input type="file" id="importZipFile" accept=".zip" style="display: none;" onchange="importZIP(this)">
-        <div id="videoInterfaceSwitch" class="video-interface-switch">
-            <button type="button" class="video-mode-btn active" data-mode="youtube" onclick="setVideoInterface('youtube')">Like YouTube</button>
-            <button type="button" class="video-mode-btn" data-mode="bilibili" onclick="setVideoInterface('bilibili')">Like Bilibili</button>
-        </div>
-        <div class="view-switch">
-            <button type="button" class="view-btn" data-media-view-btn="grid" onclick="setMediaView('videos', 'grid')"><i class="fa-solid fa-table-cells-large"></i> 卡片</button>
-            <button type="button" class="view-btn" data-media-view-btn="list" onclick="setMediaView('videos', 'list')"><i class="fa-solid fa-list"></i> 列表</button>
+        <div id="videoInterfaceSwitch" class="video-interface-switch" role="tablist" aria-label="影片介面風格">
+            <button type="button" role="tab" class="video-mode-btn active" data-mode="youtube" onclick="setVideoInterface('youtube')"><i class="fa-brands fa-youtube"></i><span>YouTube</span></button>
+            <button type="button" role="tab" class="video-mode-btn" data-mode="bilibili" onclick="setVideoInterface('bilibili')"><i class="fa-brands fa-bilibili"></i><span>Bilibili</span></button>
+            <button type="button" role="tab" class="video-mode-btn" data-mode="netflix" onclick="setVideoInterface('netflix')"><i class="fa-solid fa-clapperboard"></i><span>Netflix</span></button>
         </div>
         <button type="button" class="btn btn-ghost" onclick="refreshVideoCacheStats()" title="離線快取狀態">
             <i class="fa-solid fa-hard-drive"></i> <span id="videoCacheStatsLabel">快取</span>
@@ -41,7 +38,33 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     <div id="videoCacheBanner" class="video-cache-banner" style="display:none;margin:10px 0 0;padding:10px 14px;border-radius:12px;background:var(--table-header-bg);color:var(--muted-text);font-size:0.9rem;"></div>
     <?php include 'includes/batch-delete.php'; ?>
 
-    <div id="videoExperience" class="video-experience video-experience-youtube media-browser media-browser-video media-view-list" data-media-scope="videos">
+    <div id="videoExperience" class="video-experience video-experience-youtube media-browser media-browser-video" data-media-scope="videos">
+        <?php $featured = $items[0] ?? null; ?>
+        <div class="video-billboard" id="videoBillboard"<?php if ($featured && !empty($featured['cover'])): ?> style="--vb-image:url('<?php echo htmlspecialchars($featured['cover'], ENT_QUOTES); ?>');"<?php endif; ?>>
+            <div class="video-billboard-scrim"></div>
+            <div class="video-billboard-inner">
+                <div class="video-billboard-badge"><span>F</span> 鋒兄原創影片</div>
+                <h2 class="video-billboard-title"><?php echo htmlspecialchars($featured['name'] ?? '片庫還是空的'); ?></h2>
+                <p class="video-billboard-desc"><?php echo htmlspecialchars($featured['note'] ?? '') !== '' ? htmlspecialchars($featured['note']) : '新增影片後，最新一部會出現在這裡作為主打影片。'; ?></p>
+                <div class="video-billboard-actions">
+                    <?php if ($featured && !empty($featured['file'])): ?>
+                        <button type="button" class="vb-btn vb-btn-play"
+                            onclick="playVideo('<?php echo $featured['id']; ?>', '<?php echo htmlspecialchars($featured['file']); ?>', '<?php echo htmlspecialchars(addslashes($featured['name'])); ?>')">
+                            <i class="fa-solid fa-play"></i> 播放
+                        </button>
+                    <?php endif; ?>
+                    <button type="button" class="vb-btn vb-btn-info" onclick="document.getElementById('videoLibraryRail').scrollIntoView({behavior:'smooth',block:'start'})">
+                        <i class="fa-solid fa-circle-info"></i> 瀑布式片庫
+                    </button>
+                </div>
+                <div class="video-billboard-meta">
+                    <span><?php echo count($items); ?> 部影片</span>
+                    <span><?php echo count(array_filter($items, fn($item) => !empty($item['cover']))); ?> 部已有封面</span>
+                    <span><?php echo $featured && !empty($featured['created_at']) ? date('Y', strtotime($featured['created_at'])) : date('Y'); ?></span>
+                </div>
+            </div>
+        </div>
+
         <div class="video-hero">
             <div>
                 <div class="video-hero-kicker">鋒兄影片</div>
@@ -59,6 +82,11 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 </div>
             </div>
         </div>
+
+    <div class="video-rail-head" id="videoLibraryRail">
+        <h3>最近新增</h3>
+        <span class="video-rail-count"><?php echo count($items); ?> 部</span>
+    </div>
 
     <div class="video-list" style="margin-top: 20px;">
         <div id="inlineAddCard" class="video-item card inline-add-card"
@@ -134,26 +162,23 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                         <div class="video-summary" style="display: flex; justify-content: space-between; align-items: center;">
                             <div class="video-summary-main" style="display: flex; align-items: center; gap: 15px;">
                                 <div class="video-summary-media">
-                                <?php if (!empty($item['cover'])): ?>
-                                    <img src="<?php echo htmlspecialchars($item['cover']); ?>"
-                                        style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px;">
-                                <?php elseif (!empty($item['file'])): ?>
-                                    <video
-                                        src="<?php echo htmlspecialchars($item['file']); ?>"
-                                        preload="metadata"
-                                        muted
-                                        playsinline
-                                        style="width: 80px; height: 60px; object-fit: cover; border-radius: 5px; background: #3d3a35;">
-                                    </video>
-                                <?php else: ?>
-                                    <div class="video-thumb-placeholder"
-                                        style="width: 80px; height: 60px; background: #3d3a35; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
-                                        <i class="fa-solid fa-video" style="color: #fff; font-size: 1.5rem;"></i>
+                                    <div class="video-thumb-frame"<?php if (!empty($item['file'])): ?> role="button" tabindex="0" title="播放"
+                                        onclick="playVideo('<?php echo $item['id']; ?>', '<?php echo htmlspecialchars($item['file']); ?>', '<?php echo htmlspecialchars(addslashes($item['name'])); ?>')"<?php endif; ?>>
+                                        <?php if (!empty($item['cover'])): ?>
+                                            <img class="video-thumb" loading="lazy" alt="" src="<?php echo htmlspecialchars($item['cover']); ?>">
+                                        <?php elseif (!empty($item['file'])): ?>
+                                            <video class="video-thumb" src="<?php echo htmlspecialchars($item['file']); ?>" preload="metadata" muted playsinline></video>
+                                        <?php else: ?>
+                                            <div class="video-thumb video-thumb-placeholder"><i class="fa-solid fa-video"></i></div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($item['file'])): ?>
+                                            <span class="video-thumb-play"><i class="fa-solid fa-play"></i></span>
+                                        <?php endif; ?>
+                                        <span class="video-thumb-title"><?php echo htmlspecialchars($item['name']); ?></span>
                                     </div>
-                                <?php endif; ?>
                                 </div>
-                                <div>
-                                    <h3 style="margin: 0 0 5px 0; font-size: 1.1rem;">
+                                <div class="video-summary-text">
+                                    <h3 class="video-card-title">
                                         <?php echo htmlspecialchars($item['name']); ?>
                                     </h3>
                                     <div class="video-meta-row">
@@ -350,11 +375,6 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
             box-shadow: 0 4px 14px rgba(30, 26, 20, 0.1);
         }
 
-        .video-list .video-item {
-            background: var(--video-shell-bg) !important;
-            border: 1px solid var(--video-shell-border);
-            box-shadow: var(--video-shell-shadow) !important;
-        }
 
         .video-summary {
             gap: 18px;
@@ -794,6 +814,618 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
                 height: 48px;
             }
         }
+
+        /* ============================================================
+           三介面版面重建：YouTube / Bilibili / Netflix
+           ============================================================ */
+        .video-experience { position: relative; }
+
+        .video-experience-youtube {
+            --video-accent: #ff0033;
+            --video-chip-bg: rgba(255, 0, 51, 0.10);
+            --video-chip-text: #b3122f;
+        }
+
+        .video-experience-bilibili {
+            --video-accent: #fb7299;
+            --video-chip-bg: rgba(251, 114, 153, 0.14);
+            --video-chip-text: #c2185b;
+        }
+
+        .video-experience-netflix {
+            --video-accent: #e50914;
+            --video-secondary: #ffffff;
+            --video-chip-bg: rgba(255, 255, 255, 0.14);
+            --video-chip-text: rgba(255, 255, 255, 0.86);
+            --video-modal-bg: #141414;
+            --video-side-bg: rgba(255, 255, 255, 0.04);
+            background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%);
+            color: #fff;
+            border-radius: 24px;
+            padding: 0 0 26px;
+            margin-top: 18px;
+            overflow: hidden;
+        }
+
+        /* ---------- 共用縮圖框 ---------- */
+        .video-thumb-frame {
+            position: relative;
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #221f1c;
+            cursor: pointer;
+            isolation: isolate;
+        }
+
+        .video-thumb {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+            display: block;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            background: #221f1c;
+        }
+
+        .video-thumb-placeholder {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.6rem;
+        }
+
+        .video-thumb-play {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.05rem;
+            background: rgba(0, 0, 0, 0.28);
+            opacity: 0;
+            transition: opacity 0.22s ease;
+        }
+
+        .video-thumb-play i {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.62);
+            border: 2px solid rgba(255, 255, 255, 0.85);
+            padding-left: 4px;
+        }
+
+        .video-thumb-frame:hover .video-thumb-play,
+        .video-thumb-frame:focus-visible .video-thumb-play { opacity: 1; }
+
+        .video-thumb-title { display: none; }
+
+        .video-summary-text { min-width: 0; }
+
+        .video-card-title {
+            margin: 0 0 6px;
+            font-size: 1.02rem;
+            line-height: 1.4;
+            color: var(--video-secondary);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* ============================ YouTube ============================ */
+        .video-experience-youtube .video-billboard { display: none; }
+
+        .video-experience-youtube .video-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+            gap: 26px 18px;
+        }
+
+        .video-experience-youtube .video-list .video-item {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+            border-radius: 14px !important;
+        }
+
+        .video-experience-youtube .video-summary,
+        .video-experience-youtube .video-summary-main {
+            display: block !important;
+        }
+
+        .video-experience-youtube .video-summary-media { margin-bottom: 12px; }
+
+        .video-experience-youtube .video-thumb-frame { border-radius: 14px; }
+
+        .video-experience-youtube .video-card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .video-experience-youtube .video-actions {
+            margin-top: 10px;
+            gap: 6px;
+            opacity: 0.35;
+            transition: opacity 0.2s ease;
+        }
+
+        .video-experience-youtube .video-item:hover .video-actions,
+        .video-experience-youtube .video-item:focus-within .video-actions { opacity: 1; }
+
+        .video-experience-youtube .video-actions .btn {
+            min-height: 34px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+        }
+
+        .video-experience-youtube .video-badge {
+            background: var(--video-chip-bg);
+            color: var(--video-chip-text);
+        }
+
+        /* ============================ Bilibili ============================ */
+        .video-experience-bilibili .video-billboard { display: none; }
+
+        .video-experience-bilibili .video-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+            gap: 20px 14px;
+        }
+
+        .video-experience-bilibili .video-list .video-item {
+            background: var(--card-bg, #fff) !important;
+            border: 1px solid rgba(251, 114, 153, 0.16) !important;
+            box-shadow: 0 2px 10px rgba(31, 30, 29, 0.06) !important;
+            padding: 0 0 12px !important;
+            margin-bottom: 0 !important;
+            border-radius: 12px !important;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .video-experience-bilibili .video-list .video-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(251, 114, 153, 0.22) !important;
+        }
+
+        .video-experience-bilibili .video-summary,
+        .video-experience-bilibili .video-summary-main {
+            display: block !important;
+        }
+
+        .video-experience-bilibili .video-thumb-frame { border-radius: 12px 12px 0 0; }
+
+        .video-experience-bilibili .video-summary-text { padding: 10px 12px 0; }
+
+        .video-experience-bilibili .video-card-title {
+            font-size: 0.94rem;
+            font-weight: 600;
+            min-height: 2.6em;
+        }
+
+        .video-experience-bilibili .video-meta-row {
+            gap: 6px;
+            font-size: 0.74rem;
+        }
+
+        .video-experience-bilibili .video-badge {
+            background: var(--video-chip-bg);
+            color: var(--video-chip-text);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+        }
+
+        .video-experience-bilibili .video-note-preview {
+            font-size: 0.78rem !important;
+            -webkit-line-clamp: 1;
+        }
+
+        .video-experience-bilibili .video-actions {
+            padding: 0 12px;
+            margin-top: 10px;
+            gap: 6px;
+        }
+
+        .video-experience-bilibili .video-actions .btn {
+            min-height: 30px;
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+        }
+
+        .video-experience-bilibili .video-list .video-item { position: relative; }
+
+        .video-experience-bilibili .card-header {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            z-index: 3;
+            margin: 0 !important;
+            padding: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .video-experience-bilibili .video-item:hover .card-header,
+        .video-experience-bilibili .video-item:focus-within .card-header { opacity: 1; }
+
+        .video-experience-bilibili .card-edit-btn,
+        .video-experience-bilibili .card-delete-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-experience-youtube .video-item { position: relative; }
+
+        .video-experience-youtube .card-header {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            z-index: 3;
+            margin: 0 !important;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .video-experience-youtube .video-item:hover .card-header,
+        .video-experience-youtube .video-item:focus-within .card-header { opacity: 1; }
+
+        .video-experience-youtube .card-edit-btn,
+        .video-experience-youtube .card-delete-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ============================ Netflix ============================ */
+        .video-billboard {
+            display: none;
+            position: relative;
+            min-height: 420px;
+            padding: 0;
+            background-image: var(--vb-image, none);
+            background-size: cover;
+            background-position: center 28%;
+            background-color: #1c1c1c;
+        }
+
+        .video-experience-netflix .video-billboard { display: block; }
+        .video-experience-netflix .video-hero { display: none; }
+
+        .video-billboard-scrim {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg, rgba(10, 10, 10, 0.94) 0%, rgba(10, 10, 10, 0.72) 42%, rgba(10, 10, 10, 0.1) 78%),
+                linear-gradient(0deg, #141414 2%, rgba(20, 20, 20, 0) 46%);
+        }
+
+        .video-billboard-inner {
+            position: relative;
+            padding: 64px 44px 52px;
+            max-width: 640px;
+        }
+
+        .video-billboard-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.78);
+            margin-bottom: 14px;
+        }
+
+        .video-billboard-badge span {
+            color: #e50914;
+            font-weight: 800;
+            font-size: 1.15rem;
+            letter-spacing: 0;
+        }
+
+        .video-billboard-title {
+            margin: 0 0 14px;
+            font-size: clamp(1.9rem, 4vw, 3.1rem);
+            line-height: 1.1;
+            color: #fff;
+            font-weight: 800;
+            text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+        }
+
+        .video-billboard-desc {
+            margin: 0 0 22px;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 1rem;
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-billboard-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .vb-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .vb-btn:hover { opacity: 0.82; transform: translateY(-1px); }
+        .vb-btn-play { background: #fff; color: #141414; }
+        .vb-btn-info { background: rgba(109, 109, 110, 0.7); color: #fff; }
+
+        .video-billboard-meta {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.85rem;
+        }
+
+        .video-rail-head {
+            display: none;
+            align-items: baseline;
+            gap: 12px;
+            padding: 0 44px;
+            margin: 6px 0 -6px;
+        }
+
+        .video-experience-netflix .video-rail-head { display: flex; }
+
+        .video-rail-head h3 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .video-rail-count { color: rgba(255, 255, 255, 0.5); font-size: 0.85rem; }
+
+        .video-experience-netflix .video-list {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            overflow-x: auto;
+            overflow-y: visible;
+            scroll-snap-type: x proximity;
+            padding: 34px 44px 40px;
+            margin-top: 0 !important;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+        }
+
+        .video-experience-netflix .video-list::-webkit-scrollbar { height: 8px; }
+        .video-experience-netflix .video-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.24);
+            border-radius: 999px;
+        }
+
+        .video-experience-netflix .video-list .video-item {
+            flex: 0 0 clamp(210px, 21vw, 300px);
+            scroll-snap-align: start;
+            background: #181818 !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+            border-radius: 8px !important;
+            overflow: visible;
+            transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.28s ease;
+        }
+
+        .video-experience-netflix .video-list .video-item:hover,
+        .video-experience-netflix .video-list .video-item:focus-within {
+            transform: scale(1.11);
+            z-index: 6;
+            box-shadow: 0 20px 44px rgba(0, 0, 0, 0.72) !important;
+        }
+
+        .video-experience-netflix .video-summary,
+        .video-experience-netflix .video-summary-main {
+            display: block !important;
+        }
+
+        .video-experience-netflix .video-thumb-frame { border-radius: 8px; }
+
+        .video-experience-netflix .video-thumb-title {
+            display: block;
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 10px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.92rem;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-experience-netflix .video-thumb-frame::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 52%;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0));
+            pointer-events: none;
+        }
+
+        .video-experience-netflix .video-thumb-play { z-index: 2; }
+
+        .video-experience-netflix .video-summary-text,
+        .video-experience-netflix .video-actions {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.28s ease, opacity 0.22s ease, padding 0.28s ease;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .video-experience-netflix .video-item:hover .video-summary-text,
+        .video-experience-netflix .video-item:hover .video-actions,
+        .video-experience-netflix .video-item:focus-within .video-summary-text,
+        .video-experience-netflix .video-item:focus-within .video-actions {
+            max-height: 200px;
+            opacity: 1;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        .video-experience-netflix .video-card-title {
+            color: #fff;
+            font-size: 0.9rem;
+            -webkit-line-clamp: 1;
+        }
+
+        .video-experience-netflix .video-created-at { color: rgba(255, 255, 255, 0.5); }
+        .video-experience-netflix .video-note-preview { color: rgba(255, 255, 255, 0.62) !important; }
+
+        .video-experience-netflix .video-badge {
+            background: var(--video-chip-bg);
+            color: var(--video-chip-text);
+        }
+
+        .video-experience-netflix .video-actions .btn {
+            min-height: 32px;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .video-experience-netflix .video-actions .btn:hover { background: rgba(255, 255, 255, 0.24); }
+
+        .video-experience-netflix .card-header {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .video-experience-netflix .video-item:hover .card-header,
+        .video-experience-netflix .video-item:focus-within .card-header { opacity: 1; }
+
+        .video-experience-netflix .video-item { position: relative; }
+
+        .video-experience-netflix .card-edit-btn,
+        .video-experience-netflix .card-delete-btn {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-experience-netflix #inlineAddCard,
+        .video-experience-netflix .video-item .inline-edit {
+            background: #1f1f1f;
+            color: #fff;
+        }
+
+        .video-experience-netflix #inlineAddCard { flex: 0 0 min(560px, 90vw); padding: 18px !important; }
+
+        /* ---------- 介面切換列 ---------- */
+        .video-mode-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-weight: 600;
+        }
+
+        .video-mode-btn[data-mode="youtube"].active { color: #ff0033; }
+        .video-mode-btn[data-mode="bilibili"].active { color: #fb7299; }
+        .video-mode-btn[data-mode="netflix"].active { background: #141414; color: #e50914; }
+
+        /* ---------- RWD ---------- */
+        @media (max-width: 900px) {
+            .video-billboard { min-height: 320px; }
+            .video-billboard-inner { padding: 40px 22px 34px; }
+            .video-rail-head { padding: 0 22px; }
+            .video-experience-netflix .video-list { padding: 24px 22px 30px; }
+        }
+
+        @media (max-width: 768px) {
+            .video-experience-youtube .video-list,
+            .video-experience-bilibili .video-list {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 18px 12px;
+            }
+
+            .video-experience-youtube .video-summary-media,
+            .video-experience-bilibili .video-summary-media,
+            .video-experience-netflix .video-summary-media { margin-bottom: 8px; }
+
+            .video-experience-youtube .video-summary-media img,
+            .video-experience-youtube .video-summary-media video,
+            .video-experience-bilibili .video-summary-media img,
+            .video-experience-bilibili .video-summary-media video,
+            .video-experience-netflix .video-summary-media img,
+            .video-experience-netflix .video-summary-media video {
+                height: 100% !important;
+                max-height: none;
+            }
+
+            .video-experience-youtube .video-actions { opacity: 1; }
+            .video-experience-netflix .video-list .video-item { flex: 0 0 62vw; }
+            .video-experience-netflix .video-list .video-item:hover { transform: none; }
+            .video-experience-netflix .video-summary-text,
+            .video-experience-netflix .video-actions { max-height: 200px; opacity: 1; padding-top: 10px; padding-bottom: 10px; }
+            .video-experience-netflix .card-header,
+            .video-experience-youtube .card-header,
+            .video-experience-bilibili .card-header { opacity: 1; }
+            .video-mode-btn span { display: none; }
+            .video-mode-btn i { font-size: 1.05rem; }
+        }
+
     </style>
 
     <!-- Video Player Modal -->
@@ -997,8 +1629,30 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         }
     }
 
+    const VIDEO_INTERFACE_PRESETS = {
+        youtube: {
+            title: 'Theater feed, clean controls, playlist rhythm.',
+            description: 'YouTube 介面把片庫排成大縮圖網格，標題兩行、操作按鈕在滑過時才淡入，適合長時間連續瀏覽。',
+            metaTitle: '影片資訊',
+            queueTitle: '接續播放'
+        },
+        bilibili: {
+            title: '資訊更密、卡片更小、像追番站的看片節奏。',
+            description: 'Bilibili 介面把卡片縮到六欄以上，資訊層次密集、封面下方直接接標題與備註，適合快速掃過大量影片。',
+            metaTitle: '稿件資訊',
+            queueTitle: '推薦連播'
+        },
+        netflix: {
+            title: '主打影片 + 橫向片庫走廊。',
+            description: 'Netflix 介面用暗色劇院背景，最新一部影片變成主打看板，其餘影片排成可橫向捲動的片庫走廊，滑過會放大展開資訊。',
+            metaTitle: '本集資訊',
+            queueTitle: '接著看'
+        }
+    };
+
     function setVideoInterface(mode) {
-        currentVideoInterface = mode === 'bilibili' ? 'bilibili' : 'youtube';
+        currentVideoInterface = VIDEO_INTERFACE_PRESETS[mode] ? mode : 'youtube';
+        const preset = VIDEO_INTERFACE_PRESETS[currentVideoInterface];
         const container = document.getElementById('videoExperience');
         const title = document.getElementById('videoExperienceTitle');
         const description = document.getElementById('videoExperienceDescription');
@@ -1006,27 +1660,21 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
         const queueTitle = document.getElementById('videoPlayerQueueTitle');
 
         if (container) {
-            container.classList.toggle('video-experience-youtube', currentVideoInterface === 'youtube');
-            container.classList.toggle('video-experience-bilibili', currentVideoInterface === 'bilibili');
+            Object.keys(VIDEO_INTERFACE_PRESETS).forEach(function (key) {
+                container.classList.toggle('video-experience-' + key, key === currentVideoInterface);
+            });
         }
 
         document.querySelectorAll('.video-mode-btn').forEach(button => {
-            button.classList.toggle('active', button.dataset.mode === currentVideoInterface);
+            const on = button.dataset.mode === currentVideoInterface;
+            button.classList.toggle('active', on);
+            button.setAttribute('aria-selected', on ? 'true' : 'false');
         });
 
-        if (title && description && metaTitle && queueTitle) {
-            if (currentVideoInterface === 'bilibili') {
-                title.textContent = '資訊更密、右欄更強、像追番站的看片節奏。';
-                description.textContent = 'Bilibili 介面會把影片資訊、接續播放與備註放得更靠近主播放器，適合快速切片切片地看。';
-                metaTitle.textContent = '稿件資訊';
-                queueTitle.textContent = '推薦連播';
-            } else {
-                title.textContent = 'Theater feed, clean controls, playlist rhythm.';
-                description.textContent = 'YouTube 介面強調主播放器與清楚縮圖，右欄像播放清單，適合長時間連續播放。';
-                metaTitle.textContent = '影片資訊';
-                queueTitle.textContent = '接續播放';
-            }
-        }
+        if (title) title.textContent = preset.title;
+        if (description) description.textContent = preset.description;
+        if (metaTitle) metaTitle.textContent = preset.metaTitle;
+        if (queueTitle) queueTitle.textContent = preset.queueTitle;
 
         localStorage.setItem(VIDEO_INTERFACE_STORAGE_KEY, currentVideoInterface);
         renderVideoQueue(currentPlayingVideoId);
@@ -1759,7 +2407,6 @@ $items = $pdo->query("SELECT * FROM video ORDER BY created_at DESC")->fetchAll()
     document.addEventListener('DOMContentLoaded', function () {
         const savedMode = localStorage.getItem(VIDEO_INTERFACE_STORAGE_KEY);
         setVideoInterface(savedMode || 'youtube');
-        if (window.initMediaView) initMediaView('videos', 'list');
         renderVideoQueue(null);
         renderVideoMeta(null);
         refreshVideoCacheStats();

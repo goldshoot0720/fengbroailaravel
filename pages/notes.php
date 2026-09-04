@@ -26,6 +26,19 @@ foreach ($items as $item) {
 }
 $categories = array_keys($categories);
 sort($categories);
+
+$noteCategoryCounts = [];
+$noteUncategorizedCount = 0;
+foreach ($items as $item) {
+    $itemCategories = parseNoteCategories($item['category'] ?? '');
+    if (empty($itemCategories)) {
+        $noteUncategorizedCount++;
+        continue;
+    }
+    foreach ($itemCategories as $category) {
+        $noteCategoryCounts[$category] = ($noteCategoryCounts[$category] ?? 0) + 1;
+    }
+}
 ?>
 
 <div class="content-header notes-header">
@@ -51,7 +64,69 @@ sort($categories);
     </div>
 </div>
 
-<div class="content-body">
+<div class="content-body notion-body">
+    <aside class="notion-sidebar" aria-label="筆記工作區">
+        <div class="ns-workspace">
+            <span class="ns-ws-icon">鋒</span>
+            <div class="ns-ws-text">
+                <strong>鋒兄工作區</strong>
+                <small>Fengbro Workspace</small>
+            </div>
+        </div>
+
+        <button type="button" class="ns-quick" onclick="document.getElementById('noteSearchInput')?.focus()">
+            <i class="fas fa-search"></i> <span>搜尋筆記</span>
+        </button>
+        <button type="button" class="ns-quick ns-quick-new" onclick="handleAdd()">
+            <i class="fas fa-plus"></i> <span>新增一頁</span>
+        </button>
+
+        <div class="ns-section">分類</div>
+        <nav class="ns-nav" id="notionCategoryNav">
+            <button type="button" class="ns-item is-active" data-value="__all" onclick="selectNoteCategory('__all', this)">
+                <span class="ns-item-icon"><i class="fa-regular fa-file-lines"></i></span>
+                <span class="ns-item-label">全部筆記</span>
+                <span class="ns-item-count"><?php echo count($items); ?></span>
+            </button>
+            <?php foreach ($categories as $category): ?>
+                <button type="button" class="ns-item" data-value="<?php echo htmlspecialchars($category, ENT_QUOTES); ?>"
+                    onclick="selectNoteCategory(this.dataset.value, this)">
+                    <span class="ns-item-icon">#</span>
+                    <span class="ns-item-label"><?php echo htmlspecialchars($category); ?></span>
+                    <span class="ns-item-count"><?php echo (int) ($noteCategoryCounts[$category] ?? 0); ?></span>
+                </button>
+            <?php endforeach; ?>
+            <?php if ($hasUncategorized): ?>
+                <button type="button" class="ns-item" data-value="__uncategorized" onclick="selectNoteCategory('__uncategorized', this)">
+                    <span class="ns-item-icon"><i class="fa-regular fa-circle"></i></span>
+                    <span class="ns-item-label">未分類筆記</span>
+                    <span class="ns-item-count"><?php echo (int) $noteUncategorizedCount; ?></span>
+                </button>
+            <?php endif; ?>
+        </nav>
+
+        <div class="ns-section">更多</div>
+        <a class="ns-item ns-item-link" href="?page=notes<?php echo $trashMode ? '' : '&trash=1'; ?>">
+            <span class="ns-item-icon"><i class="fa-regular fa-trash-can"></i></span>
+            <span class="ns-item-label"><?php echo $trashMode ? '回到筆記' : '垃圾桶'; ?></span>
+        </a>
+        <a class="ns-item ns-item-link" href="export_zip_article.php">
+            <span class="ns-item-icon"><i class="fa-solid fa-file-zipper"></i></span>
+            <span class="ns-item-label">匯出 ZIP</span>
+        </a>
+    </aside>
+
+    <div class="notion-pagehead">
+        <div class="notion-breadcrumb">
+            <span>鋒兄工作區</span><i>/</i><span>筆記</span><i>/</i><strong id="notionCrumbView">全部筆記</strong>
+        </div>
+        <div class="notion-viewtabs" role="tablist" aria-label="筆記檢視">
+            <button type="button" role="tab" class="nv-tab is-active" data-view="gallery" onclick="setNoteView('gallery')"><i class="fa-solid fa-table-cells-large"></i> 圖庫</button>
+            <button type="button" role="tab" class="nv-tab" data-view="list" onclick="setNoteView('list')"><i class="fa-solid fa-list"></i> 清單</button>
+            <button type="button" role="tab" class="nv-tab" data-view="table" onclick="setNoteView('table')"><i class="fa-solid fa-table"></i> 表格</button>
+        </div>
+    </div>
+
     <?php $trashTable = 'article'; $trashPage = 'notes'; include 'includes/trash-controls.php'; ?>
     <?php include 'includes/inline-edit-hint.php'; ?>
 
@@ -112,7 +187,7 @@ sort($categories);
         </div>
     </div>
 
-    <div class="card-grid" style="margin-top: 20px;">
+    <div class="card-grid notes-database notes-view-gallery" id="notesDatabase" style="margin-top: 20px;">
         <div id="inlineAddCard" class="card inline-add-card">
             <div class="inline-edit inline-edit-always">
                 <div class="form-group">
@@ -269,7 +344,11 @@ sort($categories);
                     </div>
 
                     <!-- 標題 -->
-                    <h3 class="note-title"><?php echo htmlspecialchars($item['title']); ?></h3>
+                    <h3 class="note-title">
+                        <span class="note-page-icon"><i class="fa-regular fa-file-lines"></i></span>
+                        <span class="note-title-text"><?php echo htmlspecialchars($item['title']); ?></span>
+                    </h3>
+                    <div class="note-updated"><i class="fa-regular fa-clock"></i> <?php echo !empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : '—'; ?></div>
 
                     <!-- 參考來源 -->
                     <?php if ($hasRef): ?>
@@ -1210,6 +1289,383 @@ sort($categories);
             align-items: flex-start;
         }
     }
+/* ==========================================================
+   鋒兄筆記 · Notion 版面
+   ========================================================== */
+body[data-page="notes"] .content-header.notes-header {
+    padding-left: 4px;
+}
+
+.notes-header .notes-title {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.notion-body {
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+    column-gap: 30px;
+    align-items: start;
+}
+
+.notion-body > *:not(.notion-sidebar) { grid-column: 2; }
+
+/* ---------- 側欄 ---------- */
+.notion-sidebar {
+    grid-column: 1;
+    grid-row: 1 / span 99;
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    padding: 12px 10px 18px;
+    border-radius: 12px;
+    background: var(--table-header-bg, #f7f7f5);
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+    font-size: 0.9rem;
+}
+
+.ns-workspace {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 12px;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+    margin-bottom: 10px;
+}
+
+.ns-ws-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: #2f2c28;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.ns-ws-text { min-width: 0; line-height: 1.25; }
+.ns-ws-text strong { display: block; font-size: 0.92rem; }
+.ns-ws-text small { color: var(--muted-text, #8b8781); font-size: 0.72rem; }
+
+.ns-quick {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted-text, #6f6b64);
+    cursor: pointer;
+    font-size: 0.88rem;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.ns-quick:hover { background: rgba(0, 0, 0, 0.055); }
+.ns-quick-new { color: var(--text-color, #37352f); font-weight: 600; }
+
+.ns-section {
+    padding: 14px 9px 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-text, #9b9791);
+    font-weight: 700;
+}
+
+.ns-nav { display: flex; flex-direction: column; gap: 1px; }
+
+.ns-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 9px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-color, #37352f);
+    cursor: pointer;
+    font-size: 0.88rem;
+    text-align: left;
+    text-decoration: none;
+    transition: background 0.15s ease;
+}
+
+.ns-item:hover { background: rgba(0, 0, 0, 0.055); }
+.ns-item.is-active { background: rgba(0, 0, 0, 0.085); font-weight: 600; }
+
+.ns-item-icon {
+    width: 18px;
+    flex-shrink: 0;
+    text-align: center;
+    color: var(--muted-text, #9b9791);
+    font-size: 0.85rem;
+}
+
+.ns-item-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ns-item-count {
+    font-size: 0.75rem;
+    color: var(--muted-text, #9b9791);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 頁面標頭 ---------- */
+.notion-pagehead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
+}
+
+.notion-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.85rem;
+    color: var(--muted-text, #8b8781);
+    flex-wrap: wrap;
+}
+
+.notion-breadcrumb i { font-style: normal; opacity: 0.5; }
+.notion-breadcrumb strong { color: var(--text-color, #37352f); font-weight: 600; }
+
+.notion-viewtabs { display: flex; gap: 2px; }
+
+.nv-tab {
+    border: none;
+    background: transparent;
+    color: var(--muted-text, #8b8781);
+    padding: 6px 11px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 2px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nv-tab:hover { background: rgba(0, 0, 0, 0.05); }
+
+.nv-tab.is-active {
+    color: var(--text-color, #37352f);
+    font-weight: 600;
+    border-bottom-color: var(--text-color, #37352f);
+    border-radius: 6px 6px 0 0;
+}
+
+/* ---------- 卡片：共通 Notion 化 ---------- */
+.notes-database .note-card {
+    border-radius: 8px !important;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.06) !important;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    transition: box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.notes-database .note-card:hover {
+    box-shadow: 0 3px 10px rgba(15, 15, 15, 0.1) !important;
+}
+
+.note-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.note-page-icon {
+    color: var(--muted-text, #9b9791);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    flex-shrink: 0;
+}
+
+.note-title-text { min-width: 0; }
+
+.note-updated {
+    font-size: 0.75rem;
+    color: var(--muted-text, #9b9791);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 4px 0 8px;
+}
+
+/* ---------- 圖庫檢視 ---------- */
+.notes-database.notes-view-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+    gap: 16px;
+}
+
+/* ---------- 清單檢視 ---------- */
+.notes-database.notes-view-list {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+
+.notes-database.notes-view-list .note-card {
+    position: relative;
+    min-height: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08)) !important;
+    border-left: 3px solid transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 10px 96px 10px 12px !important;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "title meta" "badges meta";
+    row-gap: 2px;
+    column-gap: 12px;
+    align-items: center;
+}
+
+.notes-database.notes-view-list .note-card:hover { background: rgba(0, 0, 0, 0.03); }
+.notes-database.notes-view-list .note-title { grid-area: title; margin: 0; font-size: 0.95rem; }
+.notes-database.notes-view-list .note-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.notes-database.notes-view-list .note-category-badges { grid-area: badges; margin: 0; }
+.notes-database.notes-view-list .note-updated { grid-area: meta; margin: 0; }
+.notes-database.notes-view-list .note-content,
+.notes-database.notes-view-list .note-links,
+.notes-database.notes-view-list .note-files,
+.notes-database.notes-view-list .note-footer,
+.notes-database.notes-view-list .note-ref { display: none !important; }
+
+/* ---------- 表格檢視 ---------- */
+.notes-database.notes-view-table {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.notes-database.notes-view-table::before {
+    content: '名稱　·　分類　·　參考　·　建立日期';
+    display: block;
+    padding: 8px 14px;
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    color: var(--muted-text, #9b9791);
+    background: var(--table-header-bg, #f7f7f5);
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+    font-weight: 700;
+}
+
+.notes-database.notes-view-table .note-card {
+    position: relative;
+    min-height: 0 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08)) !important;
+    border-left: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 9px 96px 9px 14px !important;
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) minmax(0, 1.1fr) 108px;
+    grid-template-areas: "title badges ref meta";
+    align-items: center;
+    column-gap: 14px;
+    row-gap: 0;
+    font-size: 0.88rem;
+}
+
+.notes-database.notes-view-table .note-card:hover { background: rgba(0, 0, 0, 0.03); }
+.notes-database.notes-view-table .note-title { grid-area: title; margin: 0; font-size: 0.9rem; }
+.notes-database.notes-view-table .note-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.notes-database.notes-view-table .note-category-badges { grid-area: badges; margin: 0; flex-wrap: nowrap; overflow: hidden; }
+.notes-database.notes-view-table .note-ref { grid-area: ref; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notes-database.notes-view-table .note-updated { grid-area: meta; margin: 0; justify-content: flex-end; }
+.notes-database.notes-view-table .note-content,
+.notes-database.notes-view-table .note-links,
+.notes-database.notes-view-table .note-footer,
+.notes-database.notes-view-table .note-files { display: none !important; }
+
+/* 清單／表格：操作區固定在列尾 */
+.notes-database.notes-view-list .note-card > .card-header,
+.notes-database.notes-view-table .note-card > .card-header {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 2;
+}
+
+/* 編輯模式時恢復為區塊排版，避免 grid 破壞表單 */
+.notes-database.notes-view-list .note-card:has(> .inline-edit[style*="display: block"]),
+.notes-database.notes-view-table .note-card:has(> .inline-edit[style*="display: block"]) {
+    display: block !important;
+    padding: 16px 16px 16px 16px !important;
+}
+
+.notes-database.notes-view-list .note-card:has(> .inline-edit[style*="display: block"]) > .card-header,
+.notes-database.notes-view-table .note-card:has(> .inline-edit[style*="display: block"]) > .card-header {
+    position: static;
+    transform: none;
+    justify-content: space-between;
+}
+
+.notes-database.notes-view-list .note-card:has(> .inline-edit[style*="display: block"]) .note-content,
+.notes-database.notes-view-table .note-card:has(> .inline-edit[style*="display: block"]) .note-content {
+    display: none !important;
+}
+
+.notes-database.notes-view-list .note-card .inline-edit,
+.notes-database.notes-view-table .note-card .inline-edit { grid-column: 1 / -1; }
+
+.notes-database #inlineAddCard { grid-column: 1 / -1; }
+
+/* ---------- RWD ---------- */
+@media (max-width: 1024px) {
+    .notion-body { grid-template-columns: 1fr; column-gap: 0; }
+    .notion-body > *:not(.notion-sidebar) { grid-column: 1; }
+    .notion-sidebar {
+        grid-column: 1;
+        grid-row: auto;
+        position: static;
+        margin-bottom: 14px;
+    }
+    .ns-nav { flex-direction: row; flex-wrap: wrap; }
+    .ns-item { width: auto; }
+    .notes-database.notes-view-table .note-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "title meta" "badges ref";
+    }
+}
+
 </style>
 
 <?php include 'includes/upload-progress.php'; ?>
@@ -1237,12 +1693,61 @@ sort($categories);
         }
     }
 
+
+    const NOTE_VIEW_STORAGE_KEY = 'fengbro_notes_view';
+
+    function setNoteView(view) {
+        const allowed = ['gallery', 'list', 'table'];
+        const mode = allowed.includes(view) ? view : 'gallery';
+        const db = document.getElementById('notesDatabase');
+        if (db) {
+            allowed.forEach(function (key) {
+                db.classList.toggle('notes-view-' + key, key === mode);
+            });
+        }
+        document.querySelectorAll('.nv-tab').forEach(function (tab) {
+            const on = tab.dataset.view === mode;
+            tab.classList.toggle('is-active', on);
+            tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        try { localStorage.setItem(NOTE_VIEW_STORAGE_KEY, mode); } catch (e) {}
+    }
+
+    function selectNoteCategory(value, btn) {
+        const select = document.getElementById('categoryFilter');
+        if (select) select.value = value;
+        document.querySelectorAll('#notionCategoryNav .ns-item').forEach(function (el) {
+            el.classList.toggle('is-active', el === btn);
+        });
+        const crumb = document.getElementById('notionCrumbView');
+        if (crumb) {
+            crumb.textContent = value === '__all' ? '全部筆記'
+                : (value === '__uncategorized' ? '未分類筆記' : value);
+        }
+        if (typeof filterNotes === 'function') filterNotes();
+    }
+
+    function syncNotionSidebarFromSelect() {
+        const select = document.getElementById('categoryFilter');
+        if (!select) return;
+        const target = document.querySelector('#notionCategoryNav .ns-item[data-value="' + CSS.escape(select.value) + '"]');
+        selectNoteCategory(select.value, target);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let saved = 'gallery';
+        try { saved = localStorage.getItem(NOTE_VIEW_STORAGE_KEY) || 'gallery'; } catch (e) {}
+        setNoteView(saved);
+        const select = document.getElementById('categoryFilter');
+        if (select) select.addEventListener('change', syncNotionSidebarFromSelect);
+    });
+
     function filterNotes() {
         const select = document.getElementById('categoryFilter');
         if (!select) return;
         const value = select.value;
         const keyword = (document.getElementById('noteSearchInput')?.value || '').trim().toLowerCase();
-        const cards = document.querySelectorAll('.card-grid .card');
+        const cards = document.querySelectorAll('.card-grid .card:not(.inline-add-card)');
         let visibleCount = 0;
         cards.forEach(card => {
             const categories = card.getAttribute('data-categories') || '';
