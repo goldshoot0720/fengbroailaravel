@@ -38,6 +38,15 @@ if ($toolSubpage === 'tube' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST[
     } elseif ($action === 'delete' && isset($channels[$index])) {
         array_splice($channels, $index, 1);
         fengbroTubeSaveChannels($channels);
+    } elseif ($action === 'bulk_delete') {
+        $indexes = array_map('intval', (array) ($_POST['channel_indexes'] ?? []));
+        rsort($indexes);
+        foreach ($indexes as $bulkIndex) {
+            if (isset($channels[$bulkIndex])) {
+                array_splice($channels, $bulkIndex, 1);
+            }
+        }
+        fengbroTubeSaveChannels($channels);
     } elseif ($action === 'save' && $channel['url'] !== '') {
         if ($index >= 0 && isset($channels[$index])) {
             $channels[$index] = $channel;
@@ -176,20 +185,22 @@ if ($toolSubpage === 'finance' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_PO
                 );
             }
         }
-    } elseif ($action === 'delete_custom') {
-        $deleteId = trim((string) ($_POST['instrument_id'] ?? ''));
+    } elseif ($action === 'delete_custom' || $action === 'bulk_delete_custom') {
+        $deleteIds = $action === 'bulk_delete_custom'
+            ? array_values(array_filter(array_map('trim', (array) ($_POST['instrument_ids'] ?? []))))
+            : [trim((string) ($_POST['instrument_id'] ?? ''))];
+        $deleteSet = array_flip(array_filter($deleteIds, static fn($id) => $id !== ''));
         $custom = array_values(array_filter(
             $config['custom'],
-            static fn($row) => ($row['id'] ?? '') !== $deleteId
+            static fn($row) => !isset($deleteSet[(string) ($row['id'] ?? '')])
         ));
         fengbroFinanceSaveCustomInstruments($custom);
-        // Drop image override for deleted custom
-        if ($deleteId !== '') {
+        if ($deleteSet) {
             $cfg = fengbroFinanceReadConfig();
-            if (isset($cfg['imageById'][$deleteId])) {
+            foreach (array_keys($deleteSet) as $deleteId) {
                 unset($cfg['imageById'][$deleteId]);
-                fengbroFinanceWriteConfig($cfg);
             }
+            fengbroFinanceWriteConfig($cfg);
         }
     } elseif ($action === 'set_images') {
         $imgId = trim((string) ($_POST['instrument_id'] ?? ''));
@@ -321,12 +332,12 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <p style="color:var(--muted-text);line-height:1.6;margin:0;">多來源關鍵字搜尋（Google News RSS + 站內掃描 + YouTube 頻道標題）。可開關焦點來源，並查看台鐵便當門市據點。</p>
                     </div>
                 </div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center;">
-                    <input class="form-control" style="flex:1;min-width:220px;" type="search" data-news-query placeholder="例如 捷運、桃園、房價">
-                    <button type="button" class="btn btn-primary" data-news-search>
-                        <i class="fa-solid fa-search"></i> 搜尋
+                <form role="search" class="fengbro-search-form" data-news-search-form style="margin-top:14px;">
+                    <input class="form-control" style="flex:1;min-width:220px;" type="search" data-news-query placeholder="例如 捷運、桃園、房價" enterkeyhint="search">
+                    <button type="submit" class="btn btn-primary" data-news-search aria-label="提交搜尋">
+                        <i class="fa-solid fa-search"></i> <span>搜尋</span>
                     </button>
-                </div>
+                </form>
                 <p data-news-status class="tool-muted" style="margin:10px 0 0;"></p>
                 <p data-news-error style="color:#dc2626;margin:6px 0 0;"></p>
             </div>
@@ -684,25 +695,42 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 </button>
                 <button id="tubeChannelCancel" type="button" class="btn btn-ghost" style="display:none;" onclick="cancelTubeChannelEdit()">取消編輯</button>
             </form>
-            <div class="tube-channel-admin-list">
-                <?php foreach ($tubeChannels as $idx => $adminChannel): ?>
-                    <?php $displayName = trim((string) ($adminChannel['name'] ?? '')); ?>
-                    <div class="tube-channel-admin-item">
-                        <div>
-                            <strong><?php echo htmlspecialchars($displayName !== '' ? $displayName : '使用原頻道名稱'); ?></strong>
-                            <span><?php echo htmlspecialchars($adminChannel['url'] ?? ''); ?></span>
+            <form method="post" id="tubeBulkDeleteForm" onsubmit="return confirmTubeBulkDelete();">
+                <input type="hidden" name="tube_action" value="bulk_delete">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;">
+                    <label style="display:inline-flex;gap:6px;align-items:center;font-size:0.88rem;">
+                        <input type="checkbox" id="tubeSelectAll" onchange="toggleTubeSelectAll(this)"> 全選
+                    </label>
+                    <button type="submit" class="btn btn-sm btn-danger" id="tubeBulkDeleteBtn" disabled>
+                        <i class="fa-solid fa-trash"></i> 刪除選取
+                    </button>
+                    <span id="tubeBulkCount" class="tool-muted" style="font-size:0.82rem;"></span>
+                </div>
+                <div class="tube-channel-admin-list">
+                    <?php foreach ($tubeChannels as $idx => $adminChannel): ?>
+                        <?php $displayName = trim((string) ($adminChannel['name'] ?? '')); ?>
+                        <div class="tube-channel-admin-item">
+                            <label style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;margin:0;cursor:pointer;">
+                                <input type="checkbox" name="channel_indexes[]" value="<?php echo (int) $idx; ?>" class="tube-item-cb" onchange="syncTubeBulkState()">
+                                <span>
+                                    <strong><?php echo htmlspecialchars($displayName !== '' ? $displayName : '使用原頻道名稱'); ?></strong>
+                                    <span><?php echo htmlspecialchars($adminChannel['url'] ?? ''); ?></span>
+                                </span>
+                            </label>
+                            <div class="tube-channel-admin-actions">
+                                <button type="button" class="btn btn-sm" onclick="editTubeChannel(<?php echo (int) $idx; ?>, <?php echo json_encode($displayName, JSON_UNESCAPED_UNICODE); ?>, <?php echo json_encode($adminChannel['url'] ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>)">編輯</button>
+                                <button type="submit" class="btn btn-sm btn-danger" form="tubeSingleDelete<?php echo (int) $idx; ?>" onclick="return confirm('刪除此頻道？');"><i class="fa-solid fa-trash"></i></button>
+                            </div>
                         </div>
-                        <div class="tube-channel-admin-actions">
-                            <button type="button" class="btn btn-sm" onclick="editTubeChannel(<?php echo (int) $idx; ?>, <?php echo json_encode($displayName, JSON_UNESCAPED_UNICODE); ?>, <?php echo json_encode($adminChannel['url'] ?? '', JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>)">編輯</button>
-                            <form method="post" onsubmit="return confirm('刪除此頻道？');">
-                                <input type="hidden" name="tube_action" value="delete">
-                                <input type="hidden" name="channel_index" value="<?php echo (int) $idx; ?>">
-                                <button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-trash"></i></button>
-                            </form>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                    <?php endforeach; ?>
+                </div>
+            </form>
+            <?php foreach ($tubeChannels as $idx => $adminChannel): ?>
+                <form method="post" id="tubeSingleDelete<?php echo (int) $idx; ?>">
+                    <input type="hidden" name="tube_action" value="delete">
+                    <input type="hidden" name="channel_index" value="<?php echo (int) $idx; ?>">
+                </form>
+            <?php endforeach; ?>
         </section>
 
         <?php
@@ -910,19 +938,30 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                         <button type="submit" class="btn btn-danger"><i class="fa-solid fa-plus"></i> 儲存自訂標的</button>
                         <p id="financeResolveHint" class="tool-muted" style="margin:6px 0 0;font-size:0.86rem;"></p>
                     </form>
-                    <div class="finance-chip-list" style="margin-top:12px;">
-                        <?php if (!$customInstruments): ?>
-                            <p style="color:var(--muted-text);margin:0;">尚未新增自訂標的。</p>
+                    <form method="post" id="financeBulkDeleteForm" onsubmit="return confirmFinanceBulkDelete();" style="margin-top:12px;">
+                        <input type="hidden" name="finance_action" value="bulk_delete_custom">
+                        <?php if ($customInstruments): ?>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+                                <label style="display:inline-flex;gap:6px;align-items:center;font-size:0.88rem;">
+                                    <input type="checkbox" id="financeSelectAll" onchange="toggleFinanceSelectAll(this)"> 全選
+                                </label>
+                                <button type="submit" class="btn btn-sm btn-danger" id="financeBulkDeleteBtn" disabled>
+                                    <i class="fa-solid fa-trash"></i> 刪除選取
+                                </button>
+                            </div>
                         <?php endif; ?>
-                        <?php foreach ($customInstruments as $custom): ?>
-                            <form method="post" class="finance-chip">
-                                <input type="hidden" name="finance_action" value="delete_custom">
-                                <input type="hidden" name="instrument_id" value="<?php echo htmlspecialchars($custom['id']); ?>">
-                                <span><?php echo htmlspecialchars($custom['name']); ?> <small><?php echo htmlspecialchars($custom['symbol']); ?></small></span>
-                                <button type="submit" class="btn btn-sm btn-ghost" title="刪除"><i class="fa-solid fa-trash"></i></button>
-                            </form>
-                        <?php endforeach; ?>
-                    </div>
+                        <div class="finance-chip-list">
+                            <?php if (!$customInstruments): ?>
+                                <p style="color:var(--muted-text);margin:0;">尚未新增自訂標的。</p>
+                            <?php endif; ?>
+                            <?php foreach ($customInstruments as $custom): ?>
+                                <label class="finance-chip" style="cursor:pointer;">
+                                    <input type="checkbox" name="instrument_ids[]" value="<?php echo htmlspecialchars($custom['id']); ?>" class="finance-item-cb" onchange="syncFinanceBulkState()">
+                                    <span><?php echo htmlspecialchars($custom['name']); ?> <small><?php echo htmlspecialchars($custom['symbol']); ?></small></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </form>
                 </div>
             </div>
         </section>
@@ -2513,6 +2552,49 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         if (urlInput) urlInput.value = '';
         if (submit) submit.innerHTML = '<i class="fa-solid fa-plus"></i> 儲存頻道';
         if (cancel) cancel.style.display = 'none';
+    }
+
+    function syncTubeBulkState() {
+        const boxes = Array.from(document.querySelectorAll('.tube-item-cb'));
+        const selected = boxes.filter(function (cb) { return cb.checked; }).length;
+        const all = document.getElementById('tubeSelectAll');
+        const btn = document.getElementById('tubeBulkDeleteBtn');
+        const count = document.getElementById('tubeBulkCount');
+        if (all) {
+            all.checked = boxes.length > 0 && selected === boxes.length;
+            all.indeterminate = selected > 0 && selected < boxes.length;
+        }
+        if (btn) btn.disabled = selected === 0;
+        if (count) count.textContent = selected ? ('已選 ' + selected + ' 個') : '';
+    }
+    function toggleTubeSelectAll(source) {
+        document.querySelectorAll('.tube-item-cb').forEach(function (cb) { cb.checked = !!source.checked; });
+        syncTubeBulkState();
+    }
+    function confirmTubeBulkDelete() {
+        const selected = document.querySelectorAll('.tube-item-cb:checked').length;
+        if (!selected) return false;
+        return confirm('確定刪除選取的 ' + selected + ' 個頻道？');
+    }
+    function syncFinanceBulkState() {
+        const boxes = Array.from(document.querySelectorAll('.finance-item-cb'));
+        const selected = boxes.filter(function (cb) { return cb.checked; }).length;
+        const all = document.getElementById('financeSelectAll');
+        const btn = document.getElementById('financeBulkDeleteBtn');
+        if (all) {
+            all.checked = boxes.length > 0 && selected === boxes.length;
+            all.indeterminate = selected > 0 && selected < boxes.length;
+        }
+        if (btn) btn.disabled = selected === 0;
+    }
+    function toggleFinanceSelectAll(source) {
+        document.querySelectorAll('.finance-item-cb').forEach(function (cb) { cb.checked = !!source.checked; });
+        syncFinanceBulkState();
+    }
+    function confirmFinanceBulkDelete() {
+        const selected = document.querySelectorAll('.finance-item-cb:checked').length;
+        if (!selected) return false;
+        return confirm('確定刪除選取的 ' + selected + ' 個自訂標的？');
     }
 
     document.addEventListener('keydown', function (event) {

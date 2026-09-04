@@ -570,15 +570,17 @@
       if (t.hasAttribute('data-news-pop-refresh')) loadPopulation();
     });
 
+    const searchForm = root.querySelector('[data-news-search-form]');
+    if (searchForm) {
+      searchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        search();
+      });
+    }
     if (els.query) {
       const saved = localStorage.getItem(QUERY_KEY);
       if (saved) els.query.value = saved;
-      els.query.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          search();
-        }
-      });
     }
 
     loadDefaults().then(() => {

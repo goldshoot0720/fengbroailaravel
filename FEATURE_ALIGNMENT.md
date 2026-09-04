@@ -1,6 +1,6 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 工具個人清單雲端同步（manualprice／tubechannel／financeinstrument 表）與通知設定密碼保護。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 2026-09-04 選單一鍵備份／還原、設定區段摺疊、清單全選刪除與搜尋提交同一路徑。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
 
 ## 核心業務模組
 
@@ -23,7 +23,7 @@
 | Podcast | `pages/podcast.php` | 完成 |
 | Bank | `pages/bank.php` | 完成（刪除確認字串） |
 | Routine | `pages/routine.php` | 完成 |
-| Settings | `pages/settings.php` | 完成（通知自檢、離線快取） |
+| Settings | `pages/settings.php` | 完成（通知自檢、離線快取、區段摺疊、選單 CSV／ZIP 一鍵備份還原） |
 | About | `pages/about.php` | 完成 |
 
 ## 工具模組（Tools）
@@ -31,10 +31,10 @@
 | Appwrite 工具 | PHP 入口 `?tool=` | 狀態 |
 |---|---|---|
 | 鋒兄比價 BigGo | `price` | 完成 |
-| ManualPriceTracker | `manual` | 完成（**伺服器 manualprice 表為準**，跨瀏覽器同步；localStorage 降為離線快取與首次遷移來源 + CSV） |
+| ManualPriceTracker | `manual` | 完成（**伺服器 manualprice 表為準**，跨瀏覽器同步；localStorage 降為離線快取與首次遷移來源 + CSV + 商品／紀錄全選刪除） |
 | 手機比價 landtop+jyes | `phone` | 完成（獨立分頁、快照、歷史 CSV 匯出/匯入） |
-| 鋒兄Tube | `tube` | 完成（頻道 CSV；**tubechannel 表取代 JSON**，舊 JSON 首次自動遷移；CSV 匯入無有效頻道會明確報錯） |
-| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**、連結圖片、YouTube/Bilibili/自訂網址；**financeinstrument 表以 imageUrl1..3／linkUrl1..3 同步**） |
+| 鋒兄Tube | `tube` | 完成（頻道 CSV；**tubechannel 表取代 JSON**，舊 JSON 首次自動遷移；CSV 匯入無有效頻道會明確報錯；頻道全選刪除） |
+| 鋒兄金融 | `finance` | 完成（1Y/5Y/10Y、自訂 CSV、解析名稱、**精選焦點最多 9**、連結圖片、YouTube/Bilibili/自訂網址；**financeinstrument 表以 imageUrl1..3／linkUrl1..3 同步**；自訂標的全選刪除） |
 | 鋒兄新聞 + 便當 | `news` | 完成 |
 | PNG/JPEG 轉換 | `image-convert` | 完成 |
 | ImageVoiceVideo | `image-voice` | 完成（多語 TTS、翻譯、人臉選聲、一鍵 MP4） |
@@ -54,6 +54,8 @@
 | PWA / Service Worker | 完成 |
 | 語音導航與表單填寫 | 完成（含工具子頁導向） |
 | 主題 system/light/dark | 完成 |
+| 選單備份／還原 | 完成（設定頁一鍵匯出／匯入所有 CSV，或連同媒體 ZIP；新聞來源從本機 localStorage 一併打包） |
+| 搜尋列 Enter／提交 | 完成（`role="search"` 表單，Enter 與提交按鈕同一條路徑，略過 IME composing） |
 
 ## 網站統計 / 關於頁
 
@@ -90,5 +92,5 @@
 
 **狀態：完成（DONE）**
 
-在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成，含日常工作台新增的試用／首購與重灌。  
+在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成，含 2026-09-04 的選單一鍵備份／還原、設定摺疊與清單全選刪除。  
 刻意不移植項目見上表；其餘缺口屬執行環境或第三方服務限制，不屬功能未做。

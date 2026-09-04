@@ -314,6 +314,10 @@
     let products = [];
     let selectedId = '';
     let serverError = '';
+    let productSelectMode = false;
+    let recordSelectMode = false;
+    let selectedProductIds = new Set();
+    let selectedRecordIds = new Set();
 
     const els = {
       list: root.querySelector('[data-mp-list]'),
@@ -361,30 +365,56 @@
         selectedId = products.length ? products[0].id : '';
       }
       if (els.list) {
+        const productBar =
+          '<div class="mp-bulk-bar">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-mp-toggle-products>' +
+          (productSelectMode ? '完成選取' : '全選模式') +
+          '</button>' +
+          (productSelectMode
+            ? '<button type="button" class="btn btn-ghost btn-sm" data-mp-select-all-products>全選</button>' +
+              '<button type="button" class="btn btn-danger btn-sm" data-mp-bulk-del-products' +
+              (selectedProductIds.size ? '' : ' disabled') +
+              '>刪除選取（' +
+              selectedProductIds.size +
+              '）</button>'
+            : '') +
+          '</div>';
         if (!products.length) {
-          els.list.innerHTML = '<p class="tool-muted">尚未新增商品。左側輸入名稱後按「新增商品」。</p>';
+          els.list.innerHTML = productBar + '<p class="tool-muted">尚未新增商品。左側輸入名稱後按「新增商品」。</p>';
         } else {
-          els.list.innerHTML = products
-            .map((p) => {
-              const last = (p.records || []).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
-              const active = p.id === selectedId ? ' is-active' : '';
-              return (
-                '<button type="button" class="mp-product-item' +
-                active +
-                '" data-id="' +
-                escapeHtml(p.id) +
-                '">' +
-                '<strong>' +
-                escapeHtml(p.name) +
-                '</strong>' +
-                '<span>' +
-                escapeHtml(p.currency || 'TWD') +
-                ' · ' +
-                (last ? formatPrice(last.price, p.currency) + ' · ' + escapeHtml(last.date) : '尚無紀錄') +
-                '</span></button>'
-              );
-            })
-            .join('');
+          els.list.innerHTML =
+            productBar +
+            products
+              .map((p) => {
+                const last = (p.records || []).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+                const active = p.id === selectedId ? ' is-active' : '';
+                const checked = selectedProductIds.has(p.id) ? ' checked' : '';
+                const check = productSelectMode
+                  ? '<label class="mp-select"><input type="checkbox" data-mp-pick-product="' +
+                    escapeHtml(p.id) +
+                    '"' +
+                    checked +
+                    '> 選取</label>'
+                  : '';
+                return (
+                  '<div class="mp-product-wrap">' +
+                  check +
+                  '<button type="button" class="mp-product-item' +
+                  active +
+                  '" data-id="' +
+                  escapeHtml(p.id) +
+                  '">' +
+                  '<strong>' +
+                  escapeHtml(p.name) +
+                  '</strong>' +
+                  '<span>' +
+                  escapeHtml(p.currency || 'TWD') +
+                  ' · ' +
+                  (last ? formatPrice(last.price, p.currency) + ' · ' + escapeHtml(last.date) : '尚無紀錄') +
+                  '</span></button></div>'
+                );
+              })
+              .join('');
         }
       }
       if (!els.detail) return;
@@ -398,7 +428,15 @@
       const rows = records
         .map(
           (r) =>
-            '<tr><td>' +
+            '<tr>' +
+            (recordSelectMode
+              ? '<td><input type="checkbox" data-mp-pick-record="' +
+                escapeHtml(r.id) +
+                '"' +
+                (selectedRecordIds.has(r.id) ? ' checked' : '') +
+                '></td>'
+              : '') +
+            '<td>' +
             escapeHtml(r.date) +
             '</td><td>' +
             escapeHtml(formatPrice(r.price, detailProduct.currency)) +
@@ -417,12 +455,26 @@
         ' · ' +
         records.length +
         ' 筆紀錄</p></div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-mp-toggle-records">' +
+        (recordSelectMode ? '完成選取' : '全選模式') +
+        '</button>' +
+        (recordSelectMode
+          ? '<button type="button" class="btn btn-ghost btn-sm" data-mp-select-all-records>全選</button>' +
+            '<button type="button" class="btn btn-danger btn-sm" data-mp-bulk-del-records' +
+            (selectedRecordIds.size ? '' : ' disabled') +
+            '>刪除選取（' +
+            selectedRecordIds.size +
+            '）</button>'
+          : '') +
         '<button type="button" class="btn btn-ghost" data-del-product="' +
         escapeHtml(detailProduct.id) +
-        '"><i class="fa-solid fa-trash"></i> 刪除商品</button></div>' +
+        '"><i class="fa-solid fa-trash"></i> 刪除商品</button></div></div>' +
         sparkline(points) +
         (rows
-          ? '<div style="overflow-x:auto;margin-top:12px;"><table class="table"><thead><tr><th>日期</th><th>價格</th><th>備註</th><th></th></tr></thead><tbody>' +
+          ? '<div style="overflow-x:auto;margin-top:12px;"><table class="table"><thead><tr>' +
+            (recordSelectMode ? '<th></th>' : '') +
+            '<th>日期</th><th>價格</th><th>備註</th><th></th></tr></thead><tbody>' +
             rows +
             '</tbody></table></div>'
           : '<p class="tool-muted" style="margin-top:12px;">尚無價格紀錄，請於上方表單新增。</p>');
@@ -443,8 +495,89 @@
     }
 
     root.addEventListener('click', (ev) => {
-      const t = ev.target.closest('[data-id], [data-del-record], [data-del-product], [data-mp-add-product], [data-mp-add-record], [data-mp-export], [data-mp-import]');
+      const t = ev.target.closest(
+        '[data-id], [data-del-record], [data-del-product], [data-mp-add-product], [data-mp-add-record], [data-mp-export], [data-mp-import], [data-mp-toggle-products], [data-mp-select-all-products], [data-mp-bulk-del-products], [data-mp-pick-product], [data-mp-toggle-records], [data-mp-select-all-records], [data-mp-bulk-del-records], [data-mp-pick-record]'
+      );
       if (!t) return;
+      if (t.hasAttribute('data-mp-toggle-products')) {
+        productSelectMode = !productSelectMode;
+        if (!productSelectMode) selectedProductIds = new Set();
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-select-all-products')) {
+        if (selectedProductIds.size === products.length) selectedProductIds = new Set();
+        else selectedProductIds = new Set(products.map((p) => p.id));
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-pick-product')) {
+        const id = t.getAttribute('data-mp-pick-product');
+        if (selectedProductIds.has(id)) selectedProductIds.delete(id);
+        else selectedProductIds.add(id);
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-bulk-del-products')) {
+        const ids = Array.from(selectedProductIds);
+        if (!ids.length) return;
+        if (!confirm('確定刪除選取的 ' + ids.length + ' 個商品與價格紀錄？請輸入 DELETE 確認。\n\n請在下一則對話框輸入 DELETE。')) return;
+        const typed = window.prompt('請輸入 DELETE 以確認批次刪除');
+        if (typed !== 'DELETE') return;
+        Promise.all(ids.map((id) => deleteServerProduct(id).then(() => id).catch(() => null)))
+          .then((done) => {
+            const removed = new Set(done.filter(Boolean));
+            products = products.filter((p) => !removed.has(p.id));
+            if (selectedId && removed.has(selectedId)) selectedId = products.length ? products[0].id : '';
+            selectedProductIds = new Set();
+            productSelectMode = false;
+            refreshCache();
+            render();
+          });
+        return;
+      }
+      if (t.hasAttribute('data-mp-toggle-records')) {
+        recordSelectMode = !recordSelectMode;
+        if (!recordSelectMode) selectedRecordIds = new Set();
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-select-all-records')) {
+        const p = selected();
+        const ids = (p && p.records ? p.records : []).map((r) => r.id);
+        if (selectedRecordIds.size === ids.length) selectedRecordIds = new Set();
+        else selectedRecordIds = new Set(ids);
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-pick-record')) {
+        const id = t.getAttribute('data-mp-pick-record');
+        if (selectedRecordIds.has(id)) selectedRecordIds.delete(id);
+        else selectedRecordIds.add(id);
+        render();
+        return;
+      }
+      if (t.hasAttribute('data-mp-bulk-del-records')) {
+        const p = selected();
+        if (!p) return;
+        const ids = selectedRecordIds;
+        if (!ids.size) return;
+        if (!confirm('確定刪除選取的 ' + ids.size + ' 筆價格紀錄？')) return;
+        const nextRecords = (p.records || []).filter((r) => !ids.has(r.id));
+        updateServerProduct(p.id, { records: nextRecords })
+          .then((updated) => {
+            upsertProduct(updated);
+            selectedRecordIds = new Set();
+            recordSelectMode = false;
+            refreshCache();
+            render();
+          })
+          .catch((e) => {
+            serverError = (e && e.message) || '批次刪除失敗';
+            render();
+          });
+        return;
+      }
       if (t.hasAttribute('data-id')) {
         selectedId = t.getAttribute('data-id');
         render();

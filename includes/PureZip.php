@@ -116,6 +116,7 @@ class StreamingZip
     private $centralDir = [];
     private $offset = 0;
     private $fileCount = 0;
+    private $out = null;
 
     public function begin($filename)
     {
@@ -123,7 +124,27 @@ class StreamingZip
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: no-cache, must-revalidate');
         header('Pragma: public');
-        ob_end_flush();
+        if (ob_get_level()) {
+            ob_end_flush();
+        }
+        flush();
+    }
+
+    public function beginToFile($path)
+    {
+        $this->out = fopen($path, 'wb');
+        if ($this->out === false) {
+            throw new RuntimeException('無法寫入 ZIP：' . $path);
+        }
+    }
+
+    private function writeBytes($data)
+    {
+        if ($this->out) {
+            fwrite($this->out, $data);
+            return;
+        }
+        echo $data;
         flush();
     }
 
@@ -154,14 +175,12 @@ class StreamingZip
         $header .= pack('v', 0);
         $header .= $name;
 
-        echo $header;
-        flush();
+        $this->writeBytes($header);
 
         // Stream file content
         $handle = fopen($path, 'rb');
         while (!feof($handle)) {
-            echo fread($handle, 1024 * 1024); // 1MB chunks
-            flush();
+            $this->writeBytes(fread($handle, 1024 * 1024)); // 1MB chunks
         }
         fclose($handle);
 
@@ -193,7 +212,7 @@ class StreamingZip
     public function finish()
     {
         $cdr = implode('', $this->centralDir);
-        echo $cdr;
+        $this->writeBytes($cdr);
 
         $eocd = "\x50\x4b\x05\x06";
         $eocd .= pack('v', 0);
@@ -204,8 +223,11 @@ class StreamingZip
         $eocd .= pack('V', $this->offset);
         $eocd .= pack('v', 0);
 
-        echo $eocd;
-        flush();
+        $this->writeBytes($eocd);
+        if ($this->out) {
+            fclose($this->out);
+            $this->out = null;
+        }
     }
 
     private function fileCrc32($path)

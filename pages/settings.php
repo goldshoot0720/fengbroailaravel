@@ -169,6 +169,53 @@ $biggoSettings = [
         </div>
     </div>
 
+    <div class="card settings-card-open" data-settings-open="1" style="margin-top: 20px;">
+        <h3 class="card-title"><i class="fa-solid fa-file-zipper"></i> 選單備份／還原</h3>
+        <p style="color: var(--muted-text); font-size: 0.9rem; margin-bottom: 14px;">
+            對齊 Appwrite 選單備份：一鍵匯出或匯入各選單 CSV；也可連同媒體 ZIP 一次打包。
+            CSV 備份只含文字資料（不含圖片／影片等檔案）。全部選單會再附上圖片、影片、音樂、播客、文件、筆記的 ZIP。
+            匯入時相同鍵會更新、其餘新增，不會刪除備份裡沒有的紀錄。
+        </p>
+        <div id="menuBackupProgress" class="menu-backup-progress" hidden>
+            <div class="menu-backup-progress-row">
+                <span id="menuBackupProgressMsg">準備中…</span>
+                <span id="menuBackupProgressPct">0%</span>
+            </div>
+            <div class="menu-backup-bar-track">
+                <div id="menuBackupProgressBar" class="menu-backup-bar-fill"></div>
+            </div>
+        </div>
+        <div class="menu-backup-grid">
+            <div class="menu-backup-pane">
+                <h4>所有 CSV 選單（不含 ZIP）</h4>
+                <p>訂閱、食品、常用、銀行、例行、比價、新聞、音樂／影片中繼資料等。</p>
+                <input type="file" id="menuBackupCsvFile" accept=".zip,.csv,application/zip,text/csv" hidden>
+                <div class="menu-backup-actions">
+                    <button type="button" class="btn btn-success" data-backup-export="csv">
+                        <i class="fa-solid fa-download"></i> 一鍵匯出 CSV
+                    </button>
+                    <button type="button" class="btn" data-backup-import="csv">
+                        <i class="fa-solid fa-upload"></i> 一鍵匯入 CSV
+                    </button>
+                </div>
+            </div>
+            <div class="menu-backup-pane">
+                <h4>所有選單（.csv + .zip）</h4>
+                <p>上述 CSV，加上圖片、影片、音樂、播客、文件、筆記的媒體 ZIP。匯出／匯入可能需要較長時間。</p>
+                <input type="file" id="menuBackupAllFile" accept=".zip,application/zip" hidden>
+                <div class="menu-backup-actions">
+                    <button type="button" class="btn btn-success" data-backup-export="all">
+                        <i class="fa-solid fa-download"></i> 一鍵匯出全部
+                    </button>
+                    <button type="button" class="btn" data-backup-import="all">
+                        <i class="fa-solid fa-upload"></i> 一鍵匯入全部
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="menuBackupResults" class="menu-backup-results" hidden></div>
+    </div>
+
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">系統資訊</h3>
         <table class="table">
@@ -799,6 +846,185 @@ $biggoSettings = [
                 }
             });
     }
+
+    (function initCollapsibleSettings() {
+        document.querySelectorAll('.content-body > .card').forEach(function (card) {
+            const title = card.querySelector('.card-title');
+            if (!title || title.dataset.collapseBound) return;
+            title.dataset.collapseBound = '1';
+            const open = card.getAttribute('data-settings-open') === '1' || card.classList.contains('settings-card-open');
+            card.classList.add('settings-collapsible');
+            if (open) card.classList.add('is-open');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'settings-collapse-toggle';
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            btn.innerHTML = title.innerHTML + '<i class="fa-solid fa-chevron-down settings-collapse-chevron" aria-hidden="true"></i>';
+            title.replaceWith(btn);
+            btn.addEventListener('click', function () {
+                const next = !card.classList.contains('is-open');
+                card.classList.toggle('is-open', next);
+                btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            });
+        });
+    })();
+
+    (function initMenuBackup() {
+        const NEWS_KEY = 'fengbro.tools.news.sites';
+        let busy = false;
+        const progress = document.getElementById('menuBackupProgress');
+        const progressMsg = document.getElementById('menuBackupProgressMsg');
+        const progressPct = document.getElementById('menuBackupProgressPct');
+        const progressBar = document.getElementById('menuBackupProgressBar');
+        const resultsBox = document.getElementById('menuBackupResults');
+
+        function newsCsvFromLocal() {
+            try {
+                const raw = localStorage.getItem(NEWS_KEY);
+                const sites = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(sites) || !sites.length) return '';
+                const headers = ['id', 'name', 'domain', 'homeUrl', 'adapter', 'searchUrlTemplate', 'locked'];
+                const esc = function (v) {
+                    const s = v == null ? '' : String(v);
+                    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+                };
+                const lines = [headers.join(',')];
+                sites.forEach(function (s) {
+                    lines.push([s.id, s.name, s.domain, s.homeUrl, s.adapter, s.searchUrlTemplate, s.locked ? '1' : '0'].map(esc).join(','));
+                });
+                return lines.join('\n');
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setBusy(on, message, percent) {
+            busy = !!on;
+            document.querySelectorAll('[data-backup-export], [data-backup-import]').forEach(function (btn) {
+                btn.disabled = busy;
+            });
+            if (!progress) return;
+            if (!on) {
+                progress.hidden = true;
+                return;
+            }
+            progress.hidden = false;
+            if (progressMsg) progressMsg.textContent = message || '處理中…';
+            const pct = Math.max(0, Math.min(100, percent || 8));
+            if (progressPct) progressPct.textContent = pct + '%';
+            if (progressBar) progressBar.style.width = pct + '%';
+        }
+
+        function renderResults(results) {
+            if (!resultsBox) return;
+            if (!results || !results.length) {
+                resultsBox.hidden = true;
+                resultsBox.innerHTML = '';
+                return;
+            }
+            resultsBox.hidden = false;
+            resultsBox.innerHTML = '<p class="menu-backup-results-title">上次結果</p><ul>' + results.map(function (r) {
+                const cls = r.status === 'ok' ? 'ok' : (r.status === 'skipped' ? 'skip' : 'err');
+                const text = r.status === 'ok' ? ((r.rows || 0) + ' 筆') : (r.message || r.status);
+                return '<li><span>' + (r.label || r.id) + '</span><span class="' + cls + '">' + text + '</span></li>';
+            }).join('') + '</ul>';
+        }
+
+        function filenameFromDisposition(header, fallback) {
+            if (!header) return fallback;
+            const star = header.match(/filename\*=UTF-8''([^;]+)/i);
+            if (star) return decodeURIComponent(star[1]);
+            const plain = header.match(/filename="?([^"]+)"?/i);
+            return plain ? plain[1] : fallback;
+        }
+
+        async function runExport(kind) {
+            if (busy) return;
+            setBusy(true, '準備匯出…', 6);
+            try {
+                const body = new FormData();
+                body.append('action', 'export');
+                body.append('kind', kind);
+                const newsCsv = newsCsvFromLocal();
+                if (newsCsv) body.append('news_csv', newsCsv);
+                const res = await fetch('menu_backup.php?action=export&kind=' + encodeURIComponent(kind), {
+                    method: 'POST',
+                    body: body
+                });
+                const type = (res.headers.get('content-type') || '').toLowerCase();
+                if (type.indexOf('application/json') !== -1) {
+                    const json = await res.json();
+                    throw new Error(json.error || '匯出失敗');
+                }
+                setBusy(true, '下載備份…', 92);
+                const blob = await res.blob();
+                const fallback = kind === 'all' ? 'laravel-all-menus.zip' : 'laravel-all-csv.zip';
+                const name = filenameFromDisposition(res.headers.get('content-disposition'), fallback);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                a.click();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+                alert('匯出完成，已開始下載 ' + name);
+            } catch (e) {
+                alert('匯出失敗：' + (e.message || e));
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        async function runImport(kind, file) {
+            if (busy || !file) return;
+            const confirmText = kind === 'csv'
+                ? '即將匯入 CSV 選單備份「' + file.name + '」。\n相同紀錄會更新、其餘新增；不會刪除備份裡沒有的資料。\n\n確定繼續？'
+                : '即將匯入全部選單備份「' + file.name + '」（CSV + ZIP）。\n相同紀錄會更新、其餘新增；媒體檔會重新寫入，可能需要較長時間。\n\n確定繼續？';
+            if (!window.confirm(confirmText)) return;
+            setBusy(true, '讀取備份…', 8);
+            try {
+                const body = new FormData();
+                body.append('action', 'import');
+                body.append('kind', kind);
+                body.append('file', file);
+                const res = await fetch('menu_backup.php?action=import&kind=' + encodeURIComponent(kind), {
+                    method: 'POST',
+                    body: body
+                });
+                const json = await res.json();
+                if (json.newsSites && Array.isArray(json.newsSites)) {
+                    localStorage.setItem(NEWS_KEY, JSON.stringify(json.newsSites));
+                }
+                renderResults(json.results || []);
+                alert(json.success ? ('匯入完成\n\n' + (json.summary || '')) : ('匯入失敗：' + (json.error || json.summary || '未知錯誤')));
+            } catch (e) {
+                alert('匯入失敗：' + (e.message || e));
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        document.querySelectorAll('[data-backup-export]').forEach(function (btn) {
+            btn.addEventListener('click', function () { runExport(btn.getAttribute('data-backup-export')); });
+        });
+        document.querySelectorAll('[data-backup-import]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const kind = btn.getAttribute('data-backup-import');
+                const input = document.getElementById(kind === 'all' ? 'menuBackupAllFile' : 'menuBackupCsvFile');
+                if (input) input.click();
+            });
+        });
+        const csvInput = document.getElementById('menuBackupCsvFile');
+        const allInput = document.getElementById('menuBackupAllFile');
+        if (csvInput) csvInput.addEventListener('change', function () {
+            const file = csvInput.files && csvInput.files[0];
+            csvInput.value = '';
+            if (file) runImport('csv', file);
+        });
+        if (allInput) allInput.addEventListener('change', function () {
+            const file = allInput.files && allInput.files[0];
+            allInput.value = '';
+            if (file) runImport('all', file);
+        });
+    })();
 
     // ── Resend 設定 CSV（對齊 Appwrite resendSettingsCsv）─────────────────────
     const RESEND_CSV_HEADERS = ['RESEND_API_KEY', 'RESEND_TO_EMAIL'];
