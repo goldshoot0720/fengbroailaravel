@@ -1020,7 +1020,13 @@ $biggoSettings = [
                     method: 'POST',
                     body: body
                 });
-                const json = await res.json();
+                const raw = await res.text();
+                let json;
+                try {
+                    json = JSON.parse(raw);
+                } catch (parseErr) {
+                    throw new Error('伺服器回應非預期內容（HTTP ' + res.status + '）：' + raw.slice(0, 200));
+                }
                 if (json.newsSites && Array.isArray(json.newsSites)) {
                     localStorage.setItem(NEWS_KEY, JSON.stringify(json.newsSites));
                 }
