@@ -5,7 +5,7 @@ $items = $pdo->query("
     SELECT *
     FROM routine
     ORDER BY
-        CASE WHEN lastdate1 IS NULL OR lastdate1 = '' THEN 1 ELSE 0 END ASC,
+        CASE WHEN lastdate1 IS NULL THEN 1 ELSE 0 END ASC,
         lastdate1 DESC,
         created_at DESC
 ")->fetchAll();

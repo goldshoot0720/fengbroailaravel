@@ -6,7 +6,7 @@
  *     { "action": "export",         "password": "..." }
  *       → 驗證通知密碼後回傳明文 slots（含 fromEmail）
  *     { "action": "import_merge",   "password": "...", "slots": [ { apiKey, toEmail }, ... ] }
- *       → 驗證密碼後依收件 Email 合併寫回（最多 3 組），回傳 added/updated/skipped
+ *       → 驗證密碼後依收件 Email 合併寫回（最多 FENGBRO_RESEND_MAX_SLOTS 組），回傳 added/updated/skipped
  *
  * 未設定通知密碼時回傳錯誤（需先建立密碼才能以 CSV 匯出/匯入金鑰）。
  */
@@ -42,7 +42,7 @@ if (!password_verify($password, $storedHash)) {
 function resendSettingsReadSlots(PDO $pdo): array
 {
     $slots = [];
-    for ($slot = 1; $slot <= 3; $slot++) {
+    for ($slot = 1; $slot <= FENGBRO_RESEND_MAX_SLOTS; $slot++) {
         $apiKey = fengbroResendApiKey($pdo, $slot);
         $toEmail = fengbroResendRecipient($pdo, $slot);
         if ($apiKey !== '' && $toEmail !== '') {
@@ -55,7 +55,7 @@ function resendSettingsReadSlots(PDO $pdo): array
 function resendSettingsWriteSlots(PDO $pdo, array $slots): void
 {
     // 先清掉既有 RESEND_TO_EMAIL* 與 RESEND_API_KEY*（保留 env fallback 邏輯不受影響）
-    for ($slot = 1; $slot <= 3; $slot++) {
+    for ($slot = 1; $slot <= FENGBRO_RESEND_MAX_SLOTS; $slot++) {
         $suffix = $slot <= 1 ? '' : (string) $slot;
         fengbroResendSaveSetting($pdo, 'RESEND_API_KEY' . $suffix, '');
         fengbroResendSaveSetting($pdo, 'RESEND_TO_EMAIL' . $suffix, '');
@@ -63,7 +63,7 @@ function resendSettingsWriteSlots(PDO $pdo, array $slots): void
     fengbroResendSaveSetting($pdo, 'resend_api_key', '');
     fengbroResendSaveSetting($pdo, 'resend_to_email', '');
 
-    foreach (array_slice($slots, 0, 3) as $index => $slot) {
+    foreach (array_slice($slots, 0, FENGBRO_RESEND_MAX_SLOTS) as $index => $slot) {
         $num = $index + 1;
         $suffix = $num <= 1 ? '' : (string) $num;
         $apiKey = trim((string) ($slot['apiKey'] ?? ''));
@@ -104,7 +104,7 @@ if ($action === 'import_merge') {
     }
 
     $current = resendSettingsReadSlots($pdo);
-    // 依收件 Email 合併：同 Email 覆蓋、新 Email 補位（上限 3）
+    // 依收件 Email 合併：同 Email 覆蓋、新 Email 補位。
     $byEmail = [];
     $slots = [];
     foreach ($current as $slot) {
@@ -119,7 +119,7 @@ if ($action === 'import_merge') {
         if (isset($byEmail[$emailKey])) {
             $slots[$byEmail[$emailKey]] = $item;
             $updated++;
-        } elseif (count($slots) < 3) {
+        } elseif (count($slots) < FENGBRO_RESEND_MAX_SLOTS) {
             $byEmail[$emailKey] = count($slots);
             $slots[] = $item;
             $added++;

@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/notification_helpers.php';
 
+const FENGBRO_RESEND_MAX_SLOTS = 21;
+
 function fengbroResendEnsureTables(PDO $pdo): void
 {
     $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
@@ -30,7 +32,8 @@ function fengbroResendEnsureTables(PDO $pdo): void
 function fengbroResendGetSetting(PDO $pdo, string $key, string $default = ''): string
 {
     fengbroResendEnsureTables($pdo);
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = ? AND user_id IS NULL LIMIT 1");
+    // RESEND_API_KEY 與舊版 resend_api_key 必須分開讀寫，避免清除舊設定時覆蓋目前設定。
+    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE CAST(setting_key AS BINARY) = ? AND user_id IS NULL LIMIT 1");
     $stmt->execute([$key]);
     $value = $stmt->fetchColumn();
     return $value === false || $value === null ? $default : (string) $value;
@@ -39,7 +42,7 @@ function fengbroResendGetSetting(PDO $pdo, string $key, string $default = ''): s
 function fengbroResendSaveSetting(PDO $pdo, string $key, string $value): void
 {
     fengbroResendEnsureTables($pdo);
-    $stmt = $pdo->prepare("SELECT id FROM settings WHERE setting_key = ? AND user_id IS NULL LIMIT 1");
+    $stmt = $pdo->prepare("SELECT id FROM settings WHERE CAST(setting_key AS BINARY) = ? AND user_id IS NULL LIMIT 1");
     $stmt->execute([$key]);
     $id = $stmt->fetchColumn();
     if ($id) {
@@ -113,7 +116,7 @@ function fengbroResendDefaultRecipient(PDO $pdo): string
 function fengbroResendCredentialSlots(PDO $pdo): array
 {
     $slots = [];
-    for ($slot = 1; $slot <= 3; $slot++) {
+    for ($slot = 1; $slot <= FENGBRO_RESEND_MAX_SLOTS; $slot++) {
         $suffix = fengbroResendSlotSuffix($slot);
         $slots[] = [
             'slot' => $slot,
@@ -135,6 +138,31 @@ function fengbroResendBuildBaseUrl(): string
     }
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') === '443');
     return ($https ? 'https://' : 'http://') . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\');
+}
+
+function fengbroResendTlsOptions(): array
+{
+    $options = [
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ];
+    // Windows 的 PHP/OpenSSL 可能沒有設定 CA bundle，使用系統信任憑證完成驗證。
+    if (PHP_OS_FAMILY === 'Windows' && defined('CURLSSLOPT_NATIVE_CA')) {
+        $options[CURLOPT_SSL_OPTIONS] = CURLSSLOPT_NATIVE_CA;
+    }
+    return $options;
+}
+
+function fengbroResendWaitForSendWindow(): void
+{
+    // Resend 預設每個 team 每秒最多 5 次請求；保留餘裕，避免多組收件人後段被 429 限流。
+    static $lastRequestAt = 0.0;
+    $minimumInterval = 0.25;
+    $remaining = $minimumInterval - (microtime(true) - $lastRequestAt);
+    if ($lastRequestAt > 0 && $remaining > 0) {
+        usleep((int) ceil($remaining * 1000000));
+    }
+    $lastRequestAt = microtime(true);
 }
 
 function fengbroResendSendEmail(string $apiKey, string $from, string $to, string $subject, string $html, string $text): array
@@ -161,13 +189,15 @@ function fengbroResendSendEmail(string $apiKey, string $from, string $to, string
         return ['success' => false, 'error' => 'cURL is not available', 'http_code' => 0];
     }
 
+    fengbroResendWaitForSendWindow();
     $ch = curl_init('https://api.resend.com/emails');
-    curl_setopt_array($ch, [
+    curl_setopt_array($ch, fengbroResendTlsOptions() + [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 20,
+        CURLOPT_USERAGENT => 'Fengbro-AI/1.0',
         CURLOPT_HTTPHEADER => [
             'Authorization: Bearer ' . $apiKey,
             'Content-Type: application/json',
@@ -176,14 +206,20 @@ function fengbroResendSendEmail(string $apiKey, string $from, string $to, string
     $body = curl_exec($ch);
     $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $error = curl_error($ch);
+    $curlErrno = curl_errno($ch);
     curl_close($ch);
 
-    $success = $httpCode >= 200 && $httpCode < 300;
+    $response = is_string($body) ? json_decode($body, true) : null;
+    $apiError = is_array($response) && is_string($response['message'] ?? null) ? $response['message'] : '';
+    $errorType = is_array($response) && is_string($response['name'] ?? null) ? $response['name'] : '';
+    $success = $curlErrno === 0 && $httpCode >= 200 && $httpCode < 300;
     return [
         'success' => $success,
         'http_code' => $httpCode,
+        'curl_errno' => $curlErrno,
+        'error_type' => $errorType,
         'body' => is_string($body) ? $body : '',
-        'error' => $success ? '' : ($error ?: (is_string($body) ? $body : 'RESEND request failed')),
+        'error' => $success ? '' : ($error ?: ($apiError ?: ($body ?: 'RESEND request failed'))),
     ];
 }
 
@@ -239,6 +275,8 @@ function fengbroResendSendTestEmail(PDO $pdo): array
             'recipient' => $slot['recipient'],
             'success' => $result['success'],
             'http_code' => $result['http_code'] ?? 0,
+            'curl_errno' => $result['curl_errno'] ?? 0,
+            'error_type' => $result['error_type'] ?? '',
             'error' => $result['error'] ?? '',
         ];
     }
@@ -249,7 +287,7 @@ function fengbroResendSendTestEmail(PDO $pdo): array
         'failed' => $failed,
         'skipped' => 0,
         'recipient' => implode(', ', array_column($details, 'recipient')),
-        'error' => $failed > 0 ? '部分測試信寄送失敗' : '',
+        'error' => $failed > 0 ? ($sent > 0 ? '部分測試信寄送失敗，請查看各組結果。' : '所有測試信寄送失敗，請查看各組結果。') : '',
         'details' => $details,
     ];
 }
@@ -385,6 +423,8 @@ function fengbroResendRunDueNotifications(PDO $pdo): array
                 'count' => count($slotPending),
                 'success' => $result['success'],
                 'http_code' => $result['http_code'] ?? 0,
+                'curl_errno' => $result['curl_errno'] ?? 0,
+                'error_type' => $result['error_type'] ?? '',
                 'error' => $result['error'] ?? '',
             ];
         }

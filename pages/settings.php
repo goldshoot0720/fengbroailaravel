@@ -8,6 +8,7 @@ $resendSettingsMessage = '';
 $resendSettingsError = '';
 $biggoSettingsMessage = '';
 $biggoSettingsError = '';
+$environment = (string) ($GLOBALS['ENV'] ?? 'local');
 
 // ── 通知設定密碼（對齊 Appwrite notification-settings）───────────────────────
 $notifPasswordHash = fengbroResendGetSetting($pdo, 'notif_password_hash');
@@ -60,7 +61,7 @@ if ($requestedKeyAction) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $resendGatePassed && ($_POST['settings_action'] ?? '') === 'save_resend') {
     try {
-        for ($slot = 1; $slot <= 3; $slot++) {
+        for ($slot = 1; $slot <= FENGBRO_RESEND_MAX_SLOTS; $slot++) {
             $suffix = $slot <= 1 ? '' : (string) $slot;
             $apiSetting = 'RESEND_API_KEY' . $suffix;
             $toSetting = 'RESEND_TO_EMAIL' . $suffix;
@@ -78,7 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $resendGatePassed && ($_POST['setti
                     }
                 }
             }
-            fengbroResendSaveSetting($pdo, $toSetting, trim((string) ($_POST['resend_to_email' . $suffix] ?? '')));
+            if (array_key_exists('resend_to_email' . $suffix, $_POST)) {
+                fengbroResendSaveSetting($pdo, $toSetting, trim((string) $_POST['resend_to_email' . $suffix]));
+            }
         }
         fengbroResendSaveSetting($pdo, 'resend_to_email', '');
         fengbroResendSaveSetting($pdo, 'resend_from_email', trim((string) ($_POST['resend_from_email'] ?? 'Fengbro AI <onboarding@resend.dev>')));
@@ -139,7 +142,7 @@ $biggoSettings = [
             <tr>
                 <th style="width: 200px;">目前環境</th>
                 <td><span
-                        class="badge <?php echo $GLOBALS['ENV'] === 'remote' ? 'badge-danger' : 'badge-success'; ?>"><?php echo strtoupper($GLOBALS['ENV']); ?></span>
+                        class="badge <?php echo $environment === 'remote' ? 'badge-danger' : 'badge-success'; ?>"><?php echo strtoupper($environment); ?></span>
                 </td>
             </tr>
             <tr>
@@ -234,7 +237,7 @@ $biggoSettings = [
         </table>
     </div>
 
-    <div class="card" style="margin-top: 20px;">
+    <div class="card" id="notifPasswordCard" data-settings-open="<?php echo (!$notifPasswordSet || $notifPasswordAction !== '') ? '1' : '0'; ?>" style="margin-top: 20px;">
         <h3 class="card-title">通知設定密碼</h3>
         <p style="color: var(--muted-text); font-size: 0.9rem; margin-bottom: 12px;">
             對齊 Appwrite notification-settings：設定後，儲存或顯示 RESEND／BigGo API 金鑰都需先驗證此密碼。
@@ -262,7 +265,7 @@ $biggoSettings = [
         </form>
     </div>
 
-    <div class="card" style="margin-top: 20px;">
+    <div class="card" data-settings-open="<?php echo ($resendSettingsMessage !== '' || $resendSettingsError !== '') ? '1' : '0'; ?>" style="margin-top: 20px;">
         <h3 class="card-title">RESEND Email 通知</h3>
         <?php if ($resendSettingsMessage): ?>
             <div class="alert alert-success" style="margin-bottom:12px;"><?php echo htmlspecialchars($resendSettingsMessage); ?></div>
@@ -301,7 +304,7 @@ $biggoSettings = [
                         </div>
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= FENGBRO_RESEND_MAX_SLOTS; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th style="width: 200px;"><code>RESEND_API_KEY<?php echo $resendSuffix; ?></code></th>
@@ -329,7 +332,7 @@ $biggoSettings = [
                         <input type="email" class="form-control" name="resend_to_email" value="<?php echo htmlspecialchars($resendToEmail); ?>" placeholder="預設使用 users 第一筆 email">
                     </td>
                 </tr>
-                <?php for ($resendSlot = 2; $resendSlot <= 3; $resendSlot++): ?>
+                <?php for ($resendSlot = 2; $resendSlot <= FENGBRO_RESEND_MAX_SLOTS; $resendSlot++): ?>
                     <?php $resendSuffix = (string) $resendSlot; $resendSlotData = $resendSlots[$resendSlot - 1]; ?>
                     <tr>
                         <th><code>RESEND_TO_EMAIL<?php echo $resendSuffix; ?></code></th>
@@ -365,25 +368,32 @@ $biggoSettings = [
                 <tr>
                     <th>手動檢查</th>
                     <td>
-                        <button type="button" class="btn btn-sm btn-warning" onclick="runResendNotify()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                        <button type="button" class="btn btn-sm btn-warning" data-resend-send onclick="runResendNotify()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
                             執行 RESEND 通知
                         </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="sendResendTestEmail()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
+                        <button type="button" class="btn btn-sm btn-primary" data-resend-send onclick="sendResendTestEmail()" <?php echo !$resendApiKeySet ? 'disabled' : ''; ?>>
                             測試寄發
                         </button>
-                        <span id="resendNotifyResult" style="margin-left:12px; font-size:0.9em;"></span>
+                        <div id="resendNotifyResult" role="status" aria-live="polite" style="margin-top:12px; font-size:0.9em; overflow-wrap:anywhere;"></div>
                     </td>
                 </tr>
             </table>
+            <p style="margin-top:14px; color:var(--muted-text);">最多可儲存 <?php echo FENGBRO_RESEND_MAX_SLOTS; ?> 組 API Key 與收件 Email，CSV 匯入會依收件 Email 合併。</p>
+            <?php if (!$notifPasswordSet): ?>
+                <p style="margin-top:14px; color:var(--muted-text);">
+                    匯入／匯出設定 CSV 前，請先建立至少 4 碼的通知密碼。
+                    <button type="button" class="btn btn-sm" onclick="showNotifPasswordSetup()">建立通知密碼</button>
+                </p>
+            <?php endif; ?>
             <div style="margin: 14px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-                <button type="button" class="btn btn-success" onclick="exportResendSettingsCsv()" <?php echo $notifPasswordSet ? '' : 'disabled'; ?> title="<?php echo $notifPasswordSet ? '匯出 3 組 RESEND 金鑰與收件 Email（需通知密碼）' : '需先建立通知密碼'; ?>">
+                <button type="button" class="btn btn-success" onclick="exportResendSettingsCsv()" <?php echo $notifPasswordSet ? '' : 'disabled'; ?> title="<?php echo $notifPasswordSet ? '匯出最多 ' . FENGBRO_RESEND_MAX_SLOTS . ' 組 RESEND 金鑰與收件 Email（需通知密碼）' : '需先建立通知密碼'; ?>">
                     <i class="fa-solid fa-file-csv"></i> 匯出設定 CSV
                 </button>
-                <button type="button" class="btn" onclick="document.getElementById('resendSettingsCsvFile').click()" <?php echo $notifPasswordSet ? '' : 'disabled'; ?> title="<?php echo $notifPasswordSet ? '從 CSV 匯入並依收件 Email 合併（需通知密碼）' : '需先建立通知密碼'; ?>">
+                <button type="button" class="btn" onclick="openResendSettingsCsvImport()" title="<?php echo $notifPasswordSet ? '從 CSV 匯入並依收件 Email 合併（需通知密碼）' : '先建立通知密碼，再匯入設定 CSV'; ?>">
                     <i class="fa-solid fa-upload"></i> 匯入設定 CSV
                 </button>
                 <input type="file" id="resendSettingsCsvFile" accept=".csv,text/csv" style="display:none;" onchange="handleResendSettingsCsvFile(this)">
-                <span id="resendCsvStatus" style="font-size:0.85em; color:var(--muted-text);"></span>
+                <span id="resendCsvStatus" role="status" aria-live="polite" style="font-size:0.85em; color:var(--muted-text);"></span>
             </div>
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-floppy-disk"></i> 儲存 RESEND 設定
@@ -565,38 +575,59 @@ $biggoSettings = [
             input.focus();
         }
 
-        function runResendNotify() {
+        function renderResendNotifyResult(data, isTest) {
             const result = document.getElementById('resendNotifyResult');
-            result.textContent = '檢查中...';
-            fetch('resend_notify.php', { method: 'POST' })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        result.innerHTML = '<span style="color:green;">已寄出 ' + (d.sent || 0) + ' 筆，略過 ' + (d.skipped || 0) + ' 筆。</span>';
-                    } else {
-                        result.innerHTML = '<span style="color:red;">失敗：' + (d.error || 'RESEND 通知失敗') + '</span>';
-                    }
-                })
-                .catch(() => {
-                    result.innerHTML = '<span style="color:red;">請求失敗</span>';
+            result.replaceChildren();
+            const summary = document.createElement('p');
+            summary.style.color = data.success ? 'var(--success, green)' : 'var(--danger, red)';
+            summary.textContent = (isTest ? '測試寄發' : '通知檢查') + '：成功 ' + (data.sent || 0) + '、失敗 ' + (data.failed || 0) + '、略過 ' + (data.skipped || 0) + '。';
+            result.appendChild(summary);
+            const message = data.error || data.message;
+            if (message) {
+                const note = document.createElement('p');
+                note.textContent = message;
+                result.appendChild(note);
+            }
+            if (Array.isArray(data.details) && data.details.length) {
+                const list = document.createElement('ul');
+                list.style.paddingLeft = '1.5em';
+                data.details.forEach(detail => {
+                    const row = document.createElement('li');
+                    const code = detail.http_code ? 'HTTP ' + detail.http_code : (detail.curl_errno ? 'cURL ' + detail.curl_errno : '');
+                    row.textContent = '第 ' + detail.slot + ' 組（' + (detail.recipient || '未指定收件人') + '）：'
+                        + (detail.success ? '已寄出' : '失敗' + (code ? ' [' + code + ']' : '') + ' — ' + (detail.error || '未知錯誤'));
+                    if (!detail.success && detail.error_type) row.textContent += '（' + detail.error_type + '）';
+                    list.appendChild(row);
                 });
+                result.appendChild(list);
+            }
+        }
+
+        async function requestResendNotify(isTest) {
+            const result = document.getElementById('resendNotifyResult');
+            if (result.dataset.busy === '1') return;
+            result.dataset.busy = '1';
+            result.textContent = isTest ? '測試寄發中...' : '檢查中...';
+            const buttons = Array.from(document.querySelectorAll('[data-resend-send]'));
+            const disabledStates = buttons.map(button => button.disabled);
+            buttons.forEach(button => { button.disabled = true; });
+            try {
+                const response = await fetch(isTest ? 'resend_notify.php?action=test' : 'resend_notify.php', { method: 'POST' });
+                renderResendNotifyResult(await response.json(), isTest);
+            } catch (error) {
+                result.textContent = (isTest ? '測試寄發' : '通知') + '請求失敗：' + (error.message || '請稍後再試');
+            } finally {
+                delete result.dataset.busy;
+                buttons.forEach((button, index) => { button.disabled = disabledStates[index]; });
+            }
+        }
+
+        function runResendNotify() {
+            return requestResendNotify(false);
         }
 
         function sendResendTestEmail() {
-            const result = document.getElementById('resendNotifyResult');
-            result.textContent = '測試寄發中...';
-            fetch('resend_notify.php?action=test', { method: 'POST' })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.success) {
-                        result.innerHTML = '<span style="color:green;">測試信已寄出 ' + (d.sent || 0) + ' 封' + (d.recipient ? '：' + d.recipient : '') + '。</span>';
-                    } else {
-                        result.innerHTML = '<span style="color:red;">測試寄發失敗：' + (d.error || 'RESEND 測試寄發失敗') + '</span>';
-                    }
-                })
-                .catch(() => {
-                    result.innerHTML = '<span style="color:red;">測試寄發請求失敗</span>';
-                });
+            return requestResendNotify(true);
         }
 
         function initVapid() {
@@ -1027,6 +1058,8 @@ $biggoSettings = [
     })();
 
     // ── Resend 設定 CSV（對齊 Appwrite resendSettingsCsv）─────────────────────
+    const RESEND_NOTIF_PASSWORD_SET = <?php echo $notifPasswordSet ? 'true' : 'false'; ?>;
+    const RESEND_MAX_SLOTS = <?php echo FENGBRO_RESEND_MAX_SLOTS; ?>;
     const RESEND_CSV_HEADERS = ['RESEND_API_KEY', 'RESEND_TO_EMAIL'];
     const RESEND_CSV_ALIASES = {
         'resendapikey': 'RESEND_API_KEY', 'resend_api_key': 'RESEND_API_KEY', 'apikey': 'RESEND_API_KEY', 'api_key': 'RESEND_API_KEY', 'key': 'RESEND_API_KEY',
@@ -1040,6 +1073,25 @@ $biggoSettings = [
         if (!el) return;
         el.textContent = msg || '';
         el.style.color = ok ? '#3f7d5c' : (msg ? '#bf3c4e' : 'var(--muted-text)');
+    }
+
+    function showNotifPasswordSetup() {
+        const card = document.getElementById('notifPasswordCard');
+        if (!card) return;
+        if (!card.classList.contains('is-open')) {
+            card.querySelector('.settings-collapse-toggle')?.click();
+        }
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.querySelector('[name="notif_password_new"]')?.focus({ preventScroll: true });
+    }
+
+    function openResendSettingsCsvImport() {
+        if (!RESEND_NOTIF_PASSWORD_SET) {
+            resendCsvStatus('請先建立通知密碼，完成後即可匯入設定 CSV。');
+            showNotifPasswordSetup();
+            return;
+        }
+        document.getElementById('resendSettingsCsvFile').click();
     }
 
     function promptNotifPassword() {
@@ -1126,7 +1178,7 @@ $biggoSettings = [
             if (!apiKey) { errors.push('第 ' + lineNo + ' 行: RESEND_API_KEY 不能為空'); continue; }
             if (!toEmail) { errors.push('第 ' + lineNo + ' 行: RESEND_TO_EMAIL 不能為空'); continue; }
             if (!emailRe.test(toEmail)) { errors.push('第 ' + lineNo + ' 行: 收件 Email「' + toEmail + '」格式不正確'); continue; }
-            if (slots.length >= 3) { errors.push('最多 3 組（本機支援上限），已略過第 ' + lineNo + ' 行以後'); break; }
+            if (slots.length >= RESEND_MAX_SLOTS) { errors.push('最多支援 ' + RESEND_MAX_SLOTS + ' 組設定，本次尚未匯入。請將 CSV 調整為 ' + RESEND_MAX_SLOTS + ' 組以內'); break; }
             slots.push({ apiKey, toEmail });
         }
         return { slots, errors };
