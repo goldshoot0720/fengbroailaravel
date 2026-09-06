@@ -62,6 +62,12 @@ uksort($commonSites, 'strnatcasecmp');
     <?php endif; ?>
 </div>
 
+<datalist id="fengbroSiteNames">
+    <?php foreach ($existingSites as $siteOption): ?>
+        <option value="<?php echo htmlspecialchars($siteOption, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php endforeach; ?>
+</datalist>
+
 <div class="content-body">
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
@@ -244,7 +250,6 @@ uksort($commonSites, 'strnatcasecmp');
     initBatchDelete(TABLE);
     let fieldCount = 0;
     let fieldCountAdd = 0;
-    const existingSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
 
     function handleAdd() {
         if (window.matchMedia('(max-width: 768px)').matches) {
@@ -322,13 +327,6 @@ uksort($commonSites, 'strnatcasecmp');
         const count = container.querySelectorAll('[data-field-row]').length + 1;
         if (count > 37) return;
         const idx = String(count).padStart(2, '0');
-        const isExisting = existingSites.includes(site);
-        const showInput = site && !isExisting;
-        let optionsHtml = '<option value="">-- 選擇網站 --</option>';
-        existingSites.forEach(s => {
-            optionsHtml += `<option value="${s}" ${s === site ? 'selected' : ''}>${s}</option>`;
-        });
-        optionsHtml += `<option value="__custom__" ${showInput ? 'selected' : ''}>自行輸入...</option>`;
 
         const div = document.createElement('div');
         div.className = 'form-row';
@@ -336,12 +334,7 @@ uksort($commonSites, 'strnatcasecmp');
         div.innerHTML = `
             <div class="form-group" style="flex:1">
                 <label>網站名稱 ${count}</label>
-                <select class="form-control site-select" data-idx="${idx}" onchange="toggleSiteInputInline('${containerId}','${idx}')" style="margin-bottom: 5px;">
-                    ${optionsHtml}
-                </select>
-                <input type="text" class="form-control site-input" data-idx="${idx}" placeholder="輸入網站名稱" value="${showInput ? site : ''}"
-                    style="display: ${showInput ? 'block' : 'none'};" oninput="updateSiteValueInline('${containerId}','${idx}')">
-                <input type="hidden" name="site${idx}" value="${site || ''}">
+                <input type="text" class="form-control" name="site${idx}" list="fengbroSiteNames" placeholder="輸入或搜尋常用網站" value="${site || ''}">
             </div>
             <div class="form-group" style="flex:2">
                 <label>備註 ${count}</label>
@@ -349,34 +342,6 @@ uksort($commonSites, 'strnatcasecmp');
             </div>
         `;
         container.appendChild(div);
-    }
-
-    function toggleSiteInputInline(containerId, idx) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const select = container.querySelector(`.site-select[data-idx="${idx}"]`);
-        const row = select?.closest('[data-field-row]');
-        if (!row) return;
-        const input = row.querySelector('.site-input');
-        const hidden = row.querySelector(`input[name="site${idx}"]`);
-        if (select.value === '__custom__') {
-            input.style.display = 'block';
-            input.focus();
-            if (hidden) hidden.value = input.value;
-        } else {
-            input.style.display = 'none';
-            if (hidden) hidden.value = select.value;
-        }
-    }
-
-    function updateSiteValueInline(containerId, idx) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const input = container.querySelector(`.site-input[data-idx="${idx}"]`);
-        const row = input?.closest('[data-field-row]');
-        if (!row) return;
-        const hidden = row.querySelector(`input[name="site${idx}"]`);
-        if (hidden) hidden.value = input.value;
     }
 
     function addFieldToEdit(id) {
@@ -494,27 +459,6 @@ uksort($commonSites, 'strnatcasecmp');
         });
     }
 
-    function toggleSiteInput(idx) {
-        const select = document.getElementById(`siteSelect${idx}`);
-        const input = document.getElementById(`siteInput${idx}`);
-        const hidden = document.getElementById(`site${idx}`);
-
-        if (select.value === '__custom__') {
-            input.style.display = 'block';
-            input.focus();
-            hidden.value = input.value;
-        } else {
-            input.style.display = 'none';
-            hidden.value = select.value;
-        }
-    }
-
-    function updateSiteValue(idx) {
-        const input = document.getElementById(`siteInput${idx}`);
-        const hidden = document.getElementById(`site${idx}`);
-        hidden.value = input.value;
-    }
-
     function addField(note = '', site = '') {
         fieldCount++;
         if (fieldCount > 37) return;
@@ -524,29 +468,10 @@ uksort($commonSites, 'strnatcasecmp');
         div.className = 'form-row';
         div.id = `field${idx}`;
 
-        // 判斷是否為已存在的網站
-        const isExisting = existingSites.includes(site);
-        const selectValue = site && isExisting ? site : (site ? '__custom__' : '');
-        const showInput = site && !isExisting;
-
-        let optionsHtml = '<option value="">-- 選擇網站 --</option>';
-        existingSites.forEach(s => {
-            const selected = (s === site) ? 'selected' : '';
-            optionsHtml += `<option value="${s}" ${selected}>${s}</option>`;
-        });
-        optionsHtml += `<option value="__custom__" ${showInput ? 'selected' : ''}>自行輸入...</option>`;
-
         div.innerHTML = `
         <div class="form-group" style="flex:1">
             <label>網站名稱 ${fieldCount}</label>
-            <select id="siteSelect${idx}" class="form-control" onchange="toggleSiteInput('${idx}')" style="margin-bottom: 5px;">
-                ${optionsHtml}
-            </select>
-            <input type="text" class="form-control" id="siteInput${idx}" placeholder="輸入網站名稱"
-                   value="${showInput ? site : ''}"
-                   style="display: ${showInput ? 'block' : 'none'};"
-                   oninput="updateSiteValue('${idx}')">
-            <input type="hidden" id="site${idx}" name="site${idx}" value="${site}">
+            <input type="text" class="form-control" id="site${idx}" name="site${idx}" list="fengbroSiteNames" placeholder="輸入或搜尋常用網站" value="${site || ''}">
         </div>
         <div class="form-group" style="flex:2">
             <label>備註 ${fieldCount}</label>

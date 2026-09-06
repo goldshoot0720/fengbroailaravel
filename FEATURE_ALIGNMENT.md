@@ -1,6 +1,11 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 2026-09-04 選單一鍵備份／還原、設定區段摺疊、清單全選刪除與搜尋提交同一路徑。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+最後更新：對齊 Appwrite 2026-09-06 的選單分頁記憶與鋒兄常用搜尋式網站選取器。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+
+### 2026-09-06 補齊項目
+
+- **底部分頁分類記憶上次子選單**：手機底欄「生活／媒體／工具」分頁改記住各分類最後一次點進去的頁面（`fengbro_last_group_*`），不再永遠跳回分類第一項（對齊 Appwrite `lib/menuSubmenuHistory.ts` 的分類級記憶，PHP 版無 SPA 分頁殼層，改實作在 `includes/mobile-nav.php` + `includes/sidebar.php` 的 `handleGroupTabNav`）
+- **鋒兄常用搜尋式網站選取器**：新增／編輯常用帳號時，網站欄位改成單一文字輸入框＋`<datalist>`（`fengbroSiteNames`），輸入時可原生搜尋既有網站名稱，不必再從落落長的下拉選單裡找；同時移除舊的「選擇網站／自行輸入」雙欄位切換邏輯（對齊 Appwrite `components/ui/site-name-picker.tsx` 的可搜尋選取器，PHP 版以原生 `datalist` 達到等效體驗）
 
 ## 核心業務模組
 
@@ -76,6 +81,8 @@
 - Appwrite Storage SDK / multipart 雲端影片管線
 - React/shadcn 一比一 UI
 - Vercel 上自動下載 yt-dlp 的 serverless 特化
+- **鋒兄額度自動同步**（2026-09-05／09-06 新增）：Appwrite 版陸續加上從 Claude Code CLI 憑證檔、ChatGPT accessToken（PIN 保護）、OiiOii/LitMedia/MindVideo 等作者自有服務的公開 GitHub Actions 報表自動回填額度。這些讀取路徑綁定作者本人的本機憑證與私有 Actions 產物網址，換一台機器或另一個使用者就失去意義，PHP 版維持手動輸入＋CSV 匯入匯出（`pages/quota.php`）
+- **播客 Spotify 版型切換**（2026-09-04 新增）：Appwrite 版新增可切換的 Spotify 節目版面（`SpotifyPodcastShow.tsx`，366 行元件＋版型切換器），屬視覺骨架級改動；PHP 版播客頁維持既有卡片版型，未跟進切換兩種版型
 
 ## 執行環境依賴
 
@@ -92,5 +99,5 @@
 
 **狀態：完成（DONE）**
 
-在「PHP + MySQL 個人作業中樞」範圍內，可移植的 Appwrite 功能模組已對齊完成，含 2026-09-04 的選單一鍵備份／還原、設定摺疊與清單全選刪除。  
+在「PHP + MySQL 個人作業中橞」範圍內，可移植的 Appwrite 功能模組已對齊完成，含 2026-09-06 的底部分頁分類記憶上次子選單與鋒兄常用可搜尋式網站選取器。  
 刻意不移植項目見上表；其餘缺口屬執行環境或第三方服務限制，不屬功能未做。

@@ -23,9 +23,9 @@ if (in_array($mCurPage, $mLifeSet, true)) {
 
 $mTabs = [
     ['key' => 'home',  'label' => '首頁', 'icon' => 'fa-house',           'href' => 'index.php?page=home',              'menu' => 'page=home'],
-    ['key' => 'life',  'label' => '生活', 'icon' => 'fa-calendar-check',  'href' => 'index.php?page=subscription',      'menu' => 'page=subscription'],
-    ['key' => 'media', 'label' => '媒體', 'icon' => 'fa-photo-film',      'href' => 'index.php?page=images',            'menu' => 'page=images'],
-    ['key' => 'tools', 'label' => '工具', 'icon' => 'fa-wrench',          'href' => 'index.php?page=tools&tool=price',  'menu' => 'page=tools&tool=price'],
+    ['key' => 'life',  'label' => '生活', 'icon' => 'fa-calendar-check',  'href' => 'index.php?page=subscription',      'menu' => 'page=subscription',      'group' => 'life'],
+    ['key' => 'media', 'label' => '媒體', 'icon' => 'fa-photo-film',      'href' => 'index.php?page=images',            'menu' => 'page=images',            'group' => 'media'],
+    ['key' => 'tools', 'label' => '工具', 'icon' => 'fa-wrench',          'href' => 'index.php?page=tools&tool=price',  'menu' => 'page=tools&tool=price',  'group' => 'tools'],
 ];
 ?>
 <header class="m-appbar" aria-label="頁面標題列">
@@ -50,7 +50,8 @@ $mTabs = [
 <nav class="m-tabbar" aria-label="主要分頁">
     <?php foreach ($mTabs as $t): $on = ($mActive === $t['key']); ?>
         <a class="m-tab <?php echo $on ? 'is-active' : ''; ?>" href="<?php echo $t['href']; ?>"
-            data-menu-url="<?php echo htmlspecialchars($t['menu'], ENT_QUOTES, 'UTF-8'); ?>" onclick="handleMenuNav(this)"
+            data-menu-url="<?php echo htmlspecialchars($t['menu'], ENT_QUOTES, 'UTF-8'); ?>"
+            <?php if (!empty($t['group'])): ?>data-group="<?php echo htmlspecialchars($t['group'], ENT_QUOTES, 'UTF-8'); ?>" onclick="return handleGroupTabNav(event, this)"<?php else: ?>onclick="handleMenuNav(this)"<?php endif; ?>
             <?php echo $on ? 'aria-current="page"' : ''; ?>>
             <span class="m-tab-icon"><i class="fa-solid <?php echo $t['icon']; ?>" aria-hidden="true"></i></span>
             <span class="m-tab-label"><?php echo $t['label']; ?></span>
