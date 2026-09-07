@@ -1,0 +1,580 @@
+<?php
+$pageTitle = '常用項目';
+$pdo = getConnection();
+$items = $pdo->query("SELECT * FROM commonaccount ORDER BY created_at DESC")->fetchAll();
+
+// 收集所有已存在的網站名稱（去重）
+$existingSites = [];
+foreach ($items as $item) {
+    for ($i = 1; $i <= 37; $i++) {
+        $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+        if (!empty($item[$siteKey])) {
+            $siteName = trim($item[$siteKey]);
+            if (!in_array($siteName, $existingSites)) {
+                $existingSites[] = $siteName;
+            }
+        }
+    }
+}
+sort($existingSites);
+?>
+
+<?php
+// 收集所有網站名稱及其出現的帳號
+$siteAccounts = [];
+foreach ($items as $item) {
+    for ($i = 1; $i <= 37; $i++) {
+        $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+        if (!empty($item[$siteKey])) {
+            $siteName = trim($item[$siteKey]);
+            if (!isset($siteAccounts[$siteName])) {
+                $siteAccounts[$siteName] = [];
+            }
+            if (!in_array($item['id'], $siteAccounts[$siteName])) {
+                $siteAccounts[$siteName][] = $item['id'];
+            }
+        }
+    }
+}
+// 只保留出現在多個帳號中的網站
+$commonSites = array_filter($siteAccounts, function ($accounts) {
+    return count($accounts) >= 1;
+});
+// 依網站名稱字母小到大排序
+uksort($commonSites, 'strnatcasecmp');
+?>
+
+<div class="content-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <h1>鋒兄常用</h1>
+    <?php if (!empty($commonSites)): ?>
+    <div class="common-site-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <span style="color: #666; font-size: 0.9rem;"><i class="fas fa-filter"></i> 篩選:</span>
+        <button class="btn btn-sm filter-btn active" onclick="filterBySite('')" data-site="">全部 (<?php echo count($items); ?>)</button>
+        <?php foreach ($commonSites as $siteName => $accountIds): ?>
+            <button class="btn btn-sm filter-btn" onclick="filterBySite('<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>')" data-site="<?php echo htmlspecialchars($siteName, ENT_QUOTES); ?>">
+                <img src="https://www.google.com/s2/favicons?domain=<?php echo urlencode($siteName); ?>&sz=16"
+                    style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
+                    onerror="this.style.display='none'">
+                <?php echo htmlspecialchars($siteName); ?> (<?php echo count($accountIds); ?>)
+            </button>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+</div>
+
+<datalist id="fengbroSiteNames">
+    <?php foreach ($existingSites as $siteOption): ?>
+        <option value="<?php echo htmlspecialchars($siteOption, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php endforeach; ?>
+</datalist>
+
+<div class="content-body">
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 15px;">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增常用網站與備註"><i class="fas fa-plus"></i> 新增</button>
+        <?php $csvTable = 'commonaccount';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
+
+    <div class="card-grid" style="margin-top: 20px;">
+        <div id="inlineAddCard" class="card inline-add-card" data-sites="">
+            <div class="inline-edit inline-edit-always">
+                <div class="form-group">
+                    <label>帳號名稱 *</label>
+                    <input type="text" class="form-control inline-input" id="inlineAddName" placeholder="帳號名稱">
+                </div>
+                <div id="fieldsContainerAdd"></div>
+                <button type="button" class="btn" onclick="addFieldTo('fieldsContainerAdd')" style="margin-bottom: 15px;">+ 新增欄位</button>
+                <div class="inline-actions">
+                    <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                    <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                </div>
+            </div>
+        </div>
+        <?php if (empty($items)): ?>
+            <div class="card">
+                <p style="text-align: center; color: #999;">暫無常用網站與備註</p>
+            </div>
+        <?php else: ?>
+            <?php foreach ($items as $item):
+                // 收集此帳號的所有網站
+                $itemSites = [];
+                for ($i = 1; $i <= 37; $i++) {
+                    $sk = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT);
+                    if (!empty($item[$sk])) {
+                        $itemSites[] = trim($item[$sk]);
+                    }
+                }
+            ?>
+                <div class="card" data-id="<?php echo $item['id']; ?>"
+                    data-sites="<?php echo htmlspecialchars(implode('|', $itemSites), ENT_QUOTES); ?>">
+                    <div class="inline-view">
+                        <div class="card-header">
+                            <input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                    onchange="toggleSelectItem(this)">
+                            <div class="card-actions">
+                                <span class="card-edit-btn" onclick="handleEdit('<?php echo $item['id']; ?>')"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                            </div>
+                        </div>
+                        <h3 class="card-title" style="word-break: break-all;"><?php echo htmlspecialchars($item['name']); ?></h3>
+                        <?php for ($i = 1; $i <= 37; $i++): ?>
+                            <?php $siteKey = 'site' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
+                            <?php $noteKey = 'note' . str_pad($i, 2, '0', STR_PAD_LEFT); ?>
+                            <?php if (!empty($item[$siteKey]) || !empty($item[$noteKey])): ?>
+                                <div style="margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee;">
+                                    <?php if (!empty($item[$siteKey])): ?>
+                                        <div style="font-weight: 600; color: #2a2724; margin-bottom: 4px;">
+                                            <img src="https://www.google.com/s2/favicons?domain=<?php echo urlencode($item[$siteKey]); ?>&sz=16"
+                                                style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"
+                                                onerror="this.style.display='none'">
+                                            <?php echo htmlspecialchars($item[$siteKey]); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($item[$noteKey])): ?>
+                                        <div style="font-size: 0.85rem; color: #666; word-break: break-word;">
+                                            <?php echo htmlspecialchars($item[$noteKey]); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="inline-edit">
+                        <div class="form-group">
+                            <label>帳號名稱 *</label>
+                            <input type="text" class="form-control inline-input" data-field="name" placeholder="帳號名稱">
+                        </div>
+                        <div class="fields-container-edit" data-id="<?php echo $item['id']; ?>"></div>
+                        <button type="button" class="btn" onclick="addFieldToEdit('<?php echo $item['id']; ?>')" style="margin-bottom: 10px;">+ 新增欄位</button>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div id="modal" class="modal">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh;">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h2 id="modalTitle">新增常用網站與備註</h2>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">最多 37 個欄位</p>
+        <form id="itemForm">
+            <input type="hidden" id="itemId" name="id">
+            <div class="form-group">
+                <label>帳號名稱 *</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div id="fieldsContainer"></div>
+            <button type="button" class="btn" onclick="addField()" style="margin-bottom: 15px;">+ 新增欄位</button>
+            <br>
+            <button type="submit" class="btn btn-primary">儲存</button>
+        </form>
+    </div>
+</div>
+
+<div id="viewModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="modal-close" onclick="closeViewModal()">&times;</span>
+        <h2 id="viewTitle">查看詳情</h2>
+        <div id="viewContent"></div>
+    </div>
+</div>
+
+<div id="commonSitesModal" class="modal">
+    <div class="modal-content" style="max-width: 700px; max-height: 80vh;">
+        <span class="modal-close" onclick="closeCommonSitesModal()">&times;</span>
+        <h2><i class="fas fa-link"></i> 共同網站分析</h2>
+        <p style="color: #666; margin-bottom: 15px;">以下網站出現在多個帳號中：</p>
+        <div id="commonSitesContent">
+            <?php if (empty($commonSites)): ?>
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <i class="fas fa-search" style="font-size: 48px; margin-bottom: 15px;"></i>
+                    <p>沒有找到共同的網站</p>
+                </div>
+            <?php else: ?>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">網站名稱</th>
+                            <th style="width: 15%;">出現次數</th>
+                            <th style="width: 55%;">相關帳號</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($commonSites as $siteName => $accounts): ?>
+                            <tr>
+                                <td style="font-weight: 600; color: #2a2724;"><?php echo htmlspecialchars($siteName); ?></td>
+                                <td>
+                                    <span
+                                        style="background: #b4552f; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.85rem;">
+                                        <?php echo count($accounts); ?>
+                                    </span>
+                                </td>
+                                <td style="font-size: 0.9rem; color: #555;">
+                                    <?php echo htmlspecialchars(implode('、', $accounts)); ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<style>
+.filter-btn {
+    background: #f2f0e9;
+    border: 1px solid #ddd;
+    color: #555;
+    transition: all 0.2s;
+}
+.filter-btn:hover {
+    background: #e0dcd3;
+}
+.filter-btn.active {
+    background: #b4552f;
+    color: white;
+    border-color: transparent;
+}
+</style>
+
+<script>
+    const TABLE = 'commonaccount';
+    initBatchDelete(TABLE);
+    let fieldCount = 0;
+    let fieldCountAdd = 0;
+
+    function handleAdd() {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            openModal();
+        } else {
+            startInlineAdd();
+        }
+    }
+
+    function handleEdit(id) {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            editItem(id);
+        } else {
+            startInlineEdit(id);
+        }
+    }
+
+    function startInlineAdd() {
+        const card = document.getElementById('inlineAddCard');
+        if (!card) return;
+        card.style.display = 'block';
+        document.getElementById('inlineAddName').value = '';
+        const container = document.getElementById('fieldsContainerAdd');
+        container.innerHTML = '';
+        fieldCountAdd = 0;
+        addFieldTo('fieldsContainerAdd');
+        addFieldTo('fieldsContainerAdd');
+        addFieldTo('fieldsContainerAdd');
+        document.getElementById('inlineAddName').focus();
+    }
+
+    function cancelInlineAdd() {
+        const card = document.getElementById('inlineAddCard');
+        if (!card) return;
+        card.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const name = document.getElementById('inlineAddName').value.trim();
+        if (!name) {
+            alert('請輸入帳號名稱');
+            return;
+        }
+        const data = { name };
+        const container = document.getElementById('fieldsContainerAdd');
+        if (container) {
+            container.querySelectorAll('[data-field-row]').forEach((row, i) => {
+                const idx = String(i + 1).padStart(2, '0');
+                const siteInput = row.querySelector('[name="site' + idx + '"]');
+                const noteInput = row.querySelector('[name="note' + idx + '"]');
+                if (siteInput) data['site' + idx] = siteInput.value.trim();
+                if (noteInput) data['note' + idx] = noteInput.value.trim();
+            });
+        }
+        for (let i = 1; i <= 37; i++) {
+            const idx = String(i).padStart(2, '0');
+            if (!data['site' + idx]) data['site' + idx] = '';
+            if (!data['note' + idx]) data['note' + idx] = '';
+        }
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+
+    function addFieldTo(containerId, site = '', note = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const count = container.querySelectorAll('[data-field-row]').length + 1;
+        if (count > 37) return;
+        const idx = String(count).padStart(2, '0');
+
+        const div = document.createElement('div');
+        div.className = 'form-row';
+        div.dataset.fieldRow = '1';
+        div.innerHTML = `
+            <div class="form-group" style="flex:1">
+                <label>網站名稱 ${count}</label>
+                <input type="text" class="form-control" name="site${idx}" list="fengbroSiteNames" placeholder="輸入或搜尋常用網站" value="${site || ''}">
+            </div>
+            <div class="form-group" style="flex:2">
+                <label>備註 ${count}</label>
+                <textarea class="form-control" name="note${idx}" rows="2">${note || ''}</textarea>
+            </div>
+        `;
+        container.appendChild(div);
+    }
+
+    function addFieldToEdit(id) {
+        const containerId = 'fieldsEdit' + id;
+        let container = document.getElementById(containerId);
+        if (!container) {
+            const card = getCardById(id);
+            container = card?.querySelector('.fields-container-edit');
+            if (container) container.id = containerId;
+        }
+        addFieldTo(containerId, '', '');
+    }
+
+    function getCardById(id) {
+        return document.querySelector(`.card[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    card.querySelector('.inline-view').style.display = 'none';
+                    card.querySelector('.inline-edit').style.display = 'block';
+                    card.querySelector('[data-field="name"]').value = d.name || '';
+                    const container = card.querySelector('.fields-container-edit');
+                    container.innerHTML = '';
+                    container.id = 'fieldsEdit' + id;
+                    for (let i = 1; i <= 37; i++) {
+                        const idx = String(i).padStart(2, '0');
+                        if (d['site' + idx] || d['note' + idx]) {
+                            addFieldTo('fieldsEdit' + id, d['site' + idx] || '', d['note' + idx] || '');
+                        }
+                    }
+                    if (container.querySelectorAll('[data-field-row]').length === 0) {
+                        addFieldTo('fieldsEdit' + id, '', '');
+                        addFieldTo('fieldsEdit' + id, '', '');
+                    }
+                }
+            });
+    }
+
+    function cancelInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        card.querySelector('.inline-view').style.display = '';
+        card.querySelector('.inline-edit').style.display = 'none';
+    }
+
+    function saveInlineEdit(id) {
+        const card = getCardById(id);
+        if (!card) return;
+        const name = card.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入帳號名稱');
+            return;
+        }
+        const data = { name };
+        const container = card.querySelector('.fields-container-edit');
+        if (container) {
+            container.querySelectorAll('[data-field-row]').forEach((row, i) => {
+                const idx = String(i + 1).padStart(2, '0');
+                const siteInput = row.querySelector(`input[name="site${idx}"]`);
+                const noteInput = row.querySelector(`textarea[name="note${idx}"]`);
+                if (siteInput) data['site' + idx] = siteInput.value.trim();
+                if (noteInput) data['note' + idx] = noteInput.value.trim();
+            });
+        }
+        for (let i = 1; i <= 37; i++) {
+            const idx = String(i).padStart(2, '0');
+            if (!data['site' + idx]) data['site' + idx] = '';
+            if (!data['note' + idx]) data['note' + idx] = '';
+        }
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+
+    function showCommonSites() {
+        document.getElementById('commonSitesModal').style.display = 'flex';
+    }
+
+    function closeCommonSitesModal() {
+        document.getElementById('commonSitesModal').style.display = 'none';
+    }
+
+    function filterBySite(siteName) {
+        // 更新按鈕狀態
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.site === siteName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // 篩選卡片（新增卡不受篩選影響）
+        document.querySelectorAll('.card-grid .card').forEach(card => {
+            if (card.id === 'inlineAddCard') return;
+            const sites = card.dataset.sites || '';
+            if (!siteName || sites.split('|').includes(siteName)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    function addField(note = '', site = '') {
+        fieldCount++;
+        if (fieldCount > 37) return;
+        const idx = String(fieldCount).padStart(2, '0');
+        const container = document.getElementById('fieldsContainer');
+        const div = document.createElement('div');
+        div.className = 'form-row';
+        div.id = `field${idx}`;
+
+        div.innerHTML = `
+        <div class="form-group" style="flex:1">
+            <label>網站名稱 ${fieldCount}</label>
+            <input type="text" class="form-control" id="site${idx}" name="site${idx}" list="fengbroSiteNames" placeholder="輸入或搜尋常用網站" value="${site || ''}">
+        </div>
+        <div class="form-group" style="flex:2">
+            <label>備註 ${fieldCount}</label>
+            <textarea class="form-control" name="note${idx}" rows="2">${note}</textarea>
+        </div>
+    `;
+        container.appendChild(div);
+    }
+
+    function openModal() {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('modalTitle').textContent = '新增常用網站與備註';
+        document.getElementById('itemForm').reset();
+        document.getElementById('itemId').value = '';
+        document.getElementById('fieldsContainer').innerHTML = '';
+        fieldCount = 0;
+        addField();
+        addField();
+        addField();
+    }
+
+    function closeModal() {
+        const modal = document.getElementById('modal');
+        modal.classList.remove('inline-mode');
+        modal.style.display = 'none';
+    }
+
+    function closeViewModal() {
+        document.getElementById('viewModal').style.display = 'none';
+    }
+
+    function viewItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    document.getElementById('viewTitle').textContent = d.name;
+                    let html = '<table class="table"><thead><tr><th>網站名稱</th><th>備註</th></tr></thead><tbody>';
+                    for (let i = 1; i <= 37; i++) {
+                        const idx = String(i).padStart(2, '0');
+                        if (d['site' + idx] || d['note' + idx]) {
+                            const noteHtml = (d['note' + idx] || '').replace(/\n/g, '<br>');
+                            html += `<tr><td>${d['site' + idx] || '-'}</td><td>${noteHtml || '-'}</td></tr>`;
+                        }
+                    }
+                    html += '</tbody></table>';
+                    document.getElementById('viewContent').innerHTML = html;
+                    document.getElementById('viewModal').style.display = 'flex';
+                }
+            });
+    }
+
+    function editItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    document.getElementById('itemId').value = d.id;
+                    document.getElementById('name').value = d.name || '';
+                    document.getElementById('fieldsContainer').innerHTML = '';
+                    fieldCount = 0;
+                    for (let i = 1; i <= 37; i++) {
+                        const idx = String(i).padStart(2, '0');
+                        if (d['site' + idx] || d['note' + idx]) {
+                            addField(d['note' + idx] || '', d['site' + idx] || '');
+                        }
+                    }
+                    if (fieldCount === 0) { addField(); addField(); addField(); }
+                    document.getElementById('modalTitle').textContent = '編輯常用網站與備註';
+                    document.getElementById('modal').style.display = 'flex';
+                }
+            });
+    }
+
+    function deleteItem(id) {
+        deleteInlineItem(id, { table: TABLE });
+    }
+
+    document.getElementById('itemForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const id = document.getElementById('itemId').value;
+        const action = id ? 'update' : 'create';
+        const url = id ? `api.php?action=${action}&table=${TABLE}&id=${id}` : `api.php?action=${action}&table=${TABLE}`;
+
+        const formData = new FormData(this);
+        const data = { name: formData.get('name') };
+        for (let i = 1; i <= 37; i++) {
+            const idx = String(i).padStart(2, '0');
+            data['site' + idx] = formData.get('site' + idx) || '';
+            data['note' + idx] = formData.get('note' + idx) || '';
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    });
+</script>

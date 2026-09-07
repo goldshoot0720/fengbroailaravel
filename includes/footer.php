@@ -1,0 +1,694 @@
+</div>
+<div id="globalMediaShell" class="global-media-shell" style="display:none;">
+    <div class="global-media-meta">
+        <img id="globalMediaThumb" class="global-media-thumb" alt="">
+        <div class="global-media-copy">
+            <strong id="globalMediaTitle">Now Playing</strong>
+            <span id="globalMediaMeta">Media</span>
+            <div class="global-media-themes">
+                <button type="button" class="global-theme-btn" data-player-theme="spotify">Spotify</button>
+                <button type="button" class="global-theme-btn" data-player-theme="youtube">YouTube</button>
+                <button type="button" class="global-theme-btn" data-player-theme="apple">Apple Podcasts</button>
+            </div>
+        </div>
+    </div>
+    <div class="global-media-stage">
+        <audio id="globalAudioPlayer" controls preload="auto" style="display:none;"></audio>
+        <video id="globalVideoPlayer" controls preload="metadata" playsinline style="display:none;"></video>
+    </div>
+    <div class="global-media-actions">
+        <button id="globalMediaToggle" type="button" class="btn btn-ghost" title="播放或暫停">
+            <i class="fa-solid fa-pause"></i>
+        </button>
+        <button id="globalMediaCollapse" type="button" class="btn btn-ghost" title="收合播放器" style="display:none;">
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <button id="globalMediaLyricsToggle" type="button" class="btn btn-ghost" title="顯示歌詞" style="display:none;">
+            <i class="fa-solid fa-file-lines"></i>
+        </button>
+        <a id="globalMediaDownload" class="btn btn-ghost" href="#" style="display:none;" title="下載媒體">
+            <i class="fa-solid fa-download"></i>
+        </a>
+        <button id="globalMediaClose" type="button" class="btn btn-ghost" title="關閉播放器">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+</div>
+<div id="globalLyricsPanel" class="global-lyrics-panel" style="display:none;">
+    <div class="global-lyrics-header">
+        <strong id="globalLyricsTitle">歌詞</strong>
+        <button id="globalLyricsClose" type="button" class="btn btn-ghost" title="關閉歌詞">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <pre id="globalLyricsContent" class="global-lyrics-content"></pre>
+</div>
+<script src="assets/js/media-cache.js?v=20260713cache2"></script>
+<script src="assets/js/main.js?v=20260903trial"></script>
+<script src="assets/js/media-traffic.js?v=20260812"></script>
+<script src="assets/js/recent-searches.js?v=20260904search"></script>
+<script src="assets/js/inline-edit.js?v=20260713delete"></script>
+<script src="assets/js/notifications.js?v=20260904claude2"></script>
+
+<!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+            // ── Periodic Background Sync：定期背景執行（Chrome Android 80+）────
+            // 即使 App 關閉，手機也會定期喚醒 Service Worker
+            if ('periodicSync' in reg) {
+                // 請求 background-periodic-sync 權限後才能註冊
+                navigator.permissions.query({ name: 'periodic-background-sync' }).then(function (status) {
+                    if (status.state === 'granted') {
+                        // 每 12 小時（最小間隔，由瀏覽器決定實際頻率）
+                        reg.periodicSync.register('fengxiong-heartbeat', {
+                            minInterval: 12 * 60 * 60 * 1000
+                        }).catch(function () { });
+                    }
+                }).catch(function () { });
+            }
+
+            // ── Background Sync：網路恢復時自動同步 ──────────────────────────
+            if ('sync' in reg) {
+                reg.sync.register('fengxiong-sync').catch(function () { });
+            }
+        }).catch(function () { });
+    }
+</script>
+
+<!-- PWA 安裝提示 (iOS + Android) -->
+<div id="pwaInstallPrompt"
+    style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:99998; padding:16px; background:#2a2724; color:#fff; box-shadow:0 -2px 16px rgba(0,0,0,0.3); animation:slideUp 0.4s ease;">
+    <div style="max-width:600px; margin:0 auto; display:flex; align-items:center; gap:14px;">
+        <i class="fa-solid fa-mobile-screen-button" style="font-size:2rem;"></i>
+        <div style="flex:1;">
+            <strong style="font-size:1rem;">安裝鋒兄AI到主畫面</strong>
+            <p id="pwaInstallText" style="font-size:0.82rem; margin-top:4px; opacity:0.9;"></p>
+        </div>
+        <button id="pwaInstallBtn" onclick="pwaInstallAction()"
+            style="background:#fff; color:#2a2724; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; white-space:nowrap;">安裝</button>
+        <span onclick="dismissPwaPrompt()" style="cursor:pointer; font-size:1.3rem; padding:4px 8px;">&times;</span>
+    </div>
+</div>
+<script>
+    (function () {
+        if (localStorage.getItem('pwa_prompt_dismissed')) return;
+
+        // 判斷是否已經是 PWA 模式
+        var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        if (isStandalone) return;
+
+        var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        var isAndroid = /android/i.test(navigator.userAgent);
+        if (!isIos && !isAndroid) return;
+
+        var prompt = document.getElementById('pwaInstallPrompt');
+        var text = document.getElementById('pwaInstallText');
+        var btn = document.getElementById('pwaInstallBtn');
+
+        if (isIos) {
+            text.innerHTML = '點擊 Safari 底部 <i class="fa-solid fa-arrow-up-from-bracket"></i> 分享按鈕，然後選「加入主畫面」即可收到通知';
+            btn.textContent = '知道了';
+        } else {
+            text.textContent = '安裝到主畫面可收到訂閱到期推播通知';
+        }
+
+        // 延遲 2 秒顯示
+        setTimeout(function () { prompt.style.display = 'block'; }, 2000);
+
+        // Android: 攔截安裝事件
+        window._deferredPwaPrompt = null;
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            window._deferredPwaPrompt = e;
+        });
+    })();
+
+    function pwaInstallAction() {
+        if (window._deferredPwaPrompt) {
+            window._deferredPwaPrompt.prompt();
+            window._deferredPwaPrompt.userChoice.then(function () {
+                window._deferredPwaPrompt = null;
+                dismissPwaPrompt();
+            });
+        } else {
+            dismissPwaPrompt();
+        }
+    }
+
+    function dismissPwaPrompt() {
+        document.getElementById('pwaInstallPrompt').style.display = 'none';
+        localStorage.setItem('pwa_prompt_dismissed', '1');
+    }
+</script>
+<style>
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(60px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<?php
+require_once __DIR__ . '/notification_helpers.php';
+$notifPdo = getConnection();
+$expiringSubscriptionAlerts = array_map(
+    'notifFormatSubscriptionAlert',
+    notifGetExpiringSubscriptions($notifPdo, 3)
+);
+$vapidPublicKey = notifGetVapidPublicKey($notifPdo);
+?>
+<?php if (!empty($expiringSubscriptionAlerts)): ?>
+    <!-- 頁面內通知橫幅（內容由 notifications.js 填充） -->
+    <div id="subExpiringBanner" class="sub-expiring-banner"
+        style="display:none; left:0; right:0; padding:10px 15px; background:rgba(0,0,0,0.15);">
+        <div style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:8px;" id="subExpiringList">
+        </div>
+    </div>
+    <style>
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+    <script>
+        if (window.FengbroNotifications) {
+            FengbroNotifications.initExpiringSubscriptionAlerts(
+                <?php echo json_encode($expiringSubscriptionAlerts, JSON_UNESCAPED_UNICODE); ?>
+            );
+        }
+    </script>
+<?php endif; ?>
+
+<?php if ($vapidPublicKey !== ''): ?>
+    <script>
+        if (window.FengbroNotifications) {
+            FengbroNotifications.ensurePushRegistration(
+                <?php echo json_encode($vapidPublicKey, JSON_UNESCAPED_UNICODE); ?>
+            );
+        }
+    </script>
+<?php endif; ?>
+
+<script>
+    (function () {
+        function pad2(n) { return n < 10 ? '0' + n : String(n); }
+        function dateKey(d) {
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        }
+        function slotKey(d) {
+            return dateKey(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+        function isSchedule(h, m) {
+            if (h === 4 && m === 0) return true;
+            if (h < 0 || h > 3) return false;
+            if (h < 2) return (m === 0 || m === 30);
+            return (m % 15 === 0);
+        }
+        function renderToast(lines) {
+            var toast = document.getElementById('sleepPromptToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'sleepPromptToast';
+                toast.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:9999;background:#1f1e1d;color:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.25);font-size:0.95rem;line-height:1.5;max-width:320px;';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">睡眠提示</div>' +
+                '<div>' + lines[0] + '</div>' +
+                '<div>' + lines[1] + '</div>';
+            toast.style.opacity = '1';
+            clearTimeout(window.__sleepToastTimer);
+            window.__sleepToastTimer = setTimeout(function () {
+                toast.style.opacity = '0';
+            }, 12000);
+        }
+        function showPrompt(d) {
+            var dayKey = dateKey(d);
+            var countKey = 'sleepPromptCount_' + dayKey;
+            var count = parseInt(localStorage.getItem(countKey) || '0', 10) + 1;
+            localStorage.setItem(countKey, String(count));
+            localStorage.setItem('sleepPromptLastSlot', slotKey(d));
+            var line1 = '今日日期 ' + dayKey + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+            var line2 = '提示次數 ' + count;
+            renderToast([line1, line2]);
+        }
+        function maybePrompt() {
+            var d = new Date();
+            if (!isSchedule(d.getHours(), d.getMinutes())) return;
+            var slot = slotKey(d);
+            if (localStorage.getItem('sleepPromptLastSlot') === slot) return;
+            showPrompt(d);
+        }
+        maybePrompt();
+        setInterval(maybePrompt, 30000);
+    })();
+</script>
+
+<?php if (($page ?? '') === 'home'): ?>
+<div id="aprilEgg" class="april-egg" style="display:none;">
+    <div class="april-egg-confetti" aria-hidden="true"></div>
+    <div class="april-egg-card">
+        <div class="april-egg-badge">4/3 SPECIAL</div>
+        <div class="april-egg-text">
+            <h2 class="april-egg-title">塗哥生日快樂特效</h2>
+            <p class="april-egg-subtitle">今彩539頭獎得主 鋒兄</p>
+        </div>
+        <button type="button" class="april-egg-close" data-egg-close>關閉</button>
+    </div>
+</div>
+<div id="novEgg" class="april-egg" style="display:none;">
+    <div class="april-egg-confetti" aria-hidden="true"></div>
+    <div class="april-egg-card">
+        <div class="april-egg-badge">11/27 SPECIAL</div>
+        <div class="april-egg-text">
+            <h2 class="april-egg-title">鋒兄生日快樂特效</h2>
+            <p class="april-egg-subtitle">高考三級資訊處理榜首 鋒兄</p>
+        </div>
+        <button type="button" class="april-egg-close" data-egg-close>關閉</button>
+    </div>
+</div>
+<style>
+    .april-egg {
+        position: relative;
+        z-index: 10;
+        display: none;
+        width: 100%;
+        margin: 0 0 16px 0;
+        font-family: 'Manrope', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .april-egg.egg-fade {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    .april-egg-confetti {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .april-egg-confetti .confetti-piece {
+        position: absolute;
+        width: 10px;
+        height: 14px;
+        opacity: 0.85;
+        border-radius: 2px;
+        animation: confetti-fall 2.8s ease-in infinite;
+    }
+
+    .april-egg-card {
+        position: relative;
+        z-index: 1;
+        background: rgba(250, 246, 238, 0.98);
+        border-radius: 20px;
+        padding: 18px 20px;
+        box-shadow: 0 16px 40px rgba(10, 20, 40, 0.18);
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        overflow: hidden;
+    }
+
+    .april-egg-text {
+        flex: 1;
+        text-align: left;
+    }
+
+    .april-egg-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: #ff8a4c;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        margin-bottom: 14px;
+    }
+
+    .april-egg-title {
+        margin: 0 0 6px 0;
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #292826;
+    }
+
+    .april-egg-subtitle {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #4a463f;
+    }
+
+    .april-egg-close {
+        border: none;
+        background: #c1613d;
+        color: #fff;
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(31, 122, 224, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .april-egg-close:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 24px rgba(31, 122, 224, 0.4);
+    }
+
+    @keyframes confetti-fall {
+        0% {
+            transform: translateY(-20px) rotate(0deg);
+        }
+        100% {
+            transform: translateY(120vh) rotate(280deg);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .april-egg-card {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>
+<script>
+    (function () {
+        var now = new Date();
+        var month = now.getMonth();
+        var day = now.getDate();
+        var eggId = null;
+        if (month === 3 && day === 3) {
+            eggId = 'aprilEgg';
+        } else if (month === 10 && day === 27) {
+            eggId = 'novEgg';
+        }
+        if (!eggId) return;
+
+        var egg = document.getElementById(eggId);
+        if (!egg) return;
+        var confettiWrap = egg.querySelector('.april-egg-confetti');
+        var colors = ['#ff6b6b', '#ffd93d', '#e08a68', '#7fb387', '#e08a68'];
+        for (var i = 0; i < 42; i++) {
+            var piece = document.createElement('span');
+            piece.className = 'confetti-piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.animationDelay = (Math.random() * 1.6) + 's';
+            piece.style.background = colors[i % colors.length];
+            piece.style.transform = 'rotate(' + Math.floor(Math.random() * 180) + 'deg)';
+            confettiWrap.appendChild(piece);
+        }
+        var content = document.querySelector('main.content');
+        if (content && content.firstChild) {
+            content.insertBefore(egg, content.firstChild);
+        }
+        egg.style.display = 'block';
+        var closeBtn = egg.querySelector('[data-egg-close]');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                egg.remove();
+            });
+        }
+        setTimeout(function () {
+            if (!egg) return;
+            egg.classList.add('egg-fade');
+            setTimeout(function () {
+                if (egg) egg.remove();
+            }, 700);
+        }, 12000);
+    })();
+</script>
+<?php endif; ?>
+
+<script>
+    const APP_BASE_PATH = <?php
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        if ($scriptDir === '.' || $scriptDir === '\\' || $scriptDir === '/') {
+            $scriptDir = '';
+        }
+        echo json_encode(rtrim($scriptDir, '/'));
+    ?>;
+
+    function appUrl(path) {
+        const clean = String(path || '').replace(/^\/+/, '');
+        return (APP_BASE_PATH ? APP_BASE_PATH : '') + '/' + clean;
+    }
+
+    function getChunkUploadCandidates() {
+        const dir = window.location.pathname.replace(/\/[^/]*$/, '');
+        const cands = [
+            appUrl('upload_chunk.php'),
+            'upload_chunk.php',
+            './upload_chunk.php',
+            dir.replace(/\/+$/, '') + '/upload_chunk.php',
+            '/upload_chunk.php'
+        ];
+        return Array.from(new Set(cands.filter(Boolean)));
+    }
+
+    /**
+     * uploadChunked — 分段上傳大型 ZIP 檔案，繞過 Cloudflare 100MB 單次限制
+     *
+     * @param {File}     file        要上傳的 File 物件
+     * @param {Function} onProgress  (chunksDone, totalChunks, percent) 每片完成後回呼
+     * @param {Function} onDone      (tempFile) 全部組裝完成後回呼
+     * @param {Function} onError     (message) 發生錯誤時回呼
+     * @param {number}   [chunkSize] 每片大小，預設 128KB
+     */
+    async function uploadChunked(file, onProgress, onDone, onError, chunkSize, options) {
+        function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+        chunkSize = chunkSize || (64 * 1024); // 64 KB, safest for restrictive free hosts.
+        options = options || {};
+        const maxRetries = options.maxRetries || 8;
+        if (!window.__chunkUploadTransport && /(^|\.)cloudaccess\.host$/i.test(window.location.hostname || '')) {
+            window.__chunkUploadTransport = 'base64';
+        }
+
+        const debug = function (payload) {
+            try {
+                if (typeof window.__zipDebugHook === 'function') {
+                    window.__zipDebugHook(Object.assign({ ts: new Date().toISOString() }, payload || {}));
+                }
+            } catch (_) { }
+        };
+
+        // 產生唯一 uploadId
+        const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+        const totalChunks = Math.ceil(file.size / chunkSize);
+        const candidates = getChunkUploadCandidates();
+        let chosenEndpoint = window.__chunkUploadEndpoint || null;
+        debug({
+            stage: 'init',
+            uploadId: uploadId,
+            totalChunks: totalChunks,
+            candidates: candidates,
+            chosenEndpoint: chosenEndpoint || '',
+            transport: window.__chunkUploadTransport || 'raw',
+            fileName: file && file.name ? file.name : '',
+            fileSize: file && file.size ? file.size : 0
+        });
+
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, file.size);
+            const blob = file.slice(start, end);
+            debug({ stage: 'chunk_start', index: i, start: start, end: end, size: end - start });
+
+            const buildChunkUrl = function (url, transport) {
+                const params = new URLSearchParams({
+                    uploadId: uploadId,
+                    chunkIndex: String(i),
+                    totalChunks: String(totalChunks),
+                    filename: file.name,
+                    target: options && options.target ? options.target : 'temp',
+                    transport: transport || 'raw'
+                });
+                return url + (url.indexOf('?') === -1 ? '?' : '&') + params.toString();
+            };
+
+            const buildFormData = function (transport) {
+                const fd = new FormData();
+                fd.append('uploadId', uploadId);
+                fd.append('chunkIndex', i);
+                fd.append('totalChunks', totalChunks);
+                fd.append('filename', file.name);
+                fd.append('target', options && options.target ? options.target : 'temp');
+                fd.append('transport', transport || 'form');
+                fd.append('chunk', blob, file.name);
+                return fd;
+            };
+
+            const blobToBase64 = async function (chunkBlob) {
+                const bytes = new Uint8Array(await chunkBlob.arrayBuffer());
+                let binary = '';
+                const batchSize = 0x8000;
+                for (let offset = 0; offset < bytes.length; offset += batchSize) {
+                    binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + batchSize));
+                }
+                return btoa(binary);
+            };
+
+            const buildBase64Body = async function () {
+                const params = new URLSearchParams({
+                    uploadId: uploadId,
+                    chunkIndex: String(i),
+                    totalChunks: String(totalChunks),
+                    filename: file.name,
+                    target: options && options.target ? options.target : 'temp',
+                    transport: 'base64',
+                    chunkData: await blobToBase64(blob)
+                });
+                return params.toString();
+            };
+
+            let res;
+            try {
+                let resp = null;
+                const shouldRetry = function (status) {
+                    return status >= 500 || status === 408 || status === 429;
+                };
+                const fetchWithRetry = async function (url, modeLabel) {
+                    let attempt = 0;
+                    let lastResp = null;
+                    while (true) {
+                        const transport = window.__chunkUploadTransport || 'raw';
+                        const requestUrl = transport === 'raw' ? buildChunkUrl(url, 'raw') : url;
+                        debug({ stage: 'request', index: i, url: url, mode: modeLabel, attempt: attempt, transport: transport });
+                        try {
+                            if (transport === 'raw') {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/octet-stream' },
+                                    body: blob
+                                });
+                            } else if (transport === 'base64') {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                                    body: await buildBase64Body()
+                                });
+                            } else {
+                                lastResp = await fetch(requestUrl, {
+                                    method: 'POST',
+                                    body: buildFormData('form')
+                                });
+                            }
+                            debug({ stage: 'response', index: i, url: url, status: lastResp.status, attempt: attempt });
+                            if (transport === 'raw' && (lastResp.status === 503 || lastResp.status === 415 || lastResp.status === 400)) {
+                                window.__chunkUploadTransport = 'base64';
+                                attempt++;
+                                debug({ stage: 'transport_fallback', index: i, url: url, attempt: attempt, from: 'raw', to: 'base64', status: lastResp.status });
+                                await sleep(Math.min(12000, 1500 * attempt));
+                                continue;
+                            }
+                            if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
+                                return lastResp;
+                            }
+                            attempt++;
+                            debug({ stage: 'retry', index: i, url: url, attempt: attempt, status: lastResp.status });
+                        } catch (networkError) {
+                            if (attempt >= maxRetries) {
+                                debug({
+                                    stage: 'network_error_final',
+                                    index: i,
+                                    url: url,
+                                    attempt: attempt,
+                                    message: networkError && networkError.message ? networkError.message : String(networkError)
+                                });
+                                throw networkError;
+                            }
+                            attempt++;
+                            debug({
+                                stage: 'network_retry',
+                                index: i,
+                                url: url,
+                                attempt: attempt,
+                                message: networkError && networkError.message ? networkError.message : String(networkError)
+                            });
+                        }
+                        const retryDelay = lastResp && lastResp.status === 503
+                            ? Math.min(30000, 5000 * attempt)
+                            : Math.min(12000, 1500 * attempt);
+                        await sleep(retryDelay);
+                    }
+                };
+
+                if (chosenEndpoint) {
+                    resp = await fetchWithRetry(chosenEndpoint, 'cached-endpoint');
+                } else {
+                    for (const url of candidates) {
+                        resp = await fetchWithRetry(url, 'candidate-probe');
+                        if (resp.status !== 404) {
+                            chosenEndpoint = url;
+                            window.__chunkUploadEndpoint = url;
+                            debug({ stage: 'endpoint_selected', index: i, url: url, status: resp.status });
+                            break;
+                        }
+                    }
+                }
+
+                if (!resp) {
+                    debug({ stage: 'no_endpoint', index: i, candidates: candidates });
+                    if (onError) onError('找不到可用上傳端點：' + candidates.join(' , '));
+                    return;
+                }
+
+                const text = await resp.text();
+                try {
+                    res = JSON.parse(text);
+                } catch (je) {
+                    const preview = text.replace(/<[^>]+>/g, '').trim().slice(0, 300);
+                    debug({ stage: 'json_parse_error', index: i, status: resp.status, endpoint: chosenEndpoint || '', preview: preview });
+                    if (onError) onError('伺服器錯誤（HTTP ' + resp.status + '） @ ' + (chosenEndpoint || '(unknown)') + ':\n' + (preview || '(空回應)'));
+                    return;
+                }
+            } catch (e) {
+                debug({ stage: 'network_error', index: i, message: e && e.message ? e.message : String(e) });
+                if (onError) onError('網路錯誤（片段 ' + i + '）：' + e.message);
+                return;
+            }
+
+            if (res.error) {
+                debug({ stage: 'server_error', index: i, endpoint: chosenEndpoint || '', error: res.error });
+                if (onError) onError(res.error);
+                return;
+            }
+
+            const done = i + 1;
+            const percent = Math.round((done / totalChunks) * 100);
+            debug({ stage: 'chunk_done', index: i, done: done, total: totalChunks, percent: percent, endpoint: chosenEndpoint || '' });
+            if (onProgress) onProgress(done, totalChunks, percent);
+
+            // 最後一片，server 回傳 assembled + tempFile
+            if (res.status === 'assembled') {
+                debug({ stage: 'assembled', endpoint: chosenEndpoint || '', tempFile: res.tempFile || '', file: res.file || '', size: res.size || 0 });
+                if (onDone) onDone(res.tempFile || res.file, res);
+                return;
+            }
+        }
+    }
+</script>
+</body>
+
+</html>

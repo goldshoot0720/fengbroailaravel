@@ -1,0 +1,1791 @@
+<?php
+$pageTitle = '訂閱管理';
+$pdo = getConnection();
+$trashMode = ($_GET['trash'] ?? '') === '1';
+try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+
+// ── 相似服務（對齊 Appwrite subscriptionSimilarity）──────────────────────────
+require_once __DIR__ . '/../includes/subscription_similarity.php';
+
+// 相似服務檢視：?sim=關鍵字 時列出名稱/備註含關鍵字的所有訂閱（不分頁）
+$similarityTerm = trim((string) ($_GET['sim'] ?? ''));
+$allActiveForSim = [];
+if ($similarityTerm !== '') {
+    $stmt = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''");
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (fengbroSubContainsTerm($row['name'] ?? '', $row['note'] ?? '', $similarityTerm)) {
+            $allActiveForSim[] = $row['id'];
+        }
+    }
+    // 也把「家族前綴／雙向相似」納入：以任一相似列的群組詞涵蓋（與上游一致）
+    $stmt2 = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''");
+    $allRows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($allRows as $row) {
+        if (in_array($row['id'], $allActiveForSim, true)) {
+            continue;
+        }
+        $term = fengbroSubStripCopySuffix($row['name'] ?? '');
+        if ($term === '' || !fengbroSubContainsTerm($row['name'] ?? '', $row['note'] ?? '', $similarityTerm)) {
+            foreach (fengbroSubFamilyTerms($similarityTerm) as $family) {
+                if (in_array($family, fengbroSubFamilyTerms($row['name'] ?? ''), true)) {
+                    $allActiveForSim[] = $row['id'];
+                    break;
+                }
+            }
+        }
+    }
+    $allActiveForSim = array_values(array_unique($allActiveForSim));
+}
+
+$perPage = 25;
+$currentListPage = max(1, (int) ($_GET['p'] ?? 1));
+$subscriptionWhere = "deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL");
+
+if ($similarityTerm !== '' && !$trashMode) {
+    if (empty($allActiveForSim)) {
+        $items = [];
+        $totalItems = 0;
+    } else {
+        $inList = implode(',', array_map(static fn($id) => $pdo->quote($id), $allActiveForSim));
+        $items = $pdo->query("SELECT * FROM subscription WHERE id IN ({$inList}) ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+        $totalItems = count($items);
+    }
+    $totalPages = 1;
+    $currentListPage = 1;
+    $offset = 0;
+} else {
+    $totalItems = (int) $pdo->query("SELECT COUNT(*) FROM subscription WHERE {$subscriptionWhere}")->fetchColumn();
+    $totalPages = max(1, (int) ceil($totalItems / $perPage));
+    $currentListPage = min($currentListPage, $totalPages);
+    $offset = ($currentListPage - 1) * $perPage;
+    $items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC LIMIT {$perPage} OFFSET {$offset}")->fetchAll();
+}
+$availableYears = [];
+foreach ($items as $item) {
+    if (!empty($item['nextdate'])) {
+        $year = date('Y', strtotime($item['nextdate']));
+        $availableYears[$year] = $year;
+    }
+}
+krsort($availableYears);
+
+// 取得已有的服務名稱、網站、帳號（去重複）
+$existingNames = $pdo->query("SELECT DISTINCT name FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != '' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+$existingSites = $pdo->query("SELECT DISTINCT site FROM subscription WHERE deleted_at IS NULL AND site IS NOT NULL AND site != '' ORDER BY site")->fetchAll(PDO::FETCH_COLUMN);
+$existingAccounts = $pdo->query("SELECT DISTINCT account FROM subscription WHERE deleted_at IS NULL AND account IS NOT NULL AND account != '' ORDER BY account")->fetchAll(PDO::FETCH_COLUMN);
+
+function normalizeSubscriptionDuplicateKey($value)
+{
+    $value = preg_replace('/\s+/u', ' ', trim((string) $value));
+    if ($value === '') {
+        return '';
+    }
+    return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
+}
+
+$duplicateSubscriptionMap = [];
+foreach ($items as $item) {
+    if ((int) ($item['continue'] ?? 0) !== 1) {
+        continue;
+    }
+
+    $key = normalizeSubscriptionDuplicateKey($item['name'] ?? '');
+    if ($key === '') {
+        continue;
+    }
+
+    if (!isset($duplicateSubscriptionMap[$key])) {
+        $duplicateSubscriptionMap[$key] = [
+            'name' => trim((string) ($item['name'] ?? '')),
+            'items' => []
+        ];
+    }
+    $duplicateSubscriptionMap[$key]['items'][] = $item;
+}
+
+$duplicateSubscriptions = array_values(array_filter($duplicateSubscriptionMap, function ($group) {
+    return count($group['items']) > 1;
+}));
+
+// 每列的相似服務摘要：以「所有啟用訂閱」計算（對齊 Appwrite buildSimilarSubscriptionMatches）
+$subscriptionSimilarityById = [];
+if (!$trashMode && $similarityTerm === '') {
+    $simRows = $pdo->query("SELECT id, name, note FROM subscription WHERE deleted_at IS NULL AND name IS NOT NULL AND name != ''")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($simRows as $simSelf) {
+        $similar = [];
+        foreach ($simRows as $simOther) {
+            if (fengbroSubIsSimilar($simSelf, $simOther)) {
+                $similar[] = $simOther;
+            }
+        }
+        if (!$similar) {
+            continue;
+        }
+        $subscriptionSimilarityById[(string) $simSelf['id']] = [
+            'term' => fengbroSubPickTerm($simSelf, $similar),
+            'count' => count($similar),
+        ];
+    }
+}
+$activeSimilarityTerm = $similarityTerm;
+
+// 匯率轉換 (轉為新台幣，對齊 Appwrite formatters.ts)
+$exchangeRates = [
+    'TWD' => 1,
+    'USD' => 35,
+    'EUR' => 40,
+    'JPY' => 0.35,
+    'CNY' => 4.5,
+    'HKD' => 4,
+    'GBP' => 44,
+    'KRW' => 0.025,
+    'SGD' => 26,
+    'AUD' => 23,
+];
+
+$currencyOptions = [
+    'TWD' => 'TWD 台幣',
+    'USD' => 'USD 美元',
+    'EUR' => 'EUR 歐元',
+    'JPY' => 'JPY 日圓',
+    'CNY' => 'CNY 人民幣',
+    'HKD' => 'HKD 港幣',
+    'GBP' => 'GBP 英鎊',
+    'KRW' => 'KRW 韓元',
+    'SGD' => 'SGD 新加坡元',
+    'AUD' => 'AUD 澳幣',
+];
+
+function convertToTWD($price, $currency, $rates)
+{
+    $currency = strtoupper($currency ?? 'TWD');
+    $rate = $rates[$currency] ?? 1;
+    return round($price * $rate);
+}
+
+function renderCurrencyOptions(array $options, $selected = 'TWD')
+{
+    $selected = strtoupper((string) ($selected ?: 'TWD'));
+    $html = '';
+    foreach ($options as $code => $label) {
+        $isSelected = $code === $selected ? ' selected' : '';
+        $html .= '<option value="' . htmlspecialchars($code) . '"' . $isSelected . '>' . htmlspecialchars($label) . '</option>';
+    }
+    // 若現有資料幣別不在清單中，仍保留可選
+    if ($selected !== '' && !isset($options[$selected])) {
+        $html .= '<option value="' . htmlspecialchars($selected) . '" selected>' . htmlspecialchars($selected) . '</option>';
+    }
+    return $html;
+}
+
+function renderSubscriptionNoteToolbar(): string
+{
+    $banks = ['台新銀行', '中國信託', '玉山銀行', '台北富邦', '國泰世華'];
+    $platforms = ['PayPal', 'Google Play'];
+    $bankOptions = '';
+    foreach ($banks as $bank) {
+        $bankOptions .= '<option value="' . htmlspecialchars($bank, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($bank) . '</option>';
+    }
+    $platformOptions = '';
+    foreach ($platforms as $platform) {
+        $platformOptions .= '<option value="' . htmlspecialchars($platform, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($platform) . '</option>';
+    }
+    return '<span class="subscription-note-toolbar">'
+        . '<select class="form-control form-control-sm subscription-bank-select" title="選擇銀行">' . $bankOptions . '</select>'
+        . '<button type="button" class="btn btn-sm" data-kind="bank" onclick="handleSubscriptionAppend(this)" title="把銀行名稱加到備註最後一行">加入銀行</button>'
+        . '<select class="form-control form-control-sm subscription-platform-select" title="選擇付款平台">' . $platformOptions . '</select>'
+        . '<button type="button" class="btn btn-sm" data-kind="platform" onclick="handleSubscriptionAppend(this)" title="把付款平台加到備註最後一行">加入付款平台</button>'
+        . '</span>';
+}
+
+function formatDaysFromToday($date)
+{
+    if (empty($date)) {
+        return '-';
+    }
+
+    $today = new DateTime('today');
+    $target = new DateTime(date('Y-m-d', strtotime($date)));
+    $days = (int) $today->diff($target)->format('%r%a');
+
+    if ($days === 0) {
+        return '&#20170;&#22825;';
+    }
+
+    if ($days > 0) {
+        return $days . ' &#22825;';
+    }
+
+    return abs($days) . ' &#22825;&#21069;';
+}
+
+function getDaysUntil($date)
+{
+    if (empty($date)) {
+        return '';
+    }
+
+    $today = new DateTime('today');
+    $target = new DateTime(date('Y-m-d', strtotime($date)));
+    return (int) $today->diff($target)->format('%r%a');
+}
+?>
+
+<div class="content-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <h1 style="margin: 0;">鋒兄訂閱</h1>
+        <span style="background: #c07a3d; color: #fff; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+            <?php echo count($items); ?> 項
+        </span>
+    </div>
+    <div class="subscription-filters" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <select id="yearFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
+            <option value="">全部年份</option>
+            <option value="__none">無年份</option>
+            <?php foreach ($availableYears as $year): ?>
+                <option value="<?php echo $year; ?>"><?php echo $year; ?> 年</option>
+            <?php endforeach; ?>
+        </select>
+        <select id="monthFilter" class="form-control form-control-sm subscription-select-filter" onchange="applyFilters()">
+            <option value="">全部月份</option>
+            <option value="__none">無月份</option>
+            <?php for ($month = 1; $month <= 12; $month++): ?>
+                <option value="<?php echo str_pad((string) $month, 2, '0', STR_PAD_LEFT); ?>"><?php echo $month; ?> 月</option>
+            <?php endfor; ?>
+        </select>
+        <label class="subscription-search-box">
+            <i class="fas fa-search"></i>
+            <input type="search" id="subscriptionSearchInput" class="form-control form-control-sm"
+                placeholder="搜尋訂閱、網站、帳號、備註..." oninput="applyFilters()"
+                onchange="saveSubscriptionSearchFromInput()" onkeydown="handleSubscriptionSearchKey(event)">
+        </label>
+        <div id="subscriptionSearchHistory" class="subscription-search-history" aria-label="最近搜尋紀錄"></div>
+        <button class="btn btn-sm filter-btn" id="within7Btn" onclick="toggleWithin7()" data-within="7">&#55;&#32;&#22825;&#20839;</button>
+        <button class="btn btn-sm filter-btn active" onclick="filterByContinue('')" data-continue="">&#20840;&#37096;</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('1')" data-continue="1">&#32396;&#35330;</button>
+        <button class="btn btn-sm filter-btn" onclick="filterByContinue('0')" data-continue="0">&#19981;&#32396;</button>
+    </div>
+</div>
+
+<div class="content-body">
+    <?php $trashTable = 'subscription'; $trashPage = 'subscription'; include 'includes/trash-controls.php'; ?>
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <?php if ($totalPages > 1): ?>
+    <nav class="data-pagination" aria-label="訂閱資料分頁">
+        <span>第 <?php echo $currentListPage; ?> / <?php echo $totalPages; ?> 頁，共 <?php echo $totalItems; ?> 筆</span>
+        <div>
+            <?php if ($currentListPage > 1): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage - 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> 上一頁</a><?php endif; ?>
+            <?php if ($currentListPage < $totalPages): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage + 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>">下一頁 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a><?php endif; ?>
+        </div>
+    </nav>
+    <?php endif; ?>
+    <?php if ($activeSimilarityTerm !== ''): ?>
+        <div class="similarity-view-bar" role="status">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            <span>
+                相似服務檢視：<strong><?php echo htmlspecialchars($activeSimilarityTerm, ENT_QUOTES); ?></strong>
+                共 <?php echo $totalItems; ?> 筆（名稱或備註含此關鍵字／同路徑群組）
+            </span>
+            <a class="btn btn-sm" href="index.php?page=subscription">離開相似檢視</a>
+        </div>
+    <?php endif; ?>
+    <?php if (!empty($duplicateSubscriptions)): ?>
+        <section class="duplicate-subscription-alert is-collapsed" role="alert">
+            <button type="button" class="duplicate-alert-heading" aria-expanded="false" onclick="toggleDuplicateAlert(this)">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>
+                    <strong>重複訂閱提醒</strong>
+                    <small>發現 <?php echo count($duplicateSubscriptions); ?> 組仍在續訂的同名服務，請確認是否重複付款。</small>
+                </span>
+                <i class="fa-solid fa-chevron-down duplicate-alert-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="duplicate-alert-list">
+                <?php foreach ($duplicateSubscriptions as $group): ?>
+                    <div class="duplicate-alert-item">
+                        <strong><?php echo htmlspecialchars($group['name']); ?></strong>
+                        <span><?php echo count($group['items']); ?> 筆續訂</span>
+                        <small>
+                            <?php
+                            $details = array_map(function ($duplicateItem) {
+                                $account = trim((string) ($duplicateItem['account'] ?? ''));
+                                $nextdate = !empty($duplicateItem['nextdate']) ? formatDate($duplicateItem['nextdate']) : '無日期';
+                                return ($account !== '' ? $account : '無帳號') . ' / ' . $nextdate;
+                            }, $group['items']);
+                            echo htmlspecialchars(implode('、', $details));
+                            ?>
+                        </small>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增訂閱"><i class="fas fa-plus"></i></button>
+        <?php $csvTable = 'subscription';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
+
+    <!-- 桌面版表格 -->
+    <table class="table desktop-only" style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
+                        onchange="toggleSelectAll(this)"></th>
+                <th>服務名稱</th>
+                <th>價格 (TWD)</th>
+                <th>下次付款日期</th>
+                <th>續訂</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="服務名稱">
+                        <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                        <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                        <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                        <div style="margin-top:6px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                        <select class="form-control inline-input" data-field="currency">
+                            <?php echo renderCurrencyOptions($currencyOptions, 'TWD'); ?>
+                        </select>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="nextdate">
+                        <div class="date-shift-btns">
+                            <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), -30)">-30天</button>
+                            <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), 30)">+30天</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" data-field="continue" checked> 續訂
+                        </label>
+                    </div>
+                </td>
+            </tr>
+            <?php if (empty($items)): ?>
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #999;">暫無訂閱資料</td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($items as $item): ?>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
+                        data-price="<?php echo htmlspecialchars($item['price'] ?? '', ENT_QUOTES); ?>"
+                        data-currency="<?php echo htmlspecialchars($item['currency'] ?? 'TWD', ENT_QUOTES); ?>"
+                        data-nextdate="<?php echo htmlspecialchars($item['nextdate'] ?? '', ENT_QUOTES); ?>"
+                        data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
+                        data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
+                        data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>"
+                        data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
+                        data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                        data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>">
+                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)"></td>
+                        <td>
+                            <div class="inline-view">
+                                <?php if ($item['site']): ?>
+                                    <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                                    <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=16"
+                                        style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;">
+                                    <a href="<?php echo htmlspecialchars($item['site']); ?>"
+                                        target="_blank"><?php echo htmlspecialchars($item['name']); ?></a>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars($item['name']); ?>
+                                <?php endif; ?>
+                                <button type="button" class="icon-action-btn card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')" aria-label="編輯 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="編輯"><i class="fas fa-pen" aria-hidden="true"></i></button>
+                                <button type="button" class="icon-action-btn card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" aria-label="複製 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="複製項目"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                <?php $simInfo = $subscriptionSimilarityById[$item['id']] ?? null; ?>
+                                <?php if ($simInfo): ?>
+                                    <a class="icon-action-btn card-sim-btn" href="index.php?page=subscription&sim=<?php echo urlencode($simInfo['term']); ?>" aria-label="查看相似服務 <?php echo htmlspecialchars($simInfo['term'], ENT_QUOTES); ?>" title="查看相似服務（<?php echo $simInfo['count']; ?> 筆相關）"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><small class="sim-count-badge"><?php echo $simInfo['count']; ?></small></a>
+                                <?php endif; ?>
+                                <?php unset($simInfo); ?>
+                                <button type="button" class="icon-action-btn card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')" aria-label="刪除 <?php echo htmlspecialchars($item['name'], ENT_QUOTES); ?>" title="移至垃圾桶"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+                                <?php if (!empty($item['account'])): ?>
+                                    <br><span
+                                        style="font-size: 0.85rem; color: #666;"><?php echo htmlspecialchars($item['account']); ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($item['note'])): ?>
+                                    <br><span
+                                        style="font-size: 0.8rem; color: #999;"><?php echo htmlspecialchars($item['note']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="服務名稱">
+                                <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
+                                <input type="text" class="form-control inline-input" data-field="account" placeholder="帳號">
+                                <textarea class="form-control inline-input" data-field="note" rows="2" placeholder="備註"></textarea>
+                                <div style="margin-top:6px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary" onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn" onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view"><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="number" class="form-control inline-input" data-field="price" placeholder="價格">
+                                <select class="form-control inline-input" data-field="currency">
+                                    <?php echo renderCurrencyOptions($currencyOptions, $item['currency'] ?? 'TWD'); ?>
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view subscription-date-cell">
+                                <span class="subscription-date-primary"><?php echo formatDate($item['nextdate']); ?></span>
+                                <span class="subscription-date-secondary"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
+                            </span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="nextdate">
+                                <div class="date-shift-btns">
+                                    <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), -30)">-30天</button>
+                                    <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(this.closest('.inline-edit-row').querySelector('[data-field=\'nextdate\']'), 30)">+30天</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view">
+                                <span class="badge <?php echo $item['continue'] ? 'badge-success' : 'badge-danger'; ?>"><?php echo $item['continue'] ? '✓ 續訂' : '✗ 不續'; ?></span>
+                            </span>
+                            <div class="inline-edit inline-edit-row">
+                                <label style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" data-field="continue"> 續訂
+                                </label>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+
+    <!-- 手機版卡片 -->
+    <div class="mobile-cards mobile-only" style="margin-top: 20px;">
+        <?php if (empty($items)): ?>
+            <div class="sub-card" style="text-align: center; color: #999; padding: 40px;">暫無訂閱資料</div>
+        <?php else: ?>
+            <?php foreach ($items as $item): ?>
+                <div class="sub-card <?php echo $item['continue'] ? '' : 'sub-card-inactive'; ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
+                    data-account="<?php echo htmlspecialchars($item['account'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                    data-continue="<?php echo htmlspecialchars($item['continue'] ?? 0, ENT_QUOTES); ?>"
+                    data-year="<?php echo !empty($item['nextdate']) ? date('Y', strtotime($item['nextdate'])) : ''; ?>"
+                    data-month="<?php echo !empty($item['nextdate']) ? date('m', strtotime($item['nextdate'])) : ''; ?>"
+                    data-days="<?php echo getDaysUntil($item['nextdate'] ?? ''); ?>">
+                    <div class="sub-card-actions">
+                        <?php $cardSimInfo = $subscriptionSimilarityById[$item['id']] ?? null; ?>
+                        <?php if ($cardSimInfo): ?>
+                            <a class="card-sim-btn" href="index.php?page=subscription&sim=<?php echo urlencode($cardSimInfo['term']); ?>" title="查看相似服務（<?php echo $cardSimInfo['count']; ?> 筆相關）"><i class="fa-solid fa-magnifying-glass"></i><small class="sim-count-badge"><?php echo $cardSimInfo['count']; ?></small></a>
+                        <?php endif; ?>
+                        <?php unset($cardSimInfo); ?>
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
+                                class="fas fa-pen"></i></span>
+                        <span class="card-copy-btn" onclick="duplicateItem('<?php echo $item['id']; ?>')" title="複製項目"><i
+                                class="fas fa-copy"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
+                    <div class="sub-card-header">
+                        <?php if ($item['site']): ?>
+                            <?php $domain = parse_url($item['site'], PHP_URL_HOST); ?>
+                            <img src="https://www.google.com/s2/favicons?domain=<?php echo $domain; ?>&sz=32" class="sub-card-icon">
+                        <?php else: ?>
+                            <div class="sub-card-icon-placeholder"><i class="fas fa-globe"></i></div>
+                        <?php endif; ?>
+                        <div class="sub-card-title">
+                            <?php if ($item['site']): ?>
+                                <a href="<?php echo htmlspecialchars($item['site']); ?>"
+                                    target="_blank"><?php echo htmlspecialchars($item['name']); ?></a>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($item['name']); ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="sub-card-badge <?php echo $item['continue'] ? 'badge-success' : 'badge-danger'; ?>">
+                            <?php echo $item['continue'] ? '續訂' : '不續'; ?>
+                        </div>
+                    </div>
+                    <?php if (!empty($item['account'])): ?>
+                        <div class="sub-card-account"><i class="fas fa-user"></i> <span><?php echo htmlspecialchars($item['account']); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <div class="sub-card-info">
+                        <div class="sub-card-price">
+                            <span class="sub-card-label">價格</span>
+                            <span
+                                class="sub-card-value"><?php echo formatMoney(convertToTWD($item['price'], $item['currency'], $exchangeRates)); ?></span>
+                        </div>
+                        <div class="sub-card-date">
+                            <span class="sub-card-label">下次付款</span>
+                            <span class="sub-card-value"><?php echo formatDate($item['nextdate']) ?: '-'; ?></span>
+                            <span class="sub-card-label sub-card-label-secondary">&#36317;&#20170;&#22825;&#25976;</span>
+                            <span class="sub-card-value sub-card-value-secondary"><?php echo formatDaysFromToday($item['nextdate']); ?></span>
+                        </div>
+                    </div>
+                    <?php if (!empty($item['note'])): ?>
+                        <div class="sub-card-note"><?php echo htmlspecialchars($item['note']); ?></div>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <h2 id="modalTitle">新增訂閱</h2>
+        <form id="itemForm">
+            <input type="hidden" id="itemId" name="id">
+            <div class="form-group" style="position: relative;">
+                <label>服務名稱 *</label>
+                <input type="text" class="form-control" id="name" name="name" autocomplete="off" required
+                    onfocus="showNameSuggestions()" oninput="filterNameSuggestions()">
+                <div id="nameSuggestions" class="suggestions-dropdown" style="display: none;">
+                    <?php foreach ($existingNames as $existingName): ?>
+                        <div class="suggestion-item"
+                            onclick="selectName('<?php echo htmlspecialchars($existingName, ENT_QUOTES); ?>')">
+                            <?php echo htmlspecialchars($existingName); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="form-group" style="position: relative;">
+                <label>網站</label>
+                <input type="url" class="form-control" id="site" name="site" autocomplete="off"
+                    onfocus="showSiteSuggestions()" oninput="filterSiteSuggestions()">
+                <div id="siteSuggestions" class="suggestions-dropdown" style="display: none;">
+                    <?php foreach ($existingSites as $existingSite): ?>
+                        <div class="suggestion-item"
+                            onclick="selectSite('<?php echo htmlspecialchars($existingSite, ENT_QUOTES); ?>')">
+                            <?php echo htmlspecialchars($existingSite); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <label>價格</label>
+                    <input type="number" class="form-control" id="price" name="price">
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label>幣別</label>
+                    <select class="form-control" id="currency" name="currency">
+                        <?php echo renderCurrencyOptions($currencyOptions, 'TWD'); ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>下次付款日</label>
+                <input type="date" class="form-control" id="nextdate" name="nextdate">
+                <div class="date-shift-btns">
+                    <button type="button" class="btn btn-sm btn-date-shift btn-minus" onclick="shiftDate(document.getElementById('nextdate'), -30)">-30天</button>
+                    <button type="button" class="btn btn-sm btn-date-shift btn-plus" onclick="shiftDate(document.getElementById('nextdate'), 30)">+30天</button>
+                </div>
+            </div>
+            <div class="form-group" style="position: relative;">
+                <label>帳號</label>
+                <input type="text" class="form-control" id="account" name="account" autocomplete="off"
+                    onfocus="showAccountSuggestions()" oninput="filterAccountSuggestions()">
+                <div id="accountSuggestions" class="suggestions-dropdown" style="display: none;">
+                    <?php foreach ($existingAccounts as $existingAccount): ?>
+                        <div class="suggestion-item"
+                            onclick="selectAccount('<?php echo htmlspecialchars($existingAccount, ENT_QUOTES); ?>')">
+                            <?php echo htmlspecialchars($existingAccount); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>備註</label>
+                <textarea class="form-control" id="note" name="note" rows="3"></textarea>
+                <div style="margin-top:8px;"><?php echo renderSubscriptionNoteToolbar(); ?></div>
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="continue" name="continue" checked> 續訂</label>
+            </div>
+            <button type="submit" class="btn btn-primary">儲存</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .subscription-note-toolbar { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .subscription-note-toolbar select { width: auto; min-width: 120px; }
+    .duplicate-subscription-alert {
+        margin-bottom: 18px;
+        padding: 12px 16px;
+        border: 1px solid rgba(200, 135, 58, 0.36);
+        border-radius: 20px;
+        background: rgba(246, 235, 214, 0.96);
+        box-shadow: 0 14px 34px rgba(95, 61, 22, 0.12);
+        color: #5f3d16;
+    }
+
+    .duplicate-subscription-alert.is-collapsed .duplicate-alert-list {
+        display: none;
+    }
+
+    .duplicate-alert-heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 4px 2px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .duplicate-alert-heading > i:first-child {
+        color: #b8792e;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+
+    .duplicate-alert-heading > span {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+    }
+
+    .duplicate-alert-heading strong {
+        font-size: 1.02rem;
+    }
+
+    .duplicate-alert-heading small {
+        color: #7d4a1c;
+        font-size: 0.86rem;
+    }
+
+    .duplicate-alert-chevron {
+        color: #96601f;
+        transition: transform 0.18s ease;
+        flex-shrink: 0;
+    }
+
+    .duplicate-subscription-alert:not(.is-collapsed) .duplicate-alert-chevron {
+        transform: rotate(180deg);
+    }
+
+    .duplicate-alert-list {
+        display: grid;
+        gap: 10px;
+        padding-top: 12px;
+    }
+
+    .duplicate-alert-item {
+        display: grid;
+        grid-template-columns: minmax(120px, 1fr) auto;
+        gap: 6px 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(200, 135, 58, 0.18);
+    }
+
+    .duplicate-alert-item span {
+        font-weight: 700;
+        color: #96601f;
+    }
+
+    .duplicate-alert-item small {
+        grid-column: 1 / -1;
+        color: #6b3418;
+        line-height: 1.5;
+    }
+
+    [data-theme="dark"] .duplicate-subscription-alert {
+        background: rgba(95, 61, 22, 0.86);
+        border-color: rgba(224, 178, 106, 0.32);
+        color: #f7ecd9;
+    }
+
+    [data-theme="dark"] .duplicate-alert-heading small,
+    [data-theme="dark"] .duplicate-alert-heading .duplicate-alert-chevron,
+    [data-theme="dark"] .duplicate-alert-item small {
+        color: #ecd6a8;
+    }
+
+    [data-theme="dark"] .duplicate-alert-item {
+        background: rgba(30, 26, 20, 0.42);
+        border-color: rgba(224, 178, 106, 0.18);
+    }
+
+    .suggestions-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--input-border, #ddd);
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .suggestion-item {
+        padding: 10px 15px;
+        cursor: pointer;
+    }
+
+    .suggestion-item:hover {
+        background: var(--table-header-bg, #faf9f5);
+    }
+
+    .filter-btn.active {
+        background: #d97757;
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .filter-btn {
+        background: rgba(255, 255, 255, 0.86);
+        color: #292826;
+        border: 1px solid rgba(122, 117, 108, 0.24);
+        box-shadow: 0 8px 18px rgba(30, 26, 20, 0.06);
+    }
+
+    .filter-btn:hover {
+        background: #ffffff;
+        border-color: rgba(52, 152, 219, 0.34);
+        color: #1f1e1d;
+    }
+
+    .inline-add-row {
+        display: none;
+    }
+
+    .inline-edit.inline-edit-always {
+        display: block;
+    }
+
+    .inline-edit {
+        display: none;
+    }
+
+    .inline-edit .form-control {
+        margin-top: 6px;
+    }
+
+    .inline-edit-row {
+        margin-top: 6px;
+    }
+
+    .subscription-date-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        line-height: 1.35;
+    }
+
+    .subscription-date-primary {
+        font-weight: 600;
+    }
+
+    .subscription-date-secondary {
+        font-size: 0.85rem;
+        color: #6f6c65;
+    }
+
+    .inline-actions {
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .inline-actions .btn {
+        padding: 4px 10px;
+        font-size: 0.85rem;
+    }
+
+    /* 手機版/桌面版切換 */
+    .mobile-only {
+        display: none;
+    }
+
+    .desktop-only {
+        display: table;
+    }
+
+    @media (max-width: 768px) {
+        .mobile-only {
+            display: block;
+        }
+
+        .desktop-only {
+            display: none !important;
+        }
+    }
+
+    /* 手機版訂閱卡片 */
+    .sub-card {
+        background: var(--card-bg, #fff);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        position: relative;
+        border: 1px solid rgba(74, 143, 99, 0.45);
+    }
+
+    .sub-card-inactive {
+        border-color: rgba(193, 85, 74, 0.5);
+        opacity: 0.8;
+    }
+
+    .sub-card-actions {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        gap: 12px;
+    }
+
+    .sub-card-actions .card-edit-btn,
+    .sub-card-actions .card-copy-btn,
+    .sub-card-actions .card-delete-btn {
+        font-size: 18px;
+        padding: 5px;
+    }
+
+    .sub-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+        padding-right: 60px;
+    }
+
+    .sub-card-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+    }
+
+    .sub-card-icon-placeholder {
+        width: 32px;
+        height: 32px;
+        background: #f0eee6;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #8a857c;
+    }
+
+    .sub-card-title {
+        flex: 1;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--header-color, #2a2724);
+    }
+
+    .sub-card-title a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .sub-card-title a:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .sub-card-badge {
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+
+    .sub-card-badge.badge-success {
+        background: #e3efe5;
+        color: #2b5c40;
+    }
+
+    .sub-card-badge.badge-danger {
+        background: #f6e0dd;
+        color: #6e2a23;
+    }
+
+    .sub-card-account {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 12px;
+        padding-left: 44px;
+    }
+
+    .sub-card-account i {
+        margin-right: 5px;
+        color: #999;
+    }
+
+    .sub-card-info {
+        display: flex;
+        gap: 20px;
+        background: var(--bg-color, #f5f5f5);
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+
+    .sub-card-price,
+    .sub-card-date {
+        flex: 1;
+    }
+
+    .sub-card-label {
+        display: block;
+        font-size: 0.75rem;
+        color: #999;
+        margin-bottom: 4px;
+    }
+
+    .sub-card-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-color, #333);
+        line-height: 1.45;
+    }
+
+    .sub-card-label-secondary {
+        margin-top: 10px;
+    }
+
+    .sub-card-value-secondary {
+        font-size: 0.95rem;
+    }
+
+    .sub-card-note {
+        font-size: 0.85rem;
+        color: #888;
+        padding: 8px 0;
+        border-top: 1px dashed #eee;
+    }
+
+    .date-shift-btns {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .btn-date-shift {
+        flex: 1;
+        padding: 4px 0;
+        font-size: 0.82rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: opacity 0.15s;
+    }
+
+    .btn-date-shift:hover { opacity: 0.85; }
+
+    .btn-date-shift.btn-minus {
+        background: #c1554a;
+        color: #fff;
+    }
+
+    .btn-date-shift.btn-plus {
+        background: #4a8f63;
+        color: #fff;
+    }
+
+    .subscription-filters {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .subscription-select-filter {
+        min-width: 120px;
+        border-radius: 999px;
+        padding: 10px 16px;
+        border: 1px solid rgba(140, 130, 116, 0.35);
+        background: rgba(255, 255, 255, 0.88);
+    }
+
+    .subscription-search-box {
+        flex: 1 1 260px;
+        min-width: 220px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        border: 1px solid rgba(140, 130, 116, 0.35);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.88);
+        color: #7a756c;
+    }
+
+    .subscription-search-box input {
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        min-width: 0;
+        padding: 10px 0;
+    }
+
+    .subscription-search-box input:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .subscription-search-history {
+        flex: 1 1 100%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+        min-height: 0;
+    }
+
+    .subscription-search-history:empty {
+        display: none;
+    }
+
+    .subscription-search-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(140, 130, 116, 0.35);
+        border-radius: 999px;
+        padding: 4px 6px 4px 10px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--text-color);
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .subscription-search-chip-term,
+    .subscription-search-chip-remove {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .subscription-search-chip-term {
+        padding: 2px 0;
+    }
+
+    .subscription-search-chip-remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        line-height: 1;
+    }
+
+    .subscription-search-chip-remove:hover {
+        background: rgba(179, 57, 44, 0.14);
+        color: #b3392c;
+    }
+
+    .subscription-search-history-label {
+        align-self: center;
+        color: var(--muted-text);
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .sub-card {
+        border-radius: 20px;
+        padding: 18px;
+        box-shadow: 0 18px 36px rgba(30, 26, 20, 0.08);
+        border-width: 1px;
+    }
+
+    .sub-card-title {
+        line-height: 1.35;
+    }
+
+    .sub-card-info {
+        border-radius: 14px;
+        gap: 14px;
+    }
+
+    .sub-card-note {
+        line-height: 1.6;
+    }
+
+    @media (max-width: 1024px) {
+        .subscription-filters {
+            justify-content: flex-start;
+        }
+
+        .subscription-select-filter,
+        .subscription-search-box,
+        .subscription-filters .btn {
+            flex: 1 1 120px;
+        }
+
+        .subscription-search-history {
+            justify-content: flex-start;
+        }
+
+        .subscription-filters .btn {
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .sub-card {
+            padding: 18px 16px;
+        }
+
+        .sub-card-header {
+            align-items: flex-start;
+            padding-right: 72px;
+        }
+
+        .sub-card-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .sub-card-account {
+            padding-left: 0;
+        }
+
+        .sub-card-actions {
+            top: 14px;
+            right: 14px;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .subscription-filters {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            width: 100%;
+        }
+
+        .subscription-select-filter,
+        .subscription-search-box,
+        .subscription-filters .btn {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .subscription-search-history {
+            grid-column: 1 / -1;
+        }
+
+        .sub-card {
+            padding: 16px 14px;
+        }
+
+        .sub-card-header {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 10px;
+            padding-right: 56px;
+        }
+
+        .sub-card-badge {
+            grid-column: 1 / -1;
+            justify-self: start;
+            margin-left: 50px;
+        }
+
+        .sub-card-info {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    // ── 加入銀行／付款平台（對齊 Appwrite SubscriptionManagement）────────────
+    const SUBSCRIPTION_BANK_OPTIONS = ['台新銀行', '中國信託', '玉山銀行', '台北富邦', '國泰世華'];
+    const SUBSCRIPTION_PAYMENT_PLATFORM_OPTIONS = ['PayPal', 'Google Play'];
+
+    function subscriptionAppendNoteValue(textarea, value) {
+        if (!textarea || !value) return;
+        const current = textarea.value || '';
+        const lines = current.split('\n');
+        const lastLine = (lines[lines.length - 1] || '').trim();
+        // 最後一行已是該值（含舊「銀行: xxx」寫法）則不重複加入
+        if (lastLine === value || lastLine === '銀行: ' + value) return;
+        textarea.value = current ? current + '\n' + value : value;
+    }
+
+    function subscriptionNoteToolbarTarget(button) {
+        // 依賴容器找最近的 data-field=note textarea；modal 退而求其次用 #note
+        const container = button.closest('.inline-edit') || button.closest('.subscription-note-wrap') || button.closest('.form-group');
+        const ta = container ? container.querySelector('textarea[data-field="note"], #note') : null;
+        return ta || document.getElementById('note');
+    }
+
+    function handleSubscriptionAppend(button) {
+        const kind = button.getAttribute('data-kind');
+        const toolbar = button.closest('.subscription-note-toolbar');
+        let value = '';
+        if (toolbar && kind === 'bank') {
+            const sel = toolbar.querySelector('.subscription-bank-select');
+            if (sel) value = sel.value;
+        } else if (toolbar && kind === 'platform') {
+            const sel = toolbar.querySelector('.subscription-platform-select');
+            if (sel) value = sel.value;
+        }
+        if (!value) return;
+        const textarea = subscriptionNoteToolbarTarget(button);
+        subscriptionAppendNoteValue(textarea, value);
+        if (textarea) textarea.focus();
+    }
+
+    function toggleDuplicateAlert(button) {
+        const section = button.closest('.duplicate-subscription-alert');
+        if (!section) return;
+        const collapsed = section.classList.toggle('is-collapsed');
+        button.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    // +30天 / -30天 日期位移
+    function shiftDate(input, days) {
+        if (!input) return;
+        var val = input.value;
+        var d = val ? new Date(val) : new Date();
+        d.setDate(d.getDate() + days);
+        input.value = d.toISOString().slice(0, 10);
+    }
+
+    const TABLE = 'subscription';
+    initBatchDelete(TABLE);
+    const allNames = <?php echo json_encode($existingNames, JSON_UNESCAPED_UNICODE); ?>;
+    const allSites = <?php echo json_encode($existingSites, JSON_UNESCAPED_UNICODE); ?>;
+    const allAccounts = <?php echo json_encode($existingAccounts, JSON_UNESCAPED_UNICODE); ?>;
+    const SUBSCRIPTION_SEARCH_HISTORY_KEY = 'fengbro_subscription_search_history';
+    const SUBSCRIPTION_SEARCH_HISTORY_LIMIT = 37;
+
+    function getSubscriptionSearchHistory() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(SUBSCRIPTION_SEARCH_HISTORY_KEY) || '[]');
+            return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, SUBSCRIPTION_SEARCH_HISTORY_LIMIT) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function setSubscriptionSearchHistory(items) {
+        localStorage.setItem(SUBSCRIPTION_SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, SUBSCRIPTION_SEARCH_HISTORY_LIMIT)));
+    }
+
+    function renderSubscriptionSearchHistory() {
+        const container = document.getElementById('subscriptionSearchHistory');
+        if (!container) return;
+        const items = getSubscriptionSearchHistory();
+        container.innerHTML = '';
+        if (items.length) {
+            const label = document.createElement('span');
+            label.className = 'subscription-search-history-label';
+            label.textContent = '最近搜尋紀錄';
+            container.appendChild(label);
+        }
+        items.forEach(item => {
+            const chip = document.createElement('span');
+            chip.className = 'subscription-search-chip';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'subscription-search-chip-term';
+            button.textContent = item;
+            button.title = '使用搜尋：' + item;
+            button.addEventListener('click', function () {
+                useSubscriptionSearchHistory(item);
+            });
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'subscription-search-chip-remove';
+            remove.textContent = 'X';
+            remove.setAttribute('aria-label', '清除搜尋紀錄：' + item);
+            remove.title = '清除';
+            remove.addEventListener('click', function (event) {
+                event.stopPropagation();
+                removeSubscriptionSearchHistory(item);
+            });
+
+            chip.appendChild(button);
+            chip.appendChild(remove);
+            container.appendChild(chip);
+        });
+    }
+
+    function saveSubscriptionSearchTerm(term) {
+        const value = String(term || '').trim();
+        if (!value) return;
+        const history = getSubscriptionSearchHistory();
+        const next = [value].concat(history.filter(item => item !== value));
+        setSubscriptionSearchHistory(next);
+        renderSubscriptionSearchHistory();
+    }
+
+    function removeSubscriptionSearchHistory(term) {
+        const value = String(term || '').trim();
+        if (!value) return;
+        setSubscriptionSearchHistory(getSubscriptionSearchHistory().filter(item => item !== value));
+        renderSubscriptionSearchHistory();
+    }
+
+    function saveSubscriptionSearchFromInput() {
+        const input = document.getElementById('subscriptionSearchInput');
+        if (input) saveSubscriptionSearchTerm(input.value);
+    }
+
+    function useSubscriptionSearchHistory(term) {
+        const input = document.getElementById('subscriptionSearchInput');
+        if (!input) return;
+        input.value = term;
+        saveSubscriptionSearchTerm(term);
+        applyFilters();
+        input.focus();
+    }
+
+    function handleSubscriptionSearchKey(event) {
+        if (event.key !== 'Enter') return;
+        saveSubscriptionSearchFromInput();
+    }
+
+    function normalizeSubscriptionDuplicateName(value) {
+        return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function findDuplicateSubscriptionsByName(name, excludeId) {
+        const key = normalizeSubscriptionDuplicateName(name);
+        if (!key) return [];
+
+        return Array.from(document.querySelectorAll('table.desktop-only tbody tr[data-id]'))
+            .filter(row => row.dataset.id !== excludeId)
+            .filter(row => String(row.dataset.continue || '0') === '1')
+            .filter(row => normalizeSubscriptionDuplicateName(row.dataset.name) === key)
+            .map(row => ({
+                name: row.dataset.name || '',
+                account: row.dataset.account || '無帳號',
+                nextdate: row.dataset.nextdate ? row.dataset.nextdate.split(' ')[0] : '無日期'
+            }));
+    }
+
+    function confirmDuplicateSubscription(data, excludeId) {
+        if (String(data.continue || '0') !== '1') return true;
+
+        const duplicates = findDuplicateSubscriptionsByName(data.name, excludeId || '');
+        if (!duplicates.length) return true;
+
+        const detail = duplicates
+            .slice(0, 5)
+            .map(item => `- ${item.name} / ${item.account} / ${item.nextdate}`)
+            .join('\n');
+
+        return confirm(`重複訂閱提醒：${data.name} 已有 ${duplicates.length} 筆仍在續訂。\n${detail}\n\n仍要儲存嗎？`);
+    }
+
+    // 服務名稱
+    function showNameSuggestions() {
+        if (allNames.length > 0) {
+            document.getElementById('nameSuggestions').style.display = 'block';
+        }
+    }
+
+    function filterNameSuggestions() {
+        filterSuggestions('name', 'nameSuggestions');
+    }
+
+    function selectName(name) {
+        document.getElementById('name').value = name;
+        document.getElementById('nameSuggestions').style.display = 'none';
+    }
+
+    // 網站
+    function showSiteSuggestions() {
+        if (allSites.length > 0) {
+            document.getElementById('siteSuggestions').style.display = 'block';
+        }
+    }
+
+    function filterSiteSuggestions() {
+        filterSuggestions('site', 'siteSuggestions');
+    }
+
+    function selectSite(site) {
+        document.getElementById('site').value = site;
+        document.getElementById('siteSuggestions').style.display = 'none';
+    }
+
+    // 帳號
+    function showAccountSuggestions() {
+        if (allAccounts.length > 0) {
+            document.getElementById('accountSuggestions').style.display = 'block';
+        }
+    }
+
+    function filterAccountSuggestions() {
+        filterSuggestions('account', 'accountSuggestions');
+    }
+
+    function selectAccount(account) {
+        document.getElementById('account').value = account;
+        document.getElementById('accountSuggestions').style.display = 'none';
+    }
+
+    // 通用篩選函數
+    function filterSuggestions(inputId, containerId) {
+        const input = document.getElementById(inputId).value.toLowerCase();
+        const container = document.getElementById(containerId);
+        const items = container.querySelectorAll('.suggestion-item');
+        let hasVisible = false;
+
+        items.forEach(item => {
+            if (item.textContent.toLowerCase().includes(input)) {
+                item.style.display = 'block';
+                hasVisible = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        container.style.display = hasVisible ? 'block' : 'none';
+    }
+
+    function toggleWithin7() {
+        const btn = document.getElementById('within7Btn');
+        if (!btn) return;
+        btn.classList.toggle('active');
+        applyFilters();
+    }
+
+    function filterByContinue(value) {
+        document.querySelectorAll('.filter-btn[data-continue]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.continue === value);
+        });
+
+        applyFilters();
+    }
+
+    function getActiveContinueFilter() {
+        const activeButton = document.querySelector('.filter-btn[data-continue].active');
+        return activeButton ? activeButton.dataset.continue : '';
+    }
+
+    function matchesSubscriptionFilters(element, continueValue, yearValue, monthValue, within7Only, searchValue) {
+        const matchesContinue = !continueValue || element.dataset.continue === continueValue;
+        const isNoMonth = monthValue === '__none';
+        const isNoYear = yearValue === '__none';
+        const matchesYear = isNoMonth
+            ? true
+            : (isNoYear ? element.dataset.year === '' : (!yearValue || element.dataset.year === yearValue));
+        const matchesMonth = isNoMonth
+            ? element.dataset.month === ''
+            : (!monthValue || element.dataset.month === monthValue);
+        const daysValue = parseInt(element.dataset.days || '', 10);
+        const matchesWithin7 = !within7Only || (!Number.isNaN(daysValue) && daysValue >= 0 && daysValue <= 7);
+        const haystack = [
+            element.dataset.name || '',
+            element.dataset.site || '',
+            element.dataset.account || '',
+            element.dataset.note || ''
+        ].join(' ').toLowerCase();
+        const matchesSearch = !searchValue || haystack.includes(searchValue);
+        return matchesContinue && matchesYear && matchesMonth && matchesWithin7 && matchesSearch;
+    }
+
+    function applyFilters() {
+        const continueValue = getActiveContinueFilter();
+        const yearValue = document.getElementById('yearFilter')?.value || '';
+        const monthValue = document.getElementById('monthFilter')?.value || '';
+        const within7Only = document.getElementById('within7Btn')?.classList.contains('active');
+        const searchValue = (document.getElementById('subscriptionSearchInput')?.value || '').trim().toLowerCase();
+
+        document.querySelectorAll('table.desktop-only tbody tr[data-id]').forEach(row => {
+            const match = matchesSubscriptionFilters(row, continueValue, yearValue, monthValue, within7Only, searchValue);
+            row.style.display = match ? '' : 'none';
+        });
+
+        document.querySelectorAll('.mobile-cards .sub-card').forEach(card => {
+            const match = matchesSubscriptionFilters(card, continueValue, yearValue, monthValue, within7Only, searchValue);
+            card.style.display = match ? '' : 'none';
+        });
+    }
+
+    function handleAdd() {
+        // Use inline editing for all screen sizes
+        startInlineAdd();
+    }
+
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = true;
+            } else {
+                input.value = '';
+            }
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
+    }
+
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入服務名稱');
+            return;
+        }
+
+        const data = {
+            name,
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            price: row.querySelector('[data-field="price"]').value || 0,
+            currency: row.querySelector('[data-field="currency"]').value || 'TWD',
+            nextdate: row.querySelector('[data-field="nextdate"]').value || null,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
+        };
+
+        if (!confirmDuplicateSubscription(data)) return;
+
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    // 點擊其他地方關閉所有下拉選單
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#name') && !e.target.closest('#nameSuggestions')) {
+            document.getElementById('nameSuggestions').style.display = 'none';
+        }
+        if (!e.target.closest('#site') && !e.target.closest('#siteSuggestions')) {
+            document.getElementById('siteSuggestions').style.display = 'none';
+        }
+        if (!e.target.closest('#account') && !e.target.closest('#accountSuggestions')) {
+            document.getElementById('accountSuggestions').style.display = 'none';
+        }
+    });
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nextdate = data.nextdate ? data.nextdate.split(' ')[0] : '';
+        const continueValue = data.continue == 1;
+
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const siteInput = row.querySelector('[data-field="site"]');
+        if (siteInput) siteInput.value = data.site || '';
+        const accountInput = row.querySelector('[data-field="account"]');
+        if (accountInput) accountInput.value = data.account || '';
+        const noteInput = row.querySelector('[data-field="note"]');
+        if (noteInput) noteInput.value = data.note || '';
+        const priceInput = row.querySelector('[data-field="price"]');
+        if (priceInput) priceInput.value = data.price || '';
+        const currencySelect = row.querySelector('[data-field="currency"]');
+        if (currencySelect) currencySelect.value = data.currency || 'TWD';
+        const nextdateInput = row.querySelector('[data-field="nextdate"]');
+        if (nextdateInput) nextdateInput.value = nextdate || '';
+        const continueCheckbox = row.querySelector('[data-field="continue"]');
+        if (continueCheckbox) continueCheckbox.checked = continueValue;
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入服務名稱');
+            return;
+        }
+
+        const data = {
+            name,
+            site: row.querySelector('[data-field="site"]').value.trim(),
+            price: row.querySelector('[data-field="price"]').value || 0,
+            currency: row.querySelector('[data-field="currency"]').value || 'TWD',
+            nextdate: row.querySelector('[data-field="nextdate"]').value || null,
+            account: row.querySelector('[data-field="account"]').value.trim(),
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            continue: row.querySelector('[data-field="continue"]').checked ? 1 : 0
+        };
+
+        if (!confirmDuplicateSubscription(data, id)) return;
+
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+
+    function openModal() {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('modalTitle').textContent = '新增訂閱';
+        document.getElementById('itemForm').reset();
+        document.getElementById('itemId').value = '';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    function editItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    document.getElementById('itemId').value = d.id;
+                    document.getElementById('name').value = d.name || '';
+                    document.getElementById('site').value = d.site || '';
+                    document.getElementById('price').value = d.price || '';
+                    document.getElementById('currency').value = d.currency || 'TWD';
+                    document.getElementById('nextdate').value = d.nextdate ? d.nextdate.split(' ')[0] : '';
+                    document.getElementById('account').value = d.account || '';
+                    document.getElementById('note').value = d.note || '';
+                    document.getElementById('continue').checked = d.continue == 1;
+                    document.getElementById('modalTitle').textContent = '編輯訂閱';
+                    document.getElementById('modal').style.display = 'flex';
+                }
+            });
+    }
+
+    function deleteItem(id) {
+        deleteInlineItem(id, { table: TABLE });
+    }
+
+    function duplicateItem(id) {
+        fetch(`api.php?action=get&table=${TABLE}&id=${id}`)
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success || !res.data) {
+                    alert('無法讀取要複製的訂閱');
+                    return;
+                }
+
+                const d = res.data;
+                openModal();
+                document.getElementById('itemId').value = '';
+                document.getElementById('name').value = d.name || '';
+                document.getElementById('site').value = d.site || '';
+                document.getElementById('price').value = d.price || '';
+                document.getElementById('currency').value = d.currency || 'TWD';
+                document.getElementById('nextdate').value = d.nextdate ? String(d.nextdate).split(' ')[0] : '';
+                document.getElementById('account').value = d.account || '';
+                document.getElementById('note').value = d.note || '';
+                document.getElementById('continue').checked = Number(d.continue) === 1;
+                document.getElementById('modalTitle').textContent = '複製訂閱後手動新增';
+                const nameInput = document.getElementById('name');
+                if (nameInput) nameInput.focus();
+            })
+            .catch(err => alert('複製失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    document.getElementById('itemForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const id = document.getElementById('itemId').value;
+        const action = id ? 'update' : 'create';
+        const url = id ? `api.php?action=${action}&table=${TABLE}&id=${id}` : `api.php?action=${action}&table=${TABLE}`;
+
+        const data = {
+            name: document.getElementById('name').value,
+            site: document.getElementById('site').value,
+            price: document.getElementById('price').value || 0,
+            currency: document.getElementById('currency').value,
+            nextdate: document.getElementById('nextdate').value || null,
+            account: document.getElementById('account').value,
+            note: document.getElementById('note').value,
+            continue: document.getElementById('continue').checked ? 1 : 0
+        };
+
+        if (!confirmDuplicateSubscription(data, id)) return;
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderSubscriptionSearchHistory();
+        applyFilters();
+    });
+</script>

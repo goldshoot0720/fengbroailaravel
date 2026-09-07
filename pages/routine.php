@@ -1,0 +1,691 @@
+﻿<?php
+$pageTitle = '例行事項';
+$pdo = getConnection();
+$items = $pdo->query("
+    SELECT *
+    FROM routine
+    ORDER BY
+        CASE WHEN lastdate1 IS NULL THEN 1 ELSE 0 END ASC,
+        lastdate1 DESC,
+        created_at DESC
+")->fetchAll();
+
+function getRoutineDaysDiff(array $item): array
+{
+    if (empty($item['lastdate1'])) {
+        return ['text' => '-', 'days' => 0];
+    }
+
+    $date1 = new DateTime($item['lastdate1']);
+    $date2 = !empty($item['lastdate2']) ? new DateTime($item['lastdate2']) : new DateTime('today');
+    $diff = $date1->diff($date2);
+    $days = $diff->days;
+
+    return ['text' => $days . ' 天', 'days' => $days];
+}
+
+function getRoutineDateGapText($dateA, $dateB): string
+{
+    if (empty($dateA) || empty($dateB)) {
+        return '';
+    }
+
+    try {
+        $first = new DateTime($dateA);
+        $second = new DateTime($dateB);
+        return '相差 ' . $first->diff($second)->days . ' 天';
+    } catch (Exception $e) {
+        return '';
+    }
+}
+?>
+
+<div class="content-header">
+    <h1>鋒兄例行 <span
+            style="font-size:0.55em;background:#c1613d;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;"><?php echo count($items); ?></span>
+    </h1>
+</div>
+
+<div class="content-body">
+    <?php include 'includes/inline-edit-hint.php'; ?>
+    <div class="action-buttons-bar">
+        <button class="btn btn-primary" onclick="handleAdd()" title="新增例行事項"><i class="fas fa-plus"></i></button>
+        <?php $csvTable = 'routine';
+        include 'includes/csv_buttons.php'; ?>
+        <?php include 'includes/batch-delete.php'; ?>
+    </div>
+    <!-- 桌機表格版 -->
+    <table class="table desktop-only routine-table" style="margin-top: 20px;">
+        <colgroup>
+            <col style="width: 40px;">
+            <col style="width: 16%;">
+            <col style="width: 28%;">
+            <col style="width: 8%;">
+            <col style="width: 12%;">
+            <col style="width: 12%;">
+            <col style="width: 8%;">
+            <col style="width: 12%;">
+            <col style="width: 72px;">
+        </colgroup>
+        <thead>
+            <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" class="select-checkbox"
+                        onchange="toggleSelectAll(this)"></th>
+                <th>名稱</th>
+                <th>備註</th>
+                <th>圖片</th>
+                <th>最近例行之一</th>
+                <th>最近例行之二</th>
+                <th>相距天數</th>
+                <th>最近例行之三</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr id="inlineAddRow" class="inline-add-row">
+                <td></td>
+                <td>
+                    <div class="inline-edit inline-edit-always">
+                        <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                        <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
+                            <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
+                            style="resize:vertical;"></textarea>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
+                                style="flex:1;">
+                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
+                                    class="fas fa-upload"></i></button>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate1">
+                    </div>
+                </td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate2">
+                    </div>
+                </td>
+                <td>-</td>
+                <td>
+                    <div class="inline-edit inline-edit-row inline-edit-always">
+                        <input type="date" class="form-control inline-input" data-field="lastdate3">
+                    </div>
+                </td>
+                <td></td>
+            </tr>
+            <?php if (empty($items)): ?>
+                <tr>
+                    <td colspan="9" style="text-align: center; color: #999;">暫無例行事項</td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($items as $item): ?>
+                    <?php
+                    $routineDaysDiff = getRoutineDaysDiff($item);
+                    $daysDiff = $routineDaysDiff['text'];
+                    $dateGap12 = getRoutineDateGapText($item['lastdate1'] ?? '', $item['lastdate2'] ?? '');
+                    $dateGap23 = getRoutineDateGapText($item['lastdate2'] ?? '', $item['lastdate3'] ?? '');
+                    ?>
+                    <tr data-id="<?php echo $item['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                        data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                        data-link="<?php echo htmlspecialchars($item['link'] ?? '', ENT_QUOTES); ?>"
+                        data-photo="<?php echo htmlspecialchars($item['photo'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate1="<?php echo htmlspecialchars($item['lastdate1'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate2="<?php echo htmlspecialchars($item['lastdate2'] ?? '', ENT_QUOTES); ?>"
+                        data-lastdate3="<?php echo htmlspecialchars($item['lastdate3'] ?? '', ENT_QUOTES); ?>">
+                        <td><input type="checkbox" class="select-checkbox item-checkbox" data-id="<?php echo $item['id']; ?>"
+                                onchange="toggleSelectItem(this)"></td>
+                        <td>
+                            <div class="inline-view">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                                <span class="card-edit-btn" onclick="startInlineEdit('<?php echo $item['id']; ?>')"
+                                    style="cursor: pointer; margin-left: 8px;"><i class="fas fa-pen"></i></span>
+                                <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')"
+                                    style="margin-left: 6px; cursor: pointer;">&times;</span>
+                            </div>
+                            <div class="inline-edit">
+                                <input type="text" class="form-control inline-input" data-field="name" placeholder="名稱">
+                                <input type="url" class="form-control inline-input" data-field="link" placeholder="連結">
+                                <div class="inline-actions">
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
+                                    <button type="button" class="btn"
+                                        onclick="cancelInlineEdit('<?php echo $item['id']; ?>')">取消</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view routine-note-text"><?php echo htmlspecialchars($item['note'] ?? '-'); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <textarea class="form-control inline-input" data-field="note" placeholder="備註" rows="5"
+                                    style="resize:vertical;"></textarea>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-view">
+                                <?php if (!empty($item['photo'])): ?>
+                                    <img src="<?php echo htmlspecialchars($item['photo']); ?>"
+                                        style="max-width:60px;max-height:40px;border-radius:4px;">
+                                <?php else: ?>
+                                    -
+                                <?php endif; ?>
+                            </div>
+                            <div class="inline-edit inline-edit-row">
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <input type="text" class="form-control inline-input" data-field="photo" placeholder="圖片網址"
+                                        style="flex:1;">
+                                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                                        onclick="triggerPhotoUpload(this.closest('div').querySelector('[data-field=photo]'))"><i
+                                            class="fas fa-upload"></i></button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate1']); ?></span>
+                                <?php if ($dateGap12 !== ''): ?>
+                                    <small>與例行之二<?php echo htmlspecialchars($dateGap12); ?></small>
+                                <?php endif; ?>
+                            </span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate1">
+                            </div>
+                        </td>
+                        <td>
+                            <span class="inline-view routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate2']); ?></span>
+                                <?php if ($dateGap23 !== ''): ?>
+                                    <small>與例行之三<?php echo htmlspecialchars($dateGap23); ?></small>
+                                <?php endif; ?>
+                            </span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate2">
+                            </div>
+                        </td>
+                        <td style="font-weight:600;color:#d97757;"><?php echo $daysDiff; ?></td>
+                        <td>
+                            <span class="inline-view"><?php echo formatDate($item['lastdate3']); ?></span>
+                            <div class="inline-edit inline-edit-row">
+                                <input type="date" class="form-control inline-input" data-field="lastdate3">
+                            </div>
+                        </td>
+                        <td>
+                            <div class="inline-view">
+                                <button class="btn btn-sm btn-primary" onclick="shiftDates('<?php echo $item['id']; ?>')"
+                                    title="推進日期">
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <!-- 手機卡片版 -->
+    <!-- 手機卡片版 -->
+    <div class="mobile-only" style="margin-top: 20px;">
+        <?php if (empty($items)): ?>
+            <div class="mobile-card" style="text-align: center; color: #999; padding: 40px;">暫無例行事項</div>
+        <?php else: ?>
+            <?php foreach ($items as $item):
+                $routineDaysDiff = getRoutineDaysDiff($item);
+                $daysDiff = $routineDaysDiff['text'];
+                $daysDiffNum = $routineDaysDiff['days'];
+                $dateGap12 = getRoutineDateGapText($item['lastdate1'] ?? '', $item['lastdate2'] ?? '');
+                $dateGap23 = getRoutineDateGapText($item['lastdate2'] ?? '', $item['lastdate3'] ?? '');
+                ?>
+                <div class="mobile-card routine-mobile-card" style="border-left: 4px solid #c1613d;">
+                    <div class="mobile-card-actions routine-mobile-actions">
+                        <span class="card-edit-btn" onclick="editItem('<?php echo $item['id']; ?>')"><i
+                                class="fas fa-pen"></i></span>
+                        <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')">&times;</span>
+                    </div>
+                    <div class="mobile-card-header routine-mobile-header">
+                        <?php if (!empty($item['photo'])): ?>
+                            <img src="<?php echo htmlspecialchars($item['photo']); ?>"
+                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
+                        <?php else: ?>
+                            <div
+                                style="width: 50px; height: 50px; background: #b4552f; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-redo" style="color: #fff; font-size: 1.2rem;"></i>
+                            </div>
+                        <?php endif; ?>
+                        <div class="routine-mobile-copy" style="flex: 1;">
+                            <div class="mobile-card-title"><?php echo htmlspecialchars($item['name']); ?></div>
+                            <?php if (!empty($item['note'])): ?>
+                                <div class="routine-mobile-note" style="font-size: 0.8rem; color: #888;"><?php echo htmlspecialchars($item['note']); ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" class="routine-mobile-badge"
+                            onclick="shiftDates('<?php echo $item['id']; ?>')" title="推進日期"
+                            style="text-align: center; background: #b4552f; color: #fff; padding: 8px 12px; border-radius: 8px; min-width: 60px;">
+                            <div class="routine-mobile-badge-icon"><i class="fa-solid fa-arrow-right"></i></div>
+                            <div style="font-size: 1.2rem; font-weight: 700;"><?php echo $daysDiff === '-' ? '-' : $daysDiffNum; ?></div>
+                            <div style="font-size: 0.7rem;">天</div>
+                        </button>
+                    </div>
+                    <div class="mobile-card-info" style="margin-top: 12px;">
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之一</span>
+                            <span class="mobile-card-value routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate1']) ?: '-'; ?></span>
+                                <?php if ($dateGap12 !== ''): ?>
+                                    <small>與例行之二<?php echo htmlspecialchars($dateGap12); ?></small>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之二</span>
+                            <span class="mobile-card-value routine-date-stack">
+                                <span><?php echo formatDate($item['lastdate2']) ?: '-'; ?></span>
+                                <?php if ($dateGap23 !== ''): ?>
+                                    <small>與例行之三<?php echo htmlspecialchars($dateGap23); ?></small>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="mobile-card-item">
+                            <span class="mobile-card-label">例行之三</span>
+                            <span class="mobile-card-value"><?php echo formatDate($item['lastdate3']) ?: '-'; ?></span>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php include 'includes/upload-progress.php'; ?>
+
+<style>
+    .routine-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .routine-table th,
+    .routine-table td {
+        overflow: hidden;
+    }
+
+    .routine-note-text {
+        display: block;
+        white-space: pre-line;
+        line-height: 1.65;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
+    }
+
+    .routine-date-stack {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 3px;
+        line-height: 1.45;
+    }
+
+    .routine-date-stack small {
+        color: var(--muted-text);
+        font-size: 0.78rem;
+        font-weight: 500;
+        white-space: normal;
+    }
+
+    .routine-mobile-note {
+        white-space: pre-line;
+        line-height: 1.6;
+        word-break: break-word;
+        margin-top: 4px;
+    }
+
+    .routine-mobile-card {
+        padding-top: 56px;
+    }
+
+    .routine-mobile-actions {
+        top: 14px;
+        right: 14px;
+        gap: 10px;
+        z-index: 2;
+    }
+
+    .routine-mobile-header {
+        align-items: flex-start;
+        padding-right: 0;
+        gap: 12px;
+    }
+
+    .routine-mobile-copy {
+        min-width: 0;
+        padding-right: 6px;
+    }
+
+    .routine-mobile-badge {
+        flex-shrink: 0;
+        align-self: flex-start;
+        min-width: 68px !important;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 14px 26px rgba(41, 128, 185, 0.22);
+    }
+
+    .routine-mobile-badge-icon {
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+    }
+
+    table.table td {
+        vertical-align: top;
+    }
+
+    .routine-table td:nth-child(2) .inline-view,
+    .routine-table td:nth-child(2) .inline-edit,
+    .routine-table td:nth-child(5),
+    .routine-table td:nth-child(6),
+    .routine-table td:nth-child(8) {
+        overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 1024px) {
+        .routine-table.desktop-only {
+            display: none !important;
+        }
+
+        .mobile-only {
+            display: block !important;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .routine-mobile-header {
+            display: grid;
+            grid-template-columns: 50px minmax(0, 1fr) auto;
+        }
+
+        .routine-mobile-actions .btn {
+            min-height: 38px;
+        }
+    }
+</style>
+
+<script>
+    const TABLE = 'routine';
+    initBatchDelete(TABLE);
+
+    function handleAdd() {
+        startInlineAdd();
+    }
+
+    function startInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) {
+            alert('找不到新增列，請重新整理頁面後再試。');
+            return;
+        }
+        row.style.setProperty('display', 'table-row', 'important');
+        row.querySelectorAll('[data-field]').forEach(input => {
+            input.value = '';
+        });
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.focus();
+    }
+
+    function cancelInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        row.style.display = 'none';
+    }
+
+    function saveInlineAdd() {
+        const row = document.getElementById('inlineAddRow');
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            link: row.querySelector('[data-field="link"]').value.trim(),
+            photo: row.querySelector('[data-field="photo"]').value.trim(),
+            lastdate1: row.querySelector('[data-field="lastdate1"]').value || null,
+            lastdate2: row.querySelector('[data-field="lastdate2"]').value || null,
+            lastdate3: row.querySelector('[data-field="lastdate3"]').value || null
+        };
+        fetch(`api.php?action=create&table=${TABLE}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('儲存失敗: ' + (res.error || res.message || ''));
+                }
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function getRowById(id) {
+        return document.querySelector(`tr[data-id="${id}"]`);
+    }
+
+    function startInlineEdit(id) {
+        // Use inline editing for all screen sizes
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'block');
+        fillInlineInputs(row);
+    }
+
+    function cancelInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        row.querySelectorAll('.inline-view').forEach(el => el.style.display = '');
+        row.querySelectorAll('.inline-edit').forEach(el => el.style.display = 'none');
+    }
+
+    function fillInlineInputs(row) {
+        const data = row.dataset;
+        const nameInput = row.querySelector('[data-field="name"]');
+        if (nameInput) nameInput.value = data.name || '';
+        const noteInput = row.querySelector('[data-field="note"]');
+        if (noteInput) noteInput.value = data.note || '';
+        const linkInput = row.querySelector('[data-field="link"]');
+        if (linkInput) linkInput.value = data.link || '';
+        const photoInput = row.querySelector('[data-field="photo"]');
+        if (photoInput) photoInput.value = data.photo || '';
+        const lastdate1Input = row.querySelector('[data-field="lastdate1"]');
+        if (lastdate1Input) lastdate1Input.value = data.lastdate1 ? data.lastdate1.split(' ')[0] : '';
+        const lastdate2Input = row.querySelector('[data-field="lastdate2"]');
+        if (lastdate2Input) lastdate2Input.value = data.lastdate2 ? data.lastdate2.split(' ')[0] : '';
+        const lastdate3Input = row.querySelector('[data-field="lastdate3"]');
+        if (lastdate3Input) lastdate3Input.value = data.lastdate3 ? data.lastdate3.split(' ')[0] : '';
+    }
+
+    function saveInlineEdit(id) {
+        const row = getRowById(id);
+        if (!row) return;
+        const name = row.querySelector('[data-field="name"]').value.trim();
+        if (!name) {
+            alert('請輸入名稱');
+            return;
+        }
+        const data = {
+            name,
+            note: row.querySelector('[data-field="note"]').value.trim(),
+            link: row.querySelector('[data-field="link"]').value.trim(),
+            photo: row.querySelector('[data-field="photo"]').value.trim(),
+            lastdate1: row.querySelector('[data-field="lastdate1"]').value || null,
+            lastdate2: row.querySelector('[data-field="lastdate2"]').value || null,
+            lastdate3: row.querySelector('[data-field="lastdate3"]').value || null
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert('儲存失敗: ' + (res.error || ''));
+                }
+            });
+    }
+
+    function deleteItem(id) {
+        deleteInlineItem(id, {
+            table: TABLE,
+            confirmMessage: '確定要刪除這筆例行事項嗎？'
+        });
+    }
+
+    // 圖片上傳功能
+    (function () {
+        const _uploadInput = document.createElement('input');
+        _uploadInput.type = 'file';
+        _uploadInput.accept = 'image/*';
+        _uploadInput.style.display = 'none';
+        document.body.appendChild(_uploadInput);
+        let _uploadTargetInput = null;
+
+        _uploadInput.addEventListener('change', function () {
+            const file = this.files[0];
+            if (!file) return;
+            uploadFileWithProgress(file,
+                function (res) {
+                    if (_uploadTargetInput) {
+                        _uploadTargetInput.value = res.file;
+                        _uploadTargetInput = null;
+                    }
+                },
+                function (err) {
+                    alert('上傳失敗: ' + err);
+                }
+            );
+            this.value = '';
+        });
+
+        window.triggerPhotoUpload = function (targetInput) {
+            _uploadTargetInput = targetInput;
+            _uploadInput.click();
+        };
+    })();
+
+    // 手機編輯 Modal
+    function editItem(id) {
+        const srcEl = document.querySelector(`tr[data-id="${id}"]`);
+        const d = srcEl ? srcEl.dataset : {};
+        document.getElementById('routineMobileId').value = id;
+        document.getElementById('routineMobileName').value = d.name || '';
+        document.getElementById('routineMobileNote').value = d.note || '';
+        document.getElementById('routineMobileLink').value = d.link || '';
+        document.getElementById('routineMobilePhoto').value = d.photo || '';
+        document.getElementById('routineMobileDate1').value = d.lastdate1 ? d.lastdate1.split(' ')[0] : '';
+        document.getElementById('routineMobileDate2').value = d.lastdate2 ? d.lastdate2.split(' ')[0] : '';
+        document.getElementById('routineMobileDate3').value = d.lastdate3 ? d.lastdate3.split(' ')[0] : '';
+        document.getElementById('routineMobileModal').style.display = 'flex';
+    }
+
+    function closeRoutineMobileModal() {
+        document.getElementById('routineMobileModal').style.display = 'none';
+    }
+
+    function saveRoutineMobile() {
+        const id = document.getElementById('routineMobileId').value;
+        const name = document.getElementById('routineMobileName').value.trim();
+        if (!name) { alert('請輸入名稱'); return; }
+        const data = {
+            name,
+            note: document.getElementById('routineMobileNote').value.trim(),
+            link: document.getElementById('routineMobileLink').value.trim(),
+            photo: document.getElementById('routineMobilePhoto').value.trim(),
+            lastdate1: document.getElementById('routineMobileDate1').value || null,
+            lastdate2: document.getElementById('routineMobileDate2').value || null,
+            lastdate3: document.getElementById('routineMobileDate3').value || null
+        };
+        fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || ''));
+            });
+    }
+</script>
+
+<!-- 手機編輯 Modal -->
+<div id="routineMobileModal" class="modal" onclick="if(event.target===this)closeRoutineMobileModal()"
+    style="display:none;">
+    <div class="modal-content" style="max-width:500px;width:95%;">
+        <span class="modal-close" onclick="closeRoutineMobileModal()">&times;</span>
+        <h2 style="margin:0 0 20px 0;"><i class="fas fa-edit"></i> 編輯例行事項</h2>
+        <input type="hidden" id="routineMobileId">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">名稱 *</label>
+                <input type="text" id="routineMobileName" class="form-control" placeholder="名稱">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">備註</label>
+                <textarea id="routineMobileNote" class="form-control" placeholder="備註" rows="5"
+                    style="resize:vertical;"></textarea>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">連結</label>
+                <input type="url" id="routineMobileLink" class="form-control" placeholder="連結">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">圖片</label>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="text" id="routineMobilePhoto" class="form-control" placeholder="圖片網址" style="flex:1;">
+                    <button type="button" class="btn btn-secondary" style="white-space:nowrap;"
+                        onclick="triggerPhotoUpload(document.getElementById('routineMobilePhoto'))"><i
+                            class="fas fa-upload"></i></button>
+                </div>
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之一</label>
+                <input type="date" id="routineMobileDate1" class="form-control">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之二</label>
+                <input type="date" id="routineMobileDate2" class="form-control">
+            </div>
+            <div>
+                <label style="font-size:0.85rem;color:#666;margin-bottom:4px;display:block;">最近例行之三</label>
+                <input type="date" id="routineMobileDate3" class="form-control">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" class="btn" onclick="closeRoutineMobileModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveRoutineMobile()"><i class="fas fa-save"></i>
+                    儲存</button>
+            </div>
+        </div>
+    </div>
+</div>

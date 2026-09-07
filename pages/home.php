@@ -1,0 +1,470 @@
+<?php
+$pageTitle = '鋒兄首頁';
+require_once __DIR__ . '/../includes/fengbro_tube.php';
+require_once __DIR__ . '/../includes/fengbro_finance.php';
+
+$nowTaipei = new DateTimeImmutable('now', new DateTimeZone('Asia/Taipei'));
+$currentHour = (int) $nowTaipei->format('G');
+$sleepWarningClass = '';
+$rawHostCandidates = array_filter([
+    $_SERVER['HTTP_HOST'] ?? '',
+    $_SERVER['SERVER_NAME'] ?? '',
+    $_SERVER['HTTP_X_FORWARDED_HOST'] ?? '',
+]);
+$hostCandidates = [];
+foreach ($rawHostCandidates as $rawHost) {
+    foreach (explode(',', $rawHost) as $hostPart) {
+        $host = strtolower(trim($hostPart));
+        $host = preg_replace('/:\d+$/', '', $host);
+        $host = preg_replace('/^www\./', '', $host);
+        if ($host !== '') {
+            $hostCandidates[] = $host;
+        }
+    }
+}
+$hostCandidates = array_values(array_unique($hostCandidates));
+$serviceNotice = null;
+$tubeNewVideos = [];
+$financeHighNotices = [];
+
+if ($currentHour >= 0 && $currentHour <= 2) {
+    $sleepWarningClass = 'sleep-warning-yellow';
+} elseif ($currentHour >= 3 && $currentHour <= 6) {
+    $sleepWarningClass = 'sleep-warning-red';
+}
+
+$noticeTargets = [
+];
+
+foreach ($hostCandidates as $candidateHost) {
+    if (isset($noticeTargets[$candidateHost])) {
+        $serviceNotice = $noticeTargets[$candidateHost];
+        break;
+    }
+}
+
+$tubeData = fengbroTubeGetData(false);
+$tubeNewVideos = $tubeData['newVideos'] ?? [];
+$financeData = fengbroFinanceGetData(false, false);
+foreach (($financeData['quotes'] ?? []) as $quote) {
+    if (trim((string) ($quote['status'] ?? '')) !== '') {
+        $financeHighNotices[] = $quote;
+    }
+}
+?>
+
+<?php if ($sleepWarningClass): ?>
+    <div class="sleep-warning <?= $sleepWarningClass ?>" role="alert">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <strong>請入睡</strong>
+    </div>
+<?php endif; ?>
+
+<?php if ($serviceNotice): ?>
+    <div class="service-notice" role="status">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <strong><?php echo htmlspecialchars($serviceNotice); ?></strong>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($tubeNewVideos)): ?>
+    <div id="tubeHomeNotice" class="tube-home-notice-wrap" role="status" style="display:none;">
+        <a class="tube-home-notice" href="index.php?page=tools&tool=tube">
+            <i class="fa-brands fa-youtube"></i>
+            <span>
+                <strong>鋒兄tube 有 <?php echo count($tubeNewVideos); ?> 部 3 天內新影片</strong>
+                <small><?php echo htmlspecialchars($tubeNewVideos[0]['channel'] ?? 'YouTube'); ?>：<?php echo htmlspecialchars($tubeNewVideos[0]['title'] ?? '最新影片'); ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <button type="button" class="tube-home-notice-dismiss" onclick="dismissHomeNotice('tube')" title="今日不再顯示">×</button>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($financeHighNotices)): ?>
+    <?php
+    $financeNotice = $financeHighNotices[0];
+    $financeNoticeSummary = implode('、', array_map(function ($quote) {
+        return ($quote['name'] ?? '-') . ' ' . ($quote['status'] ?? '');
+    }, array_slice($financeHighNotices, 0, 5)));
+    ?>
+    <div id="financeHomeNotice" class="tube-home-notice-wrap" role="status" style="display:none;">
+        <a class="tube-home-notice finance-home-notice" href="index.php?page=tools&tool=finance">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>
+                <strong>鋒兄金融 <?php echo count($financeHighNotices); ?> 項突破提醒</strong>
+                <small><?php echo htmlspecialchars($financeNoticeSummary ?: (($financeNotice['name'] ?? '金融項目') . ' ' . ($financeNotice['status'] ?? '突破'))); ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
+        <button type="button" class="tube-home-notice-dismiss" onclick="dismissHomeNotice('finance')" title="今日不再顯示">×</button>
+    </div>
+<?php endif; ?>
+<div class="content-header">
+    <div class="page-intro">
+        <span class="eyebrow">WELCOME</span>
+        <h1>Fengbro AI</h1>
+        <pre class="ascii-fengbro" aria-label="ASCII art FENG BRO">
+ ______ ______ _   _  _____   ____  _____   ____
+|  ____|  ____| \ | |/ ____| |  _ \|  __ \ / __ \
+| |__  | |__  |  \| | |  __  | |_) | |__) | |  | |
+|  __| |  __| | . ` | | |_ | |  _ <|  _  /| |  | |
+| |    | |____| |\  | |__| | | |_) | | \ \| |__| |
+|_|    |______|_| \_|\_____| |____/|_|  \_\\____/
+                    F E N G   B R O
+        </pre>
+        <p>&#x500B;&#x4EBA;&#x4F5C;&#x696D;&#x4E2D;&#x6A1E;&#xFF0C;&#x6574;&#x5408;&#x8A02;&#x95B1;&#x3001;&#x7B46;&#x8A18;&#x3001;&#x8CC7;&#x6599;&#x5EAB;&#x8207;&#x65E5;&#x5E38;&#x64CD;&#x4F5C;&#x6D41;&#x7A0B;&#xFF0C;&#x5FEB;&#x901F;&#x638C;&#x63E1;&#x6BCF;&#x500B;&#x95DC;&#x9375;&#x72C0;&#x614B;&#x3002;</p>
+    </div>
+    <div class="home-view-toggle" role="group" aria-label="首頁顯示模式">
+        <button type="button" class="home-view-btn" data-home-view="compact" onclick="setHomeView('compact')">
+            <i class="fa-solid fa-list"></i> 精簡
+        </button>
+        <button type="button" class="home-view-btn" data-home-view="full" onclick="setHomeView('full')">
+            <i class="fa-solid fa-gauge-high"></i> 完整儀表
+        </button>
+    </div>
+</div>
+
+<section id="homeViewCompact">
+<div class="content-body">
+    <section class="hero-panel hero-panel-home">
+        <div class="hero-copy">
+            <span class="eyebrow">Tech-focused personal command center</span>
+            <h2>&#x5C08;&#x6CE8;&#x3001;&#x6E05;&#x6670;&#x3001;&#x53EF;&#x64CD;&#x4F5C;&#x7684;&#x7BA1;&#x7406;&#x4ECB;&#x9762;</h2>
+            <p>&#x7528;&#x6E05;&#x695A;&#x7684;&#x8CC7;&#x8A0A;&#x5C64;&#x7D1A;&#x8207;&#x5FEB;&#x901F;&#x52D5;&#x4F5C;&#xFF0C;&#x7DAD;&#x6301;&#x65E5;&#x5E38;&#x7DAD;&#x904B;&#x7684;&#x7BC0;&#x594F;&#xFF0C;&#x8B93;&#x91CD;&#x8981;&#x72C0;&#x614B;&#x4E00;&#x773C;&#x53EF;&#x898B;&#x3002;</p>
+            <div class="hero-actions">
+                <button type="button" class="btn btn-primary" onclick="setHomeView('full')">
+                    <i class="fa-solid fa-gauge-high"></i> &#x67E5;&#x770B;&#x5B8C;&#x6574;&#x5100;&#x8868;
+                </button>
+                <a href="index.php?page=subscription" class="btn btn-ghost">
+                    <i class="fa-solid fa-credit-card"></i> &#x8A02;&#x95B1;&#x7BA1;&#x7406;
+                </a>
+            </div>
+        </div>
+        <div class="hero-stack">
+            <article class="signal-card signal-card-primary">
+                <span class="signal-label">Live Focus</span>
+                <strong>Subscriptions + Food Ops</strong>
+                <p>&#x8FFD;&#x8E64;&#x4E0B;&#x4E00;&#x6B21;&#x4ED8;&#x6B3E;&#x8207;&#x98DF;&#x6750;&#x72C0;&#x614B;&#xFF0C;&#x96C6;&#x4E2D;&#x8655;&#x7406;&#x91CD;&#x8981;&#x63D0;&#x9192;&#x3002;</p>
+            </article>
+            <article class="signal-card">
+                <span class="signal-label">Interaction Goal</span>
+                <strong>Fast scan, low friction</strong>
+                <p>&#x7528;&#x6700;&#x4F4E;&#x6469;&#x64E6;&#x7684;&#x64CD;&#x4F5C;&#x5B8C;&#x6210;&#x65E5;&#x5E38;&#x7DAD;&#x8B77;&#x8207;&#x6574;&#x7406;&#x3002;</p>
+            </article>
+        </div>
+    </section>
+</div>
+</section>
+
+<section id="homeViewFull" hidden>
+    <?php
+    // 完整儀表：與舊「鋒兄儀表」同內容，合併在首頁切換（對齊 Appwrite EnhancedDashboard）
+    $dashboardEmbedded = true;
+    require __DIR__ . '/dashboard.php';
+    ?>
+</section>
+
+<style>
+    .sleep-warning {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        box-shadow: 0 16px 38px rgba(30, 26, 20, 0.12);
+        font-size: 1.1rem;
+        color: #1f1e1d;
+    }
+
+    .sleep-warning i {
+        font-size: 1.25rem;
+    }
+
+    .sleep-warning-yellow {
+        background: rgba(246, 235, 214, 0.96);
+        border-color: rgba(200, 135, 58, 0.36);
+    }
+
+    .sleep-warning-red {
+        background: rgba(246, 224, 217, 0.96);
+        border-color: rgba(179, 57, 44, 0.42);
+        color: #6e2a23;
+    }
+
+    [data-theme="dark"] .sleep-warning {
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .sleep-warning-yellow {
+        background: rgba(125, 74, 28, 0.76);
+        border-color: rgba(224, 178, 106, 0.36);
+        color: #f7ecd9;
+    }
+
+    [data-theme="dark"] .sleep-warning-red {
+        background: rgba(110, 42, 35, 0.78);
+        border-color: rgba(248, 113, 113, 0.4);
+        color: #f8e6e2;
+    }
+
+    .service-notice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid rgba(200, 135, 58, 0.36);
+        background: rgba(246, 235, 214, 0.96);
+        color: #5f3d16;
+        box-shadow: 0 16px 38px rgba(95, 61, 22, 0.12);
+        font-size: 1.05rem;
+    }
+
+    .service-notice i {
+        color: #b8792e;
+        font-size: 1.2rem;
+    }
+
+    [data-theme="dark"] .service-notice {
+        background: rgba(95, 61, 22, 0.86);
+        border-color: rgba(224, 178, 106, 0.32);
+        color: #f7ecd9;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .service-notice i {
+        color: #ecd6a8;
+    }
+
+    .tube-home-notice-wrap {
+        position: relative;
+        margin-bottom: 18px;
+    }
+
+    .tube-home-notice-wrap .tube-home-notice {
+        margin-bottom: 0;
+        padding-right: 44px;
+    }
+
+    .tube-home-notice-dismiss {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 999px;
+        background: rgba(30, 26, 20, 0.08);
+        color: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .tube-home-notice-dismiss:hover {
+        background: rgba(30, 26, 20, 0.14);
+    }
+
+    .tube-home-notice {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 16px 20px;
+        border-radius: 20px;
+        border: 1px solid rgba(179, 57, 44, 0.26);
+        background: rgba(246, 224, 217, 0.94);
+        color: #6e2a23;
+        text-decoration: none;
+        box-shadow: 0 16px 38px rgba(185, 28, 28, 0.12);
+    }
+
+    .tube-home-notice > i:first-child {
+        color: #b3392c;
+        font-size: 1.4rem;
+    }
+
+    .tube-home-notice span {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .tube-home-notice small {
+        color: #8a2b22;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .tube-home-notice {
+        background: rgba(110, 42, 35, 0.76);
+        border-color: rgba(248, 113, 113, 0.32);
+        color: #f8e6e2;
+    }
+
+    [data-theme="dark"] .tube-home-notice small {
+        color: #f2ccc5;
+    }
+
+    .finance-home-notice {
+        border-color: rgba(200, 135, 58, 0.32);
+        background: rgba(246, 235, 214, 0.96);
+        color: #5f3d16;
+        box-shadow: 0 16px 38px rgba(180, 83, 9, 0.12);
+    }
+
+    .finance-home-notice > i:first-child {
+        color: #b8792e;
+    }
+
+    .finance-home-notice small {
+        color: #7d4a1c;
+    }
+
+    [data-theme="dark"] .finance-home-notice {
+        background: rgba(95, 61, 22, 0.76);
+        border-color: rgba(224, 178, 106, 0.34);
+        color: #f7ecd9;
+    }
+
+    .ascii-fengbro {
+        margin: 12px 0 0 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid #dfe7f3;
+        background: #f3f6fb;
+        color: #2a2724;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        white-space: pre;
+        overflow-x: auto;
+    }
+
+    [data-theme="dark"] .ascii-fengbro {
+        background: #1f1e1d;
+        color: #d4e2ff;
+        border-color: #292826;
+    }
+
+    .home-view-toggle {
+        display: inline-flex;
+        gap: 4px;
+        align-self: flex-start;
+        margin-top: 14px;
+        padding: 4px;
+        border-radius: 14px;
+        border: 1px solid var(--border-color);
+        background: var(--table-header-bg);
+    }
+
+    .home-view-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--muted-text);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.18s ease, color 0.18s ease;
+    }
+
+    .home-view-btn:hover {
+        color: var(--text-color);
+    }
+
+    .home-view-btn.active {
+        background: var(--card-bg);
+        color: var(--text-color);
+        box-shadow: 0 4px 12px var(--shadow);
+    }
+
+    [data-theme="dark"] .home-view-btn.active {
+        background: rgba(217, 119, 87, 0.18);
+        color: #fff;
+    }
+
+    .content-header:has(.home-view-toggle) {
+        align-items: flex-start;
+    }
+</style>
+<script>
+    function homeNoticeToday() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+    function isHomeNoticeDismissed(kind) {
+        try {
+            const key = kind === 'finance' ? 'fengbroFinanceAlertsDismissed' : 'fengbroTubeNoticeDismissed';
+            return localStorage.getItem(key) === homeNoticeToday();
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function dismissHomeNotice(kind) {
+        try {
+            const key = kind === 'finance' ? 'fengbroFinanceAlertsDismissed' : 'fengbroTubeNoticeDismissed';
+            localStorage.setItem(key, homeNoticeToday());
+        } catch (e) {}
+        const el = document.getElementById(kind === 'finance' ? 'financeHomeNotice' : 'tubeHomeNotice');
+        if (el) el.style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const tube = document.getElementById('tubeHomeNotice');
+        const finance = document.getElementById('financeHomeNotice');
+        if (tube && !isHomeNoticeDismissed('tube')) tube.style.display = 'block';
+        if (finance && !isHomeNoticeDismissed('finance')) finance.style.display = 'block';
+    });
+
+    // ── 首頁 精簡／完整儀表 切換（對齊 Appwrite EnhancedDashboard）────────────
+    const HOME_VIEW_KEY = 'fengbro:home-view';
+    function getHomeView() {
+        try {
+            const saved = localStorage.getItem(HOME_VIEW_KEY);
+            if (saved === 'compact' || saved === 'full') return saved;
+        } catch (e) {}
+        return 'compact';
+    }
+    function applyHomeView(view) {
+        const compact = document.getElementById('homeViewCompact');
+        const full = document.getElementById('homeViewFull');
+        if (!compact || !full) return;
+        const showFull = view === 'full';
+        compact.hidden = showFull;
+        full.hidden = !showFull;
+        document.querySelectorAll('.home-view-btn').forEach(function (btn) {
+            const active = btn.dataset.homeView === view;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', String(active));
+        });
+    }
+    function setHomeView(view) {
+        if (view !== 'compact' && view !== 'full') view = 'compact';
+        try { localStorage.setItem(HOME_VIEW_KEY, view); } catch (e) {}
+        applyHomeView(view);
+        window.dispatchEvent(new CustomEvent('fengbro:home-view-change', { detail: { view: view } }));
+        if (view === 'full') {
+            // 儀表啟用提醒與離線快取統計在切到完整檢視時一併啟動
+            if (typeof sendDashboardNotifications === 'function') sendDashboardNotifications();
+            if (typeof loadOfflineCacheMetric === 'function') loadOfflineCacheMetric();
+            if (typeof loadMediaTrafficMetric === 'function') loadMediaTrafficMetric();
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const serverInitialFull = <?php echo ($homeInitialFullView ?? false) ? 'true' : 'false'; ?>;
+        const initialView = serverInitialFull ? 'full' : getHomeView();
+        applyHomeView(initialView);
+    });
+</script>
