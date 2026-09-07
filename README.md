@@ -2,6 +2,10 @@
 
 個人作業中樞，對齊 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite) 功能模組，以 PHP + MySQL 實作。
 
+## 線上網址
+
+<http://fengaialwaysdata.alwaysdata.net/fengbroailaravel>（部署於 alwaysdata，目前僅提供 HTTP）
+
 ## 主要功能
 
 - 訂閱 / 試用／首購 / 重灌 / 食品 / 筆記 / 常用帳號 / 銀行 / 例行事項
