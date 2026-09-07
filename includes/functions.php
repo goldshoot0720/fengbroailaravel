@@ -4,6 +4,37 @@ require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/management_tables.php';
 require_once __DIR__ . '/site_stats.php';
 
+/**
+ * 執行環境判斷：本機為 local，其餘（線上主機）為 remote。
+ * 以 $GLOBALS['ENV'] 提供給 about / settings 等頁面使用。
+ */
+function fengbroEnvironment(): string
+{
+    static $env = null;
+    if ($env !== null) return $env;
+
+    $override = getenv('APP_ENV');
+    if (is_string($override) && $override !== '') {
+        return $env = strtolower($override);
+    }
+
+    if (PHP_SAPI === 'cli') return $env = 'local';
+
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+    $host = (string) preg_replace('/:\d+$/', '', $host);
+    $localHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
+    $isLocal = $host === ''
+        || in_array($host, $localHosts, true)
+        || str_ends_with($host, '.local')
+        || str_ends_with($host, '.test')
+        || str_starts_with($host, '192.168.')
+        || str_starts_with($host, '10.');
+
+    return $env = $isLocal ? 'local' : 'remote';
+}
+
+$GLOBALS['ENV'] = fengbroEnvironment();
+
 function generateUUID() {
     return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
         mt_rand(0, 0xffff), mt_rand(0, 0xffff),

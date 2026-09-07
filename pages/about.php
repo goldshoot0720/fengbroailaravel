@@ -118,7 +118,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             </tr>
             <tr>
                 <th>執行環境</th>
-                <td><?php echo strtoupper($GLOBALS['ENV']); ?></td>
+                <td><?php echo htmlspecialchars(strtoupper(fengbroEnvironment())) . '（' . htmlspecialchars((string) ($_SERVER['HTTP_HOST'] ?? 'cli')) . ' · ' . htmlspecialchars(PHP_SAPI) . '）'; ?></td>
             </tr>
             <tr>
                 <th>freehostia</th>

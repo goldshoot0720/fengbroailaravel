@@ -8,7 +8,7 @@ $resendSettingsMessage = '';
 $resendSettingsError = '';
 $biggoSettingsMessage = '';
 $biggoSettingsError = '';
-$environment = (string) ($GLOBALS['ENV'] ?? 'local');
+$environment = fengbroEnvironment();
 
 // ── 通知設定密碼（對齊 Appwrite notification-settings）───────────────────────
 $notifPasswordHash = fengbroResendGetSetting($pdo, 'notif_password_hash');
