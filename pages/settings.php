@@ -839,18 +839,24 @@ $biggoSettings = [
 
         <h4 style="margin: 22px 0 6px;">資料庫殘餘紀錄（對應檔案已消失）</h4>
         <p style="color: var(--muted-text); margin-bottom: 12px;">
-            檢查鋒兄圖片／影片／音樂／播客／文件五個資料表：主檔（file）指向的 uploads 檔案不見 → 整筆是殘餘可刪除；只有封面（cover）不見 → 清掉封面欄位即可，紀錄保留。
+            檢查鋒兄圖片／影片／音樂／播客／文件五個資料表，分三種：
+            <strong>沒有檔案來源</strong>（file 與 cover 都空白、完全沒有指向任何檔案）→ 整筆是殘餘可刪除；
+            <strong>檔案已消失</strong>（file 指向的 uploads 檔案不見）→ 整筆是殘餘可刪除；
+            <strong>僅封面失效</strong>（主檔正常、只有 cover 不見）→ 清掉封面欄位即可，紀錄保留。
             欄位是外部網址的一律不列入。刪除紀錄後若原本還留著封面檔，下次掃描會變成未引用檔案，再用上面的「刪除未引用檔案」清掉即可。
         </p>
         <?php if ($environment === 'local'): ?>
             <p style="color:#c1554a; margin-bottom:12px;">
-                ⚠ 目前是本機環境：資料庫是線上共用的，uploads 目錄卻是每個環境各自一份。本機沒有的檔案在線上主機可能還在，
-                請到線上站台再執行清理，避免誤刪。
+                ⚠ 目前是本機環境：資料庫是線上共用的，uploads 目錄卻是每個環境各自一份。「檔案已消失」那一類在本機不準
+                （線上主機可能還在），請到線上站台再清理；「沒有檔案來源」與環境無關，在哪裡掃結果都一樣。
             </p>
         <?php endif; ?>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button type="button" class="btn btn-danger" id="deleteEmptyOrphansBtn" onclick="deleteEmptyOrphans()" disabled>
+                <i class="fa-solid fa-ban"></i> 刪除無檔案來源紀錄
+            </button>
             <button type="button" class="btn btn-danger" id="deleteOrphanRecordsBtn" onclick="deleteOrphanRecords()" disabled>
-                <i class="fa-solid fa-database"></i> 刪除殘餘紀錄
+                <i class="fa-solid fa-database"></i> 刪除檔案已消失紀錄
             </button>
             <button type="button" class="btn btn-warning" id="clearOrphanCoversBtn" onclick="clearOrphanCovers()" disabled>
                 <i class="fa-solid fa-image"></i> 清除失效封面欄位
@@ -1331,10 +1337,14 @@ $biggoSettings = [
     }
 
     function setOrphanButtonsEnabled(enabled) {
-        const recordBtn = document.getElementById('deleteOrphanRecordsBtn');
-        const coverBtn = document.getElementById('clearOrphanCoversBtn');
-        recordBtn.disabled = !enabled || orphansOfKind('record').length === 0;
-        coverBtn.disabled = !enabled || orphansOfKind('cover').length === 0;
+        const buttons = {
+            deleteEmptyOrphansBtn: 'empty',
+            deleteOrphanRecordsBtn: 'record',
+            clearOrphanCoversBtn: 'cover'
+        };
+        Object.keys(buttons).forEach(id => {
+            document.getElementById(id).disabled = !enabled || orphansOfKind(buttons[id]).length === 0;
+        });
     }
 
     function renderOrphanRecords(res) {
@@ -1351,14 +1361,23 @@ $biggoSettings = [
             return;
         }
 
+        const ORPHAN_KIND_LABELS = {
+            empty: '<span style="color:#c1554a;">沒有檔案來源</span>',
+            record: '<span style="color:#c1554a;">檔案已消失</span>',
+            cover: '<span style="color:#b8860b;">僅封面失效</span>'
+        };
+
         const rows = orphanStorageRecords.slice(0, 120).map(item => `
             <tr>
                 <td>${escapeStorageHtml(item.label)}</td>
                 <td>${escapeStorageHtml(item.name) || '<span style="color:var(--muted-text);">(無名稱)</span>'}</td>
-                <td>${item.kind === 'record'
-                    ? '<span style="color:#c1554a;">主檔消失</span>'
-                    : '<span style="color:#b8860b;">僅封面消失</span>'}</td>
-                <td><code>${escapeStorageHtml(item.missing.map(f => f === 'file' ? item.file : item.cover).join(' / '))}</code></td>
+                <td>${ORPHAN_KIND_LABELS[item.kind] || escapeStorageHtml(item.kind)}</td>
+                <td>${item.missing.length
+                    ? '<code>' + escapeStorageHtml(item.missing.map(f => f === 'file' ? item.file : item.cover).join(' / ')) + '</code>'
+                    : '<span style="color:var(--muted-text);">(欄位空白)</span>'}</td>
+                <td>${(item.extras || []).length
+                    ? '<span style="color:#b8860b;">' + escapeStorageHtml(item.extras.join('、')) + '</span>'
+                    : '<span style="color:var(--muted-text);">—</span>'}</td>
                 <td>${escapeStorageHtml(item.created_at)}</td>
             </tr>
         `).join('');
@@ -1366,11 +1385,12 @@ $biggoSettings = [
         box.innerHTML = `
             ${warning}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
-                <div class="card" style="margin:0;"><strong>${res.orphanRecordCount || 0}</strong><br><span>主檔消失（可刪紀錄）</span></div>
-                <div class="card" style="margin:0;"><strong>${res.orphanCoverCount || 0}</strong><br><span>僅封面消失</span></div>
+                <div class="card" style="margin:0;"><strong>${res.orphanEmptyCount || 0}</strong><br><span>沒有檔案來源（可刪紀錄）</span></div>
+                <div class="card" style="margin:0;"><strong>${res.orphanRecordCount || 0}</strong><br><span>檔案已消失（可刪紀錄）</span></div>
+                <div class="card" style="margin:0;"><strong>${res.orphanCoverCount || 0}</strong><br><span>僅封面失效</span></div>
             </div>
             <table class="table">
-                <thead><tr><th>類型</th><th>名稱</th><th>狀態</th><th>失效路徑</th><th>建立時間</th></tr></thead>
+                <thead><tr><th>類型</th><th>名稱</th><th>狀態</th><th>失效路徑</th><th>刪掉會一起消失的內容</th><th>建立時間</th></tr></thead>
                 <tbody>${rows}</tbody>
             </table>
             ${orphanStorageRecords.length > 120 ? '<p>僅顯示前 120 筆，清理時仍會處理全部。</p>' : ''}
@@ -1379,6 +1399,13 @@ $biggoSettings = [
 
     function runOrphanCleanup(action, items, confirmText) {
         if (!items.length) return;
+        if (action === 'delete_orphans') {
+            const withExtras = items.filter(item => (item.extras || []).length);
+            if (withExtras.length) {
+                const kinds = [...new Set(withExtras.flatMap(item => item.extras))].join('、');
+                confirmText += '\n\n注意：其中 ' + withExtras.length + ' 筆還留有' + kinds + '，刪除後會一併消失。';
+            }
+        }
         if (!confirm(confirmText)) return;
         fetch('storage_api.php?action=' + action, {
             method: 'POST',
@@ -1393,6 +1420,12 @@ $biggoSettings = [
                 scanStorageFiles();
             })
             .catch(err => alert('清理失敗: ' + err.message));
+    }
+
+    function deleteEmptyOrphans() {
+        const items = orphansOfKind('empty');
+        runOrphanCleanup('delete_orphans', items,
+            '確定刪除 ' + items.length + ' 筆沒有指向任何檔案的資料庫紀錄？此操作不可復原。');
     }
 
     function deleteOrphanRecords() {

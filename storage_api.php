@@ -84,27 +84,49 @@ function collectReferencedFiles(PDO $pdo) {
 /**
  * 一筆媒體紀錄的殘餘狀態：
  *   null     = 正常（檔案都在，或欄位是外部網址）
+ *   'empty'  = file 與 cover 都空白，沒有指向任何檔案 → 整筆是資料庫殘餘
  *   'record' = 主檔 file 指向的本機檔案已消失 → 整筆是資料庫殘餘
  *   'cover'  = 主檔正常、只有封面 cover 檔案消失 → 清掉封面欄位即可
  */
 function inspectMediaRow(array $row) {
-    $filePath = localUploadPath($row['file'] ?? '');
-    $coverPath = localUploadPath($row['cover'] ?? '');
+    $fileValue = trim((string) ($row['file'] ?? ''));
+    $coverValue = trim((string) ($row['cover'] ?? ''));
+    $filePath = localUploadPath($fileValue);
+    $coverPath = localUploadPath($coverValue);
     $missing = [];
     if ($filePath !== '' && !uploadFileExists($filePath)) $missing[] = 'file';
     if ($coverPath !== '' && !uploadFileExists($coverPath)) $missing[] = 'cover';
-    if (!$missing) return null;
-    return [
-        'kind' => in_array('file', $missing, true) ? 'record' : 'cover',
-        'missing' => $missing,
-    ];
+
+    if (in_array('file', $missing, true)) {
+        return ['kind' => 'record', 'missing' => $missing];
+    }
+    if ($fileValue === '' && $coverValue === '') {
+        return ['kind' => 'empty', 'missing' => []];
+    }
+    if ($missing) {
+        return ['kind' => 'cover', 'missing' => $missing];
+    }
+    return null;
+}
+
+/**
+ * 紀錄裡除了檔案欄位之外，還留著哪些有價值的內容。
+ * 例如音樂常常「檔案沒了、歌詞還在」，刪掉整筆會連歌詞一起消失，所以要標出來。
+ */
+function mediaRowExtras(array $row) {
+    $extras = [];
+    $labels = ['lyrics' => '歌詞', 'note' => '備註', 'ref' => '連結', 'category' => '分類'];
+    foreach ($labels as $column => $label) {
+        if (trim((string) ($row[$column] ?? '')) !== '') $extras[] = $label;
+    }
+    return $extras;
 }
 
 function collectOrphanRecords(PDO $pdo) {
     $orphans = [];
     foreach (FENGBRO_MEDIA_TABLES as $table => $label) {
         try {
-            $rows = $pdo->query("SELECT `id`, `name`, `file`, `cover`, `created_at` FROM `{$table}`")->fetchAll();
+            $rows = $pdo->query("SELECT * FROM `{$table}`")->fetchAll();
         } catch (Exception $e) {
             continue;
         }
@@ -112,6 +134,7 @@ function collectOrphanRecords(PDO $pdo) {
             $state = inspectMediaRow($row);
             if ($state === null) continue;
             $orphans[] = [
+                'extras' => mediaRowExtras($row),
                 'table' => $table,
                 'label' => $label,
                 'id' => (string) $row['id'],
@@ -180,7 +203,7 @@ if ($action === 'delete_orphans' || $action === 'clear_orphan_covers') {
                 continue;
             }
             if ($action === 'delete_orphans') {
-                if ($state['kind'] !== 'record') {
+                if (!in_array($state['kind'], ['record', 'empty'], true)) {
                     $errors[] = "{$name} 只有封面失效，請改用清除封面";
                     continue;
                 }
@@ -206,6 +229,7 @@ if ($action === 'delete_orphans' || $action === 'clear_orphan_covers') {
 $orphanRecords = collectOrphanRecords($pdo);
 $orphanSummary = [
     'orphanRecords' => $orphanRecords,
+    'orphanEmptyCount' => count(array_filter($orphanRecords, fn($o) => $o['kind'] === 'empty')),
     'orphanRecordCount' => count(array_filter($orphanRecords, fn($o) => $o['kind'] === 'record')),
     'orphanCoverCount' => count(array_filter($orphanRecords, fn($o) => $o['kind'] === 'cover')),
     'uploadsMissing' => $uploadsMissing,
