@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css?v=20260904mobile1">
     <link rel="stylesheet" href="assets/css/inline-edit.css?v=20260904mobile1">
-    <script src="assets/js/security.js?v=20260907"></script>
+    <script src="assets/js/security.js?v=20260907b"></script>
 </head>
 
 <body data-page="<?php echo htmlspecialchars($page ?? '', ENT_QUOTES, 'UTF-8'); ?>" data-tool="<?php echo htmlspecialchars($bodyDataTool ?? '', ENT_QUOTES, 'UTF-8'); ?>">

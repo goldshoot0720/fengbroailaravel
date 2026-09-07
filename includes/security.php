@@ -12,6 +12,9 @@ function fengbroStartSecureSession(): void
     if (PHP_SAPI === 'cli' || session_status() === PHP_SESSION_ACTIVE) return;
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
+    // 大檔分段上傳可能持續數十分鐘，預設 gc_maxlifetime(1440s) 會在上傳途中
+    // 把 session 回收掉，導致 CSRF token 失效而回 419。
+    ini_set('session.gc_maxlifetime', '14400');
     session_name('fengbro_session');
     session_set_cookie_params([
         'lifetime' => 0,
@@ -21,6 +24,11 @@ function fengbroStartSecureSession(): void
         'samesite' => 'Strict',
     ]);
     session_start();
+
+    // PHP 預設 lazy_write：session 內容沒變就不重寫檔案，檔案 mtime 停留在建立時間，
+    // 於是 GC 會把「一直在使用中、但只讀不寫」的 session 當成過期刪掉。
+    // 每次請求寫入一個時間戳，確保 mtime 持續更新。
+    $_SESSION['_last_seen'] = time();
 }
 
 function fengbroSecurityHeaders(): void

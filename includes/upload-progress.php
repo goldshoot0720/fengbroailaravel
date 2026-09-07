@@ -65,14 +65,17 @@
             showUploadProgressModal(0, '0%', file.name, options.title || '上傳中...');
         }
 
-        const xhr = new XMLHttpRequest();
-        const formData = new FormData();
-        formData.append('file', file);
-        const _csrfTok = fengbroCsrfMetaToken();
-        if (_csrfTok) formData.append('_csrf', _csrfTok);
+        let csrfRetried = false;
 
-        xhr.upload.addEventListener('progress', function (e) {
-            if (e.lengthComputable) {
+        function startUpload() {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('file', file);
+            const csrfTok = fengbroCsrfMetaToken();
+            if (csrfTok) formData.append('_csrf', csrfTok);
+
+            xhr.upload.addEventListener('progress', function (e) {
+                if (!e.lengthComputable) return;
                 const percent = Math.round((e.loaded / e.total) * 100);
                 const loaded = formatFileSize(e.loaded);
                 const total = formatFileSize(e.total);
@@ -94,12 +97,28 @@
                         file: file
                     });
                 }
-            }
-        });
+            });
 
-        xhr.addEventListener('load', function () {
-            try {
-                const res = JSON.parse(xhr.responseText);
+            xhr.addEventListener('load', function () {
+                // 419：session 過期導致 CSRF token 失效。換新 token 後自動重試一次。
+                if (xhr.status === 419 && !csrfRetried) {
+                    csrfRetried = true;
+                    const refresh = (window.fengbroCsrf && typeof window.fengbroCsrf.refresh === 'function')
+                        ? window.fengbroCsrf.refresh()
+                        : Promise.resolve();
+                    refresh.then(startUpload);
+                    return;
+                }
+
+                let res = null;
+                try {
+                    res = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    if (shouldManageModal) hideUploadProgressModal();
+                    onError('伺服器回應錯誤 (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
+                    return;
+                }
+
                 if (res.success) {
                     if (shouldManageModal) {
                         completeUploadProgressModal(file.name, options.completeTitle || '上傳完成', function () {
@@ -112,24 +131,23 @@
                     if (shouldManageModal) hideUploadProgressModal();
                     onError(res.error || '上傳失敗');
                 }
-            } catch (e) {
+            });
+
+            xhr.addEventListener('error', function () {
                 if (shouldManageModal) hideUploadProgressModal();
-                onError('伺服器回應錯誤 (HTTP ' + xhr.status + '): ' + xhr.responseText.substring(0, 200));
-            }
-        });
+                onError('網路錯誤 (status=' + xhr.status + ', readyState=' + xhr.readyState + ')');
+            });
 
-        xhr.addEventListener('error', function () {
-            if (shouldManageModal) hideUploadProgressModal();
-            onError('網路錯誤 (status=' + xhr.status + ', readyState=' + xhr.readyState + ')');
-        });
+            xhr.addEventListener('abort', function () {
+                if (shouldManageModal) hideUploadProgressModal();
+                onError('上傳已取消');
+            });
 
-        xhr.addEventListener('abort', function () {
-            if (shouldManageModal) hideUploadProgressModal();
-            onError('上傳已取消');
-        });
+            xhr.open('POST', 'upload.php');
+            xhr.send(formData);
+        }
 
-        xhr.open('POST', 'upload.php');
-        xhr.send(formData);
+        startUpload();
     }
 
     function uploadFileWithChunkProgress(file, onSuccess, onError, options, shouldManageModal) {

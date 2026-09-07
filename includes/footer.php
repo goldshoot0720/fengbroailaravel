@@ -602,6 +602,16 @@ $vapidPublicKey = notifGetVapidPublicKey($notifPdo);
                                 await sleep(Math.min(12000, 1500 * attempt));
                                 continue;
                             }
+                            // 419：session 被回收導致 CSRF token 失效。
+                            // 換一組新 token 後立刻重試同一塊，不要讓整個上傳失敗。
+                            if (lastResp.status === 419 && attempt < maxRetries) {
+                                attempt++;
+                                debug({ stage: 'csrf_refresh', index: i, url: url, attempt: attempt });
+                                if (window.fengbroCsrf && typeof window.fengbroCsrf.refresh === 'function') {
+                                    await window.fengbroCsrf.refresh();
+                                }
+                                continue;
+                            }
                             if (!shouldRetry(lastResp.status) || attempt >= maxRetries) {
                                 return lastResp;
                             }
