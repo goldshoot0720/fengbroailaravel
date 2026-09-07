@@ -826,16 +826,37 @@ $biggoSettings = [
 
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">Storage 檔案管理</h3>
-        <p style="color: var(--muted-text); margin-bottom: 12px;">掃描本機 uploads 目錄，找出資料庫欄位未引用的檔案。這是 PHP/MySQL 版對應 Appwrite/Supabase Storage 清理的實作。</p>
+        <p style="color: var(--muted-text); margin-bottom: 12px;">雙向對帳：掃描本機 uploads 目錄找出資料庫未引用的檔案，同時找出「資料還在、檔案卻不見」的資料庫殘餘紀錄。這是 PHP/MySQL 版對應 Appwrite/Supabase Storage 清理的實作。</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
             <button type="button" class="btn btn-primary" onclick="scanStorageFiles()">
-                <i class="fa-solid fa-magnifying-glass"></i> 掃描 uploads
+                <i class="fa-solid fa-magnifying-glass"></i> 掃描 uploads / 資料庫
             </button>
             <button type="button" class="btn btn-danger" id="deleteUnusedStorageBtn" onclick="deleteUnusedStorageFiles()" disabled>
                 <i class="fa-solid fa-trash"></i> 刪除未引用檔案
             </button>
         </div>
         <div id="storageScanResult" style="color: var(--muted-text);">尚未掃描。</div>
+
+        <h4 style="margin: 22px 0 6px;">資料庫殘餘紀錄（對應檔案已消失）</h4>
+        <p style="color: var(--muted-text); margin-bottom: 12px;">
+            檢查鋒兄圖片／影片／音樂／播客／文件五個資料表：主檔（file）指向的 uploads 檔案不見 → 整筆是殘餘可刪除；只有封面（cover）不見 → 清掉封面欄位即可，紀錄保留。
+            欄位是外部網址的一律不列入。刪除紀錄後若原本還留著封面檔，下次掃描會變成未引用檔案，再用上面的「刪除未引用檔案」清掉即可。
+        </p>
+        <?php if ($environment === 'local'): ?>
+            <p style="color:#c1554a; margin-bottom:12px;">
+                ⚠ 目前是本機環境：資料庫是線上共用的，uploads 目錄卻是每個環境各自一份。本機沒有的檔案在線上主機可能還在，
+                請到線上站台再執行清理，避免誤刪。
+            </p>
+        <?php endif; ?>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button type="button" class="btn btn-danger" id="deleteOrphanRecordsBtn" onclick="deleteOrphanRecords()" disabled>
+                <i class="fa-solid fa-database"></i> 刪除殘餘紀錄
+            </button>
+            <button type="button" class="btn btn-warning" id="clearOrphanCoversBtn" onclick="clearOrphanCovers()" disabled>
+                <i class="fa-solid fa-image"></i> 清除失效封面欄位
+            </button>
+        </div>
+        <div id="orphanRecordResult" style="color: var(--muted-text);">尚未掃描。</div>
     </div>
 
     <div class="card" style="margin-top: 20px;">
@@ -858,6 +879,7 @@ $biggoSettings = [
 
 <script>
     let unusedStorageFiles = [];
+    let orphanStorageRecords = [];
 
     function initSiteStatTables() {
         const result = document.getElementById('siteStatInitResult');
@@ -1242,12 +1264,16 @@ $biggoSettings = [
         const deleteBtn = document.getElementById('deleteUnusedStorageBtn');
         box.innerHTML = '掃描中...';
         deleteBtn.disabled = true;
+        orphanStorageRecords = [];
+        setOrphanButtonsEnabled(false);
+        document.getElementById('orphanRecordResult').innerHTML = '掃描中...';
         fetch('storage_api.php?action=scan')
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.error || '掃描失敗');
                 unusedStorageFiles = res.unusedFiles || [];
                 deleteBtn.disabled = unusedStorageFiles.length === 0;
+                renderOrphanRecords(res);
                 const rows = unusedStorageFiles.slice(0, 120).map(file => `
                     <tr>
                         <td><code>${file.path}</code></td>
@@ -1270,7 +1296,11 @@ $biggoSettings = [
                     ` : '<p>目前沒有未引用檔案。</p>'}
                 `;
             })
-            .catch(err => box.innerHTML = '<span style="color:#c1554a;">' + err.message + '</span>');
+            .catch(err => {
+                box.innerHTML = '<span style="color:#c1554a;">' + err.message + '</span>';
+                document.getElementById('orphanRecordResult').innerHTML =
+                    '<span style="color:#c1554a;">' + err.message + '</span>';
+            });
     }
 
     function deleteUnusedStorageFiles() {
@@ -1287,6 +1317,94 @@ $biggoSettings = [
                 scanStorageFiles();
             })
             .catch(err => alert('刪除失敗: ' + err.message));
+    }
+
+    // ── 資料庫殘餘紀錄（圖片／影片／音樂／播客／文件，對應檔案已消失）──────
+    function escapeStorageHtml(text) {
+        return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        }[ch]));
+    }
+
+    function orphansOfKind(kind) {
+        return orphanStorageRecords.filter(item => item.kind === kind);
+    }
+
+    function setOrphanButtonsEnabled(enabled) {
+        const recordBtn = document.getElementById('deleteOrphanRecordsBtn');
+        const coverBtn = document.getElementById('clearOrphanCoversBtn');
+        recordBtn.disabled = !enabled || orphansOfKind('record').length === 0;
+        coverBtn.disabled = !enabled || orphansOfKind('cover').length === 0;
+    }
+
+    function renderOrphanRecords(res) {
+        const box = document.getElementById('orphanRecordResult');
+        orphanStorageRecords = res.orphanRecords || [];
+        setOrphanButtonsEnabled(true);
+
+        const warning = res.uploadsMissing
+            ? '<p style="color:#c1554a;">⚠ uploads 目錄不存在，以下每筆紀錄都會被判定為殘餘。請先確認主機目錄／掛載正常再清理。</p>'
+            : '';
+
+        if (!orphanStorageRecords.length) {
+            box.innerHTML = warning + '<p>五個媒體資料表都沒有殘餘紀錄。</p>';
+            return;
+        }
+
+        const rows = orphanStorageRecords.slice(0, 120).map(item => `
+            <tr>
+                <td>${escapeStorageHtml(item.label)}</td>
+                <td>${escapeStorageHtml(item.name) || '<span style="color:var(--muted-text);">(無名稱)</span>'}</td>
+                <td>${item.kind === 'record'
+                    ? '<span style="color:#c1554a;">主檔消失</span>'
+                    : '<span style="color:#b8860b;">僅封面消失</span>'}</td>
+                <td><code>${escapeStorageHtml(item.missing.map(f => f === 'file' ? item.file : item.cover).join(' / '))}</code></td>
+                <td>${escapeStorageHtml(item.created_at)}</td>
+            </tr>
+        `).join('');
+
+        box.innerHTML = `
+            ${warning}
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+                <div class="card" style="margin:0;"><strong>${res.orphanRecordCount || 0}</strong><br><span>主檔消失（可刪紀錄）</span></div>
+                <div class="card" style="margin:0;"><strong>${res.orphanCoverCount || 0}</strong><br><span>僅封面消失</span></div>
+            </div>
+            <table class="table">
+                <thead><tr><th>類型</th><th>名稱</th><th>狀態</th><th>失效路徑</th><th>建立時間</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            ${orphanStorageRecords.length > 120 ? '<p>僅顯示前 120 筆，清理時仍會處理全部。</p>' : ''}
+        `;
+    }
+
+    function runOrphanCleanup(action, items, confirmText) {
+        if (!items.length) return;
+        if (!confirm(confirmText)) return;
+        fetch('storage_api.php?action=' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: items.map(item => ({ table: item.table, id: item.id })) })
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.error || '清理失敗');
+                alert('已處理 ' + (res.done || 0) + ' 筆' +
+                    (res.errors && res.errors.length ? '\n略過／錯誤：\n' + res.errors.join('\n') : ''));
+                scanStorageFiles();
+            })
+            .catch(err => alert('清理失敗: ' + err.message));
+    }
+
+    function deleteOrphanRecords() {
+        const items = orphansOfKind('record');
+        runOrphanCleanup('delete_orphans', items,
+            '確定刪除 ' + items.length + ' 筆主檔已消失的資料庫紀錄？此操作不可復原。');
+    }
+
+    function clearOrphanCovers() {
+        const items = orphansOfKind('cover');
+        runOrphanCleanup('clear_orphan_covers', items,
+            '確定清除 ' + items.length + ' 筆紀錄的失效封面欄位？紀錄本身會保留。');
     }
 
     const OFFLINE_CACHE_LABELS = {
