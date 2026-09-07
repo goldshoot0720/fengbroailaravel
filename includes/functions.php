@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/version.php';
 require_once __DIR__ . '/management_tables.php';
 require_once __DIR__ . '/site_stats.php';
 

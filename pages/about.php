@@ -106,7 +106,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             </tr>
             <tr>
                 <th>版本</th>
-                <td>1.0.0</td>
+                <td><?php echo htmlspecialchars(fengbroVersionLabel()); ?></td>
             </tr>
             <tr>
                 <th>技術架構</th>
