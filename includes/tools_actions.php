@@ -41,6 +41,10 @@ function fengbroToolsHandlePostActions($toolSubpage)
             }
             fengbroTubeSaveChannels($channels);
         } elseif ($action === 'save' && $channel['url'] !== '') {
+            if (fengbroTubeIsRemovedChannel($channel)) {
+                header('Location: index.php?page=tools&tool=tube&tube_removed_error=1#tube-channel-manager');
+                exit;
+            }
             if ($index >= 0 && isset($channels[$index])) {
                 $channels[$index] = $channel;
             } else {
@@ -87,6 +91,9 @@ function fengbroToolsHandlePostActions($toolSubpage)
                 }
                 $url = trim($url);
                 if ($url === '') {
+                    continue;
+                }
+                if (fengbroTubeIsRemovedChannel(['url' => $url])) {
                     continue;
                 }
                 $imported[] = ['name' => trim($alias), 'url' => $url];

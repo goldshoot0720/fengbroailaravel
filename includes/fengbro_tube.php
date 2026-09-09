@@ -16,6 +16,71 @@ function fengbroTubeDefaultChannels()
     ];
 }
 
+/**
+ * 已下架頻道：曾經出現在預設清單、之後決定移除的頻道 handle。
+ *
+ * 預設清單只有在資料庫 tubechannel 表是空的時候才會被採用，所以單純從
+ * fengbroTubeDefaultChannels() 刪掉一列，對既有安裝毫無作用（資料庫裡那筆還在，
+ * 頻道照樣顯示）。把 handle 登記在這裡，讀取與寫入時一併過濾並回寫資料庫，
+ * 「移除頻道」才會同步反映到資料庫，而不是只改了程式碼。
+ *
+ * handle 一律以小寫、已解碼的形式登記（fengbroTubeNormalizeHandle 的輸出）。
+ */
+function fengbroTubeRemovedHandles()
+{
+    return [
+        'sjdiao',            // 刁书记
+        'jiangtaigong',      // 加州姜太公NEWS
+        'monsterise',        // 怪獸崛起 MONSTERISE
+        'jlaw',              // 夏河東渡
+        'torontobigface',    // 多伦多方脸
+        'sunchannelhk',      // Sun Channel
+        'libertas1984',      // 曹操说
+        'mrshenofficial',    // 公子沈 Terence Shen
+        'blackwhite_raven',  // 黑白乌鸦
+        'cheapaoe',          // cheap
+        'henren778',         // 一个狠人（仍是倒台指數來源，見 fengbroTubeDownfallSourceChannel）
+        '夸克说',
+        '喵喵看一看',        // 小喵看一看
+        'gc趙氏讀書生活',    // Gavinchiu趙氏讀書生活
+    ];
+}
+
+/** 把 handle 正規化成可比對的形式：去掉 @、解百分比編碼、轉小寫。 */
+function fengbroTubeNormalizeHandle($handle)
+{
+    $handle = ltrim(rawurldecode(trim((string) $handle)), '@');
+    return function_exists('mb_strtolower') ? mb_strtolower($handle, 'UTF-8') : strtolower($handle);
+}
+
+/** 判斷頻道是否已下架。 */
+function fengbroTubeIsRemovedChannel($channel)
+{
+    $url = (string) ($channel['url'] ?? '');
+    $handle = trim((string) ($channel['handle'] ?? ''));
+    if ($handle === '') {
+        $handle = fengbroTubeExtractHandleFromUrl($url);
+    }
+    $handle = fengbroTubeNormalizeHandle($handle);
+    if ($handle !== '') {
+        return in_array($handle, fengbroTubeRemovedHandles(), true);
+    }
+    // 頻道 ID 與 handle 並不相同，不用局部字串猜測，避免誤刪其他頻道。
+    return false;
+}
+
+/** 濾掉已下架頻道。 */
+function fengbroTubeFilterRemovedChannels($channels)
+{
+    $kept = [];
+    foreach ((array) $channels as $channel) {
+        if (!fengbroTubeIsRemovedChannel($channel)) {
+            $kept[] = $channel;
+        }
+    }
+    return $kept;
+}
+
 function fengbroTubeChannels()
 {
     $custom = fengbroTubeReadChannelsFile();
@@ -72,6 +137,9 @@ function fengbroTubeReadChannelsFile()
         if (!is_array($data)) {
             return null;
         }
+        if ($data === []) {
+            return [];
+        }
         $channels = [];
         $seen = [];
         foreach ($data as $channel) {
@@ -81,10 +149,9 @@ function fengbroTubeReadChannelsFile()
                 $channels[] = $normalized;
             }
         }
-        if ($channels) {
-            fengbroTubeSaveChannels($channels);
-        }
-        return $channels ?: null;
+        $channels = fengbroTubeFilterRemovedChannels($channels);
+        fengbroTubeSaveChannels($channels);
+        return $channels;
     }
 
     $channels = [];
@@ -97,7 +164,20 @@ function fengbroTubeReadChannelsFile()
             $channels[] = $normalized;
         }
     }
-    return $channels ?: null;
+
+    // 資料庫裡還留著已下架頻道時，就地刪除；之後的讀取都不會再走到這裡。
+    $kept = fengbroTubeFilterRemovedChannels($channels);
+    if (count($kept) !== count($channels)) {
+        $delete = $pdo->prepare('DELETE FROM tubechannel WHERE sourceUrl = ?');
+        foreach ($channels as $channel) {
+            if (fengbroTubeIsRemovedChannel($channel)) {
+                $delete->execute([$channel['url']]);
+            }
+        }
+        fengbroTubeWriteChannelsSnapshot($kept);
+        fengbroTubeClearDataCache();
+    }
+    return $kept;
 }
 
 function fengbroTubeSaveChannels($channels)
@@ -109,11 +189,13 @@ function fengbroTubeSaveChannels($channels)
             $normalized[] = $item;
         }
     }
+    $normalized = fengbroTubeFilterRemovedChannels($normalized);
 
     $pdo = function_exists('getConnection') ? getConnection() : null;
     if ($pdo) {
         try {
             fengbroTubeEnsureChannelTable($pdo);
+            $pdo->beginTransaction();
             $pdo->exec('DELETE FROM tubechannel');
             $insert = $pdo->prepare('INSERT INTO tubechannel (id, sourceUrl, alias) VALUES (?, ?, ?)');
             foreach ($normalized as $item) {
@@ -123,40 +205,35 @@ function fengbroTubeSaveChannels($channels)
                     (string) ($item['name'] ?? ''),
                 ]);
             }
-            fengbroTubeClearDataCache();
-            return;
+            $pdo->commit();
         } catch (Throwable $e) {
-            // DB 寫入失敗時退回 JSON 檔，確保工具仍可用
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
         }
     }
 
+    fengbroTubeWriteChannelsSnapshot($normalized);
+    fengbroTubeClearDataCache();
+}
+
+/** 空陣列也要保存，避免刪除最後一個頻道後重新匯入舊資料。 */
+function fengbroTubeWriteChannelsSnapshot($channels)
+{
     $path = fengbroTubeChannelsPath();
     $dir = dirname($path);
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
     }
-    @file_put_contents($path, json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
-    fengbroTubeClearDataCache();
+    if (file_put_contents($path, json_encode($channels, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
+        throw new RuntimeException('無法同步 Tube 頻道清單');
+    }
 }
 
 function fengbroTubeResetChannels()
 {
-    $pdo = function_exists('getConnection') ? getConnection() : null;
-    if ($pdo) {
-        try {
-            fengbroTubeEnsureChannelTable($pdo);
-            $pdo->exec('DELETE FROM tubechannel');
-            fengbroTubeClearDataCache();
-            return;
-        } catch (Throwable $e) {
-            // fall through to file removal
-        }
-    }
-    $path = fengbroTubeChannelsPath();
-    if (is_file($path)) {
-        @unlink($path);
-    }
-    fengbroTubeClearDataCache();
+    fengbroTubeSaveChannels(fengbroTubeDefaultChannels());
 }
 
 function fengbroTubeReadCache()
@@ -182,7 +259,11 @@ function fengbroTubeWriteCache($cache)
 function fengbroTubeClearDataCache()
 {
     $cache = fengbroTubeReadCache();
-    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4'], $cache['tube_data_v5']);
+    foreach (array_keys($cache) as $key) {
+        if (preg_match('/^tube_data(?:_v\d+)?$/', (string) $key)) {
+            unset($cache[$key]);
+        }
+    }
     fengbroTubeWriteCache($cache);
 }
 
@@ -603,9 +684,11 @@ function fengbroTubeBuildChannelRow($channel, &$cache)
 
 function fengbroTubeGetData($force = false)
 {
+    $configuredChannels = fengbroTubeChannels();
+    $channelsHash = hash('sha256', json_encode($configuredChannels));
     $cache = fengbroTubeReadCache();
     $dataKey = 'tube_data_v6'; // v5: 倒台指數最近兩次發布間隔天數
-    if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
+    if (!$force && ($cache[$dataKey]['channelsHash'] ?? '') === $channelsHash && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
 
@@ -615,7 +698,7 @@ function fengbroTubeGetData($force = false)
     $downfallIndexUpdate = null;
     $downfallHistory = fengbroTubeHardcodedDownfallHistory();
 
-    foreach (fengbroTubeChannels() as $channel) {
+    foreach ($configuredChannels as $channel) {
         $built = fengbroTubeBuildChannelRow($channel, $cache);
         $channelRow = $built['row'];
         foreach ($built['videos'] as $video) {
@@ -666,7 +749,7 @@ function fengbroTubeGetData($force = false)
         'downfallHistory' => $downfallHistory,
         'downfallPublishIntervalDays' => $downfallPublishIntervalDays,
     ];
-    $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
+    $cache[$dataKey] = ['checkedAt' => time(), 'channelsHash' => $channelsHash, 'value' => $data];
     // 一併清掉舊 key，避免殘留
     unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4'], $cache['tube_data_v5']);
     fengbroTubeWriteCache($cache);

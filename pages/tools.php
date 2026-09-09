@@ -439,6 +439,13 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             </a>
         </section>
 
+        <?php if (($_GET['tube_removed_error'] ?? '') === '1'): ?>
+            <div class="tube-import-error" role="alert">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>這個頻道已從清單移除，無法再次加入。</span>
+            </div>
+        <?php endif; ?>
+
         <?php if (($_GET['tube_import_error'] ?? '') === '1'): ?>
             <div class="tube-import-error" role="alert">
                 <i class="fa-solid fa-triangle-exclamation"></i>
