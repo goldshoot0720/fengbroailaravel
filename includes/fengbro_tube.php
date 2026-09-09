@@ -13,7 +13,6 @@ function fengbroTubeDefaultChannels()
         ['name' => '', 'url' => 'https://www.youtube.com/@%E5%A4%B8%E5%85%8B%E8%AF%B4'],
         ['name' => '', 'url' => 'https://www.youtube.com/@%E5%96%B5%E5%96%B5%E7%9C%8B%E4%B8%80%E7%9C%8B/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@monsterise/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@informant510/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@SunChannelHK/videos'],
@@ -24,7 +23,6 @@ function fengbroTubeDefaultChannels()
         ['name' => '', 'url' => 'https://www.youtube.com/@cheapaoe/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@StorytellerHK/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@mrshenofficial/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@jiangtaigong/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@GC%E8%B6%99%E6%B0%8F%E8%AE%80%E6%9B%B8%E7%94%9F%E6%B4%BB'],
     ];
 }
