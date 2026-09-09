@@ -70,6 +70,12 @@ if (($page ?? '') === 'tools') {
     ], true) ? $requestedTool : '';
 }
 
+// 工具頁的 POST 動作會送出 header()（重導／CSV 下載），必須在輸出任何 HTML 前處理。
+if ($page === 'tools') {
+    require_once __DIR__ . '/includes/tools_actions.php';
+    fengbroToolsHandlePostActions($bodyDataTool !== '' ? $bodyDataTool : 'price');
+}
+
 include 'includes/header.php';
 include 'includes/sidebar.php';
 include 'includes/mobile-nav.php';
