@@ -3,7 +3,6 @@
 function fengbroTubeDefaultChannels()
 {
     return [
-        ['name' => '', 'url' => 'https://www.youtube.com/@SJdiao/videos'],
         ['name' => '', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
         ['name' => '', 'url' => 'https://www.youtube.com/@libertas1984/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@sunlao/videos'],
