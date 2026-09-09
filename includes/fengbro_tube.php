@@ -3,27 +3,16 @@
 function fengbroTubeDefaultChannels()
 {
     return [
-        ['name' => '', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@libertas1984/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@sunlao/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@Torontobigface/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@junyulan/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@blackwhite_raven/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@quedaren/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@%E5%A4%B8%E5%85%8B%E8%AF%B4'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@%E5%96%B5%E5%96%B5%E7%9C%8B%E4%B8%80%E7%9C%8B/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@informant510/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@SunChannelHK/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@jlaw/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@NeixianZhang/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@cheapaoe/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@StorytellerHK/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@mrshenofficial/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@GC%E8%B6%99%E6%B0%8F%E8%AE%80%E6%9B%B8%E7%94%9F%E6%B4%BB'],
     ];
 }
 
@@ -560,10 +549,62 @@ function fengbroTubeDownfallPublishIntervalDays(array $history)
     return (int) $from->diff($to)->days;
 }
 
+/** 倒台指數資料來源：即使該頻道不在頻道清單中，仍用它解析倒台指數。 */
+function fengbroTubeDownfallSourceChannel()
+{
+    return ['name' => '', 'handle' => 'henren778', 'url' => 'https://www.youtube.com/@henren778'];
+}
+
+/** 把更新徽章轉成倒台指數更新資訊；沒有徽章時回傳 null。 */
+function fengbroTubeDownfallUpdateFromBadge($badge)
+{
+    if (empty($badge)) {
+        return null;
+    }
+    return [
+        'value' => $badge['value'],
+        'title' => $badge['title'],
+        'url' => $badge['url'] ?? '',
+        'publishedAt' => $badge['published'] ?? '',
+    ];
+}
+
+/** 抓取單一頻道的影片與名稱，回傳 ['row' => 頻道資料, 'videos' => 全部影片]。 */
+function fengbroTubeBuildChannelRow($channel, &$cache)
+{
+    $channelId = fengbroTubeResolveChannelId($channel, $cache);
+    $videos = [];
+    $error = '';
+    $feedXml = '';
+    if ($channelId) {
+        $feedUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($channelId);
+        $feedXml = fengbroTubeFetchUrl($feedUrl);
+        $videos = fengbroTubeParseFeed($feedXml, 15);
+    } else {
+        $error = '無法解析頻道 ID';
+    }
+    $channelName = fengbroTubeResolveChannelName($channel, $channelId, $feedXml, $cache);
+
+    return [
+        'row' => [
+            'name' => $channelName,
+            'defaultName' => $channel['name'] ?? '',
+            'handle' => $channel['handle'] ?? '',
+            'url' => $channel['url'],
+            'channelId' => $channelId,
+            'videos' => array_slice($videos, 0, 10),
+            'error' => $error,
+            'updateBadge' => fengbroTubeExtractUpdateBadge($channel, $videos, $channelName),
+            'isHenren' => fengbroTubeIsHenrenChannel($channel, $channelName),
+        ],
+        'videos' => $videos,
+    ];
+}
+
 function fengbroTubeGetData($force = false)
 {
     $cache = fengbroTubeReadCache();
-    $dataKey = 'tube_data_v5'; // v5: 倒台指數最近兩次發布間隔天數
+    $dataKey = 'tube_data_v6'; // v5: 倒台指數最近兩次發布間隔天數
     if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 21600) {
         return $cache[$dataKey]['value'];
     }
@@ -575,53 +616,33 @@ function fengbroTubeGetData($force = false)
     $downfallHistory = fengbroTubeHardcodedDownfallHistory();
 
     foreach (fengbroTubeChannels() as $channel) {
-        $channelId = fengbroTubeResolveChannelId($channel, $cache);
-        $videos = [];
-        $error = '';
-        $feedXml = '';
-        if ($channelId) {
-            $feedUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode($channelId);
-            $feedXml = fengbroTubeFetchUrl($feedUrl);
-            $videos = fengbroTubeParseFeed($feedXml, 15);
-        } else {
-            $error = '無法解析頻道 ID';
-        }
-        $channelName = fengbroTubeResolveChannelName($channel, $channelId, $feedXml, $cache);
-        foreach ($videos as $video) {
+        $built = fengbroTubeBuildChannelRow($channel, $cache);
+        $channelRow = $built['row'];
+        foreach ($built['videos'] as $video) {
             if (!empty($video['isNew'])) {
                 $newVideos[] = [
-                    'channel' => $channelName,
+                    'channel' => $channelRow['name'],
                     'title' => $video['title'],
                     'url' => $video['url'],
                     'publishedText' => $video['publishedText'],
                 ];
             }
         }
-        $updateBadge = fengbroTubeExtractUpdateBadge($channel, $videos, $channelName);
-        $channelRow = [
-            'name' => $channelName,
-            'defaultName' => $channel['name'],
-            'handle' => $channel['handle'] ?? '',
-            'url' => $channel['url'],
-            'channelId' => $channelId,
-            'videos' => array_slice($videos, 0, 10),
-            'error' => $error,
-            'updateBadge' => $updateBadge,
-            'isHenren' => fengbroTubeIsHenrenChannel($channel, $channelName),
-        ];
         if ($channelRow['isHenren']) {
             $downfallChannel = $channelRow;
-            $downfallHistory = fengbroTubeBuildDownfallHistory($channel, $videos);
-            if ($updateBadge) {
-                $downfallIndexUpdate = [
-                    'value' => $updateBadge['value'],
-                    'title' => $updateBadge['title'],
-                    'url' => $updateBadge['url'] ?? '',
-                    'publishedAt' => $updateBadge['published'] ?? '',
-                ];
-            }
+            $downfallHistory = fengbroTubeBuildDownfallHistory($channel, $built['videos']);
+            $downfallIndexUpdate = fengbroTubeDownfallUpdateFromBadge($channelRow['updateBadge']) ?: $downfallIndexUpdate;
         }
         $channels[] = $channelRow;
+    }
+
+    // 「一個狠人」已不在頻道清單，仍單獨抓取作為倒台指數來源（不列入頻道卡片）。
+    if ($downfallChannel === null) {
+        $source = fengbroTubeDownfallSourceChannel();
+        $built = fengbroTubeBuildChannelRow($source, $cache);
+        $downfallChannel = $built['row'];
+        $downfallHistory = fengbroTubeBuildDownfallHistory($source, $built['videos']);
+        $downfallIndexUpdate = fengbroTubeDownfallUpdateFromBadge($built['row']['updateBadge']) ?: $downfallIndexUpdate;
     }
 
     if (!$downfallIndexUpdate && $downfallHistory) {
@@ -647,7 +668,7 @@ function fengbroTubeGetData($force = false)
     ];
     $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
     // 一併清掉舊 key，避免殘留
-    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4']);
+    unset($cache['tube_data'], $cache['tube_data_v2'], $cache['tube_data_v3'], $cache['tube_data_v4'], $cache['tube_data_v5']);
     fengbroTubeWriteCache($cache);
     return $data;
 }
