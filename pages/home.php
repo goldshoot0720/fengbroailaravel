@@ -103,7 +103,7 @@ foreach (($financeData['quotes'] ?? []) as $quote) {
 <div class="content-header">
     <div class="page-intro">
         <span class="eyebrow">WELCOME</span>
-        <h1>Fengbro AI</h1>
+        <h1>鋒兄AI Laravel</h1>
         <pre class="ascii-fengbro" aria-label="ASCII art FENG BRO">
  ______ ______ _   _  _____   ____  _____   ____
 |  ____|  ____| \ | |/ ____| |  _ \|  __ \ / __ \

@@ -33,7 +33,7 @@ $mTabs = [
         <i class="fa-solid fa-bars" aria-hidden="true"></i>
     </button>
     <div class="m-appbar-title">
-        <span class="m-appbar-kicker">Fengbro AI</span>
+        <span class="m-appbar-kicker">鋒兄AI Laravel</span>
         <span class="m-appbar-name"><?php echo htmlspecialchars($pageTitle ?? '鋒兄首頁', ENT_QUOTES, 'UTF-8'); ?></span>
     </div>
     <div class="m-appbar-actions">
