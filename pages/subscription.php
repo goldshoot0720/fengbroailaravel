@@ -37,8 +37,6 @@ if ($similarityTerm !== '') {
     $allActiveForSim = array_values(array_unique($allActiveForSim));
 }
 
-$perPage = 25;
-$currentListPage = max(1, (int) ($_GET['p'] ?? 1));
 $subscriptionWhere = "deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL");
 
 if ($similarityTerm !== '' && !$trashMode) {
@@ -50,15 +48,9 @@ if ($similarityTerm !== '' && !$trashMode) {
         $items = $pdo->query("SELECT * FROM subscription WHERE id IN ({$inList}) ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
         $totalItems = count($items);
     }
-    $totalPages = 1;
-    $currentListPage = 1;
-    $offset = 0;
 } else {
-    $totalItems = (int) $pdo->query("SELECT COUNT(*) FROM subscription WHERE {$subscriptionWhere}")->fetchColumn();
-    $totalPages = max(1, (int) ceil($totalItems / $perPage));
-    $currentListPage = min($currentListPage, $totalPages);
-    $offset = ($currentListPage - 1) * $perPage;
-    $items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC LIMIT {$perPage} OFFSET {$offset}")->fetchAll();
+    $items = $pdo->query("SELECT * FROM subscription WHERE {$subscriptionWhere} ORDER BY nextdate IS NULL, nextdate ASC")->fetchAll();
+    $totalItems = count($items);
 }
 $availableYears = [];
 foreach ($items as $item) {
@@ -270,15 +262,6 @@ function getDaysUntil($date)
 <div class="content-body">
     <?php $trashTable = 'subscription'; $trashPage = 'subscription'; include 'includes/trash-controls.php'; ?>
     <?php include 'includes/inline-edit-hint.php'; ?>
-    <?php if ($totalPages > 1): ?>
-    <nav class="data-pagination" aria-label="訂閱資料分頁">
-        <span>第 <?php echo $currentListPage; ?> / <?php echo $totalPages; ?> 頁，共 <?php echo $totalItems; ?> 筆</span>
-        <div>
-            <?php if ($currentListPage > 1): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage - 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> 上一頁</a><?php endif; ?>
-            <?php if ($currentListPage < $totalPages): ?><a class="btn btn-sm" href="index.php?page=subscription&p=<?php echo $currentListPage + 1; ?><?php echo $trashMode ? '&trash=1' : ''; ?>">下一頁 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a><?php endif; ?>
-        </div>
-    </nav>
-    <?php endif; ?>
     <?php if ($activeSimilarityTerm !== ''): ?>
         <div class="similarity-view-bar" role="status">
             <i class="fa-solid fa-magnifying-glass-chart"></i>

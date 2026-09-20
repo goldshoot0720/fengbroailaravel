@@ -198,6 +198,7 @@ try {
 } catch (PDOException $e) {
     jsonResponse(['success' => false, 'error' => 'DB 錯誤: ' . $e->getMessage()], 500);
 }
+$restoreSoftDeletedRows = fengbroImportRestoresSoftDeletedRows($table, $dbColumns);
 
 $imported = 0;
 $skipped = 0;
@@ -213,6 +214,10 @@ foreach ($rows as $index => $rawRow) {
     $data = mapImportRowKeys($rawRow, $fieldMapping);
     // 只保留 DB 欄位
     $data = array_intersect_key($data, array_flip($dbColumns));
+    // 一般 CSV 匯入不可保留／帶入垃圾桶狀態；實際復原放在找到既有 id 後處理。
+    if ($restoreSoftDeletedRows) {
+        unset($data['deleted_at']);
+    }
     if (!$data) {
         $skipped++;
         $errors[] = '第 ' . ($index + 1) . ' 筆: 沒有可寫入欄位';
@@ -302,6 +307,10 @@ foreach ($rows as $index => $rawRow) {
         } else {
             $data['id'] = generateUUID();
         }
+    }
+    // 命中垃圾桶中同一筆資料時，正常匯入代表要把它復原到主清單。
+    if ($restoreSoftDeletedRows) {
+        $data['deleted_at'] = null;
     }
     $currentId = $data['id'];
 

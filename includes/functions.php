@@ -130,3 +130,15 @@ function findExistingImportRecordId(PDO $pdo, string $table, array $data, array 
 function importRecordExists(PDO $pdo, string $table, array $identity): bool {
     return findExistingImportRecordId($pdo, $table, $identity, array_keys($identity)) !== null;
 }
+
+/**
+ * 一般 CSV 匯入應將支援垃圾桶的資料視為有效資料。
+ *
+ * 匯入若命中垃圾桶中的既有紀錄，後續寫入會清除 deleted_at 以復原它；
+ * 同時略過 CSV 內的 deleted_at，避免一般匯入意外帶入已刪除狀態。
+ */
+function fengbroImportRestoresSoftDeletedRows(string $table, array $dbColumns): bool
+{
+    return in_array($table, ['article', 'subscription'], true)
+        && in_array('deleted_at', $dbColumns, true);
+}

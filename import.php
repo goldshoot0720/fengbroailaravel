@@ -248,10 +248,13 @@ try {
 } catch (PDOException $e) {
     jsonResponse(['error' => 'DB 錯誤: ' . $e->getMessage()], 500);
 }
+$restoreSoftDeletedRows = fengbroImportRestoresSoftDeletedRows($table, $dbColumns);
 
 $ignoredIndexes = [];
 foreach ($headers as $i => $h) {
-    if (in_array($h, $ignoredColumns) || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))) {
+    if (in_array($h, $ignoredColumns)
+        || (str_starts_with($h, '$') && !isset($fieldMapping[$h]))
+        || ($restoreSoftDeletedRows && $h === 'deleted_at')) {
         $ignoredIndexes[] = $i;
     } elseif (!in_array($h, $dbColumns)) {
         // DB 中不存在的欄位一律忽略
@@ -390,6 +393,11 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             $currentId = $duplicateId;
             $data['id'] = $duplicateId;
         }
+    }
+
+    // 命中垃圾桶中同一筆資料時，正常匯入代表要把它復原到主清單。
+    if ($restoreSoftDeletedRows) {
+        $data['deleted_at'] = null;
     }
 
     // 檢查是否已存在
