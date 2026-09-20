@@ -200,10 +200,10 @@ try {
 }
 $restoreSoftDeletedRows = fengbroImportRestoresSoftDeletedRows($table, $dbColumns);
 
-$imported = 0;
+// === 第一階段：正規化每一列（先不寫入 DB） ===
+$pendingRows = [];
 $skipped = 0;
 $errors = [];
-
 foreach ($rows as $index => $rawRow) {
     if (!is_array($rawRow)) {
         $skipped++;
@@ -287,7 +287,26 @@ foreach ($rows as $index => $rawRow) {
         $data['continue'] = 1;
     }
 
+    $pendingRows[] = ['index' => $index, 'data' => $data];
+}
+
+// === 第二階段：本批次內去重，同一筆只保留最新版本 ===
+// （前端已針對整份 CSV 去重，這裡是批次層級的保險）
+$dedupe = fengbroDedupeImportRows($table, $pendingRows, static fn($pending) => $pending['data']);
+$pendingRows = $dedupe['rows'];
+$deduplicated = $dedupe['removed'];
+
+// === 第三階段：單一交易寫入 + 快取 prepared statement ===
+$imported = 0;
+$existsStmt = $pdo->prepare("SELECT id FROM `{$table}` WHERE id = ? LIMIT 1");
+$writeStatements = [];
+$pdo->beginTransaction();
+
+foreach ($pendingRows as $pending) {
+    $index = $pending['index'];
+    $data = $pending['data'];
     $recordName = $data['name'] ?? ('#' . ($index + 1));
+
     $hasSourceId = !empty($data['id']);
     if (!$hasSourceId) {
         $duplicateId = null;
@@ -302,11 +321,7 @@ foreach ($rows as $index => $rawRow) {
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }
-        if ($duplicateId) {
-            $data['id'] = $duplicateId;
-        } else {
-            $data['id'] = generateUUID();
-        }
+        $data['id'] = $duplicateId ?: generateUUID();
     }
     // 命中垃圾桶中同一筆資料時，正常匯入代表要把它復原到主清單。
     if ($restoreSoftDeletedRows) {
@@ -314,9 +329,9 @@ foreach ($rows as $index => $rawRow) {
     }
     $currentId = $data['id'];
 
-    $stmt = $pdo->prepare("SELECT id FROM `{$table}` WHERE id = ?");
-    $stmt->execute([$currentId]);
-    $exists = $stmt->fetch();
+    $existsStmt->execute([$currentId]);
+    $exists = $existsStmt->fetchColumn();
+    $existsStmt->closeCursor();
 
     try {
         if ($exists) {
@@ -326,21 +341,29 @@ foreach ($rows as $index => $rawRow) {
                 $skipped++;
                 continue;
             }
-            $sets = [];
-            foreach (array_keys($update) as $col) {
-                $sets[] = "`{$col}` = ?";
+            $cacheKey = 'u:' . implode(',', array_keys($update));
+            if (!isset($writeStatements[$cacheKey])) {
+                $sets = [];
+                foreach (array_keys($update) as $col) {
+                    $sets[] = "`{$col}` = ?";
+                }
+                $writeStatements[$cacheKey] = $pdo->prepare(
+                    "UPDATE `{$table}` SET " . implode(',', $sets) . " WHERE id = ?"
+                );
             }
-            $sql = "UPDATE `{$table}` SET " . implode(',', $sets) . " WHERE id = ?";
-            $stmt = $pdo->prepare($sql);
             $values = array_values($update);
             $values[] = $currentId;
-            $stmt->execute($values);
+            $writeStatements[$cacheKey]->execute($values);
         } else {
-            $columns = array_map(static fn($c) => "`{$c}`", array_keys($data));
-            $placeholders = array_fill(0, count($data), '?');
-            $sql = "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute(array_values($data));
+            $cacheKey = 'i:' . implode(',', array_keys($data));
+            if (!isset($writeStatements[$cacheKey])) {
+                $columns = array_map(static fn($c) => "`{$c}`", array_keys($data));
+                $placeholders = array_fill(0, count($data), '?');
+                $writeStatements[$cacheKey] = $pdo->prepare(
+                    "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")"
+                );
+            }
+            $writeStatements[$cacheKey]->execute(array_values($data));
         }
         $imported++;
     } catch (PDOException $e) {
@@ -348,9 +371,12 @@ foreach ($rows as $index => $rawRow) {
     }
 }
 
+$pdo->commit();
+
 jsonResponse([
     'success' => true,
     'imported' => $imported,
     'skipped' => $skipped,
+    'deduplicated' => $deduplicated,
     'errors' => $errors,
 ]);

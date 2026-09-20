@@ -131,6 +131,42 @@ function importRecordExists(PDO $pdo, string $table, array $identity): bool {
     return findExistingImportRecordId($pdo, $table, $identity, array_keys($identity)) !== null;
 }
 
+/* ===========================================================
+ * CSV 匯入去重：同一筆資料在檔案中重複出現時，只保留最新版本
+ * =========================================================== */
+
+/**
+ * 各資料表的「自然識別欄位」：沒有 id / hash 時，用這些欄位判斷是否為同一筆。
+ * 與 fengbroFind*ImportId() / findExistingImportRecordId() 的判斷邏輯一致。
+ */
+function fengbroImportIdentityColumns(string $table): array
+{
+    switch ($table) {
+        case 'subscription':
+        case 'bank':
+        case 'trialpurchase':
+        case 'quota':
+            return ['name', 'account'];
+        case 'food':
+            return ['name', 'shop'];
+        case 'article':
+            return ['title'];
+        case 'reinstall':
+            return ['name', 'system'];
+        case 'image':
+        case 'music':
+        case 'podcast':
+        case 'video':
+        case 'commondocument':
+            return ['name', 'file'];
+        case 'commonaccount':
+        case 'routine':
+        case 'shoppinglist':
+        default:
+            return ['name'];
+    }
+}
+
 /**
  * 一般 CSV 匯入應將支援垃圾桶的資料視為有效資料。
  *
@@ -141,4 +177,120 @@ function fengbroImportRestoresSoftDeletedRows(string $table, array $dbColumns): 
 {
     return in_array($table, ['article', 'subscription'], true)
         && in_array('deleted_at', $dbColumns, true);
+}
+
+/**
+ * 把各種時間格式（Appwrite ISO 8601、純日期、MySQL DATETIME）正規化成可比較的字串。
+ */
+function fengbroNormalizeImportTimestamp($value): string
+{
+    if ($value === null) {
+        return '';
+    }
+    $value = trim((string) $value);
+    if ($value === '' || strtolower($value) === 'null') {
+        return '';
+    }
+    if (preg_match('/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/', $value, $m)) {
+        return $m[1] . ' ' . $m[2];
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+        return $value . ' 00:00:00';
+    }
+    $ts = strtotime($value);
+    return $ts ? date('Y-m-d H:i:s', $ts) : '';
+}
+
+/**
+ * 取得一列資料的「版本時間」：updated_at 優先，其次 created_at。
+ * 都沒有時回傳空字串，代表無法判斷版本（由檔案順序決定，後面的較新）。
+ */
+function fengbroImportRowVersion(array $row): string
+{
+    foreach (['updated_at', '$updatedAt', 'updatedAt', 'created_at', '$createdAt', 'createdAt'] as $key) {
+        if (!array_key_exists($key, $row)) {
+            continue;
+        }
+        $stamp = fengbroNormalizeImportTimestamp($row[$key]);
+        if ($stamp !== '') {
+            return $stamp;
+        }
+    }
+    return '';
+}
+
+/**
+ * 計算一列資料的去重鍵。回傳 null 代表無法判斷身分，該列一律保留。
+ */
+function fengbroImportDedupeKey(string $table, array $row): ?string
+{
+    foreach (['id', 'hash'] as $unique) {
+        $value = isset($row[$unique]) ? trim((string) $row[$unique]) : '';
+        if ($value !== '' && strtolower($value) !== 'null') {
+            return $unique . ':' . mb_strtolower($value);
+        }
+    }
+
+    $parts = [];
+    $hasValue = false;
+    foreach (fengbroImportIdentityColumns($table) as $column) {
+        $value = isset($row[$column]) ? trim((string) $row[$column]) : '';
+        if (strtolower($value) === 'null') {
+            $value = '';
+        }
+        if ($value !== '') {
+            $hasValue = true;
+        }
+        $parts[] = mb_strtolower($value);
+    }
+
+    return $hasValue ? $table . ':' . implode("\x1f", $parts) : null;
+}
+
+/**
+ * 去除同一批匯入資料中的重複列，同一筆只保留最新版本。
+ *
+ * 版本判斷：updated_at / created_at 較新者勝；時間相同或都沒有時，以檔案中較後面者為準
+ * （沿用原本「後寫入覆蓋先寫入」的行為，只是少跑一次 DB 寫入）。
+ * 保留的列會停在該筆第一次出現的位置，維持原本的匯入順序。
+ *
+ * $reader 可讓呼叫端傳入包了額外資訊的元素（例如帶行號的 ['index' => n, 'data' => [...]]），
+ * 回傳的 rows 會是原本的元素型別。
+ *
+ * @return array{rows: array, removed: int}
+ */
+function fengbroDedupeImportRows(string $table, array $rows, ?callable $reader = null): array
+{
+    $slots = [];
+    $index = [];
+    $removed = 0;
+
+    foreach ($rows as $item) {
+        $row = $reader ? $reader($item) : $item;
+        if (!is_array($row)) {
+            $slots[] = $item;
+            continue;
+        }
+
+        $key = fengbroImportDedupeKey($table, $row);
+        if ($key === null) {
+            $slots[] = $item;
+            continue;
+        }
+
+        $version = fengbroImportRowVersion($row);
+        if (!isset($index[$key])) {
+            $slots[] = $item;
+            $index[$key] = ['slot' => array_key_last($slots), 'version' => $version];
+            continue;
+        }
+
+        $removed++;
+        if (strcmp($version, $index[$key]['version']) >= 0) {
+            $slots[$index[$key]['slot']] = $item;
+            $index[$key]['version'] = $version;
+        }
+    }
+
+    return ['rows' => array_values($slots), 'removed' => $removed];
 }

@@ -279,15 +279,125 @@
                 return out;
             }
 
+            /**
+             * 前端去重：規則與 includes/functions.php 的 fengbroDedupeImportRows() 一致。
+             * 同一筆資料在 CSV 中重複出現時只保留最新版本，避免整份檔案分批送出後
+             * 同一筆被反覆寫入（既慢又可能讓舊版本蓋掉新版本）。
+             */
+            const IDENTITY_COLUMNS = {
+                subscription: ['name', 'account'],
+                bank: ['name', 'account'],
+                trialpurchase: ['name', 'account'],
+                quota: ['name', 'account'],
+                food: ['name', 'shop'],
+                article: ['title'],
+                reinstall: ['name', 'system'],
+                image: ['name', 'file'],
+                music: ['name', 'file'],
+                podcast: ['name', 'file'],
+                video: ['name', 'file'],
+                commondocument: ['name', 'file']
+            };
+
+            const FIELD_ALIASES = {
+                id: ['id', '$id'],
+                hash: ['hash'],
+                name: ['name', '名稱', '服務', '服務名稱', '食物名稱', '食品名稱', '商品名稱', '購物名稱', '銀行', '銀行名稱', '電子票證'],
+                title: ['title', '標題'],
+                account: ['account', '帳號'],
+                shop: ['shop', '商店', '店家', '預定商店'],
+                system: ['system', '系統', '使用系統'],
+                file: ['file', '檔案'],
+                updated: ['updated_at', '$updatedAt', 'updatedAt'],
+                created: ['created_at', '$createdAt', 'createdAt']
+            };
+
+            const DEDUPE_SEPARATOR = String.fromCharCode(31);
+
+            function readField(row, field) {
+                const aliases = FIELD_ALIASES[field] || [field];
+                for (let i = 0; i < aliases.length; i++) {
+                    const raw = row[aliases[i]];
+                    if (raw == null) continue;
+                    const value = String(raw).trim();
+                    if (value !== '' && value.toLowerCase() !== 'null') return value;
+                }
+                return '';
+            }
+
+            function normalizeStamp(value) {
+                if (!value) return '';
+                const iso = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/.exec(value);
+                if (iso) return iso[1] + ' ' + iso[2];
+                if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value + ' 00:00:00';
+                const parsed = Date.parse(value);
+                if (isNaN(parsed)) return '';
+                const d = new Date(parsed);
+                const pad = function (n) { return String(n).padStart(2, '0'); };
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+                    + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+            }
+
+            function rowVersion(row) {
+                return normalizeStamp(readField(row, 'updated'))
+                    || normalizeStamp(readField(row, 'created'))
+                    || '';
+            }
+
+            function dedupeKey(row) {
+                const id = readField(row, 'id');
+                if (id) return 'id:' + id.toLowerCase();
+                const hash = readField(row, 'hash');
+                if (hash) return 'hash:' + hash.toLowerCase();
+
+                const columns = IDENTITY_COLUMNS[TABLE] || ['name'];
+                const parts = columns.map(function (column) { return readField(row, column).toLowerCase(); });
+                const hasValue = parts.some(function (part) { return part !== ''; });
+                return hasValue ? TABLE + ':' + parts.join(DEDUPE_SEPARATOR) : null;
+            }
+
+            function dedupeRows(objects) {
+                const slots = [];
+                const index = Object.create(null);
+                let removed = 0;
+
+                objects.forEach(function (row) {
+                    const key = dedupeKey(row);
+                    if (key === null) {
+                        slots.push(row);
+                        return;
+                    }
+                    const version = rowVersion(row);
+                    const seen = index[key];
+                    if (!seen) {
+                        slots.push(row);
+                        index[key] = { slot: slots.length - 1, version: version };
+                        return;
+                    }
+                    removed++;
+                    // 時間較新者勝；時間相同或都沒有時，以檔案中較後面者為準
+                    if (version >= seen.version) {
+                        slots[seen.slot] = row;
+                        seen.version = version;
+                    }
+                });
+
+                return { rows: slots, removed: removed };
+            }
+
             async function importByChunks(file) {
                 const text = await file.text();
                 const firstLine = String(text).split(/\r\n|\n|\r/)[0] || '';
                 const delimiter = detectDelimiter(firstLine);
                 const matrix = parseCsvWithDelimiter(text, delimiter);
-                const objects = rowsToObjects(matrix);
-                if (!objects.length) {
+                const parsed = rowsToObjects(matrix);
+                if (!parsed.length) {
                     throw new Error('CSV 沒有可匯入資料列');
                 }
+
+                const deduped = dedupeRows(parsed);
+                const objects = deduped.rows;
+                const deduplicated = deduped.removed;
 
                 const chunkSize = 40;
                 let imported = 0;
@@ -296,8 +406,11 @@
                 const total = objects.length;
                 setImportUi({
                     percent: 5,
-                    status: '已解析 ' + total + ' 筆，開始分批寫入…',
-                    debugLine: 'delimiter=' + JSON.stringify(delimiter) + ' rows=' + total
+                    status: '已解析 ' + parsed.length + ' 筆'
+                        + (deduplicated ? '，合併重複 ' + deduplicated + ' 筆（只保留最新版本）' : '')
+                        + '，開始分批寫入…',
+                    debugLine: 'delimiter=' + JSON.stringify(delimiter)
+                        + ' rows=' + parsed.length + ' unique=' + total + ' deduped=' + deduplicated
                 }, true);
 
                 for (let i = 0; i < objects.length; i += chunkSize) {
@@ -328,7 +441,7 @@
                     await new Promise(function (resolve) { setTimeout(resolve, 30); });
                 }
 
-                return { imported: imported, skipped: skipped, errors: errors };
+                return { imported: imported, skipped: skipped, deduplicated: deduplicated, errors: errors };
             }
 
             function importByServerUpload(file) {
@@ -367,13 +480,18 @@
 
             function finishImportResult(res) {
                 if (res.success || typeof res.imported !== 'undefined') {
+                    const dedupedCount = Number(res.deduplicated || 0);
                     setImportUi({
                         percent: 100,
-                        status: '完成！成功 ' + (res.imported || 0) + ' 筆' + (res.skipped ? '，跳過 ' + res.skipped + ' 筆' : ''),
+                        status: '完成！成功 ' + (res.imported || 0) + ' 筆'
+                            + (res.skipped ? '，跳過 ' + res.skipped + ' 筆' : '')
+                            + (dedupedCount ? '，合併重複 ' + dedupedCount + ' 筆' : ''),
                         debugLine: 'imported=' + (res.imported || 0) + ' skipped=' + (res.skipped || 0)
+                            + ' deduped=' + dedupedCount
                     }, true);
                     let msg = '匯入完成！\n成功: ' + (res.imported || 0) + ' 筆';
                     if (res.skipped > 0) msg += '\n跳過: ' + res.skipped + ' 筆';
+                    if (dedupedCount > 0) msg += '\n重複合併: ' + dedupedCount + ' 筆（只保留最新版本）';
                     if (res.errors && res.errors.length > 0) {
                         msg += '\n\n錯誤明細:\n' + res.errors.slice(0, 20).join('\n');
                         if (res.errors.length > 20) msg += '\n…共 ' + res.errors.length + ' 筆錯誤';
@@ -404,7 +522,13 @@
 
                 const job = useChunked
                     ? importByChunks(file).then(function (stats) {
-                        return { success: true, imported: stats.imported, skipped: stats.skipped, errors: stats.errors };
+                        return {
+                            success: true,
+                            imported: stats.imported,
+                            skipped: stats.skipped,
+                            deduplicated: stats.deduplicated,
+                            errors: stats.errors
+                        };
                     })
                     : importByServerUpload(file);
 

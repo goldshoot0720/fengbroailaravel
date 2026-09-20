@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS subscription (
     `continue` BOOLEAN DEFAULT TRUE,
     deleted_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_subscription_deleted_next` (`deleted_at`, `nextdate`),
+    INDEX `idx_subscription_name` (`name`),
+    INDEX `idx_subscription_account` (`account`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS food (
@@ -38,7 +41,9 @@ CREATE TABLE IF NOT EXISTS food (
     photo VARCHAR(500),
     photohash VARCHAR(256),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_food_todate` (`todate`, `created_at`),
+    INDEX `idx_food_name_shop` (`name`, `shop`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 筆記頁使用 article（非 notes）
@@ -63,7 +68,9 @@ CREATE TABLE IF NOT EXISTS article (
     file3type VARCHAR(100),
     deleted_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_article_deleted_created` (`deleted_at`, `created_at`),
+    INDEX `idx_article_title` (`title`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS image (
@@ -77,7 +84,10 @@ CREATE TABLE IF NOT EXISTS image (
     hash VARCHAR(300),
     cover VARCHAR(150),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_image_created` (`created_at`),
+    INDEX `idx_image_hash` (`hash`(191)),
+    INDEX `idx_image_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS music (
@@ -93,7 +103,10 @@ CREATE TABLE IF NOT EXISTS music (
     language VARCHAR(100),
     cover VARCHAR(150),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_music_created` (`created_at`),
+    INDEX `idx_music_hash` (`hash`(191)),
+    INDEX `idx_music_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS podcast (
@@ -107,7 +120,10 @@ CREATE TABLE IF NOT EXISTS podcast (
     hash VARCHAR(300),
     cover VARCHAR(150),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_podcast_created` (`created_at`),
+    INDEX `idx_podcast_hash` (`hash`(191)),
+    INDEX `idx_podcast_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS video (
@@ -121,7 +137,10 @@ CREATE TABLE IF NOT EXISTS video (
     hash VARCHAR(300),
     cover VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_video_created` (`created_at`),
+    INDEX `idx_video_hash` (`hash`(191)),
+    INDEX `idx_video_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS bank (
@@ -136,7 +155,9 @@ CREATE TABLE IF NOT EXISTS bank (
     card VARCHAR(100),
     account VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_bank_deposit` (`deposit`),
+    INDEX `idx_bank_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS routine (
@@ -149,7 +170,8 @@ CREATE TABLE IF NOT EXISTS routine (
     link VARCHAR(500),
     photo VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_routine_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS commondocument (
@@ -163,7 +185,10 @@ CREATE TABLE IF NOT EXISTS commondocument (
     hash VARCHAR(300),
     cover VARCHAR(150),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_commondocument_created` (`created_at`),
+    INDEX `idx_commondocument_hash` (`hash`(191)),
+    INDEX `idx_commondocument_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 常用帳號頁使用 commonaccount（非 favorites）
@@ -246,7 +271,8 @@ CREATE TABLE IF NOT EXISTS commonaccount (
     note37 VARCHAR(100),
     photohash VARCHAR(256),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_commonaccount_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 系統設定：user_id 為 NULL（VAPID / Resend / BigGo）

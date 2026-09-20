@@ -30,6 +30,38 @@ $kept = ['name' => 'Custom', 'url' => 'https://www.youtube.com/@my-custom-channe
 try {
     checkTube(!fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/channel/UCsjdiaoOther']), 'unrelated channel IDs must not be matched by substring');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@%53Jdiao/videos']), 'encoded handles must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@NeixianZhang/videos']), '張内咸脫口秀 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos']), '修仙者小烨 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@修炼者小烨/videos']), '修炼者小烨 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@StorytellerHK/videos']), 'StorytellerHK 說書客 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@sunlao/videos']), '政經孫老師 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@JunYuLan/videos']), '君語瀾 JunYuLan must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@quedaren/videos']), '雀大人 | Miss. Mi must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@ma-siku/videos']), '马司库 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@informant510/videos']), '线人频道 Informant must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@jilixiaoshimei/videos']), '吉利小师妹 must be removed');
+    checkTube(
+        !in_array('https://www.youtube.com/@NeixianZhang/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),
+        '張内咸脫口秀 must not remain in defaults'
+    );
+    checkTube(
+        !in_array('https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),
+        '修仙者小烨 must not remain in defaults'
+    );
+    checkTube(
+        !in_array('https://www.youtube.com/@StorytellerHK/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),
+        'StorytellerHK 說書客 must not remain in defaults'
+    );
+    foreach ([
+        'https://www.youtube.com/@sunlao/videos' => '政經孫老師',
+        'https://www.youtube.com/@junyulan/videos' => '君語瀾 JunYuLan',
+        'https://www.youtube.com/@quedaren/videos' => '雀大人 | Miss. Mi',
+        'https://www.youtube.com/@ma-siku/videos' => '马司库',
+        'https://www.youtube.com/@informant510/videos' => '线人频道 Informant',
+        'https://www.youtube.com/@jilixiaoshimei/videos' => '吉利小师妹',
+    ] as $url => $name) {
+        checkTube(!in_array($url, array_column(fengbroTubeDefaultChannels(), 'url'), true), $name . ' must not remain in defaults');
+    }
     fengbroTubeWriteCache(['tube_data_v6' => ['checkedAt' => time(), 'value' => ['channels' => [$removed]]]]);
     file_put_contents(fengbroTubeChannelsPath(), json_encode([$removed, $kept]));
     $insert = $db->prepare('INSERT INTO tubechannel (id, sourceUrl, alias) VALUES (?, ?, ?)');

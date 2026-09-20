@@ -3,16 +3,7 @@
 function fengbroTubeDefaultChannels()
 {
     return [
-        ['name' => '', 'url' => 'https://www.youtube.com/@sunlao/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@junyulan/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@quedaren/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@ma-siku/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@informant510/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@jilixiaoshimei/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@NeixianZhang/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos'],
         ['name' => '', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
-        ['name' => '', 'url' => 'https://www.youtube.com/@StorytellerHK/videos'],
     ];
 }
 
@@ -43,6 +34,16 @@ function fengbroTubeRemovedHandles()
         '夸克说',
         '喵喵看一看',        // 小喵看一看
         'gc趙氏讀書生活',    // Gavinchiu趙氏讀書生活
+        'neixianzhang',      // 張内咸脫口秀
+        '修仙者小烨',         // 修仙者小烨
+        '修炼者小烨',         // 修炼者小烨（不同字形別名）
+        'storytellerhk',     // StorytellerHK 說書客
+        'sunlao',            // 政經孫老師
+        'junyulan',          // 君語瀾 JunYuLan
+        'quedaren',          // 雀大人 | Miss. Mi
+        'ma-siku',           // 马司库
+        'informant510',      // 线人频道 Informant
+        'jilixiaoshimei',    // 吉利小师妹
     ];
 }
 
