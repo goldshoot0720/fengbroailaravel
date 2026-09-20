@@ -33,6 +33,7 @@ try {
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@NeixianZhang/videos']), '張内咸脫口秀 must be removed');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos']), '修仙者小烨 must be removed');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@修炼者小烨/videos']), '修炼者小烨 must be removed');
+    checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@xiaoye1757/videos']), '修炼者小烨 current handle must be removed');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@StorytellerHK/videos']), 'StorytellerHK 說書客 must be removed');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@sunlao/videos']), '政經孫老師 must be removed');
     checkTube(fengbroTubeIsRemovedChannel(['url' => 'https://www.youtube.com/@JunYuLan/videos']), '君語瀾 JunYuLan must be removed');
@@ -47,6 +48,10 @@ try {
     checkTube(
         !in_array('https://www.youtube.com/@%E4%BF%AE%E4%BB%99%E8%80%85%E5%B0%8F%E7%83%A8/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),
         '修仙者小烨 must not remain in defaults'
+    );
+    checkTube(
+        !in_array('https://www.youtube.com/@xiaoye1757/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),
+        '修炼者小烨 must not remain in defaults'
     );
     checkTube(
         !in_array('https://www.youtube.com/@StorytellerHK/videos', array_column(fengbroTubeDefaultChannels(), 'url'), true),

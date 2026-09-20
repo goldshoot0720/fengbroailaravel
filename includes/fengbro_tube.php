@@ -3,7 +3,6 @@
 function fengbroTubeDefaultChannels()
 {
     return [
-        ['name' => '', 'url' => 'https://www.youtube.com/@xiaoye1757/videos'],
     ];
 }
 
@@ -37,6 +36,7 @@ function fengbroTubeRemovedHandles()
         'neixianzhang',      // 張内咸脫口秀
         '修仙者小烨',         // 修仙者小烨
         '修炼者小烨',         // 修炼者小烨（不同字形別名）
+        'xiaoye1757',        // 修炼者小烨目前的 YouTube handle
         'storytellerhk',     // StorytellerHK 說書客
         'sunlao',            // 政經孫老師
         'junyulan',          // 君語瀾 JunYuLan
