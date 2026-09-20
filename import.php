@@ -268,7 +268,8 @@ if ($headerCount === 0) {
     jsonResponse(['error' => 'CSV 格式錯誤：找不到可匯入欄位，請確認欄位名稱是否正確'], 400);
 }
 
-$imported = 0;
+// === 第一階段：解析並正規化每一列（先不寫入 DB） ===
+$pendingRows = [];
 $skipped = 0;
 $errors = [];
 $lineNum = 1;
@@ -289,14 +290,6 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
     }
 
     $data = array_combine($headers, $row);
-    $recordName = $data['name'] ?? '未知';
-
-    // 處理 ID
-    $hasSourceId = !empty($data['id']);
-    if (!$hasSourceId) {
-        $data['id'] = generateUUID();
-    }
-    $currentId = $data['id'];
 
     // Appwrite 時間戳保留（不再 unset，讓 DB 保留原始記錄時間）
     // created_at / updated_at 在後面 ISO 轉換時會被處理
@@ -373,6 +366,35 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
         $data['continue'] = 1; // 預設為 true
     }
 
+    $pendingRows[] = $data;
+}
+
+fclose($handle);
+
+// === 第二階段：檔案內去重，同一筆只保留最新版本 ===
+$dedupe = fengbroDedupeImportRows($table, $pendingRows);
+$pendingRows = $dedupe['rows'];
+$deduplicated = $dedupe['removed'];
+
+// === 第三階段：寫入 DB（交易分批提交 + 快取 prepared statement） ===
+$imported = 0;
+$existsStmt = $pdo->prepare("SELECT id FROM `{$table}` WHERE id = ? LIMIT 1");
+$writeStatements = [];
+$commitEvery = 200;
+$sinceCommit = 0;
+$inTransaction = false;
+
+foreach ($pendingRows as $data) {
+    $recordName = $data['name'] ?? '未知';
+
+    if (!$inTransaction) {
+        $pdo->beginTransaction();
+        $inTransaction = true;
+        $sinceCommit = 0;
+    }
+
+    // 處理 ID
+    $hasSourceId = !empty($data['id']);
     if (!$hasSourceId) {
         $duplicateId = null;
         if ($table === 'trialpurchase') {
@@ -386,51 +408,64 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }
-        if ($duplicateId) {
-            $currentId = $duplicateId;
-            $data['id'] = $duplicateId;
-        }
+        $data['id'] = $duplicateId ?: generateUUID();
     }
+    $currentId = $data['id'];
 
     // 檢查是否已存在
-    $stmt = $pdo->prepare("SELECT id FROM {$table} WHERE id = ?");
-    $stmt->execute([$currentId]);
-    $exists = $stmt->fetch();
+    $existsStmt->execute([$currentId]);
+    $exists = $existsStmt->fetchColumn();
+    $existsStmt->closeCursor();
 
     try {
         if ($exists) {
             // 更新
-            unset($data['id']);
-            $sets = [];
-            foreach (array_keys($data) as $col) {
-                $sets[] = "`{$col}` = ?";
+            $update = $data;
+            unset($update['id']);
+            $cacheKey = 'u:' . implode(',', array_keys($update));
+            if (!isset($writeStatements[$cacheKey])) {
+                $sets = [];
+                foreach (array_keys($update) as $col) {
+                    $sets[] = "`{$col}` = ?";
+                }
+                $writeStatements[$cacheKey] = $pdo->prepare(
+                    "UPDATE `{$table}` SET " . implode(',', $sets) . " WHERE id = ?"
+                );
             }
-            $sql = "UPDATE {$table} SET " . implode(',', $sets) . " WHERE id = ?";
-            $stmt = $pdo->prepare($sql);
-            $values = array_values($data);
+            $values = array_values($update);
             $values[] = $currentId;
-            $stmt->execute($values);
+            $writeStatements[$cacheKey]->execute($values);
         } else {
             // 新增
-            $columns = array_map(function ($c) {
-                return "`{$c}`";
-            }, array_keys($data));
-            $placeholders = array_fill(0, count($data), '?');
-            $sql = "INSERT INTO {$table} (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute(array_values($data));
+            $cacheKey = 'i:' . implode(',', array_keys($data));
+            if (!isset($writeStatements[$cacheKey])) {
+                $columns = array_map(static fn($c) => "`{$c}`", array_keys($data));
+                $placeholders = array_fill(0, count($data), '?');
+                $writeStatements[$cacheKey] = $pdo->prepare(
+                    "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")"
+                );
+            }
+            $writeStatements[$cacheKey]->execute(array_values($data));
         }
         $imported++;
     } catch (PDOException $e) {
         $errors[] = "{$recordName}: " . $e->getMessage();
     }
+
+    if (++$sinceCommit >= $commitEvery) {
+        $pdo->commit();
+        $inTransaction = false;
+    }
 }
 
-fclose($handle);
+if ($inTransaction) {
+    $pdo->commit();
+}
 
 jsonResponse([
     'success' => true,
     'imported' => $imported,
     'skipped' => $skipped,
+    'deduplicated' => $deduplicated,
     'errors' => $errors
 ]);
