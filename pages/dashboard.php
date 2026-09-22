@@ -16,70 +16,125 @@ $exchangeRates = [
     'AUD' => 23,
 ];
 
-try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
-try { $pdo->exec("ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
-$subscriptionCount = $pdo->query("SELECT COUNT(*) FROM subscription WHERE deleted_at IS NULL")->fetchColumn();
-$subscriptions = $pdo->query("SELECT price, currency FROM subscription WHERE `continue` = 1 AND deleted_at IS NULL")->fetchAll();
-$subscriptionTotal = 0;
-foreach ($subscriptions as $sub) {
-    $currency = strtoupper($sub['currency'] ?? 'TWD');
-    $rate = $exchangeRates[$currency] ?? 1;
-    $subscriptionTotal += round($sub['price'] * $rate);
-}
-
-$foodCount = $pdo->query("SELECT COUNT(*) FROM food")->fetchColumn();
-$noteCount = $pdo->query("SELECT COUNT(*) FROM article WHERE deleted_at IS NULL")->fetchColumn();
-$favoriteCount = $pdo->query("SELECT COUNT(*) FROM commonaccount")->fetchColumn();
-$imageCount = $pdo->query("SELECT COUNT(*) FROM image")->fetchColumn();
-$videoCount = 0;
-try {
-    $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM video")->fetchColumn();
-} catch (Throwable $e) {
-    try {
-        $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category = 'video'")->fetchColumn();
-    } catch (Throwable $e2) {
-        $videoCount = 0;
-    }
-}
-$musicCount = $pdo->query("SELECT COUNT(*) FROM music")->fetchColumn();
-$podcastCount = $pdo->query("SELECT COUNT(*) FROM podcast")->fetchColumn();
-$documentCount = 0;
-try {
-    // 文件頁排除 category=video 的舊資料
-    $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category != 'video' OR category IS NULL")->fetchColumn();
-} catch (Throwable $e) {
-    $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument")->fetchColumn();
-}
-$bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
-$bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
-$routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
-$trialPurchaseCount = 0;
-$reinstallCount = 0;
+try { fengbroEnsureSoftDeleteColumn($pdo, 'subscription'); } catch (Throwable $e) {}
+try { fengbroEnsureSoftDeleteColumn($pdo, 'article'); } catch (Throwable $e) {}
+// 效能：所有統計合併成一次往返；任何一張表缺漏導致失敗時，退回下方原本逐一查詢的寫法。
+$dashboardFastCounts = null;
 try {
     fengbroEnsureTrialPurchaseTable($pdo);
-    $trialPurchaseCount = (int) $pdo->query("SELECT COUNT(*) FROM trialpurchase")->fetchColumn();
-} catch (Throwable $e) {
-    $trialPurchaseCount = 0;
-}
-try {
     fengbroEnsureReinstallTable($pdo);
-    $reinstallCount = (int) $pdo->query("SELECT COUNT(*) FROM reinstall")->fetchColumn();
-} catch (Throwable $e) {
-    $reinstallCount = 0;
-}
-$quotaCount = 0;
-try {
     fengbroEnsureQuotaTable($pdo);
-    $quotaCount = (int) $pdo->query("SELECT COUNT(*) FROM quota")->fetchColumn();
-} catch (Throwable $e) {
-    $quotaCount = 0;
-}
-$shoppingCount = 0;
-try {
     fengbroEnsureShoppingListTable($pdo);
-    $shoppingCount = (int) $pdo->query("SELECT COUNT(*) FROM shoppinglist")->fetchColumn();
+    $dashboardFastCounts = $pdo->query("SELECT
+        (SELECT COUNT(*) FROM subscription WHERE deleted_at IS NULL) AS subscriptionCount,
+        (SELECT COUNT(*) FROM food) AS foodCount,
+        (SELECT COUNT(*) FROM article WHERE deleted_at IS NULL) AS noteCount,
+        (SELECT COUNT(*) FROM commonaccount) AS favoriteCount,
+        (SELECT COUNT(*) FROM image) AS imageCount,
+        (SELECT COUNT(*) FROM video) AS videoCount,
+        (SELECT COUNT(*) FROM music) AS musicCount,
+        (SELECT COUNT(*) FROM podcast) AS podcastCount,
+        (SELECT COUNT(*) FROM commondocument WHERE category != 'video' OR category IS NULL) AS documentCount,
+        (SELECT COUNT(*) FROM bank) AS bankCount,
+        (SELECT COALESCE(SUM(deposit), 0) FROM bank) AS bankTotal,
+        (SELECT COUNT(*) FROM routine) AS routineCount,
+        (SELECT COUNT(*) FROM trialpurchase) AS trialPurchaseCount,
+        (SELECT COUNT(*) FROM reinstall) AS reinstallCount,
+        (SELECT COUNT(*) FROM quota) AS quotaCount,
+        (SELECT COUNT(*) FROM shoppinglist) AS shoppingCount")->fetch(PDO::FETCH_ASSOC) ?: null;
 } catch (Throwable $e) {
+    $dashboardFastCounts = null;
+}
+
+if (is_array($dashboardFastCounts)) {
+    $subscriptionCount = (int) $dashboardFastCounts['subscriptionCount'];
+    $foodCount = (int) $dashboardFastCounts['foodCount'];
+    $noteCount = (int) $dashboardFastCounts['noteCount'];
+    $favoriteCount = (int) $dashboardFastCounts['favoriteCount'];
+    $imageCount = (int) $dashboardFastCounts['imageCount'];
+    $videoCount = (int) $dashboardFastCounts['videoCount'];
+    $musicCount = (int) $dashboardFastCounts['musicCount'];
+    $podcastCount = (int) $dashboardFastCounts['podcastCount'];
+    $documentCount = (int) $dashboardFastCounts['documentCount'];
+    $bankCount = (int) $dashboardFastCounts['bankCount'];
+    $bankTotal = $dashboardFastCounts['bankTotal'];
+    $routineCount = (int) $dashboardFastCounts['routineCount'];
+    $trialPurchaseCount = (int) $dashboardFastCounts['trialPurchaseCount'];
+    $reinstallCount = (int) $dashboardFastCounts['reinstallCount'];
+    $quotaCount = (int) $dashboardFastCounts['quotaCount'];
+    $shoppingCount = (int) $dashboardFastCounts['shoppingCount'];
+
+    $subscriptionTotal = 0;
+    foreach ($pdo->query("SELECT price, currency FROM subscription WHERE `continue` = 1 AND deleted_at IS NULL")->fetchAll() as $sub) {
+        $currency = strtoupper($sub['currency'] ?? 'TWD');
+        $rate = $exchangeRates[$currency] ?? 1;
+        $subscriptionTotal += round($sub['price'] * $rate);
+    }
+} else {
+    $subscriptionCount = $pdo->query("SELECT COUNT(*) FROM subscription WHERE deleted_at IS NULL")->fetchColumn();
+    $subscriptions = $pdo->query("SELECT price, currency FROM subscription WHERE `continue` = 1 AND deleted_at IS NULL")->fetchAll();
+    $subscriptionTotal = 0;
+    foreach ($subscriptions as $sub) {
+        $currency = strtoupper($sub['currency'] ?? 'TWD');
+        $rate = $exchangeRates[$currency] ?? 1;
+        $subscriptionTotal += round($sub['price'] * $rate);
+    }
+
+    $foodCount = $pdo->query("SELECT COUNT(*) FROM food")->fetchColumn();
+    $noteCount = $pdo->query("SELECT COUNT(*) FROM article WHERE deleted_at IS NULL")->fetchColumn();
+    $favoriteCount = $pdo->query("SELECT COUNT(*) FROM commonaccount")->fetchColumn();
+    $imageCount = $pdo->query("SELECT COUNT(*) FROM image")->fetchColumn();
+    $videoCount = 0;
+    try {
+        $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM video")->fetchColumn();
+    } catch (Throwable $e) {
+        try {
+            $videoCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category = 'video'")->fetchColumn();
+        } catch (Throwable $e2) {
+            $videoCount = 0;
+        }
+    }
+    $musicCount = $pdo->query("SELECT COUNT(*) FROM music")->fetchColumn();
+    $podcastCount = $pdo->query("SELECT COUNT(*) FROM podcast")->fetchColumn();
+    $documentCount = 0;
+    try {
+        // 文件頁排除 category=video 的舊資料
+        $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument WHERE category != 'video' OR category IS NULL")->fetchColumn();
+    } catch (Throwable $e) {
+        $documentCount = (int) $pdo->query("SELECT COUNT(*) FROM commondocument")->fetchColumn();
+    }
+    $bankCount = $pdo->query("SELECT COUNT(*) FROM bank")->fetchColumn();
+    $bankTotal = $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
+    $routineCount = $pdo->query("SELECT COUNT(*) FROM routine")->fetchColumn();
+    $trialPurchaseCount = 0;
+    $reinstallCount = 0;
+    try {
+        fengbroEnsureTrialPurchaseTable($pdo);
+        $trialPurchaseCount = (int) $pdo->query("SELECT COUNT(*) FROM trialpurchase")->fetchColumn();
+    } catch (Throwable $e) {
+        $trialPurchaseCount = 0;
+    }
+    try {
+        fengbroEnsureReinstallTable($pdo);
+        $reinstallCount = (int) $pdo->query("SELECT COUNT(*) FROM reinstall")->fetchColumn();
+    } catch (Throwable $e) {
+        $reinstallCount = 0;
+    }
+    $quotaCount = 0;
+    try {
+        fengbroEnsureQuotaTable($pdo);
+        $quotaCount = (int) $pdo->query("SELECT COUNT(*) FROM quota")->fetchColumn();
+    } catch (Throwable $e) {
+        $quotaCount = 0;
+    }
     $shoppingCount = 0;
+    try {
+        fengbroEnsureShoppingListTable($pdo);
+        $shoppingCount = (int) $pdo->query("SELECT COUNT(*) FROM shoppinglist")->fetchColumn();
+    } catch (Throwable $e) {
+        $shoppingCount = 0;
+    }
+
 }
 
 $subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
@@ -137,64 +192,82 @@ function formatBytes($bytes, $precision = 2)
 }
 
 $uploadsDir = __DIR__ . '/../uploads';
-$uploadsFolderSize = getFolderSize($uploadsDir);
+
+/**
+ * 效能：uploads 只掃一次（原本總大小與分類各掃一次），結果快取 120 秒，
+ * 首頁完整儀表連續切換或重新整理時不用每次都遞迴讀整個 uploads。
+ */
+function fengbroDashboardUploadStats(string $uploadsDir): array
+{
+    $cacheFile = function_exists('fengbroSchemaCacheDir') && fengbroSchemaCacheDir() !== null
+        ? fengbroSchemaCacheDir() . DIRECTORY_SEPARATOR . 'dashboard_upload_stats.json'
+        : null;
+    if ($cacheFile !== null) {
+        $mtime = @filemtime($cacheFile);
+        if ($mtime !== false && (time() - $mtime) < 120) {
+            $cached = json_decode((string) @file_get_contents($cacheFile), true);
+            if (is_array($cached) && isset($cached['buckets'], $cached['counts'])) {
+                return $cached;
+            }
+        }
+    }
+
+    $buckets = ['images' => 0, 'videos' => 0, 'music' => 0, 'podcasts' => 0, 'documents' => 0, 'other' => 0];
+    $counts = $buckets;
+    $total = 0;
+    $topLevel = 0;
+    if (is_dir($uploadsDir)) {
+        $topLevel = count((array) glob($uploadsDir . '/*'));
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($uploadsDir, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if (!$file->isFile()) {
+                    continue;
+                }
+                $ext = strtolower($file->getExtension());
+                $size = (int) $file->getSize();
+                $total += $size;
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'], true)) {
+                    $bucket = 'images';
+                } elseif (in_array($ext, ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'], true)) {
+                    $bucket = 'videos';
+                } elseif (in_array($ext, ['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg', 'oga'], true)) {
+                    // 粗分：路徑含 podcast 才算播客
+                    $path = strtolower(str_replace('\\', '/', $file->getPathname()));
+                    $bucket = (str_contains($path, 'podcast')) ? 'podcasts' : 'music';
+                } elseif (in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv', 'zip', 'json', 'xml'], true)) {
+                    $bucket = 'documents';
+                } else {
+                    $bucket = 'other';
+                }
+                $buckets[$bucket] += $size;
+                $counts[$bucket]++;
+            }
+        } catch (Throwable $e) {
+            // ignore scan errors
+        }
+    }
+
+    $stats = ['total' => $total, 'topLevel' => $topLevel, 'buckets' => $buckets, 'counts' => $counts];
+    if ($cacheFile !== null) {
+        @file_put_contents($cacheFile, json_encode($stats), LOCK_EX);
+    }
+    return $stats;
+}
+
+$dashboardUploadStats = fengbroDashboardUploadStats($uploadsDir);
+$uploadsFolderSize = (int) $dashboardUploadStats['total'];
 $uploadsFolderSizeFormatted = formatBytes($uploadsFolderSize);
 $storageCapacity = max(1, (int) (getenv('STORAGE_CAPACITY_BYTES') ?: (1024 * 1024 * 1024)));
 $storageUsagePercent = min(100, round(($uploadsFolderSize / $storageCapacity) * 100, 1));
 $storageStatus = $storageUsagePercent >= 90 ? 'critical' : ($storageUsagePercent >= 75 ? 'warning' : 'healthy');
-$uploadsFileCount = 0;
-if (is_dir($uploadsDir)) {
-    $uploadsFileCount = count(glob($uploadsDir . '/*'));
-}
+$uploadsFileCount = (int) $dashboardUploadStats['topLevel'];
 
 // 伺服器 uploads 子目錄分類（對齊 Appwrite storage-stats 的分類概念）
-$uploadBuckets = [
-    'images' => 0,
-    'videos' => 0,
-    'music' => 0,
-    'podcasts' => 0,
-    'documents' => 0,
-    'other' => 0,
-];
-$uploadBucketCounts = [
-    'images' => 0,
-    'videos' => 0,
-    'music' => 0,
-    'podcasts' => 0,
-    'documents' => 0,
-    'other' => 0,
-];
-if (is_dir($uploadsDir)) {
-    try {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($uploadsDir, FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            if (!$file->isFile()) {
-                continue;
-            }
-            $ext = strtolower($file->getExtension());
-            $size = (int) $file->getSize();
-            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'], true)) {
-                $bucket = 'images';
-            } elseif (in_array($ext, ['mp4', 'webm', 'mov', 'mkv', 'avi', 'm4v'], true)) {
-                $bucket = 'videos';
-            } elseif (in_array($ext, ['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg', 'oga'], true)) {
-                // 粗分：路徑含 podcast 才算播客
-                $path = strtolower(str_replace('\\', '/', $file->getPathname()));
-                $bucket = (str_contains($path, 'podcast')) ? 'podcasts' : 'music';
-            } elseif (in_array($ext, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'md', 'csv', 'zip', 'json', 'xml'], true)) {
-                $bucket = 'documents';
-            } else {
-                $bucket = 'other';
-            }
-            $uploadBuckets[$bucket] += $size;
-            $uploadBucketCounts[$bucket]++;
-        }
-    } catch (Throwable $e) {
-        // ignore scan errors
-    }
-}
+$uploadBuckets = $dashboardUploadStats['buckets'];
+$uploadBucketCounts = $dashboardUploadStats['counts'];
 $uploadBucketLabels = [
     'images' => '圖片',
     'videos' => '影片',

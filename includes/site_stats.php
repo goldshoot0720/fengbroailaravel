@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/schema_cache.php';
 /**
  * 網站統計：進站人次／連續進站天數（sitevisit）與選單使用次數（menuusage）。
  * 對齊 fengbroaiappwrite 的 /api/site-visit 與 /api/menu-usage。
@@ -35,8 +36,7 @@ function fengbroMenuUsageCreateSql(): string
 function fengbroEnsureSiteVisitTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroSiteVisitCreateSql());
-    fengbroEnsureTableColumns($pdo, 'sitevisit', [
+    fengbroEnsureTableSchema($pdo, 'sitevisit', fengbroSiteVisitCreateSql(), [
         "count INT NOT NULL DEFAULT 0",
         "lastVisitAt DATETIME NULL",
         "currentStreak INT NOT NULL DEFAULT 0",
@@ -47,8 +47,7 @@ function fengbroEnsureSiteVisitTable(?PDO $pdo = null): void
 function fengbroEnsureMenuUsageTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroMenuUsageCreateSql());
-    fengbroEnsureTableColumns($pdo, 'menuusage', [
+    fengbroEnsureTableSchema($pdo, 'menuusage', fengbroMenuUsageCreateSql(), [
         "moduleId VARCHAR(100) NOT NULL",
         "count INT NOT NULL DEFAULT 0",
         "lastUsedAt DATETIME NULL",

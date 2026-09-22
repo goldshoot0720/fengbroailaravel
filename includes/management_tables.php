@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/schema_cache.php';
 /**
  * 試用／首購與重灌：建表、欄位正規化、CSV 對應。
  * 對齊 fengbroaiappwrite 的 trialpurchase / reinstall。
@@ -46,20 +47,14 @@ function fengbroReinstallCreateSql(): string
 
 function fengbroEnsureTableColumns(PDO $pdo, string $table, array $columns): void
 {
-    foreach ($columns as $sql) {
-        try {
-            $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN {$sql}");
-        } catch (Throwable $e) {
-            // 欄位已存在則略過
-        }
-    }
+    // 舊介面保留：改為一次 SHOW COLUMNS 後只補缺少的欄位（見 schema_cache.php）。
+    fengbroAddMissingColumns($pdo, $table, $columns);
 }
 
 function fengbroEnsureTrialPurchaseTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroTrialPurchaseCreateSql());
-    fengbroEnsureTableColumns($pdo, 'trialpurchase', [
+    fengbroEnsureTableSchema($pdo, 'trialpurchase', fengbroTrialPurchaseCreateSql(), [
         "eventDate DATETIME NULL",
         "firstPurchasePrice INT DEFAULT 0",
         "regularPrice INT DEFAULT 0",
@@ -73,8 +68,7 @@ function fengbroEnsureTrialPurchaseTable(?PDO $pdo = null): void
 function fengbroEnsureReinstallTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroReinstallCreateSql());
-    fengbroEnsureTableColumns($pdo, 'reinstall', [
+    fengbroEnsureTableSchema($pdo, 'reinstall', fengbroReinstallCreateSql(), [
         "`system` VARCHAR(10) DEFAULT 'win'",
         "softwareType VARCHAR(20) DEFAULT 'free'",
         "licenseType VARCHAR(20) DEFAULT 'none'",
@@ -548,8 +542,7 @@ function fengbroQuotaCreateSql(): string
 function fengbroEnsureQuotaTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroQuotaCreateSql());
-    fengbroEnsureTableColumns($pdo, 'quota', [
+    fengbroEnsureTableSchema($pdo, 'quota', fengbroQuotaCreateSql(), [
         "serviceType VARCHAR(20) DEFAULT 'general'",
         "account VARCHAR(200)",
         "quotaRemaining INT DEFAULT 0",
@@ -673,8 +666,7 @@ function fengbroShoppingListCreateSql(): string
 function fengbroEnsureShoppingListTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroShoppingListCreateSql());
-    fengbroEnsureTableColumns($pdo, 'shoppinglist', [
+    fengbroEnsureTableSchema($pdo, 'shoppinglist', fengbroShoppingListCreateSql(), [
         "plannedDate DATETIME NULL",
         "price INT DEFAULT 0",
         "currency VARCHAR(10) DEFAULT 'TWD'",
@@ -781,8 +773,7 @@ function fengbroManualPriceCreateSql(): string
 function fengbroEnsureManualPriceTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroManualPriceCreateSql());
-    fengbroEnsureTableColumns($pdo, 'manualprice', [
+    fengbroEnsureTableSchema($pdo, 'manualprice', fengbroManualPriceCreateSql(), [
         "name VARCHAR(200) NOT NULL",
         "currency VARCHAR(10) DEFAULT 'TWD'",
         "recordsJson TEXT",
@@ -930,8 +921,7 @@ function fengbroFinanceInstrumentCreateSql(): string
 function fengbroEnsureFinanceInstrumentTable(?PDO $pdo = null): void
 {
     $pdo = $pdo ?: getConnection();
-    $pdo->exec(fengbroFinanceInstrumentCreateSql());
-    fengbroEnsureTableColumns($pdo, 'financeinstrument', [
+    fengbroEnsureTableSchema($pdo, 'financeinstrument', fengbroFinanceInstrumentCreateSql(), [
         "name VARCHAR(200) NOT NULL",
         "symbol VARCHAR(64) NOT NULL",
         "provider VARCHAR(20) NOT NULL DEFAULT 'yahoo'",

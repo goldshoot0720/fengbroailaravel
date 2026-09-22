@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="assets/css/style.css?v=20260904mobile1">
     <link rel="stylesheet" href="assets/css/inline-edit.css?v=20260904mobile1">
     <script src="assets/js/security.js?v=20260907b"></script>
+    <script src="assets/js/ux-boost.js?v=20260923ux1"></script>
 </head>
 
 <body data-page="<?php echo htmlspecialchars($page ?? '', ENT_QUOTES, 'UTF-8'); ?>" data-tool="<?php echo htmlspecialchars($bodyDataTool ?? '', ENT_QUOTES, 'UTF-8'); ?>">

@@ -92,3 +92,15 @@ include 'includes/mobile-nav.php';
 </main>
 
 <?php include 'includes/footer.php'; ?>
+<?php
+// 回應送出後再檢查效能索引（每 6 小時最多一次，有 schema 快取），不拖慢使用者看到頁面的時間。
+register_shutdown_function(static function () {
+    if (function_exists('fastcgi_finish_request')) {
+        @fastcgi_finish_request();
+    }
+    try {
+        fengbroEnsurePerformanceIndexes();
+    } catch (Throwable $e) {
+        error_log('fengbro index check failed: ' . $e->getMessage());
+    }
+});

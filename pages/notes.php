@@ -2,7 +2,7 @@
 $pageTitle = '筆記本';
 $pdo = getConnection();
 $trashMode = ($_GET['trash'] ?? '') === '1';
-try { $pdo->exec("ALTER TABLE article ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+try { fengbroEnsureSoftDeleteColumn($pdo, 'article'); } catch (Throwable $e) {}
 $items = $pdo->query("SELECT * FROM article WHERE deleted_at IS " . ($trashMode ? "NOT NULL" : "NULL") . " ORDER BY created_at DESC")->fetchAll();
 
 function parseNoteCategories($value)

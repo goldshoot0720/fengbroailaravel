@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/schema_cache.php';
 /**
  * Shared notification domain helpers.
  *
@@ -452,16 +453,14 @@ function notifBuildSubscriptionPushMessage(array $rows): array
  */
 function notifEnsurePushSubscriptionsTable(PDO $pdo): void
 {
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS push_subscriptions (
+    fengbroEnsureTableSchema($pdo, 'push_subscriptions', "CREATE TABLE IF NOT EXISTS push_subscriptions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             endpoint TEXT NOT NULL,
             auth VARCHAR(255) NOT NULL,
             p256dh VARCHAR(500) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_endpoint (endpoint(191))
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-    );
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 /**

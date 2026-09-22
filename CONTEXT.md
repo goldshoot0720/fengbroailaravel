@@ -18,3 +18,5 @@
 - Prefer small refactor commits that keep the app runnable after every step.
 - Notification due-date queries and payload formatting should go through `notification_helpers.php` so footer, dashboard, push, and resend stay aligned.
 - Use `notif_diag.php` / `notifRunSelfCheck()` for read-only notification self-diagnostics (settings page UI).
+- Schema checks (`CREATE TABLE IF NOT EXISTS`, missing columns, soft-delete `deleted_at`, performance indexes) go through `includes/schema_cache.php`: once per request plus a 6-hour marker file, so normal requests run zero DDL. Call `fengbroSchemaForget()` after rebuilding tables; `api.php` self-heals by forgetting and retrying when a query hits a missing table/column.
+- Site-wide UX helpers live in `assets/js/ux-boost.js` (loaded in the header): request progress bar, double-submit guard, scroll restore after `location.reload()`, success toast after writes, and non-blocking `alert()` toasts via `window.fengbroToast`.

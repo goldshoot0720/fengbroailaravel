@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/schema_cache.php';
 /**
  * 選單一鍵備份／還原 — 對齊 fengbroaiappwrite lib/menuBackup。
  *
@@ -225,7 +226,7 @@ function fengbroMenuBackupManualPriceCsv(PDO $pdo): array
 
 function fengbroMenuBackupLandtopCsv(PDO $pdo): array
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+    fengbroEnsureTableSchema($pdo, 'tool_phone_product_history', "CREATE TABLE IF NOT EXISTS tool_phone_product_history (
         id VARCHAR(36) PRIMARY KEY,
         product_id VARCHAR(190) NOT NULL,
         brand VARCHAR(50),
@@ -849,7 +850,7 @@ function fengbroMenuBackupImportManualPrice(PDO $pdo, string $csvText): array
 function fengbroMenuBackupImportLandtop(PDO $pdo, string $csvText): array
 {
     $csvText = preg_replace('/^\xEF\xBB\xBF/', '', $csvText);
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+    fengbroEnsureTableSchema($pdo, 'tool_phone_product_history', "CREATE TABLE IF NOT EXISTS tool_phone_product_history (
         id VARCHAR(36) PRIMARY KEY,
         product_id VARCHAR(190) NOT NULL,
         brand VARCHAR(50),

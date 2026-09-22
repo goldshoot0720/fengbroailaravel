@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/schema_cache.php';
 
 require_once __DIR__ . '/notification_helpers.php';
 
@@ -6,7 +7,7 @@ const FENGBRO_RESEND_MAX_SLOTS = 21;
 
 function fengbroResendEnsureTables(PDO $pdo): void
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+    fengbroEnsureTableSchema($pdo, 'settings', "CREATE TABLE IF NOT EXISTS settings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NULL,
         setting_key VARCHAR(50) NOT NULL,
@@ -16,7 +17,7 @@ function fengbroResendEnsureTables(PDO $pdo): void
         UNIQUE KEY unique_user_setting (user_id, setting_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    $pdo->exec("CREATE TABLE IF NOT EXISTS resend_notification_log (
+    fengbroEnsureTableSchema($pdo, 'resend_notification_log', "CREATE TABLE IF NOT EXISTS resend_notification_log (
         id INT AUTO_INCREMENT PRIMARY KEY,
         event_key VARCHAR(191) NOT NULL,
         event_type VARCHAR(50) NOT NULL,

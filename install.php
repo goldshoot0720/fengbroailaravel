@@ -6,6 +6,9 @@ require_once 'includes/management_tables.php';
 echo "<h1>鋒兄系統 - 資料庫安裝</h1>";
 echo "<pre>";
 
+// 重新安裝時清掉 schema 快取，確保之後的請求會重新檢查資料表／欄位。
+fengbroSchemaForget();
+
 try {
     $pdo = new PDO("mysql:host=" . DB_HOST . ";charset=" . DB_CHARSET, DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

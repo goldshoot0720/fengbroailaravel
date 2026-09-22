@@ -11,7 +11,7 @@ ensureToolPriceHistory($pdo);
 
 function ensureToolSettingsTable(PDO $pdo): void
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS settings (
+    fengbroEnsureTableSchema($pdo, 'settings', "CREATE TABLE IF NOT EXISTS settings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NULL,
         setting_key VARCHAR(50) NOT NULL,
@@ -24,7 +24,7 @@ function ensureToolSettingsTable(PDO $pdo): void
 
 function ensureToolPriceHistory(PDO $pdo): void
 {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_price_history (
+    fengbroEnsureTableSchema($pdo, 'tool_price_history', "CREATE TABLE IF NOT EXISTS tool_price_history (
         id VARCHAR(36) PRIMARY KEY,
         tool_type VARCHAR(30) NOT NULL,
         query_text VARCHAR(500) NOT NULL,
@@ -40,7 +40,7 @@ function ensureToolPriceHistory(PDO $pdo): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     // 手機比價：商品級每日快照（對齊 Appwrite landtophistory）
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+    fengbroEnsureTableSchema($pdo, 'tool_phone_product_history', "CREATE TABLE IF NOT EXISTS tool_phone_product_history (
         id VARCHAR(36) PRIMARY KEY,
         product_id VARCHAR(190) NOT NULL,
         brand VARCHAR(50),
@@ -453,9 +453,15 @@ if ($action === 'phone_history_import') {
         ON DUPLICATE KEY UPDATE price = VALUES(price), source_url = VALUES(source_url), name = VALUES(name), brand = VALUES(brand)");
     // table may not have unique key — try plain insert with dedupe day
     try {
-        $pdo->exec("ALTER TABLE tool_phone_product_history ADD UNIQUE KEY uq_phone_day (product_id, source, snapshot_day)");
+        fengbroSchemaEnsureOnce('index:tool_phone_product_history:uq_phone_day', 'uq_phone_day', static function () use ($pdo) {
+            try {
+                $pdo->exec("ALTER TABLE tool_phone_product_history ADD UNIQUE KEY uq_phone_day (product_id, source, snapshot_day)");
+            } catch (Throwable $e) {
+                // ignore if exists
+            }
+        });
     } catch (Throwable $e) {
-        // ignore if exists
+        // ignore
     }
     for ($i = $start; $i < count($lines); $i++) {
         $line = trim($lines[$i]);

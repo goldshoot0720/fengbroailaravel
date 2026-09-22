@@ -1,4 +1,7 @@
 <?php
+if (is_file(__DIR__ . '/schema_cache.php')) {
+    require_once __DIR__ . '/schema_cache.php';
+}
 
 function fengbroTubeDefaultChannels()
 {
@@ -104,14 +107,19 @@ function fengbroTubeEnsureChannelTable(?PDO $pdo = null): void
     if (!$pdo) {
         return;
     }
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tubechannel (
+    $createSql = "CREATE TABLE IF NOT EXISTS tubechannel (
         id VARCHAR(36) PRIMARY KEY,
         sourceUrl VARCHAR(500) NOT NULL,
         alias VARCHAR(200) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uniq_source_url (sourceUrl(191))
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+    if (function_exists('fengbroEnsureTableSchema')) {
+        fengbroEnsureTableSchema($pdo, 'tubechannel', $createSql);
+    } else {
+        $pdo->exec($createSql);
+    }
 }
 
 /** 讀取 Tube 頻道清單：優先 DB，DB 空且舊 JSON 有資料時自動遷移。 */

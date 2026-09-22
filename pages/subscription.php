@@ -2,7 +2,7 @@
 $pageTitle = '訂閱管理';
 $pdo = getConnection();
 $trashMode = ($_GET['trash'] ?? '') === '1';
-try { $pdo->exec("ALTER TABLE subscription ADD COLUMN deleted_at DATETIME NULL"); } catch (Throwable $e) {}
+try { fengbroEnsureSoftDeleteColumn($pdo, 'subscription'); } catch (Throwable $e) {}
 
 // ── 相似服務（對齊 Appwrite subscriptionSimilarity）──────────────────────────
 require_once __DIR__ . '/../includes/subscription_similarity.php';

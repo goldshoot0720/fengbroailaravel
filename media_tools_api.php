@@ -333,7 +333,7 @@ if ($action === 'phone_history_csv') {
         require_once __DIR__ . '/includes/functions.php';
         $pdo = getConnection();
         // ensure table exists via tools_api helper pattern
-        $pdo->exec("CREATE TABLE IF NOT EXISTS tool_phone_product_history (
+        fengbroEnsureTableSchema($pdo, 'tool_phone_product_history', "CREATE TABLE IF NOT EXISTS tool_phone_product_history (
             id VARCHAR(36) PRIMARY KEY,
             product_id VARCHAR(190) NOT NULL,
             brand VARCHAR(50),

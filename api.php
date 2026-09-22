@@ -14,36 +14,72 @@ if (!in_array($table, $allowedTables)) {
 }
 
 $pdo = getConnection();
-if ($table === 'trialpurchase') {
-    fengbroEnsureTrialPurchaseTable($pdo);
-}
-if ($table === 'reinstall') {
-    fengbroEnsureReinstallTable($pdo);
-}
-if ($table === 'quota') {
-    fengbroEnsureQuotaTable($pdo);
-}
-if ($table === 'shoppinglist') {
-    fengbroEnsureShoppingListTable($pdo);
-}
 
-if (in_array($table, ['article', 'subscription'], true)) {
-    try {
-        $pdo->exec("ALTER TABLE `{$table}` ADD COLUMN `deleted_at` DATETIME NULL");
-    } catch (PDOException $e) {
-        if ((string) $e->getCode() !== '42S21' && stripos($e->getMessage(), 'Duplicate column') === false) {
-            jsonResponse(['error' => 'Unable to initialize trash: ' . $e->getMessage()], 500);
+/** 只保留合法欄位名稱（英數、底線），避免欄位名稱被拿來注入 SQL。 */
+function fengbroApiCleanColumns(array $input): array
+{
+    $clean = [];
+    foreach ($input as $key => $value) {
+        if (is_string($key) && preg_match('/^[A-Za-z0-9_]{1,64}$/', $key)) {
+            $clean[$key] = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value;
         }
     }
+    return $clean;
+}
+
+/**
+ * 確保資料表結構（有 schema 快取，正常情況 0 次查詢）。
+ * $force = true 時清快取重做：用在查詢遇到「資料表／欄位不存在」時自我修復。
+ */
+$fengbroApiEnsureSchema = static function (bool $force = false) use ($pdo, $table): void {
+    if ($force) {
+        fengbroSchemaForget();
+    }
+    if ($table === 'trialpurchase') {
+        fengbroEnsureTrialPurchaseTable($pdo);
+    } elseif ($table === 'reinstall') {
+        fengbroEnsureReinstallTable($pdo);
+    } elseif ($table === 'quota') {
+        fengbroEnsureQuotaTable($pdo);
+    } elseif ($table === 'shoppinglist') {
+        fengbroEnsureShoppingListTable($pdo);
+    }
+    if (in_array($table, ['article', 'subscription'], true)) {
+        fengbroEnsureSoftDeleteColumn($pdo, $table);
+    }
+    fengbroEnsurePerformanceIndexes($pdo, [$table]);
+};
+
+/** 執行一段資料庫操作；若因結構缺漏失敗，修復後重試一次。 */
+$fengbroApiRun = static function (callable $work) use ($fengbroApiEnsureSchema) {
+    try {
+        return $work();
+    } catch (PDOException $e) {
+        if (!fengbroIsMissingSchemaError($e)) {
+            throw $e;
+        }
+        $fengbroApiEnsureSchema(true);
+        return $work();
+    }
+};
+
+try {
+    $fengbroApiEnsureSchema();
+} catch (Throwable $e) {
+    jsonResponse(['error' => 'Unable to initialize table: ' . $e->getMessage()], 500);
 }
 
 switch ($action) {
     case 'list':
         if (in_array($table, ['article', 'subscription'], true)) {
             $where = ($_GET['trash'] ?? '') === '1' ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
-            $data = $pdo->query("SELECT * FROM `{$table}` WHERE {$where} ORDER BY created_at DESC")->fetchAll();
+            $data = $fengbroApiRun(static function () use ($pdo, $table, $where) {
+                return $pdo->query("SELECT * FROM `{$table}` WHERE {$where} ORDER BY created_at DESC")->fetchAll();
+            });
         } else {
-            $data = getAll($table);
+            $data = $fengbroApiRun(static function () use ($table) {
+                return getAll($table);
+            });
         }
         jsonResponse(['success' => true, 'data' => $data]);
         break;
@@ -78,17 +114,19 @@ switch ($action) {
             jsonResponse(['error' => $e->getMessage()], 400);
         }
 
+        $input = fengbroApiCleanColumns($input);
         $input['id'] = generateUUID();
         $columns = array_map(function ($col) {
             return "`{$col}`"; }, array_keys($input));
         $placeholders = array_fill(0, count($columns), '?');
 
         $sql = "INSERT INTO `{$table}` (" . implode(',', $columns) . ") VALUES (" . implode(',', $placeholders) . ")";
-        $stmt = $pdo->prepare($sql);
-
         try {
-            $stmt->execute(array_values($input));
-            jsonResponse(['success' => true, 'id' => $input['id']]);
+            $fengbroApiRun(static function () use ($pdo, $sql, $input) {
+                return $pdo->prepare($sql)->execute(array_values($input));
+            });
+            $row = getById($table, $input['id']);
+            jsonResponse(['success' => true, 'id' => $input['id'], 'data' => $row ?: null]);
         } catch (PDOException $e) {
             jsonResponse(['error' => $e->getMessage()], 500);
         }
@@ -117,19 +155,26 @@ switch ($action) {
             jsonResponse(['error' => $e->getMessage()], 400);
         }
 
+        $input = is_array($input) ? fengbroApiCleanColumns($input) : [];
+        if (!$input) {
+            jsonResponse(['error' => '未收到要更新的欄位'], 400);
+        }
+
         $sets = [];
         foreach (array_keys($input) as $col) {
             $sets[] = "`{$col}` = ?";
         }
 
-        $sql = "UPDATE {$table} SET " . implode(',', $sets) . " WHERE id = ?";
-        $stmt = $pdo->prepare($sql);
-
+        $sql = "UPDATE `{$table}` SET " . implode(',', $sets) . " WHERE id = ?";
         try {
             $values = array_values($input);
             $values[] = $id;
-            $stmt->execute($values);
-            jsonResponse(['success' => true]);
+            $fengbroApiRun(static function () use ($pdo, $sql, $values) {
+                return $pdo->prepare($sql)->execute($values);
+            });
+            // 回傳最新一筆，前端可直接就地更新畫面而不必整頁重新載入。
+            $row = getById($table, $id);
+            jsonResponse(['success' => true, 'data' => $row ?: null]);
         } catch (PDOException $e) {
             jsonResponse(['error' => $e->getMessage()], 500);
         }
