@@ -571,7 +571,7 @@ function fengbroMenuBackupFieldMap(): array
     return [
         '$id' => 'id', '$createdAt' => 'created_at', '$updatedAt' => 'updated_at',
         '名稱' => 'name', '銀行' => 'name', '銀行名稱' => 'name', '電子票證' => 'name',
-        '存款' => 'deposit', '餘額' => 'deposit', '金額' => 'deposit',
+        '存款' => 'deposit', '餘額' => 'deposit', '金額' => 'deposit', '點數' => 'deposit',
         '提款' => 'withdrawals', '支出' => 'withdrawals', '轉帳' => 'transfer',
         '帳號' => 'account', '卡號' => 'card', '地址' => 'address', '網站' => 'site',
         '活動網址' => 'activity', '服務' => 'name', '服務名稱' => 'name',

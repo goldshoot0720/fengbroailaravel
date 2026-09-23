@@ -154,6 +154,8 @@ CREATE TABLE IF NOT EXISTS bank (
     activity VARCHAR(500),
     card VARCHAR(100),
     account VARCHAR(100),
+    category VARCHAR(20),
+    note VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_bank_deposit` (`deposit`),

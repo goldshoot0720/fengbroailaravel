@@ -2,28 +2,47 @@
 $pageTitle = '銀行管理';
 $pdo = getConnection();
 require_once __DIR__ . '/../includes/bank_helpers.php';
-$items = $pdo->query("SELECT * FROM bank ORDER BY deposit DESC")->fetchAll();
-$totalDeposit = (int) $pdo->query("SELECT COALESCE(SUM(deposit), 0) FROM bank")->fetchColumn();
+fengbroEnsureBankColumns($pdo);
+$allItems = $pdo->query("SELECT * FROM bank ORDER BY deposit DESC")->fetchAll();
 
-$bankAccountItems = array_values(array_filter($items, 'isTaiwanBankAccount'));
-$eTicketItems = array_values(array_filter($items, function ($item) {
-    return !isTaiwanBankAccount($item);
+$bankAccountItems = [];
+$eTicketItems = [];
+$pointItems = [];
+foreach ($allItems as $item) {
+    $category = bankItemCategory($item);
+    if ($category === 'point') {
+        $pointItems[] = $item;
+    } elseif ($category === 'bank') {
+        $bankAccountItems[] = $item;
+    } else {
+        $eTicketItems[] = $item;
+    }
+}
+// 點數不是新台幣，另外放在點數區塊，不列入銀行表格與資產合計。
+$items = array_values(array_filter($allItems, function ($item) {
+    return bankItemCategory($item) !== 'point';
 }));
 $bankAccountCount = count($bankAccountItems);
 $eTicketCount = count($eTicketItems);
-$bankTotalAsset = array_reduce($bankAccountItems, function ($sum, $item) {
-    return $sum + (int) ($item['deposit'] ?? 0);
-}, 0);
-$eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
-    return $sum + (int) ($item['deposit'] ?? 0);
-}, 0);
+$pointCount = count($pointItems);
+$sumDeposit = function ($list) {
+    return array_reduce($list, function ($sum, $item) {
+        return $sum + (int) ($item['deposit'] ?? 0);
+    }, 0);
+};
+$bankTotalAsset = $sumDeposit($bankAccountItems);
+$eTicketTotalAsset = $sumDeposit($eTicketItems);
+$pointTotal = $sumDeposit($pointItems);
+$totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
 ?>
 
 <div class="content-header">
-    <h1>鋒兄銀行 (+電子票證) <span
+    <h1>鋒兄銀行 (+電子票證/點數) <span
             style="font-size:0.55em;background:#4a8f63;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">銀行帳戶 <?php echo $bankAccountCount; ?></span>
         <span
             style="font-size:0.55em;background:#b4552f;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">電子票證 <?php echo $eTicketCount; ?></span>
+        <span
+            style="font-size:0.55em;background:#7a5ea8;color:#fff;padding:3px 10px;border-radius:20px;vertical-align:middle;font-weight:500;">點數 <?php echo $pointCount; ?></span>
     </h1>
 </div>
 
@@ -31,6 +50,7 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
     <?php include 'includes/inline-edit-hint.php'; ?>
     <div class="action-buttons-bar">
         <button class="btn btn-primary" onclick="handleAdd()" title="新增銀行(或電子票證)"><i class="fas fa-plus"></i> 新增銀行(或電子票證)</button>
+        <button class="btn btn-primary" type="button" onclick="startPointAdd()" title="新增點數" style="background:#7a5ea8;border-color:#7a5ea8;"><i class="fas fa-coins"></i> 新增點數</button>
         <button class="btn btn-success" type="button" onclick="openTransactionModal('income')">新增收入</button>
         <button class="btn btn-danger" type="button" onclick="openTransactionModal('expense')">新增支出</button>
         <button class="btn btn-warning" type="button" onclick="openBankBatchAdjust()">
@@ -104,6 +124,10 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             <h3>電子票證總數</h3>
             <p style="font-size: 2rem; margin-top: 10px;"><?php echo $eTicketCount; ?></p>
         </div>
+        <div class="card" style="background: #7a5ea8; color: #fff;">
+            <h3>點數總數</h3>
+            <p style="font-size: 2rem; margin-top: 10px;"><?php echo $pointCount; ?></p>
+        </div>
     </div>
 
     <!-- 桌面版表格 -->
@@ -133,6 +157,12 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         <input type="text" class="form-control inline-input" data-field="address" placeholder="地址">
                         <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
                         <input type="url" class="form-control inline-input" data-field="activity" placeholder="活動網址">
+                        <select class="form-control inline-input" data-field="category" title="類別">
+                            <option value="">類別：自動判斷</option>
+                            <option value="bank">銀行</option>
+                            <option value="ticket">電子票證</option>
+                            <option value="point">點數</option>
+                        </select>
                         <div class="inline-actions">
                             <button type="button" class="btn btn-primary" onclick="saveInlineAdd()">儲存</button>
                             <button type="button" class="btn" onclick="cancelInlineAdd()">取消</button>
@@ -176,7 +206,8 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                         data-card="<?php echo htmlspecialchars($item['card'] ?? '', ENT_QUOTES); ?>"
                         data-address="<?php echo htmlspecialchars($item['address'] ?? '', ENT_QUOTES); ?>"
                         data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>"
-                        data-activity="<?php echo htmlspecialchars($item['activity'] ?? '', ENT_QUOTES); ?>">
+                        data-activity="<?php echo htmlspecialchars($item['activity'] ?? '', ENT_QUOTES); ?>"
+                        data-category="<?php echo htmlspecialchars($item['category'] ?? '', ENT_QUOTES); ?>">
                         <td><input type="checkbox" class="select-checkbox item-checkbox bank-select-checkbox" data-id="<?php echo $item['id']; ?>"
                                 onchange="toggleSelectItem(this)"></td>
                         <td>
@@ -205,6 +236,12 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
                                 <input type="text" class="form-control inline-input" data-field="address" placeholder="地址">
                                 <input type="url" class="form-control inline-input" data-field="site" placeholder="網站">
                                 <input type="url" class="form-control inline-input" data-field="activity" placeholder="活動網址">
+                                <select class="form-control inline-input" data-field="category" title="類別">
+                                    <option value="">類別：自動判斷</option>
+                                    <option value="bank">銀行</option>
+                                    <option value="ticket">電子票證</option>
+                                    <option value="point">點數</option>
+                                </select>
                                 <div class="inline-actions">
                                     <button type="button" class="btn btn-primary"
                                         onclick="saveInlineEdit('<?php echo $item['id']; ?>')">儲存</button>
@@ -319,6 +356,91 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+
+    <!-- 點數區塊 -->
+    <section id="pointSection" class="card bank-point-section">
+        <div class="bank-point-header">
+            <div>
+                <h3 class="card-title" style="margin-bottom:4px;"><i class="fas fa-coins" style="color:#7a5ea8;"></i> 點數</h3>
+                <p style="margin:0;color:var(--muted-text);">共 <?php echo $pointCount; ?> 筆・合計 <?php echo number_format($pointTotal); ?> 點（不列入新台幣資產）</p>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="startPointAdd()"><i class="fas fa-plus"></i> 新增點數</button>
+        </div>
+        <div class="bank-point-grid">
+            <div id="pointAddCard" class="bank-point-card inline-add-card" style="display:none;">
+                <div class="bank-point-form">
+                    <input type="text" class="form-control" data-point-field="name" placeholder="名稱，例如 LINE Pay Point">
+                    <input type="number" step="1" class="form-control" data-point-field="deposit" placeholder="點數，例如 33">
+                    <textarea class="form-control" data-point-field="note" rows="2" placeholder="備註，例如 有效期限至2027年2月7日"></textarea>
+                    <input type="url" class="form-control" data-point-field="site" placeholder="網站（選填）">
+                    <input type="hidden" data-point-field="category" value="point">
+                    <div class="inline-actions">
+                        <button type="button" class="btn btn-primary" onclick="savePointAdd()">儲存</button>
+                        <button type="button" class="btn" onclick="cancelPointAdd()">取消</button>
+                    </div>
+                </div>
+            </div>
+            <?php if (empty($pointItems)): ?>
+                <div class="bank-point-empty">尚無點數資料。例如：LINE Pay Point 33 點，備註「有效期限至2027年2月7日」。</div>
+            <?php endif; ?>
+            <?php foreach ($pointItems as $item): ?>
+                <?php $pointSiteUrl = bankDisplayUrl($item['site'] ?? ''); ?>
+                <div class="bank-point-card" data-point-id="<?php echo htmlspecialchars($item['id'], ENT_QUOTES); ?>"
+                    data-name="<?php echo htmlspecialchars($item['name'] ?? '', ENT_QUOTES); ?>"
+                    data-deposit="<?php echo htmlspecialchars($item['deposit'] ?? '', ENT_QUOTES); ?>"
+                    data-note="<?php echo htmlspecialchars($item['note'] ?? '', ENT_QUOTES); ?>"
+                    data-site="<?php echo htmlspecialchars($item['site'] ?? '', ENT_QUOTES); ?>">
+                    <div class="bank-point-view">
+                        <div class="bank-point-title">
+                            <input type="checkbox" class="select-checkbox item-checkbox bank-select-checkbox" data-id="<?php echo htmlspecialchars($item['id'], ENT_QUOTES); ?>"
+                                onchange="toggleSelectItem(this)">
+                            <strong>
+                                <?php if ($pointSiteUrl): ?>
+                                    <a href="<?php echo htmlspecialchars($pointSiteUrl); ?>" target="_blank" rel="noopener" class="bank-name-link"><?php echo htmlspecialchars($item['name']); ?></a>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars($item['name']); ?>
+                                <?php endif; ?>
+                            </strong>
+                            <span class="card-edit-btn" onclick="startPointEdit('<?php echo $item['id']; ?>')" style="cursor:pointer;margin-left:auto;"><i class="fas fa-pen"></i></span>
+                            <span class="card-delete-btn" onclick="deleteItem('<?php echo $item['id']; ?>')" style="cursor:pointer;margin-left:6px;">&times;</span>
+                        </div>
+                        <div class="bank-point-value"><?php echo number_format((int) ($item['deposit'] ?? 0)); ?> <small>點</small></div>
+                        <?php if (trim((string) ($item['note'] ?? '')) !== ''): ?>
+                            <div class="bank-point-note"><i class="fas fa-note-sticky"></i> <?php echo nl2br(htmlspecialchars($item['note'])); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="bank-point-form" style="display:none;">
+                        <input type="text" class="form-control" data-point-field="name" placeholder="名稱">
+                        <input type="number" step="1" class="form-control" data-point-field="deposit" placeholder="點數">
+                        <textarea class="form-control" data-point-field="note" rows="2" placeholder="備註，例如 有效期限至2027年2月7日"></textarea>
+                        <input type="url" class="form-control" data-point-field="site" placeholder="網站（選填）">
+                        <select class="form-control" data-point-field="category" title="類別">
+                            <option value="point">點數</option>
+                            <option value="bank">移到銀行</option>
+                            <option value="ticket">移到電子票證</option>
+                        </select>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-primary" onclick="savePointEdit('<?php echo $item['id']; ?>')">儲存</button>
+                            <button type="button" class="btn" onclick="cancelPointEdit('<?php echo $item['id']; ?>')">取消</button>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <style>
+        .bank-point-section { margin-top: 30px; border-left: 4px solid #7a5ea8; }
+        .bank-point-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .bank-point-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+        .bank-point-card { padding: 14px 16px; border: 1px solid var(--border-color); border-radius: 10px; }
+        .bank-point-title { display: flex; align-items: center; gap: 8px; }
+        .bank-point-value { font-size: 1.8rem; font-weight: 700; color: #7a5ea8; margin-top: 8px; }
+        .bank-point-value small { font-size: 0.9rem; font-weight: 500; }
+        .bank-point-note { margin-top: 8px; font-size: 0.9rem; color: var(--muted-text); overflow-wrap: anywhere; }
+        .bank-point-form { display: grid; gap: 8px; }
+        .bank-point-form .inline-actions { margin-top: 4px; padding-top: 8px; }
+        .bank-point-empty { grid-column: 1 / -1; color: var(--muted-text); padding: 12px 0; }
+    </style>
 </div>
 
 <div id="transactionModal" class="modal" onclick="if (event.target === this) closeTransactionModal()">
@@ -372,6 +494,9 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             'withdrawals' => (int) ($item['withdrawals'] ?? 0),
         ];
     }, $items), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
+    const POINT_ITEMS = <?php echo json_encode(array_map(function ($item) {
+        return ['id' => $item['id'], 'name' => $item['name']];
+    }, $pointItems), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
     initBatchDelete(TABLE);
     document.addEventListener('change', function (event) {
         if (event.target && event.target.matches('.item-checkbox, #selectAllCheckbox, #batchSelectAllCb')) {
@@ -421,7 +546,8 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             card: row.querySelector('[data-field="card"]').value.trim(),
             address: row.querySelector('[data-field="address"]').value.trim(),
             site: row.querySelector('[data-field="site"]').value.trim(),
-            activity: row.querySelector('[data-field="activity"]').value.trim()
+            activity: row.querySelector('[data-field="activity"]').value.trim(),
+            category: row.querySelector('[data-field="category"]').value
         };
         fetch(`api.php?action=create&table=${TABLE}`, {
             method: 'POST',
@@ -476,6 +602,8 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
         if (siteInput) siteInput.value = data.site || '';
         const activityInput = row.querySelector('[data-field="activity"]');
         if (activityInput) activityInput.value = data.activity || '';
+        const categoryInput = row.querySelector('[data-field="category"]');
+        if (categoryInput) categoryInput.value = data.category || '';
     }
 
     function saveInlineEdit(id) {
@@ -495,7 +623,8 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             card: row.querySelector('[data-field="card"]').value.trim(),
             address: row.querySelector('[data-field="address"]').value.trim(),
             site: row.querySelector('[data-field="site"]').value.trim(),
-            activity: row.querySelector('[data-field="activity"]').value.trim()
+            activity: row.querySelector('[data-field="activity"]').value.trim(),
+            category: row.querySelector('[data-field="category"]').value
         };
         fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
             method: 'POST',
@@ -511,11 +640,11 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
 
 
     function deleteItem(id) {
-        const item = getBankById(id);
+        const item = getBankById(id) || POINT_ITEMS.find(point => point.id === id);
         const name = (item && item.name) ? String(item.name) : '';
         const expected = name ? ('DELETE ' + name) : 'DELETE bank';
         const userInput = prompt(
-            '刪除銀行/電子票證無法復原。\n\n' +
+            '刪除銀行/電子票證/點數無法復原。\n\n' +
             (name ? ('即將刪除：「' + name + '」\n\n') : '') +
             '請輸入以下文字確認：\n' + expected
         );
@@ -529,6 +658,87 @@ $eTicketTotalAsset = array_reduce($eTicketItems, function ($sum, $item) {
             confirmMessage: null,
             skipConfirm: true
         });
+    }
+
+    function getPointCard(id) {
+        return document.querySelector(`.bank-point-card[data-point-id="${cssEscapeBank(id)}"]`);
+    }
+
+    function collectPointData(container) {
+        const field = name => container.querySelector(`[data-point-field="${name}"]`);
+        return {
+            name: field('name').value.trim(),
+            deposit: parseInt(field('deposit').value, 10) || 0,
+            note: field('note').value.trim(),
+            site: field('site').value.trim(),
+            category: field('category').value || 'point'
+        };
+    }
+
+    function submitPoint(url, data) {
+        if (!data.name) {
+            alert('請輸入名稱');
+            return;
+        }
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) location.reload();
+                else alert('儲存失敗: ' + (res.error || res.message || ''));
+            })
+            .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
+    }
+
+    function startPointAdd() {
+        const card = document.getElementById('pointAddCard');
+        if (!card) return;
+        card.style.display = 'block';
+        card.querySelectorAll('input:not([type="hidden"]), textarea').forEach(input => { input.value = ''; });
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.querySelector('[data-point-field="name"]').focus();
+    }
+
+    function cancelPointAdd() {
+        const card = document.getElementById('pointAddCard');
+        if (card) card.style.display = 'none';
+    }
+
+    function savePointAdd() {
+        const card = document.getElementById('pointAddCard');
+        if (!card) return;
+        submitPoint(`api.php?action=create&table=${TABLE}`, collectPointData(card));
+    }
+
+    function startPointEdit(id) {
+        const card = getPointCard(id);
+        if (!card) return;
+        const data = card.dataset;
+        const form = card.querySelector('.bank-point-form');
+        form.querySelector('[data-point-field="name"]').value = data.name || '';
+        form.querySelector('[data-point-field="deposit"]').value = data.deposit || '';
+        form.querySelector('[data-point-field="note"]').value = data.note || '';
+        form.querySelector('[data-point-field="site"]').value = data.site || '';
+        form.querySelector('[data-point-field="category"]').value = 'point';
+        card.querySelector('.bank-point-view').style.display = 'none';
+        form.style.display = 'grid';
+    }
+
+    function cancelPointEdit(id) {
+        const card = getPointCard(id);
+        if (!card) return;
+        card.querySelector('.bank-point-view').style.display = '';
+        card.querySelector('.bank-point-form').style.display = 'none';
+    }
+
+    function savePointEdit(id) {
+        const card = getPointCard(id);
+        if (!card) return;
+        submitPoint(`api.php?action=update&table=${TABLE}&id=${encodeURIComponent(id)}`,
+            collectPointData(card.querySelector('.bank-point-form')));
     }
 
     function formatAmount(amount) {

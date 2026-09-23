@@ -56,3 +56,43 @@ function isTaiwanBankAccount($item)
 
     return preg_match('/銀行|bank/u', $haystack) === 1;
 }
+
+/** bank 資料表的分類：銀行 / 電子票證 / 點數。 */
+function bankCategoryLabels()
+{
+    return ['bank' => '銀行', 'ticket' => '電子票證', 'point' => '點數'];
+}
+
+function isBankPointItem($item)
+{
+    $haystack = bankNormalizeText($item['name'] ?? '');
+    foreach (['point', '點數', '紅利', '積點'] as $keyword) {
+        if (bankTextContains($haystack, $keyword)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** 有手動設定 category 就用它，否則依名稱自動判斷（點數 → 銀行 → 電子票證）。 */
+function bankItemCategory($item)
+{
+    $category = strtolower(trim((string) ($item['category'] ?? '')));
+    if (isset(bankCategoryLabels()[$category])) {
+        return $category;
+    }
+    if (isBankPointItem($item)) {
+        return 'point';
+    }
+    return isTaiwanBankAccount($item) ? 'bank' : 'ticket';
+}
+
+/** 舊部署的 bank 表補上 category / note 欄位（有 schema 快取）。 */
+function fengbroEnsureBankColumns(PDO $pdo)
+{
+    require_once __DIR__ . '/schema_cache.php';
+    $columns = ['`category` VARCHAR(20) NULL', '`note` VARCHAR(500) NULL'];
+    fengbroSchemaEnsureOnce('columns:bank', implode('|', $columns), static function () use ($pdo, $columns) {
+        fengbroAddMissingColumns($pdo, 'bank', $columns);
+    });
+}

@@ -43,6 +43,9 @@ $fengbroApiEnsureSchema = static function (bool $force = false) use ($pdo, $tabl
         fengbroEnsureQuotaTable($pdo);
     } elseif ($table === 'shoppinglist') {
         fengbroEnsureShoppingListTable($pdo);
+    } elseif ($table === 'bank') {
+        require_once __DIR__ . '/includes/bank_helpers.php';
+        fengbroEnsureBankColumns($pdo);
     }
     if (in_array($table, ['article', 'subscription'], true)) {
         fengbroEnsureSoftDeleteColumn($pdo, $table);

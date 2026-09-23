@@ -74,6 +74,7 @@ $fieldMapping = [
     '存款' => 'deposit',
     '餘額' => 'deposit',
     '金額' => 'deposit',
+    '點數' => 'deposit',
     '提款' => 'withdrawals',
     '支出' => 'withdrawals',
     '轉帳' => 'transfer',

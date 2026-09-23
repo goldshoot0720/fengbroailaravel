@@ -7,6 +7,7 @@
 - **Reinstall software**: one `reinstall` row is a Windows or Mac package, with optional paid serial hidden behind a view password.
 - **Bank account**: a stored financial account in `bank` whose balance is tracked through the `deposit` field.
 - **E-ticket**: a stored non-bank balance account in `bank`, such as transport cards or wallet-like stored value.
+- **Point**: a loyalty/reward point balance in `bank` (e.g. LINE Pay Point), shown in its own block on the bank page; `deposit` holds the point count (not TWD) and `note` holds remarks such as the expiry date. Rows are classified by `category` (`bank` / `ticket` / `point`) or, when empty, by name keywords (`bankItemCategory()` in `includes/bank_helpers.php`).
 - **Bank balance adjustment**: a user action that changes one or more bank account `deposit` values by setting a target number or applying a plus/minus amount.
 - **Notification setting**: browser-managed configuration stored in the `settings` table, such as `RESEND_API_KEY`, recipient email, sender email, and VAPID keys.
 - **Notification channels**: browser banner + Notification API (`assets/js/notifications.js`), Web Push (`push_send.php` / `push_subscribe.php`), and Resend email (`includes/resend_notifications.php`). Due-date domain rules live in `includes/notification_helpers.php`.

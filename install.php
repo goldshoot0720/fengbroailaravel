@@ -142,6 +142,8 @@ try {
             activity VARCHAR(500),
             card VARCHAR(100),
             account VARCHAR(100),
+            category VARCHAR(20),
+            note VARCHAR(500),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
@@ -398,6 +400,8 @@ try {
         "ALTER TABLE commondocument ADD INDEX `idx_commondocument_created` (`created_at`)",
         "ALTER TABLE commondocument ADD INDEX `idx_commondocument_hash` (`hash`(191))",
         "ALTER TABLE commondocument ADD INDEX `idx_commondocument_name` (`name`)",
+        "ALTER TABLE bank ADD COLUMN category VARCHAR(20)",
+        "ALTER TABLE bank ADD COLUMN note VARCHAR(500)",
         "ALTER TABLE bank ADD INDEX `idx_bank_deposit` (`deposit`)",
         "ALTER TABLE bank ADD INDEX `idx_bank_name` (`name`)",
         "ALTER TABLE routine ADD INDEX `idx_routine_name` (`name`)",
