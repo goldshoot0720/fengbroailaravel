@@ -470,7 +470,7 @@ foreach ($items as $item) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (res) {
-            if (res.success) location.reload();
+            if (res.success) fengbroReload();
             else alert(res.error || '儲存失敗');
         }).catch(function (err) {
             alert('儲存失敗: ' + (err.message || err));
@@ -483,12 +483,8 @@ foreach ($items as $item) {
         const systemLabel = row && row.dataset.system === 'mac' ? 'Mac' : 'Windows';
         const label = row ? ((row.dataset.name || '') + '／' + systemLabel) : '這套軟體';
         if (!confirm('確定要刪除「' + label + '」嗎？刪除不能復原。')) return;
-        fetch('api.php?action=delete&table=' + encodeURIComponent(TABLE) + '&id=' + encodeURIComponent(id))
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (res.success) location.reload();
-                else alert(res.error || '刪除失敗');
-            });
+        // 樂觀刪除：畫面立即移除，失敗才放回來（assets/js/inline-edit.js）。
+        deleteInlineItem(id, { table: TABLE, skipConfirm: true });
     }
 
     function revealSerial(id) {

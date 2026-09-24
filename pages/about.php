@@ -132,38 +132,8 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
                 <th>程式碼統計</th>
                 <td>
                     <?php
-                    $codeStats = [
-                        'php' => 0, 'css' => 0, 'js' => 0, 'sql' => 0, 'files' => 0,
-                    ];
-                    $root = dirname(__DIR__);
-                    $iterator = new RecursiveIteratorIterator(
-                        new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
-                    );
-                    $skipDirs = ['uploads', 'vendor', 'node_modules', '.git'];
-                    foreach ($iterator as $file) {
-                        if (!$file->isFile()) {
-                            continue;
-                        }
-                        $path = str_replace('\\', '/', $file->getPathname());
-                        $skip = false;
-                        foreach ($skipDirs as $dir) {
-                            if (str_contains($path, '/' . $dir . '/')) {
-                                $skip = true;
-                                break;
-                            }
-                        }
-                        if ($skip) {
-                            continue;
-                        }
-                        $ext = strtolower($file->getExtension());
-                        if (!isset($codeStats[$ext])) {
-                            continue;
-                        }
-                        $lines = @count(file($file->getPathname()) ?: []);
-                        $codeStats[$ext] += $lines;
-                        $codeStats['files']++;
-                    }
-                    $totalLines = $codeStats['php'] + $codeStats['css'] + $codeStats['js'] + $codeStats['sql'];
+                    $codeStats = fengbroCodeStats();
+                    $totalLines = $codeStats['total'];
                     ?>
                     <strong><?php echo number_format($totalLines); ?></strong> 行
                     <span style="color:#888;font-size:0.85rem;margin-left:8px;">
@@ -274,6 +244,8 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li>設定/儀表：離線快取管理、uploads 分類統計、Offline cache 用量</li>
             <li>匯入：CSV 遮罩進度；食品/訂閱/銀行/常用與大檔分批寫入</li>
             <li>體驗：主題 system/light/dark 三態、首頁提醒可今日關閉、銀行刪除確認字串</li>
+            <li>速度與 Optimistic UI（2026-09-24）：新增／編輯後局部更新畫面（不白屏、不重載 CSS/JS、保留捲動／篩選／檢視模式）；刪除立即從畫面移除、失敗自動還原，訂閱／文章可「復原」；食品數量 +／− 即時顯示並合併請求；資料沒變時切換選單回來伺服器回 304（不查資料庫）、上一頁／下一頁瞬間還原；滑鼠停在選單上即預先載入頁面</li>
+            <li>程式碼統計（2026-09-24）：共 59,689 行、115 個檔案（.php 47,389 ／ .css 3,460 ／ .js 8,366 ／ .sql 474）；關於頁統計改為不進入 uploads 等目錄，開啟更快</li>
         </ul>
         <p style="margin-top: 12px; color: var(--muted-text); font-size: 0.9rem;">
             刻意不移植的 Appwrite 專屬內容：Appwrite 帳號切換、PlumberTycoon / CatShowcase / CEO 展示模組、Appwrite Storage SDK。

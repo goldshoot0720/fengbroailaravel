@@ -4,6 +4,10 @@ require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/version.php';
 require_once __DIR__ . '/management_tables.php';
 require_once __DIR__ . '/site_stats.php';
+require_once __DIR__ . '/page_cache.php';
+
+// 寫入請求結束時更新資料版本，頁面的 ETag / 304 靠它判斷「資料有沒有變」。
+fengbroTrackDataWrites();
 
 /**
  * 執行環境判斷：本機為 local，其餘（線上主機）為 remote。

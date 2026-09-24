@@ -905,7 +905,7 @@ function saveInlineEdit(id) {
     })
         .then(r => r.json())
         .then(res => {
-            if (res.success) location.reload();
+            if (res.success) fengbroReload();
             else alert('儲存失敗: ' + (res.error || ''));
         });
 }
@@ -966,7 +966,7 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     })
     .then(r => r.json())
     .then(res => {
-        if (res.success) location.reload();
+        if (res.success) fengbroReload();
         else alert('儲存失敗: ' + (res.error || ''));
     });
 });
@@ -1127,13 +1127,13 @@ async function uploadMultipleImages(fileList) {
 
     if (successCount > 0 && failedFiles.length === 0) {
         alert(`已成功上傳 ${successCount} 張圖片`);
-        location.reload();
+        fengbroReload();
         return;
     }
 
     if (successCount > 0) {
         alert(`成功 ${successCount} 張，失敗 ${failedFiles.length} 張：\n${failedFiles.join('\n')}`);
-        location.reload();
+        fengbroReload();
         return;
     }
 

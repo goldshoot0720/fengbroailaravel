@@ -240,36 +240,35 @@
         }
 
         const ids = Array.from(batchDeleteIds);
-        const bar = document.getElementById('batchDeleteBar');
-        if (bar) {
-            bar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在刪除...';
-        }
+        // 樂觀刪除：選取的項目立刻從畫面消失，失敗的再放回來。
+        const optimistic = window.fengbroOptimistic || null;
+        const tokens = {};
+        ids.forEach(id => { tokens[id] = optimistic ? optimistic.hide(id) : null; });
+        cancelBatchSelect();
 
         let completed = 0;
         let errors = 0;
+        const finishOne = (id, ok) => {
+            completed++;
+            if (optimistic) {
+                if (ok) optimistic.commit(tokens[id]);
+                else optimistic.restore(tokens[id]);
+            }
+            if (!ok) errors++;
+            if (completed !== ids.length) return;
+            if (errors > 0) {
+                alert(`批量刪除完成，但有 ${errors} 筆失敗。`);
+            } else if (window.fengbroToast) {
+                window.fengbroToast(`已刪除 ${ids.length} 筆`, 'ok');
+            }
+            fengbroReload();
+        };
 
         ids.forEach(id => {
-            fetch(`api.php?action=delete&table=${batchDeleteTable}&id=${id}`)
+            fetch(`api.php?action=delete&table=${encodeURIComponent(batchDeleteTable)}&id=${encodeURIComponent(id)}`, { fengbroQuiet: true })
                 .then(r => r.json())
-                .then(res => {
-                    completed++;
-                    if (!res.success) errors++;
-
-                    if (completed === ids.length) {
-                        if (errors > 0) {
-                            alert(`批量刪除完成，但有 ${errors} 筆失敗。`);
-                        }
-                        location.reload();
-                    }
-                })
-                .catch(() => {
-                    completed++;
-                    errors++;
-                    if (completed === ids.length) {
-                        alert(`批量刪除完成，但有 ${errors} 筆失敗。`);
-                        location.reload();
-                    }
-                });
+                .then(res => finishOne(id, !!res.success))
+                .catch(() => finishOne(id, false));
         });
     }
 </script>

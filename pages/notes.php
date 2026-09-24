@@ -2006,7 +2006,7 @@ body[data-page="notes"] .content-header.notes-header {
                 if (failed > 0) {
                     alert(`套用完成，但有 ${failed} 篇更新失敗`);
                 }
-                location.reload();
+                fengbroReload();
             });
     }
 
@@ -2017,7 +2017,7 @@ body[data-page="notes"] .content-header.notes-header {
                 if (failed > 0) {
                     alert(`清除完成，但有 ${failed} 篇更新失敗`);
                 }
-                location.reload();
+                fengbroReload();
             });
     }
 
@@ -2085,7 +2085,7 @@ body[data-page="notes"] .content-header.notes-header {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -2183,7 +2183,7 @@ body[data-page="notes"] .content-header.notes-header {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -2303,7 +2303,7 @@ body[data-page="notes"] .content-header.notes-header {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     });

@@ -365,7 +365,7 @@ $pendingCount = count($pendingIds);
         }).then(function (r) { return r.json(); }).then(function (res) {
             if (res.success) {
                 if (payload.name) localStorage.setItem('fengbro_trial_open_' + payload.name.trim().toLowerCase(), '1');
-                location.reload();
+                fengbroReload();
             } else {
                 alert(res.error || '儲存失敗');
             }
@@ -379,12 +379,8 @@ $pendingCount = count($pendingIds);
         const row = document.querySelector('.mgmt-account[data-id="' + id + '"]');
         const label = row ? ((row.dataset.name || '') + '／' + ((row.dataset.account || '').trim() || '未填帳號')) : '這筆紀錄';
         if (!confirm('確定要刪除「' + label + '」嗎？刪除不能復原。')) return;
-        fetch('api.php?action=delete&table=' + encodeURIComponent(TABLE) + '&id=' + encodeURIComponent(id))
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (res.success) location.reload();
-                else alert(res.error || '刪除失敗');
-            });
+        // 樂觀刪除：畫面立即移除，失敗才放回來（assets/js/inline-edit.js）。
+        deleteInlineItem(id, { table: TABLE, skipConfirm: true });
     }
 
     function toggleTrialGroup(button) {

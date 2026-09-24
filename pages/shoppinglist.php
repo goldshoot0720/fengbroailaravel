@@ -593,7 +593,7 @@ $pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '�
             body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (res) {
             if (res.success) {
-                location.reload();
+                fengbroReload();
             } else {
                 alert(res.error || '儲存失敗');
             }
@@ -607,12 +607,8 @@ $pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '�
         const row = document.querySelector('.shopping-item[data-id="' + id + '"]');
         const label = row ? ((row.dataset.name || '') + '') : '這筆商品';
         if (!confirm('確定要刪除「' + label + '」嗎？刪除不能復原。')) return;
-        fetch('api.php?action=delete&table=' + encodeURIComponent(TABLE) + '&id=' + encodeURIComponent(id))
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (res.success) location.reload();
-                else alert(res.error || '刪除失敗');
-            });
+        // 樂觀刪除：畫面立即移除，失敗才放回來（assets/js/inline-edit.js）。
+        deleteInlineItem(id, { table: TABLE, skipConfirm: true });
     }
 
     function filterShopping() {
@@ -929,7 +925,7 @@ $pickupPresets = ['門市購買', '超商取貨付款', '蝦皮取貨付款', '�
         resultEl.textContent = '匯入完成：成功 ' + successCount + ' 筆 · 失敗 ' + failCount + ' 筆';
         if (failCount === 0) {
             setTimeout(function () {
-                location.reload();
+                fengbroReload();
             }, 1200);
         } else {
             document.getElementById('shoppingImportCancelBtn').style.display = '';

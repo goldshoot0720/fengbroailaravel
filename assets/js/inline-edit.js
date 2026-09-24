@@ -10,12 +10,23 @@ const INLINE_EDIT_CONFIG = {
     MOBILE_BREAKPOINT: 768
 };
 
+// 有垃圾桶（軟刪除）的資料表：刪除後提示可「復原」。
+const INLINE_TRASH_TABLES = ['article', 'subscription'];
+
+/**
+ * 樂觀刪除：確認後立刻把該筆從畫面拿掉，背景送出請求；失敗就放回來並提示。
+ * 成功後局部更新（fengbroReload）同步統計數字，不整頁重新整理。
+ */
 function deleteInlineItem(id, options = {}) {
     const table = options.table || INLINE_EDIT_CONFIG.TABLE_NAME;
     const endpoint = options.endpoint || INLINE_EDIT_CONFIG.API_ENDPOINT;
     const confirmMessage = options.confirmMessage || '確定要刪除嗎？';
     const failureMessage = options.failureMessage || '刪除失敗';
-    const onSuccess = options.onSuccess || function () { location.reload(); };
+    const reload = function () {
+        if (typeof window.fengbroReload === 'function') window.fengbroReload();
+        else location.reload();
+    };
+    const onSuccess = options.onSuccess || reload;
     const skipConfirm = !!options.skipConfirm;
 
     if (!table) {
@@ -26,16 +37,38 @@ function deleteInlineItem(id, options = {}) {
         if (!confirm(confirmMessage)) return;
     }
 
-    fetch(`${endpoint}?action=delete&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`)
+    const optimistic = window.fengbroOptimistic || null;
+    const token = optimistic ? optimistic.hide(id) : null;
+    const canUndo = INLINE_TRASH_TABLES.includes(table);
+
+    fetch(`${endpoint}?action=delete&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`, { fengbroQuiet: true })
         .then(response => response.json())
         .then(res => {
             if (res.success) {
+                if (optimistic) optimistic.commit(token);
+                if (window.fengbroToast) {
+                    window.fengbroToast('已刪除', 'ok', canUndo ? 6000 : 2600, canUndo ? {
+                        label: '復原',
+                        onClick: function () {
+                            fetch(`${endpoint}?action=restore&table=${encodeURIComponent(table)}&id=${encodeURIComponent(id)}`, { fengbroQuiet: true })
+                                .then(r => r.json())
+                                .then(r => {
+                                    if (!r.success) throw new Error(r.error || '復原失敗');
+                                    window.fengbroToast('已復原', 'ok');
+                                    reload();
+                                })
+                                .catch(err => alert('復原失敗: ' + (err.message || '網路錯誤')));
+                        }
+                    } : null);
+                }
                 onSuccess(res);
             } else {
+                if (optimistic) optimistic.restore(token);
                 alert(failureMessage + (res.error ? ': ' + res.error : ''));
             }
         })
         .catch(error => {
+            if (optimistic) optimistic.restore(token);
             alert(failureMessage + ': ' + (error.message || '網路錯誤'));
         });
 }

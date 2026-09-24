@@ -627,42 +627,69 @@ usort($years, function ($a, $b) use ($currentYear) {
         if (year === '__empty') monthSelect.value = '';
     }
 
+    // 數量 +／−：畫面立即更新（Optimistic UI），連點會合併成一次請求；失敗就還原成伺服器上的數量。
+    const foodAmountSync = {};
+
+    function renderFoodAmount(id, amount) {
+        document.querySelectorAll(`[data-food-item][data-id="${id}"]`).forEach(item => {
+            item.dataset.amount = String(amount);
+            item.querySelectorAll('.food-amount-value').forEach(el => {
+                el.textContent = String(amount);
+            });
+            const amountInput = item.querySelector('[data-field="amount"]');
+            if (amountInput) amountInput.value = String(amount);
+        });
+    }
+
     function adjustFoodAmount(id, delta) {
         const items = document.querySelectorAll(`[data-food-item][data-id="${id}"]`);
-        const row = getRowById(id);
-        const source = row || items[0];
+        const source = getRowById(id) || items[0];
         const current = source ? parseInt(source.dataset.amount || '0', 10) || 0 : 0;
         const nextAmount = Math.max(0, current + delta);
-        items.forEach(item => {
-            item.querySelectorAll('.food-amount-controls button').forEach(btn => btn.disabled = true);
-        });
+        if (nextAmount === current) return;
+
+        const state = foodAmountSync[id] || (foodAmountSync[id] = { confirmed: current, timer: null, sending: false });
+        renderFoodAmount(id, nextAmount);
+        clearTimeout(state.timer);
+        state.timer = setTimeout(() => flushFoodAmount(id), 350);
+    }
+
+    function flushFoodAmount(id) {
+        const state = foodAmountSync[id];
+        if (!state) return;
+        if (state.sending) {
+            state.timer = setTimeout(() => flushFoodAmount(id), 200);
+            return;
+        }
+        const source = getRowById(id) || document.querySelector(`[data-food-item][data-id="${id}"]`);
+        const target = source ? parseInt(source.dataset.amount || '0', 10) || 0 : 0;
+        if (target === state.confirmed) {
+            delete foodAmountSync[id];
+            return;
+        }
+        state.sending = true;
         fetch(`api.php?action=update&table=${TABLE}&id=${id}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: nextAmount })
+            body: JSON.stringify({ amount: target }),
+            fengbroQuiet: true
         })
             .then(r => r.json())
             .then(res => {
-                if (!res.success) {
-                    alert('更新數量失敗: ' + (res.error || ''));
-                    return;
-                }
-
-                items.forEach(item => {
-                    item.dataset.amount = String(nextAmount);
-                    item.querySelectorAll('.food-amount-value').forEach(el => {
-                        el.textContent = String(nextAmount);
-                    });
-                    const amountInput = item.querySelector('[data-field="amount"]');
-                    if (amountInput) amountInput.value = String(nextAmount);
-                });
+                if (!res.success) throw new Error(res.error || '');
+                state.confirmed = target;
             })
-            .catch(err => alert('更新數量失敗: ' + (err.message || '網路錯誤')))
+            .catch(err => {
+                renderFoodAmount(id, state.confirmed);
+                alert('更新數量失敗: ' + (err.message || '網路錯誤'));
+            })
             .finally(() => {
-                items.forEach(item => {
-                    item.querySelectorAll('.food-amount-controls button').forEach(btn => btn.disabled = false);
-                });
+                state.sending = false;
+                const latest = getRowById(id) || document.querySelector(`[data-food-item][data-id="${id}"]`);
+                const now = latest ? parseInt(latest.dataset.amount || '0', 10) || 0 : 0;
+                if (now === state.confirmed && !state.timer) delete foodAmountSync[id];
             });
+        state.timer = null;
     }
 
     function startInlineAdd() {
@@ -708,7 +735,7 @@ usort($years, function ($a, $b) use ($currentYear) {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || res.message || ''));
             })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
@@ -776,7 +803,7 @@ usort($years, function ($a, $b) use ($currentYear) {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -865,7 +892,7 @@ usort($years, function ($a, $b) use ($currentYear) {
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     });

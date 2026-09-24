@@ -70,6 +70,10 @@ if (($page ?? '') === 'tools') {
     ], true) ? $requestedTool : '';
 }
 
+// 資料沒變就回 304，不查資料庫也不重新產生頁面（切換選單回來幾乎瞬開）。
+// 工具頁（外部即時資料）與設定頁（診斷資訊）每次都重新產生。
+fengbroServePageWithEtag($pageFile, !in_array($page, ['tools', 'settings'], true));
+
 // 工具頁的 POST 動作會送出 header()（重導／CSV 下載），必須在輸出任何 HTML 前處理。
 if ($page === 'tools') {
     require_once __DIR__ . '/includes/tools_actions.php';

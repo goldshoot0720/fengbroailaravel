@@ -1578,7 +1578,7 @@ function getDaysUntil($date)
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || res.message || ''));
             })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
@@ -1668,7 +1668,7 @@ function getDaysUntil($date)
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -1762,7 +1762,7 @@ function getDaysUntil($date)
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     });

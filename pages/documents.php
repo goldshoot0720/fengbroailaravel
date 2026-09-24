@@ -917,7 +917,7 @@ $docFillPercent = $docTotal > 0 ? (int) round($docWithFile / $docTotal * 100) : 
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || res.message || ''));
             })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
@@ -988,7 +988,7 @@ $docFillPercent = $docTotal > 0 ? (int) round($docWithFile / $docTotal * 100) : 
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -1043,7 +1043,7 @@ $docFillPercent = $docTotal > 0 ? (int) round($docWithFile / $docTotal * 100) : 
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -1138,13 +1138,13 @@ $docFillPercent = $docTotal > 0 ? (int) round($docWithFile / $docTotal * 100) : 
 
         if (successCount > 0 && failedFiles.length === 0) {
             alert(`已完成上傳 ${successCount} 個文件`);
-            location.reload();
+            fengbroReload();
             return;
         }
 
         if (successCount > 0) {
             alert(`成功 ${successCount} 個，失敗 ${failedFiles.length} 個\n${failedFiles.join('\n')}`);
-            location.reload();
+            fengbroReload();
             return;
         }
 

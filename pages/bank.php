@@ -556,7 +556,7 @@ $totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || res.message || ''));
             })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
@@ -633,7 +633,7 @@ $totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }
@@ -687,7 +687,7 @@ $totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || res.message || ''));
             })
             .catch(err => alert('儲存失敗: ' + (err.message || '網路錯誤')));
@@ -903,7 +903,7 @@ $totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
             if (failed) {
                 alert(`批次調整完成，但有 ${failed} 筆失敗。`);
             }
-            location.reload();
+            fengbroReload();
         }).catch(err => alert('批次調整失敗: ' + (err.message || '網路錯誤')));
     }
 
@@ -1002,7 +1002,7 @@ $totalDeposit = $bankTotalAsset + $eTicketTotalAsset;
             .then(res => {
                 if (res.success) {
                     closeTransactionModal();
-                    location.reload();
+                    fengbroReload();
                 } else {
                     alert('更新失敗: ' + (res.error || ''));
                 }

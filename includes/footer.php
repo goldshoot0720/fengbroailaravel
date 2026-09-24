@@ -1,3 +1,4 @@
+<script>window.fengbroSnapshotMain && window.fengbroSnapshotMain();</script>
 </div>
 <div id="globalMediaShell" class="global-media-shell" style="display:none;">
     <div class="global-media-meta">
@@ -47,7 +48,7 @@
 <script src="assets/js/main.js?v=20260903trial"></script>
 <script src="assets/js/media-traffic.js?v=20260812"></script>
 <script src="assets/js/recent-searches.js?v=20260904search"></script>
-<script src="assets/js/inline-edit.js?v=20260713delete"></script>
+<script src="assets/js/inline-edit.js?v=20260924opt1"></script>
 <script src="assets/js/notifications.js?v=20260904claude2"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->

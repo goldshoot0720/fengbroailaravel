@@ -477,7 +477,7 @@ function getRoutineDateGapText($dateA, $dateB): string
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    location.reload();
+                    fengbroReload();
                 } else {
                     alert('儲存失敗: ' + (res.error || res.message || ''));
                 }
@@ -548,7 +548,7 @@ function getRoutineDateGapText($dateA, $dateB): string
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    location.reload();
+                    fengbroReload();
                 } else {
                     alert('儲存失敗: ' + (res.error || ''));
                 }
@@ -633,7 +633,7 @@ function getRoutineDateGapText($dateA, $dateB): string
         })
             .then(r => r.json())
             .then(res => {
-                if (res.success) location.reload();
+                if (res.success) fengbroReload();
                 else alert('儲存失敗: ' + (res.error || ''));
             });
     }

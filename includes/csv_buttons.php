@@ -498,7 +498,7 @@
                     }
                     setTimeout(function () {
                         alert(msg);
-                        location.reload();
+                        fengbroReload();
                     }, 280);
                 } else {
                     hideImportOverlay();

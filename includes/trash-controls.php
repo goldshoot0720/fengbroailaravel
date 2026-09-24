@@ -44,14 +44,20 @@ document.addEventListener('DOMContentLoaded', function () {
 function trashAction(action, id, permanent) {
     if (permanent && !confirm('\u6b64\u64cd\u4f5c\u7121\u6cd5\u5fa9\u539f\uff0c\u78ba\u5b9a\u6c38\u4e45\u522a\u9664\uff1f')) return;
     const extra = permanent ? '&permanent=1' : '';
+    const optimistic = window.fengbroOptimistic || null;
+    const token = optimistic ? optimistic.hide(id) : null;
     fetch('api.php?action=' + action + '&table=<?php echo rawurlencode($trashTable); ?>&id=' + encodeURIComponent(id) + extra)
-        .then(r => r.json()).then(r => { if (!r.success) throw new Error(r.error || 'Failed'); location.reload(); })
-        .catch(e => alert(e.message));
+        .then(r => r.json()).then(r => {
+            if (!r.success) throw new Error(r.error || 'Failed');
+            if (optimistic) optimistic.commit(token);
+            fengbroReload();
+        })
+        .catch(e => { if (optimistic) optimistic.restore(token); alert(e.message); });
 }
 function emptyTrash() {
     if (!confirm('\u78ba\u5b9a\u6c38\u4e45\u522a\u9664\u5783\u573e\u6876\u5167\u7684\u6240\u6709\u8cc7\u6599\uff1f')) return;
     fetch('api.php?action=empty_trash&table=<?php echo rawurlencode($trashTable); ?>')
-        .then(r => r.json()).then(r => { if (!r.success) throw new Error(r.error || 'Failed'); location.reload(); })
+        .then(r => r.json()).then(r => { if (!r.success) throw new Error(r.error || 'Failed'); fengbroReload(); })
         .catch(e => alert(e.message));
 }
 </script>

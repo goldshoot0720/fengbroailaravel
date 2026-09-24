@@ -357,7 +357,7 @@
                         '<p>成功匯入 <strong>' + res.imported + '</strong> 個' + _zipPreviewLabel + '</p>' +
                         errorHtml + debugHtml +
                         '</div>';
-                    setTimeout(function () { location.reload(); }, 1500);
+                    setTimeout(function () { fengbroReload(); }, 1500);
                 } else {
                     body.innerHTML = '<div style="text-align:center;padding:30px;color:#c1554a;">' +
                         '<i class="fa-solid fa-exclamation-circle fa-2x"></i><br>' +

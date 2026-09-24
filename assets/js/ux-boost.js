@@ -50,6 +50,9 @@
         '.fengbro-ux-toast.err .ux-ico{color:#c62828;}' +
         '.fengbro-ux-toast.info .ux-ico{color:var(--primary-color,#c96442);}' +
         '.fengbro-ux-toast .ux-msg{flex:1 1 auto;max-height:40vh;overflow:auto;}' +
+        '.fengbro-ux-toast .ux-act{flex:0 0 auto;align-self:center;border:0;border-radius:8px;padding:4px 10px;font:inherit;font-weight:700;' +
+        'cursor:pointer;background:transparent;color:var(--primary-color,var(--accent,#c96442));}' +
+        '.fengbro-ux-toast .ux-act:hover{background:rgba(201,100,66,.12);}' +
         '.fengbro-ux-busy{position:relative;pointer-events:none;opacity:.7;}' +
         '.fengbro-ux-busy::after{content:"";display:inline-block;width:.9em;height:.9em;margin-left:.45em;vertical-align:-.12em;' +
         'border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:fengbroUxSpin .7s linear infinite;}' +
@@ -90,15 +93,19 @@
         return host;
     }
 
-    function toast(message, type, duration) {
+    /**
+     * toast(訊息, 'ok' | 'err' | 'info', 毫秒, { label: '復原', onClick: fn })
+     * 第四個參數可加一顆動作按鈕（例如刪除後的「復原」）。回傳 { close }。
+     */
+    function toast(message, type, duration, action) {
         message = message == null ? '' : String(message);
         type = type || 'info';
         if (!document.body) {
-            onReady(function () { toast(message, type, duration); });
-            return;
+            onReady(function () { toast(message, type, duration, action); });
+            return { close: function () {} };
         }
         var host = toastHost();
-        if (!host) return;
+        if (!host) return { close: function () {} };
         if (!duration) {
             duration = Math.min(9000, Math.max(2600, 1800 + message.length * 60));
         }
@@ -113,6 +120,18 @@
         msg.textContent = message;
         el.appendChild(ico);
         el.appendChild(msg);
+        if (action && action.label && typeof action.onClick === 'function') {
+            var act = document.createElement('button');
+            act.type = 'button';
+            act.className = 'ux-act';
+            act.textContent = action.label;
+            act.addEventListener('click', function (e) {
+                e.stopPropagation();
+                close();
+                try { action.onClick(); } catch (_) { /* ignore */ }
+            });
+            el.appendChild(act);
+        }
         host.appendChild(el);
 
         var record = { message: message, type: type, until: Date.now() + duration };
@@ -130,6 +149,7 @@
 
         // 最多同時 4 則
         while (host.children.length > 4) host.removeChild(host.firstChild);
+        return { close: close };
     }
 
     window.fengbroToast = toast;
@@ -285,6 +305,8 @@
                     return prevFetch(input, init);
                 }
                 var write = isWrite(method, url);
+                // init.fengbroQuiet：呼叫端自己會顯示結果（例如刪除後附「復原」的提示），不另外跳「已完成」。
+                var quiet = !!(init && init.fengbroQuiet);
                 var release = write ? claimBusyButton() : null;
                 barStart();
                 var promise;
@@ -298,7 +320,7 @@
                 return promise.then(function (response) {
                     barDone();
                     if (release) release();
-                    if (write) {
+                    if (write && !quiet) {
                         try {
                             var ct = response.headers.get('content-type') || '';
                             if (response.ok && ct.indexOf('application/json') !== -1) {
@@ -396,6 +418,11 @@
             }
         })();
     }
+
+    // 局部更新（fengbroReload）完成後立刻顯示，不必等輪詢。
+    window.fengbroFlushFlash = function () {
+        try { showFlash(); } catch (_) { /* ignore */ }
+    };
 
     function showFlash() {
         var flash = ssGet(FLASH_KEY);
