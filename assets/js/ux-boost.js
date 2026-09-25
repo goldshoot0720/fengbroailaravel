@@ -405,6 +405,8 @@
         if (!saved || saved.key !== pageKey() || Date.now() - saved.at > 5 * 60 * 1000) return;
         if (location.hash) return;
         if (navigationType() !== 'reload') return;
+        // 新增／編輯後要捲到該筆資料（optimistic-ui.js），不還原舊位置。
+        if (typeof window.fengbroHasPendingFocus === 'function' && window.fengbroHasPendingFocus()) return;
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (_) { /* ignore */ }
         var y = saved.y || 0;
         if (y <= 0) return;

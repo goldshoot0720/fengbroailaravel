@@ -57,8 +57,9 @@
             '.fengbro-opt-leaving{transition:opacity .18s ease,transform .18s ease;opacity:0!important;transform:scale(.98);}' +
             '.fengbro-opt-hidden{display:none!important;}' +
             '.fengbro-opt-fresh{animation:fengbroOptFresh 1.2s ease-out;}' +
+            '.fengbro-opt-focus{animation:fengbroOptFresh 1.8s ease-out;outline:none;}' +
             '@keyframes fengbroOptFresh{0%{background-color:rgba(201,100,66,.18);}100%{background-color:transparent;}}' +
-            '@media (prefers-reduced-motion:reduce){.fengbro-opt-pending,.fengbro-opt-fresh{animation:none;}' +
+            '@media (prefers-reduced-motion:reduce){.fengbro-opt-pending,.fengbro-opt-fresh,.fengbro-opt-focus{animation:none;}' +
             '.fengbro-opt-leaving{transition:none;}}';
         (document.head || document.documentElement).appendChild(style);
     } catch (_) { /* ignore */ }
@@ -361,6 +362,7 @@
             if (!ok) return false;
             try { document.dispatchEvent(new CustomEvent('fengbro:soft-reload')); } catch (_) { /* ignore */ }
             if (typeof window.fengbroFlushFlash === 'function') window.fengbroFlushFlash();
+            if (!again) focusPendingItem(true);
             if (again) {
                 again = false;
                 return softReload();
@@ -486,6 +488,8 @@
                 var method = String((init && init.method) || (input && typeof input !== 'string' && input.method) || 'GET').toUpperCase();
                 var unmark = null;
                 var write = false;
+                var focusAction = '';
+                var focusId = '';
                 try {
                     var u = new URL(url, location.href);
                     if (u.origin === location.origin && !/(stats_api|csrf|notif_diag)\.php$/.test(u.pathname)) {
@@ -494,6 +498,12 @@
                         if (/api\.php$/.test(u.pathname) && action === 'update' && u.searchParams.get('id')) {
                             unmark = markPending(u.searchParams.get('id'));
                         }
+                        // 新增／編輯（不含數量 +／− 這類靜默更新）完成後要捲到該筆。
+                        if (/api\.php$/.test(u.pathname) && (action === 'create' || action === 'update') &&
+                            !(init && init.fengbroQuiet)) {
+                            focusAction = action;
+                            focusId = u.searchParams.get('id') || '';
+                        }
                     }
                 } catch (_) { /* ignore */ }
                 var promise = prevFetch(input, init);
@@ -501,6 +511,15 @@
                     promise.then(function (response) {
                         if (unmark) unmark();
                         if (write && response && response.ok) markDataChanged();
+                        if (focusAction && response && response.ok) {
+                            response.clone().json().then(function (data) {
+                                if (!data || !data.success) return;
+                                var id = focusAction === 'create'
+                                    ? (data.id || (data.data && data.data.id))
+                                    : focusId;
+                                rememberFocus(id);
+                            }).catch(function () { /* ignore */ });
+                        }
                     }, function () {
                         if (unmark) unmark();
                     });
@@ -564,6 +583,131 @@
         } catch (_) { /* ignore */ }
     }
     installSpeculationRules();
+
+    /* ---------------------------------------------------------
+     * 新增／編輯後把畫面帶到該筆資料：項目停在畫面略下方（距頂端約 1/4），並短暫標示
+     *
+     * api.php 的 create / update 成功時記下 id（存 sessionStorage，整頁重新整理也找得到），
+     * 局部更新完成或新頁面載入後再捲過去。一次寫入多筆（批次套用、匯入）就不捲動。
+     * --------------------------------------------------------- */
+    var FOCUS_KEY = 'fengbroFocusItem';
+    var FOCUS_OFFSET_RATIO = 0.25;
+
+    function focusPageKey() {
+        return location.pathname + location.search;
+    }
+
+    function readFocus() {
+        try { return JSON.parse(sessionStorage.getItem(FOCUS_KEY) || 'null'); } catch (_) { return null; }
+    }
+
+    function writeFocus(value) {
+        try {
+            if (value) sessionStorage.setItem(FOCUS_KEY, JSON.stringify(value));
+            else sessionStorage.removeItem(FOCUS_KEY);
+        } catch (_) { /* ignore */ }
+    }
+
+    function rememberFocus(id) {
+        if (id === undefined || id === null || id === '') return;
+        var now = Date.now();
+        var prev = readFocus();
+        var ids = prev && prev.key === focusPageKey() && now - prev.at < 15000 ? prev.ids : [];
+        if (ids.indexOf(String(id)) === -1) ids.push(String(id));
+        writeFocus({ key: focusPageKey(), ids: ids, at: now });
+    }
+
+    function pendingFocusId() {
+        var saved = readFocus();
+        if (!saved || saved.key !== focusPageKey() || Date.now() - saved.at > 15000) return null;
+        return saved.ids && saved.ids.length === 1 ? saved.ids[0] : null;
+    }
+
+    function isShown(el) {
+        return !!(el && el.getClientRects().length && !el.closest('.fengbro-opt-hidden'));
+    }
+
+    /** 項目在收合的群組或 <details> 裡時先展開。 */
+    function revealItem(el) {
+        for (var p = el.parentElement; p; p = p.parentElement) {
+            if (p.tagName === 'DETAILS' && !p.open) p.open = true;
+            if (p.classList && p.classList.contains('mgmt-group') && !p.classList.contains('is-open')) {
+                p.classList.add('is-open');
+                var toggle = p.querySelector('.mgmt-group-toggle');
+                if (toggle) toggle.setAttribute('aria-expanded', 'true');
+            }
+        }
+    }
+
+    var userScrolledAt = 0;
+    ['wheel', 'touchmove', 'keydown'].forEach(function (type) {
+        window.addEventListener(type, function () { userScrolledAt = Date.now(); }, { passive: true, capture: true });
+    });
+
+    function scrollToItem(el, smooth) {
+        var margin = Math.round((window.innerHeight || 600) * FOCUS_OFFSET_RATIO);
+        var prevMargin = el.style.scrollMarginTop;
+        el.style.scrollMarginTop = margin + 'px';
+        try {
+            el.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+        } catch (_) {
+            el.scrollIntoView(true);
+        }
+        el.style.scrollMarginTop = prevMargin;
+    }
+
+    /** 捲到剛新增／編輯的項目。回傳是否找到。 */
+    function focusPendingItem(smooth) {
+        var id = pendingFocusId();
+        writeFocus(null);
+        if (!id) return false;
+        var els = itemsFor(id);
+        if (!els.length) return false;
+        var target = null;
+        for (var i = 0; i < els.length && !target; i++) {
+            if (isShown(els[i])) target = els[i];
+        }
+        if (!target) {
+            revealItem(els[0]);
+            for (i = 0; i < els.length && !target; i++) {
+                if (isShown(els[i])) target = els[i];
+            }
+        }
+        if (!target) return false;
+
+        var reduce = false;
+        try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { /* ignore */ }
+        scrollToItem(target, smooth && !reduce);
+        if (!target.hasAttribute('tabindex') && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) {
+            target.setAttribute('tabindex', '-1');
+        }
+        try { target.focus({ preventScroll: true }); } catch (_) { /* ignore */ }
+        target.classList.remove('fengbro-opt-fresh');
+        target.classList.add('fengbro-opt-focus');
+        setTimeout(function () { target.classList.remove('fengbro-opt-focus'); }, 1900);
+
+        // 整頁重新整理時圖片載入會讓版面長高，使用者沒自己捲動就再對準一次。
+        if (!smooth) {
+            var startedAt = Date.now();
+            window.addEventListener('load', function () {
+                if (userScrolledAt < startedAt && Date.now() - startedAt < 4000) scrollToItem(target, false);
+            }, { once: true });
+        }
+        return true;
+    }
+
+    // 整頁重新整理（或非局部更新頁面）載入後：ux-boost 看到這個就不還原捲動位置。
+    window.fengbroHasPendingFocus = function () { return !!pendingFocusId(); };
+
+    function focusOnLoad() {
+        if (!pendingFocusId()) return;
+        setTimeout(function () { focusPendingItem(false); }, 0);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', focusOnLoad, { once: true });
+    } else {
+        focusOnLoad();
+    }
 
     /* ---------------------------------------------------------
      * 對外 API
