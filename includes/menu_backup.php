@@ -23,6 +23,7 @@ function fengbroMenuBackupEntries(): array
         ['id' => 'reinstall', 'label' => '鋒兄重灌', 'csvStem' => 'reinstall', 'table' => 'reinstall', 'csvOnly' => true, 'zipBundle' => false],
         ['id' => 'quota', 'label' => '鋒兄額度', 'csvStem' => 'quota', 'table' => 'quota', 'csvOnly' => true, 'zipBundle' => false],
         ['id' => 'shopping-list', 'label' => '鋒兄購物清單', 'csvStem' => 'shoppinglist', 'table' => 'shoppinglist', 'csvOnly' => true, 'zipBundle' => false],
+        ['id' => 'udemy', 'label' => '鋒兄 Udemy', 'csvStem' => 'udemy', 'table' => 'udemy', 'csvOnly' => true, 'zipBundle' => false],
         ['id' => 'common', 'label' => '鋒兄常用', 'csvStem' => 'commonaccount', 'table' => 'commonaccount', 'csvOnly' => true, 'zipBundle' => false],
         ['id' => 'bank-stats', 'label' => '鋒兄銀行', 'csvStem' => 'bank', 'table' => 'bank', 'csvOnly' => true, 'zipBundle' => false],
         ['id' => 'routine', 'label' => '鋒兄例行', 'csvStem' => 'routine', 'table' => 'routine', 'csvOnly' => true, 'zipBundle' => false],
@@ -61,6 +62,7 @@ function fengbroMenuBackupCsvAliases(): array
         'quota' => 'quota',
         'shoppinglist' => 'shopping-list',
         'shopping-list' => 'shopping-list',
+        'udemy' => 'udemy',
         'commonaccount' => 'common',
         'common' => 'common',
         'bank' => 'bank-stats',
@@ -336,6 +338,8 @@ function fengbroMenuBackupExportCsvEntry(PDO $pdo, array $entry, string $newsCsv
                 fengbroEnsureQuotaTable($pdo);
             } elseif ($entry['table'] === 'shoppinglist') {
                 fengbroEnsureShoppingListTable($pdo);
+            } elseif ($entry['table'] === 'udemy') {
+                fengbroEnsureUdemyTable($pdo);
             }
             return fengbroMenuBackupTableCsv($pdo, $entry['table']);
     }
@@ -610,6 +614,7 @@ function fengbroMenuBackupFieldMap(): array
         '幣種' => 'currency', '貨幣' => 'currency',
         'image_url' => 'imageUrl', 'imageurl' => 'imageUrl', '圖片網址' => 'imageUrl', '商品圖片' => 'imageUrl',
         '照片' => 'photo', '圖片' => 'photo',
+        '課程名稱' => 'name', '講師名稱' => 'instructor', '講師' => 'instructor', '程式語言' => 'language', '框架' => 'framework', '技術名稱' => 'technology', '技術' => 'technology', 'watched_lectures' => 'watchedLectures', '已觀看堂數' => 'watchedLectures', '已看堂數' => 'watchedLectures', 'total_lectures' => 'totalLectures', '課程總堂數' => 'totalLectures', '總堂數' => 'totalLectures', 'course_updated_at' => 'courseUpdatedAt', '課程上次更新時間' => 'courseUpdatedAt', '上次更新' => 'courseUpdatedAt', 'total_hours' => 'totalHours', '課程總時長小時' => 'totalHours', '課程總時長（小時）' => 'totalHours', '總時長' => 'totalHours', '課程已經完整收看' => 'completed', '已看完' => 'completed',
     ];
 }
 
@@ -623,6 +628,8 @@ function fengbroMenuBackupImportStandardCsv(PDO $pdo, string $table, string $csv
         fengbroEnsureQuotaTable($pdo);
     } elseif ($table === 'shoppinglist') {
         fengbroEnsureShoppingListTable($pdo);
+    } elseif ($table === 'udemy') {
+        fengbroEnsureUdemyTable($pdo);
     }
     $csvContent = file_get_contents($csvPath);
     if ($csvContent === false || trim($csvContent) === '') {
@@ -717,6 +724,8 @@ function fengbroMenuBackupImportStandardCsv(PDO $pdo, string $table, string $csv
                 $data = array_merge($data, fengbroSanitizeQuotaRow($data));
             } elseif ($table === 'shoppinglist') {
                 $data = array_merge($data, fengbroSanitizeShoppingItemRow($data));
+            } elseif ($table === 'udemy') {
+                $data = array_merge($data, fengbroSanitizeUdemyRow($data));
             }
         } catch (InvalidArgumentException $e) {
             $skipped++;
@@ -741,6 +750,8 @@ function fengbroMenuBackupImportStandardCsv(PDO $pdo, string $table, string $csv
                 $duplicateId = fengbroFindQuotaImportId($pdo, $data);
             } elseif ($table === 'shoppinglist') {
                 $duplicateId = fengbroFindShoppingImportId($pdo, $data);
+            } elseif ($table === 'udemy') {
+                $duplicateId = fengbroFindUdemyImportId($pdo, $data);
             } else {
                 $duplicateId = findExistingImportRecordId($pdo, $table, $data);
             }

@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $table = $_POST['table'] ?? '';
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist', 'udemy'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -172,6 +172,29 @@ $fieldMapping = [
     '圖片網址' => 'imageUrl',
     '商品圖片' => 'imageUrl',
     '商品圖片網址' => 'imageUrl',
+    // 鋒兄 Udemy
+    '課程名稱' => 'name',
+    '講師名稱' => 'instructor',
+    '講師' => 'instructor',
+    '程式語言' => 'language',
+    '框架' => 'framework',
+    '技術名稱' => 'technology',
+    '技術' => 'technology',
+    'watched_lectures' => 'watchedLectures',
+    '已觀看堂數' => 'watchedLectures',
+    '已看堂數' => 'watchedLectures',
+    'total_lectures' => 'totalLectures',
+    '課程總堂數' => 'totalLectures',
+    '總堂數' => 'totalLectures',
+    'course_updated_at' => 'courseUpdatedAt',
+    '課程上次更新時間' => 'courseUpdatedAt',
+    '上次更新' => 'courseUpdatedAt',
+    'total_hours' => 'totalHours',
+    '課程總時長小時' => 'totalHours',
+    '課程總時長（小時）' => 'totalHours',
+    '總時長' => 'totalHours',
+    '課程已經完整收看' => 'completed',
+    '已看完' => 'completed',
 ];
 // Appwrite # 前綴欄位（如 #filetype）動態去除 #，在 header 處理時套用
 
@@ -190,6 +213,9 @@ if ($table === 'quota') {
 }
 if ($table === 'shoppinglist') {
     fengbroEnsureShoppingListTable($pdo);
+}
+if ($table === 'udemy') {
+    fengbroEnsureUdemyTable($pdo);
 }
 
 $csvContent = file_get_contents($file);
@@ -354,6 +380,15 @@ while (($row = fgetcsv($handle, 0, $delimiter, '"', '')) !== false) {
             continue;
         }
     }
+    if ($table === 'udemy') {
+        try {
+            $data = array_merge($data, fengbroSanitizeUdemyRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = "第 {$lineNum} 行: " . $e->getMessage();
+            continue;
+        }
+    }
 
     // 轉換 ISO 8601 日期 -> MySQL DATETIME 格式
     // Appwrite 格式：2024-01-15T08:30:00.000+00:00 -> 2024-01-15 08:30:00
@@ -409,6 +444,8 @@ foreach ($pendingRows as $data) {
             $duplicateId = fengbroFindQuotaImportId($pdo, $data);
         } elseif ($table === 'shoppinglist') {
             $duplicateId = fengbroFindShoppingImportId($pdo, $data);
+        } elseif ($table === 'udemy') {
+            $duplicateId = fengbroFindUdemyImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }

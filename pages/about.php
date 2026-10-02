@@ -266,6 +266,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li>網站統計：進站人次、連續進站天數（台北日曆日）、選單使用 Top 5 與銀行總存款歷史極值（sitevisit、menuusage 表，對齊 Appwrite /api/site-visit 與 /api/menu-usage）</li>
             <li>網站營運天數自起源日 2025-09-28 起算</li>
             <li>新增鋒兄購物清單（shoppinglist 表；CRUD／複製／刪除確認／CSV 匯入匯出）並統一五模組到期提醒窗口：訂閱、試用首購、購物清單、額度非 AI 剩 0~3 天、食品 0~7 天、額度 AI 只提醒前一天與當天</li>
+            <li>新增鋒兄 Udemy（udemy 表；課程、講師、程式語言／框架／技術、已觀看堂數／課程總堂數與觀看比重；可依講師、課程名稱、程式語言、框架、技術名稱或收看狀態分類；CRUD／複製／多選刪除／CSV 匯入匯出，對齊 Appwrite）</li>
             <li>工具個人清單雲端同步：手動價格改存伺服器 manualprice 表（跨瀏覽器同步）、Tube 頻道存 tubechannel 表、金融自訂標的同步寫入 financeinstrument 表</li>
             <li>通知設定密碼：設定頁可建立通知密碼，儲存／變更 RESEND／BigGo API 金鑰需驗證</li>
             <li>Resend 設定 CSV 匯入／匯出：驗證通知密碼後匯出金鑰＋收件 Email；匯入依收件 Email 合併寫回</li>
@@ -291,6 +292,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <li><code>reinstall</code> - 重灌軟體</li>
             <li><code>quota</code> - 鋒兄額度</li>
             <li><code>shoppinglist</code> - 鋒兄購物清單</li>
+            <li><code>udemy</code> - 鋒兄 Udemy 課程與觀看進度</li>
             <li><code>manualprice</code> - 手動價格紀錄</li>
             <li><code>tubechannel</code> - 鋒兄tube 頻道</li>
             <li><code>financeinstrument</code> - 鋒兄金融自訂標的</li>

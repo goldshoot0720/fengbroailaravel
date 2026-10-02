@@ -18,6 +18,7 @@
 | Reinstall | `pages/reinstall.php` | 完成（Win／Mac、序號遮罩、查看密碼、訂閱週期與費用、CSV） |
 | Quota | `pages/quota.php` | 完成 |
 | Shopping list | `pages/shoppinglist.php` | 完成（CRUD、複製、刪除確認、篩選、CSV、3 天內到期窗口） |
+| Udemy | `pages/udemy.php` | 完成（依講師／課程名稱／語言／框架／技術／收看狀態分類、群組觀看比重、CRUD、複製、多選刪除、CSV、一鍵備份） |
 | Food | `pages/food.php` | 完成 |
 | Notes / Article | `pages/notes.php` | 完成 |
 | Common accounts | `pages/favorites.php` | 完成 |

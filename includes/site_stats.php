@@ -240,6 +240,7 @@ function fengbroMenuModuleLabel(string $moduleId): string
         'reinstall' => '重灌',
         'quota' => '額度',
         'shoppinglist' => '購物清單',
+        'udemy' => 'Udemy',
         'food' => '食品',
         'notes' => '筆記',
         'favorites' => '常用',

@@ -297,6 +297,7 @@ function fengbroPerformanceIndexes(): array
         'reinstall' => ['idx_reinstall_created' => '`created_at`'],
         'quota' => ['idx_quota_created' => '`created_at`'],
         'shoppinglist' => ['idx_shoppinglist_created' => '`created_at`', 'idx_shoppinglist_planned' => '`plannedDate`'],
+        'udemy' => ['idx_udemy_created' => '`created_at`'],
     ];
 }
 

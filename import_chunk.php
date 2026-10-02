@@ -31,7 +31,7 @@ if (!is_array($payload)) {
 }
 
 $table = (string) ($payload['table'] ?? '');
-$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
+$allowedTables = ['subscription', 'food', 'article', 'commonaccount', 'image', 'music', 'podcast', 'video', 'commondocument', 'bank', 'routine', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist', 'udemy'];
 if (!in_array($table, $allowedTables, true)) {
     jsonResponse(['success' => false, 'error' => '無效的資料表'], 400);
 }
@@ -142,6 +142,29 @@ $fieldMapping = [
     '圖片網址' => 'imageUrl',
     '商品圖片' => 'imageUrl',
     '商品圖片網址' => 'imageUrl',
+    // 鋒兄 Udemy
+    '課程名稱' => 'name',
+    '講師名稱' => 'instructor',
+    '講師' => 'instructor',
+    '程式語言' => 'language',
+    '框架' => 'framework',
+    '技術名稱' => 'technology',
+    '技術' => 'technology',
+    'watched_lectures' => 'watchedLectures',
+    '已觀看堂數' => 'watchedLectures',
+    '已看堂數' => 'watchedLectures',
+    'total_lectures' => 'totalLectures',
+    '課程總堂數' => 'totalLectures',
+    '總堂數' => 'totalLectures',
+    'course_updated_at' => 'courseUpdatedAt',
+    '課程上次更新時間' => 'courseUpdatedAt',
+    '上次更新' => 'courseUpdatedAt',
+    'total_hours' => 'totalHours',
+    '課程總時長小時' => 'totalHours',
+    '課程總時長（小時）' => 'totalHours',
+    '總時長' => 'totalHours',
+    '課程已經完整收看' => 'completed',
+    '已看完' => 'completed',
 ];
 
 function normalizeImportMoneyChunk($value)
@@ -188,6 +211,9 @@ if ($table === 'quota') {
 }
 if ($table === 'shoppinglist') {
     fengbroEnsureShoppingListTable($pdo);
+}
+if ($table === 'udemy') {
+    fengbroEnsureUdemyTable($pdo);
 }
 $dbColumns = [];
 try {
@@ -276,6 +302,15 @@ foreach ($rows as $index => $rawRow) {
             continue;
         }
     }
+    if ($table === 'udemy') {
+        try {
+            $data = array_merge($data, fengbroSanitizeUdemyRow($data));
+        } catch (InvalidArgumentException $e) {
+            $skipped++;
+            $errors[] = '第 ' . ($index + 1) . ' 筆: ' . $e->getMessage();
+            continue;
+        }
+    }
     foreach ($data as $key => $value) {
         if ($value !== null && is_string($value) && preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/', $value, $m)) {
             $data[$key] = $m[1] . ' ' . $m[2];
@@ -318,6 +353,8 @@ foreach ($pendingRows as $pending) {
             $duplicateId = fengbroFindQuotaImportId($pdo, $data);
         } elseif ($table === 'shoppinglist') {
             $duplicateId = fengbroFindShoppingImportId($pdo, $data);
+        } elseif ($table === 'udemy') {
+            $duplicateId = fengbroFindUdemyImportId($pdo, $data);
         } else {
             $duplicateId = findExistingImportRecordId($pdo, $table, $data);
         }
