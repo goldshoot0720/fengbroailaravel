@@ -5,6 +5,7 @@
 - **Workspace**: the personal operations system that groups subscriptions, trial/first-purchase accounts, reinstall software lists, food inventory, notes, media, documents, banks, routines, tools, settings, and notifications.
 - **Trial / first purchase**: one `trialpurchase` row is a service × account pair, grouped by service name, with trial/purchase status and an event date.
 - **Reinstall software**: one `reinstall` row is a Windows or Mac package, with optional paid serial hidden behind a view password.
+- **Udemy course**: one `udemy` row is one course with its watch progress — instructor, multi-value language/framework/technology tags (split on `,` `、` `，`), watched/total lectures, total hours, course last-updated date (Udemy shows only year/month, so `2025/8` is stored as `2025-08-01`), and a completed flag. Watched percent counts a completed course as 100% and a course with no total lectures as 0%. Validation and summaries live in `includes/udemy_helpers.php`.
 - **Bank account**: a stored financial account in `bank` whose balance is tracked through the `deposit` field.
 - **E-ticket**: a stored non-bank balance account in `bank`, such as transport cards or wallet-like stored value.
 - **Point**: a loyalty/reward point balance in `bank` (e.g. LINE Pay Point), shown in its own block on the bank page; `deposit` holds the point count (not TWD) and `note` holds remarks such as the expiry date. Rows are classified by `category` (`bank` / `ticket` / `point`) or, when empty, by name keywords (`bankItemCategory()` in `includes/bank_helpers.php`).

@@ -405,6 +405,24 @@ CREATE TABLE IF NOT EXISTS shoppinglist (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 鋒兄 Udemy：一筆代表一門課程與觀看進度
+CREATE TABLE IF NOT EXISTS udemy (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    instructor VARCHAR(200),
+    `language` VARCHAR(200),
+    framework VARCHAR(200),
+    technology VARCHAR(200),
+    watchedLectures INT DEFAULT 0,
+    totalLectures INT DEFAULT 0,
+    courseUpdatedAt DATE NULL,
+    totalHours DECIMAL(8,2) DEFAULT 0,
+    completed TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX `idx_udemy_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS manualprice (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(200) NOT NULL,

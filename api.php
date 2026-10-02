@@ -7,7 +7,7 @@ $action = $_GET['action'] ?? '';
 $table = $_GET['table'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
-$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist'];
+$allowedTables = ['subscription', 'food', 'notes', 'favorites', 'image', 'music', 'podcast', 'video', 'bank', 'routine', 'commondocument', 'commonaccount', 'article', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist', 'udemy'];
 
 if (!in_array($table, $allowedTables)) {
     jsonResponse(['error' => '無效的資料表'], 400);
@@ -43,6 +43,8 @@ $fengbroApiEnsureSchema = static function (bool $force = false) use ($pdo, $tabl
         fengbroEnsureQuotaTable($pdo);
     } elseif ($table === 'shoppinglist') {
         fengbroEnsureShoppingListTable($pdo);
+    } elseif ($table === 'udemy') {
+        fengbroEnsureUdemyTable($pdo);
     } elseif ($table === 'bank') {
         require_once __DIR__ . '/includes/bank_helpers.php';
         fengbroEnsureBankColumns($pdo);
@@ -112,6 +114,8 @@ switch ($action) {
                 $input = fengbroSanitizeQuotaRow($input);
             } elseif ($table === 'shoppinglist') {
                 $input = fengbroSanitizeShoppingItemRow($input);
+            } elseif ($table === 'udemy') {
+                $input = fengbroSanitizeUdemyRow($input);
             }
         } catch (InvalidArgumentException $e) {
             jsonResponse(['error' => $e->getMessage()], 400);
@@ -153,6 +157,8 @@ switch ($action) {
                 $input = fengbroSanitizeQuotaRow($input);
             } elseif ($table === 'shoppinglist') {
                 $input = fengbroSanitizeShoppingItemRow($input);
+            } elseif ($table === 'udemy') {
+                $input = fengbroSanitizeUdemyRow($input);
             }
         } catch (InvalidArgumentException $e) {
             jsonResponse(['error' => $e->getMessage()], 400);

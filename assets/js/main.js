@@ -171,6 +171,23 @@ function initFengbroVoiceInput() {
             },
             examples: ['新增購物 洗衣精 數量 1', '搜尋 全聯', '篩選 3 天內要買', '複製這筆', '匯入 CSV', '儲存']
         },
+        udemy: {
+            title: '鋒兄 Udemy',
+            aliases: ['Udemy', 'udemy', '鋒兄 Udemy', '線上課程', '課程進度', '課程'],
+            fields: {
+                name: ['課程名稱', '課程', '名稱'],
+                instructor: ['講師名稱', '講師', '老師'],
+                language: ['程式語言', '語言'],
+                framework: ['框架'],
+                technology: ['技術名稱', '技術'],
+                watchedLectures: ['已觀看堂數', '已看堂數', '看到第幾堂'],
+                totalLectures: ['課程總堂數', '總堂數'],
+                totalHours: ['課程總時長', '總時長', '時數'],
+                courseUpdatedAt: ['課程上次更新時間', '上次更新'],
+                completed: ['課程已經完整收看', '已看完', '完整收看']
+            },
+            examples: ['新增課程 React 完整指南 講師 Maximilian', '搜尋 Python', '依講師分類', '篩選尚未完整收看', '匯入 CSV', '儲存']
+        },
         reinstall: {
             title: '鋒兄重灌',
             aliases: ['重灌', '重裝', '軟體清單', '鋒兄重灌', 'reinstall'],

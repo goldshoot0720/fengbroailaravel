@@ -2,6 +2,7 @@
 require_once 'config/database.php';
 require_once 'includes/security.php';
 require_once 'includes/management_tables.php';
+require_once 'includes/udemy_helpers.php';
 
 echo "<h1>鋒兄系統 - 資料庫安裝</h1>";
 echo "<pre>";
@@ -243,6 +244,8 @@ try {
 
         "shoppinglist" => fengbroShoppingListCreateSql(),
 
+        "udemy" => fengbroUdemyCreateSql(),
+
         "manualprice" => fengbroManualPriceCreateSql(),
 
         "tubechannel" => "CREATE TABLE IF NOT EXISTS tubechannel (
@@ -410,6 +413,7 @@ try {
         "ALTER TABLE reinstall ADD INDEX `idx_reinstall_name_system` (`name`, `system`)",
         "ALTER TABLE quota ADD INDEX `idx_quota_name_account` (`name`, `account`(100))",
         "ALTER TABLE shoppinglist ADD INDEX `idx_shoppinglist_name` (`name`)",
+        "ALTER TABLE udemy ADD INDEX `idx_udemy_name` (`name`)",
     ];
     foreach ($upgrades as $sql) {
         try {

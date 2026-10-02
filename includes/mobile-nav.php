@@ -6,7 +6,7 @@
  */
 $mCurPage = $_GET['page'] ?? 'home';
 
-$mLifeSet  = ['subscription', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist', 'food', 'bank', 'routine'];
+$mLifeSet  = ['subscription', 'trialpurchase', 'reinstall', 'quota', 'shoppinglist', 'udemy', 'food', 'bank', 'routine'];
 $mMediaSet = ['images', 'videos', 'music', 'podcast'];
 $mMoreSet  = ['notes', 'favorites', 'documents', 'settings', 'about', 'service'];
 

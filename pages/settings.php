@@ -781,6 +781,7 @@ $biggoSettings = [
             'reinstall' => '重灌',
             'quota' => '額度',
             'shoppinglist' => '購物清單',
+            'udemy' => 'Udemy 課程',
             'manualprice' => '手動價格',
             'tubechannel' => 'Tube 頻道',
             'financeinstrument' => '金融標的',
