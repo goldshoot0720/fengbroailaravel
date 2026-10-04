@@ -24,7 +24,6 @@ tools/edge-tts/package-lock.json
 /public/storage
 /storage/*.key
 /storage/pail
-/vendor
 /database/*.sqlite
 /bootstrap/cache/*.php
 _ide_helper.php
