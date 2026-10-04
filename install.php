@@ -1,5 +1,5 @@
 <?php
-require_once 'config/database.php';
+require_once 'includes/database_bootstrap.php';
 require_once 'includes/security.php';
 require_once 'includes/management_tables.php';
 require_once 'includes/udemy_helpers.php';

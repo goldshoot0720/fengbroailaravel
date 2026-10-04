@@ -33,6 +33,8 @@ function fengbroStartSecureSession(): void
 
 function fengbroSecurityHeaders(): void
 {
+    // Laravel 與網站根目錄 .htaccess 已送安全標頭，避免在這裡再呼叫 header()。
+    if (defined('FENGBRO_LARAVEL')) return;
     if (PHP_SAPI === 'cli' || headers_sent()) return;
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');

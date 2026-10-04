@@ -15,8 +15,14 @@
 
 ## 技術棧
 
-- PHP（無框架）+ MySQL
-- 前端：原生 JS + CSS，支援 PWA / 深色模式
+- PHP + Laravel + Livewire（頁面外框與路由）
+- 既有頁面、`api.php` 與上傳端點仍在專案根目錄，由 Livewire 全頁元件載入
+- MySQL（鋒兄資料）設定在專案根目錄的 `fengbro_database.php`
+- 前端：Livewire + 既有原生 JS / CSS，支援 PWA / 深色模式
+
+本機預覽：`php -S 127.0.0.1:8000 router.php`
+
+連線檔請複製 `fengbro_database.example.php` 為 `fengbro_database.php`。若線上的 `config/database.php` 仍是舊的 `define('DB_HOST'` 常數檔，第一次啟動會自動搬到 `fengbro_database.php`。不要對鋒兄的 MySQL 執行 `php artisan migrate`。
 
 ## 安全防護
 

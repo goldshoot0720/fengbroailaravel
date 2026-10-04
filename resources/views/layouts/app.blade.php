@@ -1,0 +1,56 @@
+@php
+    \App\Support\LegacyBridge::boot();
+    $page = $page ?? 'home';
+    $tool = $tool ?? '';
+    $title = $title ?? '鋒兄首頁';
+    $pageTitle = $title;
+    $_GET['page'] = $page;
+    if ($tool !== '') {
+        $_GET['tool'] = $tool;
+    }
+@endphp
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="csrf-token" content="{{ fengbroCsrfToken() }}">
+    <title>鋒兄AI Laravel - {{ $title }}</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-16x16.png">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f8f7f2" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f0f0e" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="鋒兄AI Laravel">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512x512.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="icon-128x128.png">
+    <link rel="apple-touch-icon-precomposed" href="icon-192x192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=20261005livewire1">
+    <link rel="stylesheet" href="assets/css/inline-edit.css?v=20261005livewire1">
+    <script src="assets/js/security.js?v=20260907b"></script>
+    <script src="assets/js/ux-boost.js?v=20260925focus1"></script>
+    <script src="assets/js/optimistic-ui.js?v=20260925focus1"></script>
+</head>
+<body data-page="{{ $page }}" data-tool="{{ $tool }}">
+    <a class="skip-link" href="#mainContent">跳至主要內容</a>
+    <div class="container">
+        @php
+            include base_path('includes/sidebar.php');
+            include base_path('includes/mobile-nav.php');
+        @endphp
+        <main class="content" id="mainContent" tabindex="-1">
+            {{ $slot }}
+        </main>
+        @php include base_path('includes/footer.php'); @endphp

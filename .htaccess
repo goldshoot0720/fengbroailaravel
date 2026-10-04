@@ -1,6 +1,20 @@
 # Override PHP limits for large file uploads (required for music ZIP import)
 Options -Indexes
 
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 已存在的檔案與目錄（api.php、upload.php、assets、uploads）直接交出。
+    # 其餘路徑交給 Laravel / Livewire。
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    RewriteRule ^ index.php [L]
+</IfModule>
+
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
@@ -8,7 +22,7 @@ Options -Indexes
     Header always set X-Robots-Tag "noindex, nofollow, noarchive"
 </IfModule>
 
-<FilesMatch "^(database(_.*)?\.php|\.env|composer\.(json|lock)|.*\.(sql|log|ini))$">
+<FilesMatch "^(database(_.*)?\.php|fengbro_database.*\.php|\.env|composer\.(json|lock)|.*\.(sql|log|ini))$">
     Require all denied
 </FilesMatch>
 

@@ -1,0 +1,112 @@
+<?php
+require_once 'includes/functions.php';
+
+$page = $_GET['page'] ?? 'home';
+
+// 對齊 Appwrite：儀表已合併進首頁（精簡／完整儀表同一頁），舊網址一律落到首頁完整儀表。
+$homeInitialFullView = false;
+if ($page === 'dashboard') {
+    $page = 'home';
+    $homeInitialFullView = true;
+}
+
+$allowedPages = [
+    'home',
+    'subscription',
+    'trialpurchase',
+    'reinstall',
+    'quota',
+    'shoppinglist',
+    'udemy',
+    'food',
+    'notes',
+    'favorites',
+    'images',
+    'videos',
+    'music',
+    'documents',
+    'podcast',
+    'bank',
+    'routine',
+    'tools',
+    'settings',
+    'about',
+    'service'
+];
+
+if (!in_array($page, $allowedPages)) {
+    $page = 'home';
+}
+
+$pageFile = "pages/{$page}.php";
+$pageTitles = [
+    'home' => '鋒兄首頁',
+    'subscription' => '鋒兄訂閱',
+    'trialpurchase' => '鋒兄試用／首購',
+    'reinstall' => '鋒兄重灌',
+    'quota' => '鋒兄額度',
+    'shoppinglist' => '鋒兄購物清單',
+    'udemy' => '鋒兄 Udemy',
+    'food' => '鋒兄食品 （＋商品庫存）',
+    'notes' => '鋒兄筆記',
+    'favorites' => '鋒兄常用',
+    'images' => '鋒兄圖片',
+    'videos' => '鋒兄影片',
+    'music' => '鋒兄音樂',
+    'documents' => '鋒兄文件',
+    'podcast' => '鋒兄播客',
+    'bank' => '鋒兄銀行 （＋電子票證/點數）',
+    'routine' => '鋒兄例行',
+    'tools' => '鋒兄工具 （＋比價）',
+    'settings' => '鋒兄設定',
+    'about' => '鋒兄關於',
+    'service' => '服務資訊'
+];
+$pageTitle = $pageTitles[$page] ?? '鋒兄首頁';
+$bodyDataTool = '';
+if (($page ?? '') === 'tools') {
+    $requestedTool = (string) ($_GET['tool'] ?? '');
+    $bodyDataTool = in_array($requestedTool, [
+        'price', 'phone', 'manual', 'tube', 'finance', 'news',
+        'image-convert', 'image-voice', 'video-merge', 'yt-bili',
+    ], true) ? $requestedTool : '';
+}
+
+// 資料沒變就回 304，不查資料庫也不重新產生頁面（切換選單回來幾乎瞬開）。
+// 工具頁（外部即時資料）與設定頁（診斷資訊）每次都重新產生。
+fengbroServePageWithEtag($pageFile, !in_array($page, ['tools', 'settings'], true));
+
+// 工具頁的 POST 動作會送出 header()（重導／CSV 下載），必須在輸出任何 HTML 前處理。
+if ($page === 'tools') {
+    require_once __DIR__ . '/includes/tools_actions.php';
+    fengbroToolsHandlePostActions($bodyDataTool !== '' ? $bodyDataTool : 'price');
+}
+
+include 'includes/header.php';
+include 'includes/sidebar.php';
+include 'includes/mobile-nav.php';
+?>
+
+<main class="content" id="mainContent" tabindex="-1">
+    <?php
+    if (file_exists($pageFile)) {
+        include $pageFile;
+    } else {
+        echo '<div class="content-body"><p>頁面不存在</p></div>';
+    }
+    ?>
+</main>
+
+<?php include 'includes/footer.php'; ?>
+<?php
+// 回應送出後再檢查效能索引（每 6 小時最多一次，有 schema 快取），不拖慢使用者看到頁面的時間。
+register_shutdown_function(static function () {
+    if (function_exists('fastcgi_finish_request')) {
+        @fastcgi_finish_request();
+    }
+    try {
+        fengbroEnsurePerformanceIndexes();
+    } catch (Throwable $e) {
+        error_log('fengbro index check failed: ' . $e->getMessage());
+    }
+});

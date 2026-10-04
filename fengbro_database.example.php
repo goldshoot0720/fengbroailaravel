@@ -3,9 +3,12 @@
  * 資料庫設定範例
  *
  * 使用方式：
- *   1. 複製本檔為 config/database.php（該檔已列入 .gitignore，不會進版控）
+ *   1. 複製本檔為專案根目錄的 fengbro_database.php（該檔已列入 .gitignore，不會進版控）
  *   2. 修改下面四個常數為實際連線資訊
  *   3. 瀏覽 install.php 建立資料庫與資料表（或直接匯入 database.sql）
+ *
+ * 不要把這份常數檔放進 config/。config/database.php 是 Laravel 的設定。
+ * 若線上仍是舊的 config/database.php 常數檔，第一次啟動會自動搬到 fengbro_database.php。
  */
 
 // 以下請自行手動改成實際值（保持 __ 開頭的佔位字串會連線失敗，提醒你還沒改）
@@ -37,7 +40,7 @@ function getConnection() {
         // 不要把帳密或完整錯誤丟到前端
         error_log('DB connection failed: ' . $e->getMessage());
         http_response_code(500);
-        exit('資料庫連線失敗，請檢查 config/database.php 設定。');
+        exit('資料庫連線失敗，請檢查 fengbro_database.php 設定。');
     }
 
     return $pdo;
