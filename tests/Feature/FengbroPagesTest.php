@@ -119,6 +119,50 @@ class FengbroPagesTest extends TestCase
             ->assertSee('驗收手動價格', false);
     }
 
+    public function test_delete_and_empty_trash_use_index_and_reject_tokenless_get(): void
+    {
+        $page = $this->get('/index.php?page=subscription&trash=1');
+        $page->assertOk();
+        $page->assertSee('index.php?action=delete', false);
+        $page->assertSee('index.php?action=empty_trash', false);
+        $page->assertDontSee('api.php?action=delete', false);
+        $page->assertDontSee('api.php?action=empty_trash', false);
+        $page->assertDontSee('api.php?action=restore', false);
+
+        $created = $this->postJson('/index.php?action=create&table=food', ['name' => '驗收刪除食品']);
+        $created->assertOk();
+        $created->assertJson(['success' => true]);
+        $id = (string) $created->json('id');
+        $this->assertNotSame('', $id);
+
+        $blocked = $this->get('/index.php?action=delete&table=food&id='.$id);
+        $blocked->assertStatus(419);
+        $this->assertSame(1, DB::table('food')->where('id', $id)->count());
+        $this->get('/index.php?page=food')->assertOk()->assertSee('驗收刪除食品', false);
+
+        $_SESSION['csrf_token'] = 'feature-delete-token';
+        $deleted = $this->withHeader('X-CSRF-TOKEN', 'feature-delete-token')
+            ->get('/index.php?action=delete&table=food&id='.$id);
+        $deleted->assertOk();
+        $deleted->assertJson(['success' => true]);
+        $this->assertSame(0, DB::table('food')->where('id', $id)->count());
+        $this->get('/index.php?page=food')->assertOk()->assertDontSee('驗收刪除食品', false);
+
+        $this->flushHeaders();
+        unset($_SESSION['csrf_token']);
+
+        $manual = $this->postJson('/index.php?fengbro_manual=1', [
+            'name' => '驗收手動刪除',
+            'currency' => 'TWD',
+        ]);
+        $manual->assertOk();
+        $manualId = (string) $manual->json('id');
+        $this->assertNotSame('', $manualId);
+        $manualBlocked = $this->get('/index.php?fengbro_manual=1&action=delete&id='.$manualId);
+        $manualBlocked->assertStatus(419);
+        $this->assertSame(1, DB::table('manualprice')->where('id', $manualId)->count());
+    }
+
     private function assertPageUsesLivewire(string $page): void
     {
         $route = Route::getRoutes()->match(

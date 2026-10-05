@@ -265,7 +265,7 @@
         };
 
         ids.forEach(id => {
-            fetch(`api.php?action=delete&table=${encodeURIComponent(batchDeleteTable)}&id=${encodeURIComponent(id)}`, { fengbroQuiet: true })
+            fetch(`index.php?action=delete&table=${encodeURIComponent(batchDeleteTable)}&id=${encodeURIComponent(id)}`, { fengbroQuiet: true })
                 .then(r => r.json())
                 .then(res => finishOne(id, !!res.success))
                 .catch(() => finishOne(id, false));
