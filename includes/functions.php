@@ -41,6 +41,17 @@ function fengbroEnvironment(): string
 
 $GLOBALS['ENV'] = fengbroEnvironment();
 
+function fengbroRootPath(string $suffix = ''): string
+{
+    if (function_exists('base_path')) {
+        return $suffix === '' ? base_path() : base_path($suffix);
+    }
+
+    $root = dirname(__DIR__);
+
+    return $suffix === '' ? $root : $root.'/'.ltrim($suffix, '/');
+}
+
 function generateUUID() {
     return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
         mt_rand(0, 0xffff), mt_rand(0, 0xffff),

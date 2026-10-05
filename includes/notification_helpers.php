@@ -30,20 +30,40 @@ function notifDaysText($date): string
  *
  * @return list<array<string,mixed>>
  */
+function notifPdoIsSqlite(PDO $pdo): bool
+{
+    return $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+}
+
+/** @return array{0: string, 1: int|string} */
+function notifUpcomingWindow(PDO $pdo, string $column): array
+{
+    if (notifPdoIsSqlite($pdo)) {
+        return ["date({$column}) >= date('now') AND date({$column}) <= date('now', ?)", 0];
+    }
+
+    return ["{$column} >= CURDATE() AND {$column} <= DATE_ADD(CURDATE(), INTERVAL ? DAY)", 0];
+}
+
+function notifWindowParam(PDO $pdo, int $days): int|string
+{
+    return notifPdoIsSqlite($pdo) ? '+'.$days.' days' : $days;
+}
+
 function notifGetExpiringSubscriptions(PDO $pdo, int $withinDays = 3): array
 {
     $withinDays = max(0, $withinDays);
+    [$window] = notifUpcomingWindow($pdo, 'nextdate');
     $stmt = $pdo->prepare(
         "SELECT id, name, nextdate, site, account, note, price, currency
          FROM subscription
          WHERE `continue` = 1
            AND deleted_at IS NULL
            AND nextdate IS NOT NULL
-           AND nextdate >= CURDATE()
-           AND nextdate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+           AND {$window}
          ORDER BY nextdate ASC, name ASC"
     );
-    $stmt->execute([$withinDays]);
+    $stmt->execute([notifWindowParam($pdo, $withinDays)]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -55,16 +75,19 @@ function notifGetExpiringSubscriptions(PDO $pdo, int $withinDays = 3): array
 function notifGetSubscriptionsDueInDays(PDO $pdo, int $daysAhead): array
 {
     $daysAhead = max(0, $daysAhead);
+    $match = notifPdoIsSqlite($pdo)
+        ? "date(nextdate) = date('now', ?)"
+        : 'DATE(nextdate) = DATE_ADD(CURDATE(), INTERVAL ? DAY)';
     $stmt = $pdo->prepare(
         "SELECT id, name, nextdate AS target_date, site, account, note
          FROM subscription
          WHERE `continue` = 1
            AND deleted_at IS NULL
            AND nextdate IS NOT NULL
-           AND DATE(nextdate) = DATE_ADD(CURDATE(), INTERVAL ? DAY)
+           AND {$match}
          ORDER BY nextdate ASC, name ASC"
     );
-    $stmt->execute([$daysAhead]);
+    $stmt->execute([notifWindowParam($pdo, $daysAhead)]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -76,15 +99,15 @@ function notifGetSubscriptionsDueInDays(PDO $pdo, int $daysAhead): array
 function notifGetExpiringFood(PDO $pdo, int $withinDays = 7): array
 {
     $withinDays = max(0, $withinDays);
+    [$window] = notifUpcomingWindow($pdo, 'todate');
     $stmt = $pdo->prepare(
         "SELECT id, name, todate, amount, shop
          FROM food
          WHERE todate IS NOT NULL
-           AND todate >= CURDATE()
-           AND todate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+           AND {$window}
          ORDER BY todate ASC, name ASC"
     );
-    $stmt->execute([$withinDays]);
+    $stmt->execute([notifWindowParam($pdo, $withinDays)]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -96,14 +119,17 @@ function notifGetExpiringFood(PDO $pdo, int $withinDays = 7): array
 function notifGetFoodDueInDays(PDO $pdo, int $daysAhead): array
 {
     $daysAhead = max(0, $daysAhead);
+    $match = notifPdoIsSqlite($pdo)
+        ? "date(todate) = date('now', ?)"
+        : 'DATE(todate) = DATE_ADD(CURDATE(), INTERVAL ? DAY)';
     $stmt = $pdo->prepare(
         "SELECT id, name, todate AS target_date, amount, shop
          FROM food
          WHERE todate IS NOT NULL
-           AND DATE(todate) = DATE_ADD(CURDATE(), INTERVAL ? DAY)
+           AND {$match}
          ORDER BY todate ASC, name ASC"
     );
-    $stmt->execute([$daysAhead]);
+    $stmt->execute([notifWindowParam($pdo, $daysAhead)]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -120,7 +146,7 @@ function notifGetExpiredFood(PDO $pdo, int $limit = 5): array
         "SELECT id, name, todate, amount, shop
          FROM food
          WHERE todate IS NOT NULL
-           AND todate < CURDATE()
+           AND todate < ".(notifPdoIsSqlite($pdo) ? "date('now')" : 'CURDATE()')."
          ORDER BY todate ASC
          LIMIT {$limit}"
     );
@@ -219,15 +245,15 @@ function notifGetExpiringTrialPurchases(PDO $pdo, int $withinDays = 3): array
 {
     $withinDays = max(0, $withinDays);
     try {
+        [$window] = notifUpcomingWindow($pdo, 'eventDate');
         $stmt = $pdo->prepare(
             "SELECT id, name, eventDate, account
              FROM trialpurchase
              WHERE eventDate IS NOT NULL
-               AND eventDate >= CURDATE()
-               AND eventDate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+               AND {$window}
              ORDER BY eventDate ASC, name ASC"
         );
-        $stmt->execute([$withinDays]);
+        $stmt->execute([notifWindowParam($pdo, $withinDays)]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
         return [];
@@ -301,15 +327,15 @@ function notifGetExpiringShoppingItems(PDO $pdo, int $withinDays = 3): array
 {
     $withinDays = max(0, $withinDays);
     try {
+        [$window] = notifUpcomingWindow($pdo, 'plannedDate');
         $stmt = $pdo->prepare(
             "SELECT id, name, plannedDate, account
              FROM shoppinglist
              WHERE plannedDate IS NOT NULL
-               AND plannedDate >= CURDATE()
-               AND plannedDate <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
+               AND {$window}
              ORDER BY plannedDate ASC, name ASC"
         );
-        $stmt->execute([$withinDays]);
+        $stmt->execute([notifWindowParam($pdo, $withinDays)]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
         return [];

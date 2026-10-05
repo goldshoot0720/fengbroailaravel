@@ -18,5 +18,18 @@ class LegacyBridge
         if (! function_exists('getAll')) {
             require_once base_path('includes/functions.php');
         }
+
+        if (function_exists('request') && app()->bound('request')) {
+            $current = request();
+            $_SERVER['REQUEST_METHOD'] = $current->getMethod();
+            $posted = $current->request->all();
+            if (is_array($posted) && $posted !== []) {
+                $_POST = array_merge($posted, is_array($_POST) ? $_POST : []);
+            }
+            $query = $current->query->all();
+            if (is_array($query) && $query !== []) {
+                $_GET = array_merge($query, is_array($_GET) ? $_GET : []);
+            }
+        }
     }
 }

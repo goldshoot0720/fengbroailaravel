@@ -30,11 +30,20 @@ function fengbroResendEnsureTables(PDO $pdo): void
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
+function fengbroResendSettingKeySql(PDO $pdo): string
+{
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        return 'setting_key = ?';
+    }
+
+    return 'CAST(setting_key AS BINARY) = ?';
+}
+
 function fengbroResendGetSetting(PDO $pdo, string $key, string $default = ''): string
 {
     fengbroResendEnsureTables($pdo);
     // RESEND_API_KEY 與舊版 resend_api_key 必須分開讀寫，避免清除舊設定時覆蓋目前設定。
-    $stmt = $pdo->prepare("SELECT setting_value FROM settings WHERE CAST(setting_key AS BINARY) = ? AND user_id IS NULL LIMIT 1");
+    $stmt = $pdo->prepare('SELECT setting_value FROM settings WHERE '.fengbroResendSettingKeySql($pdo).' AND user_id IS NULL LIMIT 1');
     $stmt->execute([$key]);
     $value = $stmt->fetchColumn();
     return $value === false || $value === null ? $default : (string) $value;
@@ -43,7 +52,7 @@ function fengbroResendGetSetting(PDO $pdo, string $key, string $default = ''): s
 function fengbroResendSaveSetting(PDO $pdo, string $key, string $value): void
 {
     fengbroResendEnsureTables($pdo);
-    $stmt = $pdo->prepare("SELECT id FROM settings WHERE CAST(setting_key AS BINARY) = ? AND user_id IS NULL LIMIT 1");
+    $stmt = $pdo->prepare('SELECT id FROM settings WHERE '.fengbroResendSettingKeySql($pdo).' AND user_id IS NULL LIMIT 1');
     $stmt->execute([$key]);
     $id = $stmt->fetchColumn();
     if ($id) {

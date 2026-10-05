@@ -61,14 +61,14 @@
   }
 
   async function fetchServerList() {
-    const res = await fetch('manual_price_api.php', { cache: 'no-store' });
+    const res = await fetch('index.php?fengbro_manual=1', { cache: 'no-store' });
     const json = await res.json();
     if (!Array.isArray(json)) throw new Error((json && json.error) || '讀取伺服器資料失敗');
     return json;
   }
 
   async function createServerProduct(payload) {
-    const res = await fetch('manual_price_api.php', {
+    const res = await fetch('index.php?fengbro_manual=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -81,7 +81,7 @@
   }
 
   async function updateServerProduct(id, payload) {
-    const res = await fetch('manual_price_api.php?id=' + encodeURIComponent(id), {
+    const res = await fetch('index.php?fengbro_manual=1&id=' + encodeURIComponent(id), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -94,7 +94,7 @@
   }
 
   async function deleteServerProduct(id) {
-    const res = await fetch('manual_price_api.php?action=delete&id=' + encodeURIComponent(id), { cache: 'no-store' });
+    const res = await fetch('index.php?fengbro_manual=1&action=delete&id=' + encodeURIComponent(id), { cache: 'no-store' });
     const json = await res.json();
     if (!json || json.success !== true) {
       throw new Error((json && json.error) || '伺服器刪除失敗');

@@ -20,6 +20,7 @@ $menuGroups = [
 ];
 $currentPage = $_GET['page'] ?? 'home';
 $currentTool = (string) ($_GET['tool'] ?? '');
+if (!function_exists('fengbroSidebarIsActive')) {
 function fengbroSidebarIsActive($key, $item): bool
 {
     global $currentPage, $currentTool;
@@ -28,6 +29,7 @@ function fengbroSidebarIsActive($key, $item): bool
         return $currentPage === 'tools' && $currentTool === ($item['tool'] ?? '');
     }
     return $currentPage === $itemPage;
+}
 }
 ?>
 <button class="mobile-menu-btn" type="button" onclick="toggleMobileMenu()" aria-label="開啟導覽選單" aria-controls="primarySidebar" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>

@@ -38,7 +38,7 @@ if (!in_array($page, $allowedPages)) {
     $page = 'home';
 }
 
-$pageFile = "pages/{$page}.php";
+$pageFile = __DIR__."/resources/views/fengbro/{$page}.php";
 $pageTitles = [
     'home' => '鋒兄首頁',
     'subscription' => '鋒兄訂閱',

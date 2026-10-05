@@ -78,10 +78,87 @@ if (!function_exists('fengbroFailDatabase')) {
     }
 }
 
+if (!function_exists('fengbroMysqlConfigured')) {
+    function fengbroMysqlConfigured(): bool
+    {
+        return defined('DB_NAME')
+            && DB_NAME !== ''
+            && !str_starts_with((string) DB_NAME, '__');
+    }
+}
+
+if (!function_exists('fengbroUseFrameworkDatabase')) {
+    /**
+     * 測試，或 Laravel 已啟動但還沒有鋒兄 MySQL 設定時，使用框架連線。
+     * 有 fengbro_database.php 的正式環境仍走 MySQL。
+     */
+    function fengbroUseFrameworkDatabase(): bool
+    {
+        $env = $_ENV['APP_ENV'] ?? $_SERVER['APP_ENV'] ?? getenv('APP_ENV');
+        if ($env === 'testing') {
+            return true;
+        }
+
+        return defined('FENGBRO_LARAVEL')
+            && function_exists('app')
+            && app()->bound('db')
+            && !fengbroMysqlConfigured();
+    }
+}
+
+if (!function_exists('fengbroEnsureFrameworkSqliteSchema')) {
+    function fengbroEnsureFrameworkSqliteSchema(PDO $pdo): void
+    {
+        static $done = false;
+        if ($done || $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
+            return;
+        }
+
+        $path = dirname(__DIR__) . '/database/schema/fengbro_sqlite.sql';
+        if (!is_file($path)) {
+            $done = true;
+            return;
+        }
+
+        $sql = (string) file_get_contents($path);
+        foreach (preg_split('/;\s*\n/', $sql) as $statement) {
+            $statement = trim($statement);
+            if ($statement !== '') {
+                $pdo->exec($statement);
+            }
+        }
+        $done = true;
+    }
+}
+
 if (!function_exists('getConnection')) {
     function getConnection()
     {
         static $pdo = null;
+
+        if (fengbroUseFrameworkDatabase()) {
+            if (! function_exists('app') || ! app()->bound('db')) {
+                throw new RuntimeException('測試環境沒有 Laravel 資料庫連線。');
+            }
+            if (!fengbroMysqlConfigured()) {
+                $sqlitePath = config('database.connections.sqlite.database');
+                if (is_string($sqlitePath) && $sqlitePath !== ':memory:' && !is_file($sqlitePath)) {
+                    $directory = dirname($sqlitePath);
+                    if (!is_dir($directory)) {
+                        mkdir($directory, 0775, true);
+                    }
+                    touch($sqlitePath);
+                }
+            }
+            $frameworkPdo = \Illuminate\Support\Facades\DB::connection()->getPdo();
+            $frameworkPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $frameworkPdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            if (!fengbroMysqlConfigured()) {
+                fengbroEnsureFrameworkSqliteSchema($frameworkPdo);
+            }
+
+            return $frameworkPdo;
+        }
 
         if ($pdo instanceof PDO) {
             return $pdo;

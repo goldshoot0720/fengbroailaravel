@@ -6,7 +6,7 @@
 // Global configuration
 const INLINE_EDIT_CONFIG = {
     TABLE_NAME: typeof TABLE !== 'undefined' ? TABLE : 'article',
-    API_ENDPOINT: 'api.php',
+    API_ENDPOINT: 'index.php',
     MOBILE_BREAKPOINT: 768
 };
 

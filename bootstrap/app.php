@@ -3,6 +3,7 @@
 require_once __DIR__.'/fengbro.php';
 
 use App\Http\Middleware\AcceptFengbroCsrf;
+use App\Http\Middleware\HandleFengbroRecords;
 use App\Http\Middleware\HandleLegacyToolPosts;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(replace: [
             PreventRequestForgery::class => AcceptFengbroCsrf::class,
         ], append: [
+            HandleFengbroRecords::class,
             HandleLegacyToolPosts::class,
         ]);
     })

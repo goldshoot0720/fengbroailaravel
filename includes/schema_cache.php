@@ -161,7 +161,15 @@ function fengbroTableColumnNames(PDO $pdo, string $table, bool $fresh = false): 
         return $memo[$table];
     }
     $safe = str_replace('`', '', $table);
+    $safe = preg_replace('/[^A-Za-z0-9_]/', '', $safe) ?? $safe;
     $columns = [];
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        foreach ($pdo->query("PRAGMA table_info(`{$safe}`)")->fetchAll(PDO::FETCH_ASSOC) as $col) {
+            $columns[] = (string) ($col['name'] ?? '');
+        }
+
+        return $memo[$table] = $columns;
+    }
     foreach ($pdo->query("SHOW COLUMNS FROM `{$safe}`")->fetchAll(PDO::FETCH_ASSOC) as $col) {
         $columns[] = (string) $col['Field'];
     }
@@ -184,7 +192,7 @@ function fengbroColumnNameFromDefinition(string $definition): string
  */
 function fengbroAddMissingColumns(PDO $pdo, string $table, array $definitions): void
 {
-    if (!$definitions) {
+    if (!$definitions || $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
         return;
     }
 
@@ -233,6 +241,10 @@ function fengbroAddMissingColumns(PDO $pdo, string $table, array $definitions): 
  */
 function fengbroEnsureTableSchema(PDO $pdo, string $table, string $createSql, array $columns = []): void
 {
+    // 測試庫的資料表由測試建立。MySQL 的 CREATE／ALTER 不能拿去跑 sqlite。
+    if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        return;
+    }
     fengbroSchemaEnsureOnce('table:' . $table, $createSql . '|' . implode('|', $columns), static function () use ($pdo, $table, $createSql, $columns) {
         $pdo->exec($createSql);
         fengbroAddMissingColumns($pdo, $table, $columns);
@@ -338,6 +350,14 @@ function fengbroEnsureTableIndexes(PDO $pdo, string $table, array $indexes): voi
 
 function fengbroEnsurePerformanceIndexes(?PDO $pdo = null, ?array $tables = null): void
 {
+    try {
+        $driverPdo = $pdo ?: (function_exists('getConnection') ? getConnection() : null);
+    } catch (Throwable $e) {
+        return;
+    }
+    if ($driverPdo instanceof PDO && $driverPdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        return;
+    }
     $all = fengbroPerformanceIndexes();
     $targets = $tables === null ? array_keys($all) : array_values(array_intersect($tables, array_keys($all)));
     foreach ($targets as $table) {

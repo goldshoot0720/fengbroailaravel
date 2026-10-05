@@ -38,29 +38,26 @@ class Workspace extends Component
             $_GET['service'] = $service;
         }
 
-        $pageTitle = FengbroPages::titles()[$page] ?? '鋒兄首頁';
-        $pageFile = base_path('pages/'.$page.'.php');
-
-        ob_start();
-        try {
-            if (is_file($pageFile)) {
-                include $pageFile;
-            } else {
-                echo '<div class="content-body"><p>頁面不存在</p></div>';
-            }
-        } catch (\Throwable $e) {
-            ob_end_clean();
-            throw $e;
-        }
-        $html = (string) ob_get_clean();
-
-        if (isset($pageTitle) && is_string($pageTitle) && $pageTitle !== '') {
-            $resolvedTitle = $pageTitle;
-        } else {
-            $resolvedTitle = FengbroPages::titles()[$page] ?? '鋒兄首頁';
-        }
+        $resolvedTitle = FengbroPages::titles()[$page] ?? '鋒兄首頁';
+        $view = 'fengbro.'.$page;
 
         $this->scheduleIndexMaintenance();
+
+        if (! view()->exists($view)) {
+            return view('livewire.workspace', [
+                'html' => '<div class="content-body"><p>頁面不存在</p></div>',
+            ])->layout('layouts.app', [
+                'title' => $resolvedTitle,
+                'page' => $page,
+                'tool' => $bodyDataTool,
+            ]);
+        }
+
+        $html = view($view, [
+            'homeInitialFullView' => $homeInitialFullView,
+            'page' => $page,
+            'serviceKey' => $service,
+        ])->render();
 
         return view('livewire.workspace', [
             'html' => $html,
