@@ -4,6 +4,9 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # 改用 git 部署後，正式目錄會有 .git；不要讓它透過網頁被讀取。
+    RewriteRule ^\.git(/|$) - [F,L]
+
     # 已存在的檔案與目錄（api.php、upload.php、assets、uploads）直接交出。
     # 其餘路徑交給 Laravel / Livewire。
     RewriteCond %{REQUEST_FILENAME} -d
