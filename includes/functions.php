@@ -28,6 +28,11 @@ if (!function_exists('fengbroBootFrameworkIfAvailable')) {
         if (defined('LARAVEL_START') || defined('FENGBRO_LARAVEL')) {
             return;
         }
+        // 正式主機有 fengbro_database.php（MySQL）時，database_bootstrap.php 本來就會走 MySQL，
+        // 不需要框架連線，也就不必為每個 api.php / stats_api.php 請求啟動框架。
+        if (function_exists('fengbroMysqlConfigured') && fengbroMysqlConfigured()) {
+            return;
+        }
 
         $root = dirname(__DIR__);
         $autoload = $root . '/vendor/autoload.php';
@@ -61,9 +66,10 @@ if (!function_exists('fengbroBootFrameworkIfAvailable')) {
     }
 }
 
-fengbroBootFrameworkIfAvailable();
-
 require_once __DIR__ . '/database_bootstrap.php';
+
+// 必須放在 database_bootstrap.php 之後：需要 fengbroMysqlConfigured() 判斷是否已有 MySQL 設定。
+fengbroBootFrameworkIfAvailable();
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/version.php';
 require_once __DIR__ . '/management_tables.php';
