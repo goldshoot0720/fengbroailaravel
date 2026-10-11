@@ -1,4 +1,68 @@
 <?php
+if (!function_exists('fengbroBootFrameworkIfAvailable')) {
+    /**
+     * 讓「不經過 Laravel index.php」的獨立進入點（api.php、stats_api.php、tools_api.php…）
+     * 也能共用框架的資料庫連線。
+     *
+     * 這些檔案最後都會 require 本檔，但沒有啟動 Laravel：FENGBRO_LARAVEL 未定義、
+     * app() 不存在，於是 database_bootstrap.php 會退回 MySQL 分支。若主機沒有
+     * fengbro_database.php（本機是 Laravel + SQLite），getConnection() 就會直接 500，
+     * 讀寫都會壞掉。這裡在載入資料庫設定前先把框架啟動起來。
+     *
+     * 正式主機有 fengbro_database.php 時，database_bootstrap.php 仍優先走 MySQL，
+     * 本函式只是讓連線來源一致。
+     */
+    function fengbroBootFrameworkIfAvailable(): void
+    {
+        static $attempted = false;
+        if ($attempted) {
+            return;
+        }
+        $attempted = true;
+
+        // CLI（artisan、測試、排程）自行啟動框架，這裡不介入。
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+        // 已在 Laravel 的進入點（index.php 定義 LARAVEL_START），或已由 LegacyBridge 啟動。
+        if (defined('LARAVEL_START') || defined('FENGBRO_LARAVEL')) {
+            return;
+        }
+
+        $root = dirname(__DIR__);
+        $autoload = $root . '/vendor/autoload.php';
+        if (!is_file($autoload)) {
+            return; // 沒有 composer，維持原本行為（legacy_index.php 會處理）。
+        }
+
+        require_once $autoload;
+
+        // 已經有啟動過的框架實例就不要重複建立。
+        if (class_exists(\Illuminate\Foundation\Application::class, false)) {
+            $existing = \Illuminate\Container\Container::getInstance();
+            if ($existing instanceof \Illuminate\Contracts\Foundation\Application) {
+                return;
+            }
+        }
+
+        if (!defined('FENGBRO_LARAVEL')) {
+            define('FENGBRO_LARAVEL', true);
+        }
+
+        try {
+            $app = require $root . '/bootstrap/app.php';
+            $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+            if (method_exists($kernel, 'bootstrap')) {
+                $kernel->bootstrap();
+            }
+        } catch (\Throwable $e) {
+            error_log('fengbro framework bootstrap failed: ' . $e->getMessage());
+        }
+    }
+}
+
+fengbroBootFrameworkIfAvailable();
+
 require_once __DIR__ . '/database_bootstrap.php';
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/version.php';

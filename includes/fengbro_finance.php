@@ -1481,8 +1481,87 @@ function fengbroFinanceWriteCache($cache)
     @file_put_contents($path, json_encode($cache, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
+/**
+ * 同一次請求內已抓過的 URL 內容。供 curl_multi 平行預抓後重用，
+ * 讓解析函式照舊呼叫 fengbroFinanceFetchUrl() 而不必改寫。
+ */
+function &fengbroFinanceUrlMemo(): array
+{
+    static $memo = [];
+    return $memo;
+}
+
+/**
+ * 以 curl_multi 平行預抓一批 URL 並放進 memo。
+ *
+ * 報價預設有 30 個外部來源，逐一抓約 30 秒（會撞 max_execution_time 而整頁 500），
+ * 平行抓只要 1~2 秒。
+ */
+function fengbroFinancePrefetchUrls(array $urls, $timeout = 8): void
+{
+    if (!function_exists('curl_multi_init')) {
+        return;
+    }
+
+    $memo = &fengbroFinanceUrlMemo();
+    $queue = [];
+    foreach ($urls as $url) {
+        $url = (string) $url;
+        if ($url === '' || array_key_exists($url, $memo) || isset($queue[$url])) {
+            continue;
+        }
+        $queue[$url] = true;
+    }
+    if (!$queue) {
+        return;
+    }
+
+    $multi = curl_multi_init();
+    $handles = [];
+    foreach (array_keys($queue) as $url) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 FengbroAI/1.0',
+            CURLOPT_HTTPHEADER => [
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+                'Accept-Language: zh-TW,zh;q=0.9,en;q=0.8',
+            ],
+        ]);
+        curl_multi_add_handle($multi, $ch);
+        $handles[$url] = $ch;
+    }
+
+    $running = null;
+    do {
+        $status = curl_multi_exec($multi, $running);
+        if ($running > 0) {
+            curl_multi_select($multi, 1.0);
+        }
+    } while ($running > 0 && $status === CURLM_OK);
+
+    foreach ($handles as $url => $ch) {
+        $body = curl_multi_getcontent($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $memo[$url] = ($code >= 200 && $code < 400 && is_string($body)) ? $body : '';
+        curl_multi_remove_handle($multi, $ch);
+    }
+    curl_multi_close($multi);
+}
+
 function fengbroFinanceFetchUrl($url, $timeout = 8)
 {
+    // 已經平行預抓過就直接用，不要再發一次請求。
+    $memo = &fengbroFinanceUrlMemo();
+    $key = (string) $url;
+    if (array_key_exists($key, $memo)) {
+        return $memo[$key];
+    }
+
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -2044,6 +2123,26 @@ function fengbroFinanceParseQuote($item, bool $withHistory = true)
 }
 
 /**
+ * 首頁抓取外部報價的總時間預算（秒）。可用環境變數 FENGBRO_FINANCE_FETCH_BUDGET 覆寫。
+ * 外部來源（CNBC / Yahoo / Multpl）沒有回應時，逐項抓取會把請求拖過
+ * max_execution_time 而整頁 500，因此需要一個總預算。
+ */
+function fengbroFinanceFetchBudgetSeconds(): float
+{
+    $budget = (float) (getenv('FENGBRO_FINANCE_FETCH_BUDGET') ?: 0);
+    return $budget > 0 ? $budget : 15.0;
+}
+
+/** 這一筆報價是不是「沒抓到」。 */
+function fengbroFinanceQuoteFailed(array $quote): bool
+{
+    if (!empty($quote['error'])) {
+        return true;
+    }
+    return empty($quote['value']) && empty($quote['change']);
+}
+
+/**
  * @param bool $force 強制重新抓取
  * @param bool $withHistory 是否附帶 Yahoo 1Y 走勢（首頁提醒可關閉以加速）
  */
@@ -2058,13 +2157,79 @@ function fengbroFinanceGetData($force = false, bool $withHistory = true)
         'history' => $withHistory ? 1 : 0,
     ], JSON_UNESCAPED_UNICODE));
     $dataKey = 'finance_data_v5:' . $configFingerprint;
-    if (!$force && !empty($cache[$dataKey]['checkedAt']) && time() - (int) $cache[$dataKey]['checkedAt'] < 900) {
-        return $cache[$dataKey]['value'];
+
+    $entry = is_array($cache[$dataKey] ?? null) ? $cache[$dataKey] : null;
+    if (!$force && $entry !== null && !empty($entry['checkedAt'])) {
+        // 上次沒抓完（外部來源無回應）時只等 120 秒就再試，避免每次請求都重新連外。
+        $ttl = !empty($entry['incomplete']) ? 120 : 900;
+        if (time() - (int) $entry['checkedAt'] < $ttl) {
+            return $entry['value'];
+        }
     }
 
+    // 上次的報價，抓不到時逐項沿用，至少讓畫面有舊資料。
+    $previous = [];
+    foreach ((array) ($entry['value']['quotes'] ?? []) as $q) {
+        if (is_array($q) && isset($q['id'])) {
+            $previous[(string) $q['id']] = $q;
+        }
+    }
+
+    $activeItems = fengbroFinanceActiveItems();
+
+    // 30 個外部來源逐一抓約 30 秒，會撞 max_execution_time 而整頁 500。
+    // 先用 curl_multi 平行抓完放進 memo，解析時直接取用（整體降到 1~2 秒）。
+    $prefetchUrls = [];
+    foreach ($activeItems as $activeItem) {
+        $activeUrl = (string) ($activeItem['url'] ?? '');
+        if ($activeUrl !== '') {
+            $prefetchUrls[] = $activeUrl;
+        }
+    }
+    fengbroFinancePrefetchUrls($prefetchUrls);
+
+    $budget = fengbroFinanceFetchBudgetSeconds();
+    $startedAt = microtime(true);
+    // 只有「被截斷、沒跑完所有項目」才算 incomplete（之後用較短的 TTL 重試）；
+    // 個別來源抓不到不算，否則會每 120 秒就重新連外一次。
+    $complete = true;
+    $consecutiveFailures = 0;
+
     $quotes = [];
-    foreach (fengbroFinanceActiveItems() as $item) {
-        $quotes[] = fengbroFinanceParseQuote($item, $withHistory);
+    foreach ($activeItems as $item) {
+        $id = (string) ($item['id'] ?? '');
+
+        // 超出時間預算，或連續兩筆都抓不到就停止連外（平行預抓失敗時仍要有上限）。
+        if ((microtime(true) - $startedAt) >= $budget || $consecutiveFailures >= 2) {
+            $complete = false;
+            if ($id !== '' && isset($previous[$id])) {
+                $quotes[] = $previous[$id];
+            }
+            continue;
+        }
+
+        try {
+            $quote = fengbroFinanceParseQuote($item, $withHistory);
+        } catch (\Throwable $e) {
+            $consecutiveFailures++;
+            error_log('fengbro finance quote failed (' . $id . '): ' . $e->getMessage());
+            if ($id !== '' && isset($previous[$id])) {
+                $quotes[] = $previous[$id];
+            }
+            continue;
+        }
+
+        if (fengbroFinanceQuoteFailed($quote)) {
+            $consecutiveFailures++;
+            if ($id !== '' && isset($previous[$id])) {
+                $quotes[] = $previous[$id];
+                continue;
+            }
+        } else {
+            $consecutiveFailures = 0;
+        }
+
+        $quotes[] = $quote;
     }
 
     $data = [
@@ -2072,6 +2237,7 @@ function fengbroFinanceGetData($force = false, bool $withHistory = true)
         'quotes' => $quotes,
         'source' => 'CNBC / Yahoo股市 / Multpl',
         'config' => $config,
+        'incomplete' => $complete ? 0 : 1,
         'defaultCatalog' => array_map(static function ($item) {
             return [
                 'id' => $item['id'],
@@ -2081,7 +2247,11 @@ function fengbroFinanceGetData($force = false, bool $withHistory = true)
             ];
         }, fengbroFinanceDefaultItems()),
     ];
-    $cache[$dataKey] = ['checkedAt' => time(), 'value' => $data];
+    $cache[$dataKey] = [
+        'checkedAt' => time(),
+        'incomplete' => $complete ? 0 : 1,
+        'value' => $data,
+    ];
     fengbroFinanceWriteCache($cache);
     return $data;
 }
