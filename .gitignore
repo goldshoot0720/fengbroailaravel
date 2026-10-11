@@ -1,5 +1,6 @@
 .claude/
 .commandcode/
+.workbuddy-ai/
 uploads/
 config/database.php
 config/database_alternative.php
