@@ -23,7 +23,12 @@ $currentTool = (string) ($_GET['tool'] ?? '');
 if (!function_exists('fengbroSidebarIsActive')) {
 function fengbroSidebarIsActive($key, $item): bool
 {
-    global $currentPage, $currentTool;
+    // 直接讀 $_GET（超全域），不要用 global $currentPage。
+    // Laravel 路徑是由 Blade 樣板 include 本檔，include 進來的變數屬於「樣板函式」
+    // 的區域變數而非全域變數，global $currentPage 會拿到 null，
+    // 導致選單永遠沒有任何一項被標成 active。
+    $currentPage = $_GET['page'] ?? 'home';
+    $currentTool = (string) ($_GET['tool'] ?? '');
     $itemPage = $item['page'] ?? ($key === 'home' ? 'home' : $key);
     if (str_starts_with((string) $key, 'tool:')) {
         return $currentPage === 'tools' && $currentTool === ($item['tool'] ?? '');

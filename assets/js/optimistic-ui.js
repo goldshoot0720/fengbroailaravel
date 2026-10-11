@@ -142,6 +142,39 @@
         }
     }
 
+    /**
+     * 軟導覽（soft-nav.js）換頁後呼叫：清掉舊頁面的基準快照與狀態。
+     *
+     * 軟導覽會把整個 #mainContent 換掉，舊的 base / baseMap 已對應不到新 DOM。
+     * 若不重置，之後任何寫入觸發的 fengbroReload() 會拿舊 base 做三方合併，
+     * 導致畫面錯亂。重置後由 soft-nav 立刻再呼叫 snapshot() 建立新基準。
+     */
+    function resetSnapshot() {
+        var page = 'home';
+        try { page = new URLSearchParams(location.search).get('page') || 'home'; } catch (_) { /* ignore */ }
+
+        softEnabled = supported && !!SOFT_PAGES[page];
+        base = null;
+        baseMap = null;
+        hiddenIds = Object.create(null);
+        attrOrig = new Map();
+
+        if (recorder) {
+            try { recorder.disconnect(); } catch (_) { /* ignore */ }
+            recorder = null;
+        }
+        if (softEnabled) {
+            try {
+                recorder = new MutationObserver(recordMutations);
+                recorder.observe(document.documentElement, { attributes: true, attributeOldValue: true, subtree: true });
+            } catch (_) { recorder = null; }
+        }
+
+        if (window.fengbroOptimistic) {
+            try { window.fengbroOptimistic.enabled = softEnabled; } catch (_) { /* ignore */ }
+        }
+    }
+
     /* ---------------------------------------------------------
      * 三方合併：base（舊伺服器版）→ next（新伺服器版），只把差異套到畫面
      * --------------------------------------------------------- */
@@ -713,6 +746,7 @@
      * 對外 API
      * --------------------------------------------------------- */
     window.fengbroSnapshotMain = snapshot;
+    window.fengbroResetSnapshot = resetSnapshot;
     window.fengbroReload = softReload;
     window.fengbroOptimistic = {
         enabled: softEnabled,
