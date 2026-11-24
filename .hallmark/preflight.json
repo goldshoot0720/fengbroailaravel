@@ -1,0 +1,14 @@
+{
+  "scanned": "2026-11-24",
+  "findings": {
+    "fonts": "Manrope + Fraunces (resources/views/layouts/app.blade.php:38); body Manrope literal, display via --font-display (assets/css/style.css:143,197)",
+    "palette": "Warm paper and clay tokens in assets/css/style.css :root (comment: Claude-style paper, layout sizes unchanged)",
+    "motion": "CSS transitions; prefers-reduced-motion at style.css:49; transition:all in assets/css/inline-edit.css:23,71",
+    "spacing": "Radius tokens --radius-xl/lg/md/sm; no formal spacing scale",
+    "framework": "Laravel + Livewire shell over legacy PHP pages (pages/*.php, includes/sidebar.php). Not a git repo. No design.md."
+  },
+  "preserve": ["content and wiring", "sidebar shell", "clay and paper tokens unless a new theme is chosen"],
+  "introduce": ["Hallmark floor on generated tells: tracked-caps labels, eyebrows, transition:all, literal colours, gradient washes"],
+  "scope": "app",
+  "genre_inferred": "app screens (personal ops). Marketing genre not applied."
+}

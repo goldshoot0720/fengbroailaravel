@@ -1,0 +1,20 @@
+{
+ "v": 1,
+ "at": "2026-11-24T07:39:33.999Z",
+ "scope": "app",
+ "summary": {
+  "fails": 141,
+  "reflex": 173,
+  "warns": 16
+ },
+ "files": {},
+ "wiring": {
+  "handlers": [],
+  "links": [],
+  "fields": [],
+  "hooks": [],
+  "ids": []
+ },
+ "scripts": {},
+ "pages": {}
+}

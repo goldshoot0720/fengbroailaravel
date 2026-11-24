@@ -1,0 +1,15 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "polish",
+  "scope": "app",
+  "prompt": "personal ops shell, strip generated tells, keep layout and clay paper",
+  "theme": "existing clay paper",
+  "signature": "sidebar wordmark 鋒兄AI Laravel",
+  "waived": [],
+  "sections": [
+   "shared shell"
+  ],
+  "date": "2026-11-24"
+ }
+]
