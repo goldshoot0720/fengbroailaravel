@@ -15,8 +15,7 @@ declare(strict_types=1);
 const FENGBRO_VERSION = '1.1.0';
 
 /**
- * 走訪專案內的原始碼檔（.php / .css / .js / .sql），跳過 uploads、vendor、node_modules、.git。
- * 跳過的目錄「不會進入」，不必逐一掃過 uploads 內大量的媒體檔。
+ * 依副檔名走訪 PHP、CSS、JS 與 SQL 原始檔，略過套件、上傳內容、產物與部署專用設定。
  *
  * @return iterable<SplFileInfo>
  */
@@ -24,12 +23,21 @@ function fengbroSourceFiles(?string $root = null): iterable
 {
     $root = $root ?? dirname(__DIR__);
     $skipDirs = ['uploads', 'vendor', 'node_modules', '.git'];
+    $skipPaths = [
+        'storage', 'bootstrap/cache', 'public/build', 'public/storage',
+        'fengbro_database.php', 'config/database.php', 'config/database_alternative.php',
+        'config/fengbro_database.php',
+    ];
     $exts = ['php', 'css', 'js', 'sql'];
     try {
         $directory = new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS);
         $filter = new RecursiveCallbackFilterIterator(
             $directory,
-            static function (SplFileInfo $file, $key, RecursiveDirectoryIterator $iterator) use ($skipDirs, $exts): bool {
+            static function (SplFileInfo $file, $key, RecursiveDirectoryIterator $iterator) use ($skipDirs, $skipPaths, $exts): bool {
+                $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $iterator->getSubPathname());
+                if ($file->isLink() || in_array($relativePath, $skipPaths, true)) {
+                    return false;
+                }
                 if ($iterator->hasChildren()) {
                     return !in_array($file->getFilename(), $skipDirs, true);
                 }

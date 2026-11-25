@@ -131,19 +131,13 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
             <tr>
                 <th>程式碼統計</th>
                 <td>
-                    <?php
-                    $codeStats = fengbroCodeStats();
-                    $totalLines = $codeStats['total'];
-                    ?>
-                    <strong><?php echo number_format($totalLines); ?></strong> 行
-                    <span style="color:#888;font-size:0.85rem;margin-left:8px;">
-                        (<?php echo (int) $codeStats['files']; ?> 個檔案
-                        .php: <?php echo number_format($codeStats['php']); ?>
-                        &nbsp;|&nbsp; .css: <?php echo number_format($codeStats['css']); ?>
-                        &nbsp;|&nbsp; .js: <?php echo number_format($codeStats['js']); ?>
-                        &nbsp;|&nbsp; .sql: <?php echo number_format($codeStats['sql']); ?>)
+                    <?php $codeStats = fengbroCodeStats(); ?>
+                    <strong><?= number_format($codeStats['total']) ?> 行</strong>，共 <?= number_format($codeStats['files']) ?> 個檔案
+                    <br><span style="color: var(--muted-text); font-size: 0.85rem;">
+                        PHP <?= number_format($codeStats['php']) ?> 行 · CSS <?= number_format($codeStats['css']) ?> 行 ·
+                        JavaScript <?= number_format($codeStats['js']) ?> 行 · SQL <?= number_format($codeStats['sql']) ?> 行
                     </span>
-                    <br><small style="color:#aaa;">統計日期：<?php echo date('Y-m-d'); ?>（執行時即時計算）</small>
+                    <br><small style="color: var(--muted-text);">統計日期 <?= date('Y-m-d') ?>。依 .php、.css、.js、.sql 副檔名即時計算，含空白行與註解。內嵌腳本及樣式隨所屬檔案計入。套件、上傳檔案、產生的快取與本機設定均已排除。</small>
                 </td>
             </tr>
         </table>
@@ -230,6 +224,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
+            <li><time datetime="2026-11-25">2026-11-25</time> 程式碼共 90,158 行、190 個檔案（PHP 76,406 行、CSS 3,704 行、JavaScript 9,281 行、SQL 767 行）。</li>
             <li>工具：比價/手動價格/手機歷史 CSV、新聞、PNG/JPEG、圖+語音、合併+Whisper、YT/B站、tube/金融 CSV 與解析名稱；語音可導向各工具子頁</li>
             <li>新增鋒兄試用／首購、鋒兄重灌、鋒兄額度（獨立 trialpurchase、reinstall、quota 表；重灌含訂閱週期、費用與幣別；額度追蹤剩餘次數／比例／到期與 AI 5小時・一週・一月方案，對齊 Appwrite）</li>
             <li>儀表板合併進首頁：精簡／完整儀表同一頁切換並記住上次選擇（移除獨立「儀表」選單）</li>
