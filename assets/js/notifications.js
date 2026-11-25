@@ -70,7 +70,7 @@
 
         var banner = document.getElementById('subExpiringBanner');
         var list = document.getElementById('subExpiringList');
-        if (!banner || !list) return;
+        if (!banner || !list || document.querySelector('.home-reminders')) return;
 
         items.forEach(function (sub, i) {
             var item = document.createElement('div');

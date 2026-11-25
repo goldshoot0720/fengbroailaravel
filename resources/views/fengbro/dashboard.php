@@ -1,5 +1,4 @@
 <?php
-$pageTitle = '儀表板';
 require_once fengbroRootPath() . '/includes/notification_helpers.php';
 $pdo = getConnection();
 
@@ -137,10 +136,13 @@ if (is_array($dashboardFastCounts)) {
 
 }
 
-$subExpiring3Days = notifGetExpiringSubscriptions($pdo, 3);
-$trialExpiring3 = notifGetExpiringTrialPurchases($pdo, 3);
-$quotaExpiringSoon = notifGetExpiringQuotas($pdo);
-$shoppingExpiring3 = notifGetExpiringShoppingItems($pdo, 3);
+$dashboardAlerts = $homeAlerts ?? notifBuildUnifiedDashboardAlerts($pdo);
+$subExpiring3Days = $dashboardAlerts['subscriptions'];
+$trialExpiring3 = $dashboardAlerts['trialPurchases'];
+$quotaExpiringSoon = $dashboardAlerts['quotas'];
+$shoppingExpiring3 = $dashboardAlerts['shoppingItems'];
+$foodExpiring7Days = $dashboardAlerts['foods'];
+$expiredFoods = $dashboardAlerts['expiredFoods'];
 if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
     $subExpiring7Days = $pdo->query(
         "SELECT * FROM subscription
@@ -176,9 +178,6 @@ if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
          ORDER BY todate ASC"
     )->fetchAll();
 }
-$foodExpiring7Days = notifGetExpiringFood($pdo, 7);
-$expiredFoods = notifGetExpiredFood($pdo, 5);
-$dashboardNotificationAlerts = notifBuildUnifiedDashboardAlerts($pdo);
 $toolSnapshotCount = 0;
 try {
     $toolSnapshotCount = $pdo->query("SELECT COUNT(*) FROM tool_price_history")->fetchColumn();
@@ -188,19 +187,6 @@ try {
 
 $recentSubscriptions = $pdo->query("SELECT * FROM subscription WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 5")->fetchAll();
 $recentFood = $pdo->query("SELECT * FROM food ORDER BY created_at DESC LIMIT 5")->fetchAll();
-
-if (!function_exists('getFolderSize')) {
-function getFolderSize($dir)
-{
-    $size = 0;
-    if (is_dir($dir)) {
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS)) as $file) {
-            $size += $file->getSize();
-        }
-    }
-    return $size;
-}
-}
 
 if (!function_exists('formatBytes')) {
 function formatBytes($bytes, $precision = 2)
@@ -303,219 +289,11 @@ $uploadBucketLabels = [
 ];
 ?>
 
-<?php if (empty($dashboardEmbedded)): ?>
-<div class="content-header">
-    <div class="page-intro">
-        <span class="eyebrow">Overview</span>
-        <h1>儀表板</h1>
-        <p>集中查看訂閱與食品的節奏、成本、數量與近期變化，讓每日決策更快。</p>
-    </div>
-    <div class="header-pillset">
-        <span class="header-pill"><i class="fa-solid fa-bolt"></i> Tech workflow ready</span>
-        <span class="header-pill"><i class="fa-solid fa-shield-heart"></i> Alerts first</span>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="requestDashboardNotifications()">
-            <i class="fa-solid fa-bell"></i> 啟用提醒
-        </button>
-    </div>
-</div>
-<?php endif; ?>
-
-<div class="content-body">
-    <section class="hero-panel dashboard-hero">
-        <div class="hero-copy">
-            <span class="eyebrow">Daily Ops Status</span>
-            <h2>先看風險，再看容量與節奏。</h2>
-            <p>新的 dashboard 用更清楚的視覺層級整理提醒、成本與資料規模，減少在大量舊式卡片之間掃描的負擔。</p>
-        </div>
-        <div class="hero-stack hero-stack-metrics">
-            <article class="signal-card signal-card-primary">
-                <span class="signal-label">Active subscriptions</span>
-                <strong><?php echo $subscriptionCount; ?></strong>
-                <p>目前估算支出 <?php echo formatMoney($subscriptionTotal); ?></p>
-            </article>
-            <article class="signal-card">
-                <span class="signal-label">Storage footprint</span>
-                <strong><?php echo $uploadsFolderSizeFormatted; ?></strong>
-                <p><?php echo $uploadsFileCount; ?> files in uploads</p>
-            </article>
-        </div>
-    </section>
-
-    <section class="dashboard-metrics-grid">
-        <a href="index.php?page=subscription" class="metric-card metric-card-featured">
-            <span class="metric-icon"><i class="fa-solid fa-credit-card"></i></span>
-            <span class="metric-label">Subscriptions</span>
-            <strong><?php echo $subscriptionCount; ?></strong>
-            <small>Estimated <?php echo formatMoney($subscriptionTotal); ?></small>
-        </a>
-        <a href="index.php?page=trialpurchase" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-flask"></i></span>
-            <span class="metric-label">Trial / first purchase</span>
-            <strong><?php echo $trialPurchaseCount; ?></strong>
-            <small>Services and account trials</small>
-        </a>
-        <a href="index.php?page=reinstall" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-laptop"></i></span>
-            <span class="metric-label">Reinstall</span>
-            <strong><?php echo $reinstallCount; ?></strong>
-            <small>Windows / Mac software list</small>
-        </a>
-        <a href="index.php?page=quota" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
-            <span class="metric-label">Quota</span>
-            <strong><?php echo $quotaCount; ?></strong>
-            <small>Remaining uses, ratio and expiry</small>
-        </a>
-        <a href="index.php?page=shoppinglist" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-cart-shopping"></i></span>
-            <span class="metric-label">Shopping list</span>
-            <strong><?php echo $shoppingCount; ?></strong>
-            <small>Planned purchases and due dates</small>
-        </a>
-        <a href="index.php?page=food" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>
-            <span class="metric-label">Food</span>
-            <strong><?php echo $foodCount; ?></strong>
-            <small>Inventory and expiry tracking</small>
-        </a>
-        <a href="index.php?page=notes" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-note-sticky"></i></span>
-            <span class="metric-label">Notes</span>
-            <strong><?php echo $noteCount; ?></strong>
-            <small>Knowledge capture</small>
-        </a>
-        <a href="index.php?page=favorites" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-star"></i></span>
-            <span class="metric-label">Favorites</span>
-            <strong><?php echo $favoriteCount; ?></strong>
-            <small>Quick access records</small>
-        </a>
-        <a href="index.php?page=images" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-image"></i></span>
-            <span class="metric-label">Images</span>
-            <strong><?php echo $imageCount; ?></strong>
-            <small>Visual library</small>
-        </a>
-        <a href="index.php?page=videos" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-video"></i></span>
-            <span class="metric-label">Videos</span>
-            <strong><?php echo $videoCount; ?></strong>
-            <small>Media archive</small>
-        </a>
-        <a href="index.php?page=music" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-music"></i></span>
-            <span class="metric-label">Music</span>
-            <strong><?php echo $musicCount; ?></strong>
-            <small>Audio collection</small>
-        </a>
-        <a href="index.php?page=documents" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-file-lines"></i></span>
-            <span class="metric-label">Documents</span>
-            <strong><?php echo $documentCount; ?></strong>
-            <small>Reference files</small>
-        </a>
-        <a href="index.php?page=podcast" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-podcast"></i></span>
-            <span class="metric-label">Podcast</span>
-            <strong><?php echo $podcastCount; ?></strong>
-            <small>Listening queue</small>
-        </a>
-        <a href="index.php?page=bank" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-building-columns"></i></span>
-            <span class="metric-label">Bank</span>
-            <strong><?php echo $bankCount; ?></strong>
-            <small>Total <?php echo formatMoney($bankTotal); ?></small>
-        </a>
-        <a href="index.php?page=routine" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
-            <span class="metric-label">Routine</span>
-            <strong><?php echo $routineCount; ?></strong>
-            <small>Recurring patterns</small>
-        </a>
-        <div class="metric-card metric-card-storage">
-            <span class="metric-icon"><i class="fa-solid fa-hard-drive"></i></span>
-            <span class="metric-label">Storage</span>
-            <strong><?php echo $uploadsFolderSizeFormatted; ?></strong>
-            <small><?php echo $uploadsFileCount; ?> files available</small>
-        </div>
-        <div class="metric-card metric-card-storage storage-threshold-<?php echo $storageStatus; ?>">
-            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
-            <span class="metric-label">Storage capacity</span>
-            <strong><?php echo $storageUsagePercent; ?>%</strong>
-            <small><?php echo formatBytes($uploadsFolderSize); ?> / <?php echo formatBytes($storageCapacity); ?></small>
-        </div>
-        <div class="metric-card metric-card-storage" id="mediaTrafficMetric">
-            <span class="metric-icon"><i class="fa-solid fa-chart-line"></i></span>
-            <span class="metric-label">Monthly media traffic</span>
-            <strong id="mediaTrafficValue">--</strong>
-            <small id="mediaTrafficHint">Browser-side estimate</small>
-        </div>
-        <a href="index.php?page=settings" class="metric-card" id="offlineCacheMetricCard">
-            <span class="metric-icon"><i class="fa-solid fa-database"></i></span>
-            <span class="metric-label">Offline cache</span>
-            <strong id="offlineCacheMetricValue">…</strong>
-            <small id="offlineCacheMetricHint">IndexedDB 媒體快取</small>
-        </a>
-        <a href="index.php?page=tools" class="metric-card">
-            <span class="metric-icon"><i class="fa-solid fa-wrench"></i></span>
-            <span class="metric-label">Tools snapshots</span>
-            <strong><?php echo $toolSnapshotCount; ?></strong>
-            <small>BigGo and phone compare history</small>
-        </a>
-    </section>
-
-    <section class="dashboard-section storage-breakdown-section">
-        <div class="section-heading">
-            <h3><i class="fa-solid fa-chart-pie"></i> 儲存空間分類</h3>
-            <p>伺服器 uploads 依副檔名粗分；本機 IndexedDB 快取由瀏覽器即時讀取（上限每類型 500MB）。</p>
-        </div>
-        <div class="storage-breakdown-grid">
-            <article class="card storage-breakdown-card">
-                <h4>伺服器 uploads</h4>
-                <div class="storage-breakdown-total">
-                    <strong><?php echo htmlspecialchars($uploadsFolderSizeFormatted); ?></strong>
-                    <span><?php echo (int) $uploadsFileCount; ?> files</span>
-                </div>
-                <div class="storage-breakdown-list">
-                    <?php foreach ($uploadBucketLabels as $key => $label): ?>
-                        <?php
-                        $size = (int) ($uploadBuckets[$key] ?? 0);
-                        $count = (int) ($uploadBucketCounts[$key] ?? 0);
-                        $ratio = $uploadsFolderSize > 0 ? min(100, round(($size / $uploadsFolderSize) * 100)) : 0;
-                        ?>
-                        <div class="storage-breakdown-row">
-                            <div class="storage-breakdown-meta">
-                                <span><?php echo htmlspecialchars($label); ?></span>
-                                <small><?php echo $count; ?> · <?php echo htmlspecialchars(formatBytes($size)); ?></small>
-                            </div>
-                            <div class="storage-breakdown-bar">
-                                <div style="width:<?php echo $ratio; ?>%;"></div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </article>
-            <article class="card storage-breakdown-card">
-                <h4>本機 Offline cache</h4>
-                <div class="storage-breakdown-total">
-                    <strong id="offlineBreakdownTotal">…</strong>
-                    <span id="offlineBreakdownHint">IndexedDB</span>
-                </div>
-                <div id="offlineBreakdownList" class="storage-breakdown-list">
-                    <p style="color:var(--muted-text);margin:0;">讀取中…</p>
-                </div>
-                <div style="margin-top:12px;">
-                    <a class="btn btn-sm btn-ghost" href="index.php?page=settings">管理快取</a>
-                </div>
-            </article>
-        </div>
-    </section>
-
+<div class="content-body" data-dashboard>
     <?php if (!empty($subExpiring3Days) || !empty($subExpiring7Days) || !empty($foodExpiring7Days) || !empty($foodExpiring30Days) || !empty($expiredFoods) || !empty($trialExpiring3) || !empty($quotaExpiringSoon) || !empty($shoppingExpiring3)): ?>
         <div class="dashboard-section">
             <div class="section-heading">
-                <h3><i class="fa-solid fa-bell"></i> 到期提醒</h3>
-                <p>優先看到接近到期的訂閱與食品。</p>
+                <h2><i class="fa-solid fa-bell" aria-hidden="true"></i> 到期提醒</h2>
             </div>
             <div class="alert-grid">
                 <?php if (!empty($subExpiring3Days)): ?>
@@ -525,7 +303,7 @@ $uploadBucketLabels = [
                             <?php foreach ($subExpiring3Days as $sub): ?>
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($sub['name']); ?></strong></span>
-                                    <span><?php echo date('m/d', strtotime($sub['nextdate'])); ?></span>
+                                    <span><?php echo date('m/d', strtotime($sub['date'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -553,7 +331,7 @@ $uploadBucketLabels = [
                             <?php foreach ($foodExpiring7Days as $food): ?>
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
-                                    <span><?php echo date('m/d', strtotime($food['todate'])); ?></span>
+                                    <span><?php echo date('m/d', strtotime($food['date'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -567,7 +345,7 @@ $uploadBucketLabels = [
                             <?php foreach ($expiredFoods as $food): ?>
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($food['name']); ?></strong></span>
-                                    <span><?php echo date('m/d', strtotime($food['todate'])); ?></span>
+                                    <span><?php echo date('m/d', strtotime($food['date'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -595,7 +373,7 @@ $uploadBucketLabels = [
                             <?php foreach ($trialExpiring3 as $row): ?>
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($row['name']); ?></strong></span>
-                                    <span><?php echo date('m/d', strtotime($row['eventDate'])); ?></span>
+                                    <span><?php echo date('m/d', strtotime($row['date'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -624,7 +402,7 @@ $uploadBucketLabels = [
                             <?php foreach ($shoppingExpiring3 as $row): ?>
                                 <li>
                                     <span><strong><?php echo htmlspecialchars($row['name']); ?></strong></span>
-                                    <span><?php echo date('m/d', strtotime($row['plannedDate'])); ?></span>
+                                    <span><?php echo date('m/d', strtotime($row['date'])); ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -633,6 +411,165 @@ $uploadBucketLabels = [
             </div>
         </div>
     <?php endif; ?>
+
+    <h2>資料總覽</h2>
+    <section class="dashboard-metrics-grid" aria-label="各功能統計">
+        <a href="index.php?page=subscription" class="metric-card metric-card-featured">
+            <span class="metric-icon"><i class="fa-solid fa-credit-card"></i></span>
+            <span class="metric-label">訂閱</span>
+            <strong><?php echo $subscriptionCount; ?></strong>
+            <small>續訂估算 <?php echo formatMoney($subscriptionTotal); ?></small>
+        </a>
+        <a href="index.php?page=trialpurchase" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-flask"></i></span>
+            <span class="metric-label">試用／首購</span>
+            <strong><?php echo $trialPurchaseCount; ?></strong>
+        </a>
+        <a href="index.php?page=reinstall" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-laptop"></i></span>
+            <span class="metric-label">重灌軟體</span>
+            <strong><?php echo $reinstallCount; ?></strong>
+            <small>Windows / Mac</small>
+        </a>
+        <a href="index.php?page=quota" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="metric-label">額度</span>
+            <strong><?php echo $quotaCount; ?></strong>
+        </a>
+        <a href="index.php?page=shoppinglist" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-cart-shopping"></i></span>
+            <span class="metric-label">購物清單</span>
+            <strong><?php echo $shoppingCount; ?></strong>
+        </a>
+        <a href="index.php?page=food" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-utensils"></i></span>
+            <span class="metric-label">食品庫存</span>
+            <strong><?php echo $foodCount; ?></strong>
+        </a>
+        <a href="index.php?page=notes" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-note-sticky"></i></span>
+            <span class="metric-label">筆記</span>
+            <strong><?php echo $noteCount; ?></strong>
+        </a>
+        <a href="index.php?page=favorites" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-star"></i></span>
+            <span class="metric-label">常用資料</span>
+            <strong><?php echo $favoriteCount; ?></strong>
+        </a>
+        <a href="index.php?page=images" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-image"></i></span>
+            <span class="metric-label">圖片</span>
+            <strong><?php echo $imageCount; ?></strong>
+        </a>
+        <a href="index.php?page=videos" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-video"></i></span>
+            <span class="metric-label">影片</span>
+            <strong><?php echo $videoCount; ?></strong>
+        </a>
+        <a href="index.php?page=music" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-music"></i></span>
+            <span class="metric-label">音樂</span>
+            <strong><?php echo $musicCount; ?></strong>
+        </a>
+        <a href="index.php?page=documents" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-file-lines"></i></span>
+            <span class="metric-label">文件</span>
+            <strong><?php echo $documentCount; ?></strong>
+        </a>
+        <a href="index.php?page=podcast" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-podcast"></i></span>
+            <span class="metric-label">播客</span>
+            <strong><?php echo $podcastCount; ?></strong>
+        </a>
+        <a href="index.php?page=bank" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-building-columns"></i></span>
+            <span class="metric-label">銀行與票證</span>
+            <strong><?php echo $bankCount; ?></strong>
+            <small>合計 <?php echo formatMoney($bankTotal); ?></small>
+        </a>
+        <a href="index.php?page=routine" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            <span class="metric-label">例行事項</span>
+            <strong><?php echo $routineCount; ?></strong>
+        </a>
+        <div class="metric-card metric-card-storage">
+            <span class="metric-icon"><i class="fa-solid fa-hard-drive"></i></span>
+            <span class="metric-label">已用空間</span>
+            <strong><?php echo $uploadsFolderSizeFormatted; ?></strong>
+            <small><?php echo $uploadsFileCount; ?> 個檔案</small>
+        </div>
+        <div class="metric-card metric-card-storage storage-threshold-<?php echo $storageStatus; ?>">
+            <span class="metric-icon"><i class="fa-solid fa-gauge-high"></i></span>
+            <span class="metric-label">容量使用率</span>
+            <strong><?php echo $storageUsagePercent; ?>%</strong>
+            <small><?php echo formatBytes($uploadsFolderSize); ?> / <?php echo formatBytes($storageCapacity); ?></small>
+        </div>
+        <div class="metric-card metric-card-storage" id="mediaTrafficMetric">
+            <span class="metric-icon"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="metric-label">本月媒體流量</span>
+            <strong id="mediaTrafficValue">--</strong>
+            <small id="mediaTrafficHint">此瀏覽器估計值</small>
+        </div>
+        <a href="index.php?page=settings" class="metric-card" id="offlineCacheMetricCard">
+            <span class="metric-icon"><i class="fa-solid fa-database"></i></span>
+            <span class="metric-label">離線快取</span>
+            <strong id="offlineCacheMetricValue">…</strong>
+            <small id="offlineCacheMetricHint">IndexedDB 媒體快取</small>
+        </a>
+        <a href="index.php?page=tools" class="metric-card">
+            <span class="metric-icon"><i class="fa-solid fa-wrench"></i></span>
+            <span class="metric-label">比價紀錄</span>
+            <strong><?php echo $toolSnapshotCount; ?></strong>
+            <small>BigGo 與手機比價</small>
+        </a>
+    </section>
+
+    <section class="dashboard-section storage-breakdown-section">
+        <div class="section-heading">
+            <h3><i class="fa-solid fa-chart-pie"></i> 儲存空間分類</h3>
+            <p>伺服器 uploads 依副檔名粗分；本機 IndexedDB 快取由瀏覽器即時讀取（上限每類型 500MB）。</p>
+        </div>
+        <div class="storage-breakdown-grid">
+            <article class="card storage-breakdown-card">
+                <h4>伺服器 uploads</h4>
+                <div class="storage-breakdown-total">
+                    <strong><?php echo htmlspecialchars($uploadsFolderSizeFormatted); ?></strong>
+                    <span><?php echo (int) $uploadsFileCount; ?> 個檔案</span>
+                </div>
+                <div class="storage-breakdown-list">
+                    <?php foreach ($uploadBucketLabels as $key => $label): ?>
+                        <?php
+                        $size = (int) ($uploadBuckets[$key] ?? 0);
+                        $count = (int) ($uploadBucketCounts[$key] ?? 0);
+                        $ratio = $uploadsFolderSize > 0 ? min(100, round(($size / $uploadsFolderSize) * 100)) : 0;
+                        ?>
+                        <div class="storage-breakdown-row">
+                            <div class="storage-breakdown-meta">
+                                <span><?php echo htmlspecialchars($label); ?></span>
+                                <small><?php echo $count; ?> · <?php echo htmlspecialchars(formatBytes($size)); ?></small>
+                            </div>
+                            <div class="storage-breakdown-bar">
+                                <div style="width:<?php echo $ratio; ?>%;"></div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </article>
+            <article class="card storage-breakdown-card">
+                <h4>本機離線快取</h4>
+                <div class="storage-breakdown-total">
+                    <strong id="offlineBreakdownTotal">…</strong>
+                    <span id="offlineBreakdownHint">IndexedDB</span>
+                </div>
+                <div id="offlineBreakdownList" class="storage-breakdown-list">
+                    <p style="color:var(--muted-text);margin:0;">讀取中…</p>
+                </div>
+                <div style="margin-top:12px;">
+                    <a class="btn btn-sm btn-ghost" href="index.php?page=settings">管理快取</a>
+                </div>
+            </article>
+        </div>
+    </section>
 
     <div class="dashboard-columns">
         <div class="card dashboard-list-card">
@@ -667,103 +604,3 @@ $uploadBucketLabels = [
         </div>
     </div>
 </div>
-
-<script>
-    const dashboardAlerts = <?php echo json_encode($dashboardNotificationAlerts, JSON_UNESCAPED_UNICODE); ?>;
-
-    function sendDashboardNotifications() {
-        if (window.FengbroNotifications) {
-            FengbroNotifications.sendDashboardNotifications(dashboardAlerts);
-        }
-    }
-
-    function loadMediaTrafficMetric() {
-        const value = document.getElementById('mediaTrafficValue');
-        const hint = document.getElementById('mediaTrafficHint');
-        if (!value || !window.FengbroMediaTraffic) return;
-        const data = window.FengbroMediaTraffic.read();
-        const bytes = Number(data.bytes) || 0;
-        const units = ['B', 'KB', 'MB', 'GB'];
-        let amount = bytes, unit = 0;
-        while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++; }
-        value.textContent = amount.toFixed(unit === 0 ? 0 : 1) + ' ' + units[unit];
-        hint.textContent = (Number(data.requests) || 0) + ' media requests this month';
-        const limit = 100 * 1024 * 1024 * 1024;
-        if (bytes >= limit * .9) hint.textContent += ' · critical';
-        else if (bytes >= limit * .75) hint.textContent += ' · warning';
-    }
-    window.addEventListener('fengbro:media-traffic', loadMediaTrafficMetric);
-
-    function requestDashboardNotifications() {
-        if (window.FengbroNotifications) {
-            FengbroNotifications.requestDashboardNotifications(dashboardAlerts);
-            return;
-        }
-        alert('通知模組尚未載入。');
-    }
-
-    async function loadOfflineCacheMetric() {
-        const valueEl = document.getElementById('offlineCacheMetricValue');
-        const hintEl = document.getElementById('offlineCacheMetricHint');
-        const totalEl = document.getElementById('offlineBreakdownTotal');
-        const listEl = document.getElementById('offlineBreakdownList');
-        const listHint = document.getElementById('offlineBreakdownHint');
-        const labels = {
-            video: '影片',
-            music: '音樂',
-            podcast: '播客',
-            document: '文件',
-            image: '圖片'
-        };
-
-        if (!window.FengbroMediaCache || !window.FengbroMediaCache.getAllStats) {
-            if (valueEl) valueEl.textContent = 'N/A';
-            if (hintEl) hintEl.textContent = '此瀏覽器不支援 IndexedDB';
-            if (totalEl) totalEl.textContent = 'N/A';
-            if (listEl) listEl.innerHTML = '<p style="color:var(--muted-text);margin:0;">此瀏覽器不支援 IndexedDB</p>';
-            return;
-        }
-        try {
-            const summary = await window.FengbroMediaCache.getAllStats();
-            if (valueEl) valueEl.textContent = window.FengbroMediaCache.formatBytes(summary.totalSize || 0);
-            if (hintEl) hintEl.textContent = (summary.totalItems || 0) + ' 項 · 點此管理快取';
-            if (totalEl) totalEl.textContent = window.FengbroMediaCache.formatBytes(summary.totalSize || 0);
-            if (listHint) listHint.textContent = (summary.totalItems || 0) + ' 項';
-            if (listEl) {
-                const maxSize = summary.maxSizePerKind || (500 * 1024 * 1024);
-                const rows = (summary.kinds || []).map(function (row) {
-                    const ratio = Math.min(100, Math.round(((row.totalSize || 0) / maxSize) * 100));
-                    return `
-                        <div class="storage-breakdown-row">
-                            <div class="storage-breakdown-meta">
-                                <span>${labels[row.kind] || row.kind}</span>
-                                <small>${row.totalItems || 0} · ${window.FengbroMediaCache.formatBytes(row.totalSize || 0)}</small>
-                            </div>
-                            <div class="storage-breakdown-bar">
-                                <div style="width:${ratio}%;"></div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                listEl.innerHTML = rows || '<p style="color:var(--muted-text);margin:0;">尚無離線快取</p>';
-            }
-        } catch (e) {
-            if (valueEl) valueEl.textContent = '--';
-            if (hintEl) hintEl.textContent = '讀取失敗';
-            if (totalEl) totalEl.textContent = '--';
-            if (listEl) listEl.innerHTML = '<p style="color:#c1554a;margin:0;">讀取失敗</p>';
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        sendDashboardNotifications();
-        loadOfflineCacheMetric();
-        loadMediaTrafficMetric();
-    });
-    document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') {
-            sendDashboardNotifications();
-            loadOfflineCacheMetric();
-        }
-    });
-</script>

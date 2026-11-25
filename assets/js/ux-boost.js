@@ -285,7 +285,8 @@
 
     function isQuietUrl(url) {
         // 背景請求（統計、推播、CSRF 換發）不顯示進度與提示。
-        return /(stats_api|csrf|push_subscribe|notif_diag)\.php/i.test(url);
+        return /(stats_api|csrf|push_subscribe|notif_diag)\.php/i.test(url)
+            || /home_panel\.php\?panel=(tube|finance)\b/.test(url);
     }
 
     function rememberFlash(message, type) {

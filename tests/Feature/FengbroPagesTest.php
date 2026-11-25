@@ -52,7 +52,9 @@ class FengbroPagesTest extends TestCase
         $root = $this->get('/');
         $root->assertOk();
         $root->assertSee('鋒兄首頁', false);
-        $root->assertSee('const serverInitialFull = false', false);
+        $root->assertSeeText('常用功能');
+        $root->assertSeeText('目前沒有待處理的提醒');
+        $root->assertDontSee('id="offlineCacheMetricValue"', false);
         $this->assertPageUsesLivewire('home');
 
         foreach ($pages as $page => $title) {
@@ -65,8 +67,32 @@ class FengbroPagesTest extends TestCase
         $dashboard = $this->get('/index.php?page=dashboard');
         $dashboard->assertOk();
         $dashboard->assertSee('鋒兄首頁', false);
-        $dashboard->assertSee('const serverInitialFull = true', false);
+        $dashboard->assertSee('data-initial-view="full"', false);
+        $dashboard->assertSee('id="offlineCacheMetricValue"', false);
         $this->assertPageUsesLivewire('home');
+    }
+
+    public function test_home_reminders_link_to_due_items_in_both_views(): void
+    {
+        $today = DB::selectOne("SELECT date('now') AS due")->due;
+        DB::table('food')->insert([
+            'id' => 'home-food',
+            'name' => '待用鮮奶',
+            'todate' => $today,
+        ]);
+
+        $this->get('/index.php?page=home')
+            ->assertOk()
+            ->assertSeeText('食品即將到期')
+            ->assertSeeText('待用鮮奶')
+            ->assertSee('<time>'.$today.'</time>', false)
+            ->assertDontSee('data-dashboard>', false);
+
+        $this->get('/index.php?page=dashboard')
+            ->assertOk()
+            ->assertSeeText('食品即將到期（7 天內）')
+            ->assertSee(date('m/d', strtotime($today)))
+            ->assertSee('data-dashboard>', false);
     }
 
     public function test_page_writes_show_up_on_the_next_read(): void

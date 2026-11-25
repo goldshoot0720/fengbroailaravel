@@ -10,6 +10,12 @@ final class FakeSchemaPdo extends PDO
 
     public function __construct() { parent::__construct('sqlite::memory:'); }
 
+    // The in-memory connection backs result sets, but this double emulates MySQL DDL.
+    public function getAttribute(int $attribute): mixed
+    {
+        return $attribute === PDO::ATTR_DRIVER_NAME ? 'mysql' : parent::getAttribute($attribute);
+    }
+
     #[\ReturnTypeWillChange]
     public function exec($statement)
     {
@@ -55,6 +61,10 @@ fengbroSchemaForget();
 $pdo = new FakeSchemaPdo();
 $create = 'CREATE TABLE IF NOT EXISTS demo (id INT)';
 $cols = ['name VARCHAR(10)', 'note TEXT', '`system` VARCHAR(10)'];
+
+$sqlite = new PDO('sqlite::memory:');
+fengbroEnsureTableSchema($sqlite, 'demo', $create);
+check('SQLite 略過 MySQL 建表', !$sqlite->query("SELECT name FROM sqlite_master WHERE name = 'demo'")->fetchColumn());
 
 fengbroEnsureTableSchema($pdo, 'demo', $create, $cols);
 check('第一次會執行 CREATE', in_array($create, $pdo->log, true));

@@ -60,7 +60,10 @@ fengbroLoadDatabaseConfig();
 
 if (!defined('DB_HOST')) {
     define('DB_HOST', fengbroDbEnv('DB_HOST') ?: 'localhost');
-    define('DB_NAME', fengbroDbEnv('DB_NAME', 'DB_DATABASE'));
+    // Laravel 的 SQLite 路徑不能當成舊版 MySQL 的資料庫名稱。
+    define('DB_NAME', fengbroDbEnv('DB_CONNECTION') === 'sqlite'
+        ? fengbroDbEnv('DB_NAME')
+        : fengbroDbEnv('DB_NAME', 'DB_DATABASE'));
     define('DB_USER', fengbroDbEnv('DB_USER', 'DB_USERNAME'));
     define('DB_PASS', fengbroDbEnv('DB_PASS', 'DB_PASSWORD'));
     define('DB_CHARSET', fengbroDbEnv('DB_CHARSET') ?: 'utf8mb4');

@@ -29,10 +29,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css?v=20261124hallmark1">
     <link rel="stylesheet" href="assets/css/inline-edit.css?v=20261124hallmark1">
+    <?php if (($page ?? '') === 'home'): ?>
+        <link rel="stylesheet" href="assets/css/home.css?v=20261125">
+    <?php endif; ?>
     <script src="assets/js/security.js?v=20260907b"></script>
-    <script src="assets/js/ux-boost.js?v=20260925focus1"></script>
+    <script src="assets/js/ux-boost.js?v=20261125"></script>
     <script src="assets/js/optimistic-ui.js?v=20261011softnav1"></script>
-    <script src="assets/js/soft-nav.js?v=20261011softnav1"></script>
+    <script src="assets/js/soft-nav.js?v=20261125"></script>
 </head>
 
 <body data-page="<?php echo htmlspecialchars($page ?? '', ENT_QUOTES, 'UTF-8'); ?>" data-tool="<?php echo htmlspecialchars($bodyDataTool ?? '', ENT_QUOTES, 'UTF-8'); ?>">

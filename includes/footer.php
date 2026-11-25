@@ -49,7 +49,7 @@
 <script src="assets/js/media-traffic.js?v=20260812"></script>
 <script src="assets/js/recent-searches.js?v=20260904search"></script>
 <script src="assets/js/inline-edit.js?v=20260924opt1"></script>
-<script src="assets/js/notifications.js?v=20260904claude2"></script>
+<script src="assets/js/notifications.js?v=20261125"></script>
 
 <!-- 註冊 Service Worker + 背景定期同步 (PWA) -->
 <script>

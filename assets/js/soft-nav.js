@@ -56,6 +56,7 @@
     var cache = new Map();
     var inflight = null;
     var dbg = null;
+    var showingSoftPage = false;
 
     /* =========================================================
      * 頁面監聽器追蹤
@@ -375,6 +376,7 @@
         } catch (_) { /* ignore */ }
 
         syncChrome(doc);
+        showingSoftPage = true;
 
         if (push) {
             try { history.pushState({ fengbroSoftNav: true, key: keyOf(url) }, '', url.toString()); } catch (_) { /* ignore */ }
@@ -473,7 +475,11 @@
     window.addEventListener('popstate', function () {
         var url;
         try { url = new URL(location.href); } catch (_) { return; }
-        if (!isWhitelisted(pageOf(url))) return;
+        if (!isWhitelisted(pageOf(url))) {
+            // pushState entries share a document. Back to a non-soft page needs its HTML again.
+            if (showingSoftPage) location.reload();
+            return;
+        }
         navigate(url, false);
     });
 

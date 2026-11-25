@@ -1,0 +1,142 @@
+.home-workspace {
+    max-width: 1440px;
+    margin-inline: auto;
+    min-width: 0;
+}
+.home-workspace [hidden] { display: none; }
+
+.home-header {
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 4px 0 22px;
+    border: 0;
+    border-bottom: 1px solid var(--border-strong);
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+.home-header time {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted-text);
+    font-size: .88rem;
+}
+.home-view-toggle {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+}
+.home-view-toggle a {
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: var(--muted-text);
+    font-size: .9rem;
+    font-weight: 600;
+}
+.home-view-toggle a[aria-current] {
+    background: var(--card-bg);
+    box-shadow: 0 1px 3px var(--shadow-strong);
+    color: var(--text-color);
+}
+.home-panels {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+    gap: clamp(12px, 2vw, 24px);
+    align-items: start;
+}
+.home-panel, .home-load-state {
+    min-width: 0;
+    padding: clamp(16px, 2vw, 28px);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--card-bg);
+}
+.home-panel h2, .home-dashboard-content h2 {
+    color: var(--header-color);
+    font-size: 1.15rem;
+    margin-block: 0 16px;
+}
+.home-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.home-shortcut, .home-reminders li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-color);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.home-shortcut {
+    min-height: 76px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+.home-shortcut:hover, .home-reminders a:hover, .home-view-toggle a:hover {
+    background: var(--accent-soft);
+    color: var(--text-color);
+}
+.home-shortcut .home-shortcut-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+.home-panel small, .home-notice span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted-text);
+    font-size: .82rem;
+}
+.home-reminders ul { list-style: none; }
+.home-reminders li + li { border-top: 1px solid var(--border-color); }
+.home-reminders li a { justify-content: space-between; min-height: 52px; padding-block: 8px; }
+.home-reminders li i, .home-empty { color: var(--muted-text); }
+.home-empty { display: flex; align-items: center; gap: 9px; }
+.home-notice, .home-sleep-warning {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--card-bg);
+}
+.home-sleep-warning { margin-bottom: 12px; color: var(--text-color); background: var(--warning-soft); }
+.home-sleep-warning.is-late { border-inline-start: 4px solid var(--danger); }
+.home-notice { margin-top: 12px; }
+.home-notice a { flex: 1; min-width: 0; padding-block: 6px; color: var(--text-color); text-decoration: none; overflow-wrap: anywhere; }
+.home-notice a:hover strong { text-decoration: underline; }
+.home-notice button {
+    flex: 0 0 44px;
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--muted-text);
+    background: var(--surface-2);
+    font-size: 1.3rem;
+    cursor: pointer;
+}
+.home-load-state a { display: inline-block; padding: 12px; color: var(--text-color); text-decoration: underline; }
+
+@media (max-width: 960px) {
+    .home-panels { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 540px) {
+    .home-header { align-items: flex-start; gap: 12px; margin-bottom: 14px; padding-bottom: 14px; }
+    .home-shortcut { align-items: flex-start; flex-direction: column; gap: 7px; }
+    .home-shortcut .home-shortcut-icon { display: block; height: auto; flex: none; background: none; }
+}
