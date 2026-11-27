@@ -1,5 +1,11 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
+### 2026-11-27 鋒兄食品
+
+對照 [Appwrite 食品模組](https://github.com/goldshoot0720/fengbroaiappwrite/blob/6c6c899f65808c4cdafd48292d8ef617d51e5966/components/modules/FoodManagement.tsx)。視窗未滿 1100 像素時顯示卡片，較寬時顯示表格。兩者共用同一筆食品資料與選取狀態，縮放時可接續操作。桌面可直接修改列內欄位，手機可開啟編輯表單。
+
+點選庫存摘要可篩出已過期、今天到期、三天內到期或剩一件以下的食品。搜尋與日期篩選會保存在網址，批次操作只選取目前顯示的項目。調整數量會同步更新估值與低庫存統計，快速新增依台北日曆計算到期日。食品與商店欄位可選用既有名稱，月份選單僅列出所選年份有資料的月份，匯出選單提供 Appwrite 格式 CSV。
+
 ### 2026-11-27 鋒兄例行
 
 對照 [Appwrite 版 6c6c899](https://github.com/goldshoot0720/fengbroaiappwrite/tree/6c6c899f65808c4cdafd48292d8ef617d51e5966)。桌面與手機共用新增、編輯表單。清單可搜尋名稱與備註、依日期／連結／圖片篩選及切換列表或卡片。搜尋與檢視條件可隨網址保存。

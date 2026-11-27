@@ -1,0 +1,180 @@
+/* Hallmark · scope: app · 鋒兄食品 · existing paper and clay */
+:root { --food-backdrop: rgb(0 0 0 / 45%); }
+:is(.food-inventory, .food-dialog) :is(button, input, select, a, summary):focus-visible {
+    outline: 3px solid var(--accent-strong);
+    outline-offset: 2px;
+}
+:is(.food-inventory, .food-dialog) .form-control { border-color: var(--muted-text); }
+.food-inventory button:active { background-color: var(--surface-2); }
+.food-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+}
+.food-heading h1 { margin: 0; text-wrap: balance; }
+.food-heading span, .food-result-count, .food-field-label, .food-days { color: var(--muted-text); }
+.food-inventory { min-width: 0; }
+.food-ops-panel {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(7rem, 1.4fr);
+    margin-bottom: 1rem;
+    border-block: 1px solid var(--border-color);
+}
+.food-stat {
+    min-width: 0;
+    padding: .55rem .7rem;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: .1rem .65rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    min-height: 44px;
+    text-align: start;
+    background: transparent;
+    color: var(--text-color);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+}
+button.food-stat, .food-quick-add summary { cursor: pointer; }
+button.food-stat:hover, .food-stat[aria-pressed="true"] { background: var(--surface-2); }
+.food-stat[aria-pressed="true"] { border-bottom-color: currentColor; }
+.food-stat span { font-variant-numeric: tabular-nums; display: block; color: var(--muted-text); font-size: .875rem; }
+.food-stat strong { font-size: 1.35rem; overflow-wrap: anywhere; }
+.food-stat[data-food-filter="expired"] strong { color: var(--danger); }
+.food-filter-panel {
+    display: grid;
+    grid-template-columns: minmax(11rem, 2fr) repeat(3, minmax(6rem, 1fr)) auto;
+    gap: .5rem;
+    align-items: start;
+}
+.food-filter-panel .form-control { width: 100%; min-width: 0; min-height: 44px; margin: 0; }
+.food-search { min-width: 0; }
+.food-search form { margin: 0; }
+.food-result-count { font-variant-numeric: tabular-nums; align-self: center; font-size: .9rem; }
+.food-results, .food-transfer-links { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.food-results { min-height: 44px; }
+#foodResetFilters, .food-transfer summary {
+    padding: .5rem; min-height: 44px; align-content: center;
+    font: inherit; color: var(--text-color); cursor: pointer;
+    border: 0; background: transparent;
+}
+#foodResetFilters { text-decoration: underline; }
+.food-transfer[open] { flex-basis: 100%; }
+.food-transfer-links { margin-block: .25rem .5rem; }
+.food-quick-add { margin-block: .55rem; }
+.food-quick-add summary { width: fit-content; padding-block: .65rem; font-weight: 600; }
+.food-preset-row, .food-row-actions, .food-amount-controls { display: flex; flex-wrap: wrap; gap: .35rem; }
+.food-preset-row { padding-bottom: .7rem; }
+.food-inventory .action-buttons-bar {
+    flex-direction: row;
+    flex-wrap: wrap !important;
+    overflow: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+}
+.food-inventory .csv-buttons { display: flex !important; flex-wrap: wrap; gap: .4rem; margin-left: 0 !important; }
+.food-table { margin-top: 1rem; width: 100%; }
+.food-table td { vertical-align: middle; overflow-wrap: anywhere; }
+.food-table [data-food-item][hidden], .food-inventory [hidden] { display: none !important; }
+.food-table .food-select { display: none; }
+.select-mode .food-table .food-select { display: table-cell; width: 2.75rem; }
+.food-photo img { border-radius: .35rem; object-fit: cover; }
+.food-no-photo { color: var(--muted-text); }
+.food-name strong, .food-amount-value { font-size: 1.05rem; font-weight: 700; }
+.food-field-label { display: none; }
+.food-days { display: block; }
+.food-table [data-expiry="expired"] .food-days { font-weight: 700; color: var(--danger); }
+.food-row-actions, .food-amount-controls { gap: 0; }
+.food-row-actions button, .food-amount-controls button, .food-close {
+    min-height: 44px;
+    min-width: 44px;
+    cursor: pointer;
+    color: var(--text-color);
+    background: transparent;
+    border: 0;
+    font: inherit;
+}
+.food-row-actions button { color: var(--muted-text); font-size: .875rem; }
+.food-row-actions button:hover, .food-amount-controls button:hover { background: var(--surface-2); }
+.food-amount-controls button { border: 1px solid var(--input-border); font-size: 1.15rem; }
+.food-amount-controls button + button { border-inline-start: 0; }
+.food-no-match { padding: 2rem .5rem; text-align: center; }
+.food-dialog {
+    box-sizing: border-box;
+    width: min(30rem, calc(100% - 1.25rem));
+    max-height: calc(100dvh - 2rem);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    background: var(--modal-bg);
+    color: var(--text-color);
+}
+.food-dialog::backdrop { background: var(--food-backdrop); }
+.food-dialog-body { padding: clamp(1rem, 4vw, 2rem); }
+.food-dialog h2 { margin: 0 3rem 1.1rem 0; }
+#foodFormError:not(:empty) { margin-block: .65rem; font-weight: 600; }
+.food-dialog .form-group { min-width: 0; }
+.food-close { float: right; font-size: 1.5rem; }
+#photoPreview img { max-width: 150px; max-height: 150px; }
+.food-table .inline-photo-preview img { width: 36px; height: 36px; object-fit: cover; }
+.food-dialog #uploadProgressModal > div { min-width: min(90vw, 20rem) !important; }
+@media (max-width: 1099.98px) {
+    .food-filter-panel { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .food-search { grid-column: 1 / -1; }
+    .food-results { grid-column: 1 / -1; }
+    .food-table { display: block; }
+    .food-table thead {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+    }
+    .food-table thead input { visibility: hidden; }
+    .food-table tbody {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+        gap: .85rem;
+    }
+    .food-table [data-food-item] {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 'name name' 'date amount' 'price shop';
+        gap: .6rem 1rem;
+        align-content: start;
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: .6rem;
+        background: var(--card-bg);
+    }
+    .food-table td { display: block; min-width: 0; padding: 0; border: 0; }
+    .food-table .food-select { grid-area: name; justify-self: end; align-self: start; z-index: 1; }
+    .select-mode .food-table .food-select { display: grid; place-items: center; height: 44px; }
+    .food-table .food-name { grid-area: name; }
+    .select-mode .food-name { padding-inline-end: 2.75rem; }
+    .food-name strong { font-size: 1.15rem; }
+    .food-photo { grid-area: name; align-self: start; justify-self: end; }
+    .food-photo:not(:has(img)) { display: none; }
+    .food-table [data-food-item]:has(.food-photo .inline-view img) .food-name { padding-inline-end: 3.6rem; }
+    .select-mode .food-table .food-photo { display: none; }
+    .food-amount { grid-area: amount; }
+    .food-price { grid-area: price; }
+    .food-shop { grid-area: shop; }
+    .food-date { grid-area: date; }
+    .food-table .food-field-label { font-variant-numeric: tabular-nums; display: block; margin-bottom: .15rem; font-size: .8rem; }
+    .food-amount-controls { display: inline-flex; }
+    .food-table .food-amount-value { display: block; }
+    .food-table .food-editing .food-photo { display: block; grid-area: auto; grid-column: 1 / -1; justify-self: stretch; }
+    .food-row-actions { margin-inline-start: -.45rem; border-bottom: 1px solid var(--border-color); }
+    .food-table .inline-actions { flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+    .food-inventory .csv-buttons { display: contents !important; }
+    .food-inventory #selectModeBtn { margin-inline: 0; }
+    .food-ops-panel { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .food-stat { flex-direction: column; gap: 0; padding: .3rem .2rem; }
+    .food-stat span { font-size: .8rem; }
+    .food-valuation { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: baseline; min-height: 0; gap: .55rem; }
+    .food-valuation strong { font-size: 1rem; }
+    .food-filter-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #foodExpiryFilter { grid-column: 1 / -1; }
+}

@@ -72,6 +72,33 @@ class FengbroPagesTest extends TestCase
         $this->assertPageUsesLivewire('home');
     }
 
+    public function test_food_inventory_renders_each_item_once_and_counts_taipei_expiry_dates(): void
+    {
+        $today = new \DateTimeImmutable('today', new \DateTimeZone('Asia/Taipei'));
+        foreach (['past' => -1, 'today' => 0, 'three' => 3, 'seven' => 7, 'no-date' => null] as $id => $days) {
+            DB::table('food')->insert([
+                'id' => $id,
+                'name' => $id,
+                'amount' => $days === 0 ? 1 : 2,
+                'price' => 10,
+                'todate' => $days === null ? null : $today->modify($days.' days')->format('Y-m-d'),
+            ]);
+        }
+
+        $response = $this->get('/index.php?page=food')->assertOk();
+        $document = new \DOMDocument();
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(5, $xpath->query('//*[@data-food-item]')->length);
+        foreach (['past' => 'expired', 'today' => 'today', 'three' => '3days', 'seven' => '7days', 'no-date' => 'nodate'] as $id => $status) {
+            $this->assertSame($status, $xpath->evaluate("string(//*[@data-food-item and @data-id='$id']/@data-expiry)"));
+        }
+        foreach (['today' => '1', '3days' => '2', 'lowstock' => '1'] as $status => $count) {
+            $this->assertSame($count, $xpath->evaluate("string(//*[@data-food-filter='$status']/strong)"));
+        }
+        $this->assertSame('$90', $xpath->evaluate('string(//*[@id="foodValue"])'));
+    }
+
     public function test_home_reminders_link_to_due_items_in_both_views(): void
     {
         $today = DB::selectOne("SELECT date('now') AS due")->due;
