@@ -42,6 +42,10 @@
     @if ($page === 'home')
         <link rel="stylesheet" href="assets/css/home.css?v=20261127">
     @endif
+    @if ($page === 'routine')
+        <link rel="stylesheet" href="assets/css/routine.css?v=20261127">
+        <script defer src="assets/js/routine.js?v=20261127"></script>
+    @endif
     <script src="assets/js/security.js?v=20260907b"></script>
     <script src="assets/js/ux-boost.js?v=20261125"></script>
     <script src="assets/js/optimistic-ui.js?v=20261011softnav1"></script>

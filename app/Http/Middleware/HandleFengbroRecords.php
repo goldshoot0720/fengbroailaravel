@@ -36,7 +36,7 @@ class HandleFengbroRecords
             $result = fengbroPerformManualPriceAction($request->getMethod(), $request->query(), $input);
         } else {
             require_once base_path('includes/fengbro_record_action.php');
-            $result = fengbroPerformRecordAction($request->query(), $input);
+            $result = fengbroPerformRecordAction($request->query(), $input, $request->getMethod());
         }
 
         return response()->json($result['body'], $result['status']);

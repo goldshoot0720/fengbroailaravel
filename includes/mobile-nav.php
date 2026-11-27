@@ -73,7 +73,7 @@ $mTabs = [
         <form method="dialog"><button type="submit" aria-label="關閉功能搜尋">關閉</button></form>
     </header>
     <label class="module-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input type="search" aria-label="搜尋功能" placeholder="搜尋名稱、分類或用途" autocomplete="off">
+        <input type="search" data-live-filter aria-label="搜尋功能" placeholder="搜尋名稱、分類或用途" autocomplete="off">
     </label>
     <p class="module-count" role="status" aria-live="polite"></p>
     <button class="module-clear" type="button" hidden>清除搜尋</button>

@@ -34,6 +34,7 @@
     }
 
     inputs.forEach(function (input) {
+        if (input.hasAttribute('data-live-filter')) return;
         const form = wrapSearchForm(input);
         const skipChips = !!document.getElementById('subscriptionSearchHistory');
         const box = skipChips ? null : document.createElement('div');

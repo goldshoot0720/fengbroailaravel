@@ -6,5 +6,5 @@ $rawInput = file_get_contents('php://input');
 $decoded = $rawInput ? json_decode($rawInput, true) : null;
 $input = is_array($decoded) ? $decoded : (is_array($_POST) ? $_POST : []);
 
-$result = fengbroPerformRecordAction($_GET, $input);
+$result = fengbroPerformRecordAction($_GET, $input, $_SERVER['REQUEST_METHOD']);
 jsonResponse($result['body'], $result['status']);

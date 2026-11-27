@@ -7,7 +7,7 @@
  * @param  array<string, mixed>  $input
  * @return array{status: int, body: mixed}
  */
-function fengbroPerformRecordAction(array $query, array $input): array
+function fengbroPerformRecordAction(array $query, array $input, string $method): array
 {
     $action = (string) ($query['action'] ?? '');
     $table = (string) ($query['table'] ?? '');
@@ -119,6 +119,30 @@ function fengbroPerformRecordAction(array $query, array $input): array
                 } catch (PDOException $e) {
                     return ['status' => 500, 'body' => ['error' => $e->getMessage()]];
                 }
+
+            case 'shift_dates':
+                if ($method !== 'POST') {
+                    return ['status' => 405, 'body' => ['error' => '請使用 POST 遞移日期']];
+                }
+                if ($table !== 'routine' || empty($query['id']) || empty($input['lastdate1'])) {
+                    return ['status' => 400, 'body' => ['error' => '請選擇有最近日期的例行事項']];
+                }
+                $expected = [];
+                foreach (['lastdate1', 'lastdate2', 'lastdate3'] as $field) {
+                    if (!array_key_exists($field, $input) || ($input[$field] !== null && !is_string($input[$field]))) {
+                        return ['status' => 400, 'body' => ['error' => '日期紀錄不完整']];
+                    }
+                    $expected[] = $input[$field] ?? '';
+                }
+                // MySQL 按 SET 順序賦值，先保存較舊的紀錄。
+                $stmt = $pdo->prepare("UPDATE routine SET lastdate3 = lastdate2, lastdate2 = lastdate1,
+                    lastdate1 = NULL, updated_at = {$nowSql}
+                    WHERE id = ? AND COALESCE(lastdate1, '') = ? AND COALESCE(lastdate2, '') = ? AND COALESCE(lastdate3, '') = ?");
+                $stmt->execute([(string) $query['id'], ...$expected]);
+                if ($stmt->rowCount() !== 1) {
+                    return ['status' => 409, 'body' => ['error' => '這筆紀錄已變更，請查看最新日期後再操作。']];
+                }
+                return ['status' => 200, 'body' => ['success' => true]];
 
             case 'update':
                 $id = (string) ($query['id'] ?? '');

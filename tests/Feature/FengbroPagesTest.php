@@ -145,6 +145,34 @@ class FengbroPagesTest extends TestCase
             ->assertSee('驗收手動價格', false);
     }
 
+    public function test_routine_shows_the_taipei_week_and_keeps_older_links_usable(): void
+    {
+        $monday = (new \DateTimeImmutable('today', new \DateTimeZone('Asia/Taipei')))->modify('monday this week');
+        $this->postJson('/index.php?action=create&table=routine', [
+            'name' => '更換濾芯', 'link' => 'example.org/manual',
+            'lastdate1' => $monday->modify('+1 day')->format('Y-m-d'),
+            'lastdate2' => $monday->setTime(0, 30)->setTimezone(new \DateTimeZone('UTC'))->format(DATE_ATOM),
+            'lastdate3' => $monday->modify('-1 day')->format('Y-m-d'),
+        ])->assertOk();
+        $this->get('/index.php?page=routine')->assertOk()->assertSeeText('2 筆')
+            ->assertSee('aria-label="'.$monday->format('Y-m-d').'，1 筆"', false)
+            ->assertSee('href="https://example.org/manual"', false);
+    }
+
+    public function test_routine_history_moves_once_and_only_from_the_reviewed_dates(): void
+    {
+        $dates = ['lastdate1' => '2026-11-25', 'lastdate2' => '2026-11-18', 'lastdate3' => '2026-11-11'];
+        $created = $this->postJson('/index.php?action=create&table=routine', ['name' => '更換濾芯'] + $dates)->assertOk();
+        $id = $created->json('id');
+        $action = '/index.php?action=shift_dates&table=routine&id='.$id;
+        $this->get($action)->assertStatus(405);
+        $this->postJson($action, array_replace($dates, ['lastdate3' => null]))->assertStatus(409);
+        $this->postJson($action, $dates)->assertOk()->assertJson(['success' => true]);
+        $this->postJson($action, $dates)->assertStatus(409);
+        $this->get('/index.php?action=get&table=routine&id='.$id)->assertJsonPath('data.lastdate1', null)
+            ->assertJsonPath('data.lastdate2', '2026-11-25')->assertJsonPath('data.lastdate3', '2026-11-18');
+    }
+
     public function test_delete_and_empty_trash_use_index_and_reject_tokenless_get(): void
     {
         $page = $this->get('/index.php?page=subscription&trash=1');

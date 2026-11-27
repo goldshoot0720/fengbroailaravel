@@ -224,6 +224,7 @@ $menuUsageItems = array_slice(fengbroGetMenuUsageItems($sitePdo, 100), 0, 5);
     <div class="card" style="margin-top: 20px;">
         <h3 class="card-title">近期對齊更新（PHP 版）</h3>
         <ul style="line-height: 1.9; padding-left: 20px; margin: 8px 0 0;">
+            <li><time datetime="2026-11-27">2026-11-27</time> 1.3.0 更新鋒兄例行的手機表單、本週紀錄、搜尋與日期遞移。程式碼共 90,360 行、194 個檔案（PHP 76,047 行、CSS 3,907 行、JavaScript 9,639 行、SQL 767 行）。</li>
             <li><time datetime="2026-11-27">2026-11-27</time> 更新工作台與全站功能搜尋、筆記全文展開及金融行情。程式碼共 90,502 行、192 個檔案（PHP 76,524 行、CSS 3,791 行、JavaScript 9,420 行、SQL 767 行）。</li>
             <li><time datetime="2026-11-25">2026-11-25</time> 程式碼共 90,158 行、190 個檔案（PHP 76,406 行、CSS 3,704 行、JavaScript 9,281 行、SQL 767 行）。</li>
             <li>工具：比價/手動價格/手機歷史 CSV、新聞、PNG/JPEG、圖+語音、合併+Whisper、YT/B站、tube/金融 CSV 與解析名稱；語音可導向各工具子頁</li>

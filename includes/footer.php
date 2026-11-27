@@ -48,7 +48,7 @@
 <script defer src="assets/js/workspace.js?v=20261127"></script>
 <script src="assets/js/main.js?v=20260903trial"></script>
 <script src="assets/js/media-traffic.js?v=20260812"></script>
-<script src="assets/js/recent-searches.js?v=20260904search"></script>
+<script src="assets/js/recent-searches.js?v=20261127live"></script>
 <script src="assets/js/inline-edit.js?v=20260924opt1"></script>
 <script src="assets/js/notifications.js?v=20261125"></script>
 

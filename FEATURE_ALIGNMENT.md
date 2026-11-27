@@ -1,5 +1,11 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
+### 2026-11-27 鋒兄例行
+
+對照 [Appwrite 版 6c6c899](https://github.com/goldshoot0720/fengbroaiappwrite/tree/6c6c899f65808c4cdafd48292d8ef617d51e5966)。桌面與手機共用新增、編輯表單。清單可搜尋名稱與備註、依日期／連結／圖片篩選及切換列表或卡片。搜尋與檢視條件可隨網址保存。
+
+本週紀錄按台北時間從週一計算，包含每項最近三次的完成日期。日期遞移會先確認，並核對資料庫中的三個日期；同時操作或重複送出時不會再次搬動紀錄。
+
 ### 2026-11-27 操作與行情
 
 本次比對 [Appwrite 版 826655a](https://github.com/goldshoot0720/fengbroaiappwrite/tree/826655ae4ddb1a40c4d3c4129c17fe250b2c9502)。

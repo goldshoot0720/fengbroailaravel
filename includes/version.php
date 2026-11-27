@@ -12,7 +12,7 @@ declare(strict_types=1);
  */
 
 // ── 手動維護：有新功能改中間那碼，修 bug 改最後那碼 ──────────────────────
-const FENGBRO_VERSION = '1.2.0';
+const FENGBRO_VERSION = '1.3.0';
 
 /**
  * 依副檔名走訪 PHP、CSS、JS 與 SQL 原始檔，略過套件、上傳內容、產物與部署專用設定。

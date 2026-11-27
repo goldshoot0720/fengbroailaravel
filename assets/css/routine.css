@@ -1,0 +1,116 @@
+/* Hallmark · scope: app · 鋒兄例行 · existing paper and clay */
+/* The week strip and three dated entries use the same reading order at every width. */
+.routine-workspace {
+    max-width: 82rem;
+    margin-inline: auto;
+    min-width: 0;
+    color: var(--text-color);
+}
+.routine-workspace [hidden] { display: none !important; }
+.routine-workspace :is(h1,h2,h3) { min-width: 0; margin: 0; overflow-wrap: break-word; text-wrap: balance; }
+.routine-workspace :is(button,input,summary,a,textarea):focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 2px; }
+.routine-workspace :is(button,summary) { cursor: pointer; font: inherit; }
+.routine-workspace button:disabled { color: var(--muted-text); background: var(--surface-2); cursor: not-allowed; }
+.routine-workspace time, .routine-workspace dd, .routine-week strong { font-variant-numeric: tabular-nums; }
+.routine-header {
+    display: grid; grid-template-columns: minmax(0,1fr) minmax(16rem, 25rem); align-items: center;
+    gap: 24px; padding: 16px 0 24px; border-bottom: 1px solid var(--border-strong);
+}
+.routine-header h1 { margin-bottom: 8px; font: 700 2rem/1.2 var(--font-display); }
+.routine-header time, .routine-week > div span, #routineCount { color: var(--muted-text); font-size: .875rem; }
+.routine-week { padding-inline-start: 24px; border-inline-start: 1px solid var(--border-color); }
+.routine-week > div, .routine-heading, .routine-tools { display: flex; gap: 12px; align-items: center; }
+.routine-week > div { justify-content: space-between; }
+.routine-week h2 { font-size: 1rem; }
+.routine-week ol { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.routine-week li { display: grid; justify-items: center; padding: 4px 0; border-top: 1px solid var(--border-color); }
+.routine-week li[aria-current] { border-color: var(--accent-strong); background: var(--accent-soft); }
+.routine-index { padding-top: 24px; }
+.routine-heading h2 { font-size: 1.25rem; }
+.routine-heading .btn { margin-inline-start: auto; min-height: 44px; }
+.routine-tools { margin-top: 16px; flex-wrap: wrap; justify-content: space-between; }
+.routine-search { position: relative; flex: 1 1 14rem; max-width: 28rem; }
+.routine-search > i { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted-text); }
+.routine-search input, .routine-fields :is(input:not([type=file]),textarea) {
+    border: 1px solid var(--muted-text); border-radius: var(--radius-sm); background: var(--input-bg); color: var(--text-color);
+}
+.routine-search input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px 8px 36px; font: inherit; }
+.routine-switch, .routine-actions, .routine-filters, .routine-management-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.routine-switch { padding: 0 4px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--surface-2); }
+.routine-filters { margin: 8px 0; }
+.routine-workspace :where(.routine-switch,.routine-filters,.routine-actions,.routine-empty,#routineEditor header,#routineEditor footer) button:not(.btn) {
+    min-height: 44px; padding: 4px 12px; border: 0; border-radius: var(--radius-sm);
+    background: transparent; color: var(--muted-text); font-size: .875rem;
+}
+.routine-workspace button[aria-pressed=true]:not(.btn) { color: var(--accent-hover); background: var(--accent-soft); font-weight: 700; }
+.routine-workspace button:not(.btn):enabled:is(:hover,:active), .routine-workspace summary:hover { background: var(--surface-2); color: var(--text-color); }
+.routine-workspace summary { width: fit-content; min-height: 44px; padding: 12px 0; color: var(--muted-text); }
+.routine-management-actions { gap: 8px; margin-block: 4px 12px; }
+.routine-management-actions .csv-buttons, .routine-management-actions .btn-select-mode { margin-inline-start: 0 !important; }
+.routine-management .csv-buttons .btn-success { color: var(--text-color); }
+.routine-management .batch-delete-bar { flex-basis: 100%; }
+.routine-records { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-color); }
+.routine-record {
+    display: grid; grid-template-columns: minmax(12rem, 1.1fr) minmax(17rem, 1.1fr) auto;
+    align-items: center; gap: 16px; padding: 16px 4px; border-bottom: 1px solid var(--border-color);
+}
+.routine-identity { min-width: 0; display: flex; align-items: flex-start; gap: 12px; }
+.routine-identity > div { min-width: 0; }
+.routine-identity img, #routinePreview { flex: none; border-radius: var(--radius-sm); object-fit: cover; }
+.routine-identity h3 { font-size: 1rem; }
+.routine-identity a, .routine-empty button { color: var(--accent-hover); text-underline-offset: .2em; }
+.routine-identity i { font-size: .75rem; }
+.routine-identity p { white-space: pre-line; overflow-wrap: anywhere; color: var(--muted-text); font-size: .875rem; margin: 4px 0 0; }
+.routine-history { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0; }
+.routine-history :is(dt,small,dd > span) { color: var(--muted-text); font-size: .8125rem; }
+.routine-history dd { margin: 4px 0 0; font-size: .875rem; overflow-wrap: anywhere; }
+.routine-history small { display: block; }
+.routine-records[data-view=cards] { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,19rem),1fr)); gap: 12px; border: 0; }
+.routine-records[data-view=cards] > li { grid-template-columns: minmax(0,1fr); align-content: start; align-items: start; padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--card-bg); }
+.routine-empty { padding: 16px 0; color: var(--muted-text); }
+#routineEditor {
+    position: fixed; inset: 0; margin: auto; width: min(34rem,calc(100% - 24px)); max-height: min(92dvh,52rem); padding: 0;
+    border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--card-bg); color: var(--text-color);
+}
+#routineEditor::backdrop { background: var(--shell-13); }
+html:has(#routineEditor[open]) { overflow-y: hidden; overflow-x: clip; }
+#routineForm { display: flex; flex-direction: column; max-height: inherit; }
+#routineForm :is(header,footer) { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 20px; }
+#routineForm header { border-bottom: 1px solid var(--border-color); }
+#routineForm h2 { font-size: 1.25rem; }
+#routineForm footer { justify-content: flex-end; border-top: 1px solid var(--border-color); }
+#routineForm footer .btn { min-height: 44px; }
+.routine-fields { overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px; display: grid; gap: 12px; }
+.routine-fields label { display: grid; min-width: 0; gap: 4px; font-size: .875rem; }
+.routine-fields :is(input,textarea) { min-width: 0; width: 100%; min-height: 44px; padding: 8px; font: inherit; font-size: 1rem; }
+.routine-fields textarea { resize: vertical; }
+.routine-fields fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.routine-fields legend { margin-bottom: 8px; font-weight: 700; }
+.routine-date-fields { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.routine-date button {
+    min-height: 44px; padding: 4px 8px; border: 0; border-radius: var(--radius-sm);
+    background: transparent; color: var(--muted-text); font-size: .8125rem;
+}
+.routine-attachment label { margin-bottom: 8px; }
+#routineError { color: var(--danger); }
+#routineError:empty { display: none; }
+@media (max-width: 1100px) {
+    .routine-record { grid-template-columns: minmax(0,1fr) minmax(16rem,1fr); }
+    .routine-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 700px) {
+    .routine-header { grid-template-columns: minmax(0,1fr); gap: 16px; padding-block: 8px 16px; }
+    .routine-week { padding-inline-start: 0; border: 0; }
+    .routine-record { grid-template-columns: minmax(0,1fr); gap: 8px; }
+    .routine-index { padding-top: 16px; }
+    .routine-heading { flex-wrap: wrap; gap: 8px; }
+    .routine-tools { gap: 8px; }
+    .routine-filters { gap: 0; }
+    .routine-filters button:not(.btn) { padding-inline: 8px; }
+}
+@media (max-width: 480px) {
+    .routine-date-fields { grid-template-columns: minmax(0,1fr); }
+    .routine-date { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; }
+    .routine-search { max-width: none; }
+    #routineForm footer { padding-bottom: max(8px,env(safe-area-inset-bottom)); }
+}
