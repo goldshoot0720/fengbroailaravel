@@ -360,20 +360,10 @@ foreach ($items as $item) {
                     <?php endif; ?>
 
                     <!-- 內容區 -->
-                    <?php
-                    $content = $item['content'] ?? '';
-                    $shortContent = mb_substr($content, 0, 120);
-                    $isLongContent = mb_strlen($content) > 120;
-                    ?>
-                    <?php if ($content): ?>
+                    <?php $content = (string) ($item['content'] ?? ''); ?>
+                    <?php if ($content !== ''): ?>
                         <div class="note-content">
-                            <div id="contentShort-<?php echo $item['id']; ?>" class="note-text">
-                                <?php echo nl2br(htmlspecialchars($shortContent)); ?>            <?php echo $isLongContent ? '...' : ''; ?>
-                            </div>
-                            <div id="contentFull-<?php echo $item['id']; ?>" class="note-text" style="display: none;">
-                                <?php echo nl2br(htmlspecialchars($content)); ?></div>
-                            <textarea id="contentRaw-<?php echo $item['id']; ?>"
-                                style="display: none;"><?php echo htmlspecialchars($content); ?></textarea>
+                            <div id="contentFull-<?php echo $item['id']; ?>" class="note-text" data-note-preview><?php echo htmlspecialchars($content); ?></div>
                         </div>
                     <?php endif; ?>
 
@@ -458,16 +448,12 @@ foreach ($items as $item) {
                     <!-- 底部：操作 + 時間 -->
                     <div class="note-footer">
                         <div class="note-actions-row">
-                            <?php if ($isLongContent): ?>
-                                <button id="contentToggle-<?php echo $item['id']; ?>" type="button" class="note-action-btn"
-                                    onclick="toggleNoteContent('<?php echo $item['id']; ?>')">
-                                    <i class="fas fa-expand-alt"></i> 展開
-                                </button>
-                            <?php endif; ?>
-                            <?php if ($content): ?>
+                            <?php if ($content !== ''): ?>
+                                <button type="button" class="note-action-btn" data-note-toggle hidden
+                                    aria-controls="contentFull-<?php echo $item['id']; ?>" aria-expanded="false">展開全文</button>
                                 <button type="button" class="note-action-btn"
                                     onclick="copyNoteContent('<?php echo $item['id']; ?>')">
-                                    <i class="fas fa-copy"></i> 複製
+                                    <i class="fas fa-copy" aria-hidden="true"></i> 複製
                                 </button>
                             <?php endif; ?>
                         </div>
@@ -1034,6 +1020,15 @@ foreach ($items as $item) {
         word-break: break-word;
     }
 
+    .note-text[data-note-preview] { white-space: pre-wrap; }
+    .note-text.is-clamped {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: var(--note-lines, 5);
+        overflow: hidden;
+    }
+    [data-note-toggle][hidden] { display: none; }
+
     /* 連結區 */
     .note-links {
         display: flex;
@@ -1539,7 +1534,7 @@ body[data-page="notes"] .content-header.notes-header {
     padding: 10px 96px 10px 12px !important;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "title meta" "badges meta";
+    grid-template-areas: "title meta" "badges meta" "preview preview" "actions actions";
     row-gap: 2px;
     column-gap: 12px;
     align-items: center;
@@ -1554,10 +1549,11 @@ body[data-page="notes"] .content-header.notes-header {
 }
 .notes-database.notes-view-list .note-category-badges { grid-area: badges; margin: 0; }
 .notes-database.notes-view-list .note-updated { grid-area: meta; margin: 0; }
-.notes-database.notes-view-list .note-content,
+.notes-database.notes-view-list .note-content { grid-area: preview; margin: 4px 0; padding: 0; border: 0; background: none; --note-lines: 3; }
+.notes-database.notes-view-list .note-footer { grid-area: actions; margin: 0; padding: 0; border: 0; }
+.notes-database.notes-view-list .note-time,
 .notes-database.notes-view-list .note-links,
 .notes-database.notes-view-list .note-files,
-.notes-database.notes-view-list .note-footer,
 .notes-database.notes-view-list .note-ref { display: none !important; }
 
 /* ---------- 表格檢視 ---------- */
@@ -1680,25 +1676,6 @@ body[data-page="notes"] .content-header.notes-header {
     const TABLE = 'article';
     initBatchDelete(TABLE);
 
-    function toggleNoteContent(id) {
-        const shortEl = document.getElementById('contentShort-' + id);
-        const fullEl = document.getElementById('contentFull-' + id);
-        const toggleBtn = document.getElementById('contentToggle-' + id);
-        if (!shortEl || !fullEl || !toggleBtn) return;
-
-        const isShortVisible = shortEl.style.display !== 'none';
-        if (isShortVisible) {
-            shortEl.style.display = 'none';
-            fullEl.style.display = 'block';
-            toggleBtn.innerHTML = '<i class="fas fa-compress-alt"></i> 收起';
-        } else {
-            shortEl.style.display = 'block';
-            fullEl.style.display = 'none';
-            toggleBtn.innerHTML = '<i class="fas fa-expand-alt"></i> 展開';
-        }
-    }
-
-
     const NOTE_VIEW_STORAGE_KEY = 'fengbro_notes_view';
 
     function setNoteView(view) {
@@ -1784,9 +1761,9 @@ body[data-page="notes"] .content-header.notes-header {
     }
 
     function copyNoteContent(id) {
-        const rawEl = document.getElementById('contentRaw-' + id);
+        const rawEl = document.getElementById('contentFull-' + id);
         if (!rawEl) return;
-        const text = rawEl.value || '';
+        const text = rawEl.textContent;
         if (!text) return;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {

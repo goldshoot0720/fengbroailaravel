@@ -775,13 +775,15 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             <?php foreach (($financeData['quotes'] ?? []) as $quote): ?>
                 <?php
                 $changeText = trim(($quote['change'] ?? '') . ' ' . ($quote['changePercent'] ?? ''));
-                $changeNumber = isset($quote['change']) ? (float) str_replace(',', '', (string) $quote['change']) : 0;
+                $changeNumber = fengbroFinanceNumber($quote['change'] ?? null) ?? fengbroFinanceNumber($quote['changePercent'] ?? null);
                 $tone = $changeNumber > 0 ? 'up' : ($changeNumber < 0 ? 'down' : 'flat');
+                $direction = $changeNumber === null ? '' : ($tone === 'up' ? '▲ 上漲' : ($tone === 'down' ? '▼ 下跌' : '持平'));
                 $statusClass = ($quote['status'] ?? '') === '創新高' ? 'high' : ((($quote['status'] ?? '') === '創新低') ? 'low' : 'breakout');
                 $history1y = $quote['historyRanges']['1y'] ?? [];
+                $band = fengbroFinanceWeeklyBand($history1y, ($quote['sessionDate'] ?? '') ?: date('Y-m-d'));
                 $historyPoints = array_values(array_filter(array_map(static function ($p) {
                     return isset($p['price']) && is_numeric($p['price']) ? (float) $p['price'] : null;
-                }, $history1y)));
+                }, $history1y), static fn($value) => $value !== null));
                 $qid = (string) ($quote['id'] ?? '');
                 $isFeatured = $qid !== '' && isset($featuredSet[$qid]);
                 $cardImages = [];
@@ -794,7 +796,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                 }
                 $imageEditText = $cardImages ? implode("\n", $cardImages) : '';
                 ?>
-                <section class="finance-card <?php echo $tone; ?><?php echo $isFeatured ? ' is-featured' : ''; ?>">
+                <section class="finance-card <?= fengbroFinanceRedForGains($quote) ? 'red-gains' : 'green-gains' ?> <?php echo $tone; ?><?php echo $isFeatured ? ' is-featured' : ''; ?>">
                     <div class="finance-card-head">
                         <div>
                             <span class="finance-group"><?php echo htmlspecialchars($quote['group']); ?><?php echo !empty($quote['isCustom']) ? ' · 自訂' : ''; ?><?php echo $isFeatured ? ' · 精選' : ''; ?></span>
@@ -892,7 +894,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             <strong><?php echo htmlspecialchars($quote['value']); ?></strong>
                         </div>
                         <div class="finance-change <?php echo $tone; ?>">
-                            <?php echo $changeText !== '' ? htmlspecialchars($changeText) : '變動暫無資料'; ?>
+                            <?= $direction ?> <?= $changeNumber !== null ? htmlspecialchars($changeText) : '變動暫無資料' ?>
                         </div>
                         <?php if (!empty($quote['historySymbol']) || count($historyPoints) >= 2): ?>
                             <div class="finance-range-tabs"
@@ -914,6 +916,8 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
                             <span>Day High <b><?php echo htmlspecialchars($quote['dayHigh'] ?: '-'); ?></b></span>
                             <span>Day Low <b><?php echo htmlspecialchars($quote['dayLow'] ?: '-'); ?></b></span>
                             <span>Prev Close <b><?php echo htmlspecialchars($quote['prevClose'] ?: '-'); ?></b></span>
+                            <span>26 週收盤高點 <b><?= isset($band['high']) ? fengbroFinanceFormatNumber($band['high']) : '—' ?></b></span>
+                            <span>26 週收盤低點 <b><?= isset($band['low']) ? fengbroFinanceFormatNumber($band['low']) : '—' ?></b></span>
                             <span>52W High <b><?php echo htmlspecialchars($quote['high52'] ?: '-'); ?></b></span>
                             <span>52W Low <b><?php echo htmlspecialchars($quote['low52'] ?: '-'); ?></b></span>
                         </div>
@@ -1585,15 +1589,17 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
         border: 1px solid var(--border-color);
         border-radius: 18px;
         background: var(--card-bg);
-        box-shadow: 0 12px 26px var(--shadow);
+        --gain: var(--success);
+        --loss: var(--danger);
     }
 
+    .finance-card.red-gains { --gain: var(--danger); --loss: var(--success); }
     .finance-card.up {
-        border-color: rgba(63, 139, 118, 0.26);
+        border-color: color-mix(in srgb, var(--gain) 32%, var(--border-color));
     }
 
     .finance-card.down {
-        border-color: rgba(179, 57, 44, 0.24);
+        border-color: color-mix(in srgb, var(--loss) 32%, var(--border-color));
     }
 
     .finance-card.is-featured {
@@ -1781,11 +1787,11 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
     }
 
     .finance-change.up {
-        color: #3f7d5c;
+        color: var(--gain);
     }
 
     .finance-change.down {
-        color: #b3392c;
+        color: var(--loss);
     }
 
     .finance-change.flat {
@@ -2482,8 +2488,7 @@ $financeCatalog = $toolSubpage === 'finance' ? fengbroFinanceDefaultItems() : []
             const y = height - ((value - min) / span) * (height - 18) - 10;
             return x.toFixed(1) + ',' + y.toFixed(1);
         }).join(' ');
-        const up = last >= points[0];
-        const color = up ? '#3f7d5c' : '#b3392c';
+        const color = last === points[0] ? 'var(--muted-text)' : last > points[0] ? 'var(--gain, var(--success))' : 'var(--loss, var(--danger))';
         const areaCoords = '0,' + height + ' ' + coords + ' ' + width + ',' + height;
         const fmt = function (n) {
             return Number(n).toLocaleString('zh-TW', { maximumFractionDigits: 2 });

@@ -335,6 +335,7 @@ function fengbroFinanceClearDataCache()
             str_starts_with($key, 'finance_data_v3')
             || str_starts_with($key, 'finance_data_v4')
             || str_starts_with($key, 'finance_data_v5')
+            || str_starts_with($key, 'finance_data_v6')
         )) {
             unset($cache[$key]);
         }
@@ -1234,10 +1235,7 @@ function fengbroFinanceResolveName(string $symbol, string $provider = 'yahoo'): 
     };
 
     // 1) Yahoo chart meta shortName / longName
-    $chartSymbol = $symbol;
-    if (preg_match('/^998407/i', $symbol)) {
-        $chartSymbol = '^N225';
-    }
+    $chartSymbol = fengbroFinanceHistorySymbol(['symbol' => $symbol]);
     $chartUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' . rawurlencode($chartSymbol)
         . '?interval=1d&range=5d';
     $chartJson = $fetch($chartUrl, ['Accept: application/json']);
@@ -1737,6 +1735,61 @@ function fengbroFinanceFindTwNumber($text, $labels)
     return '';
 }
 
+/** 盤後變動、圖表區間起點均不能當成當日昨收。 */
+function fengbroFinanceSessionChange(array $meta, ?float $priorDailyClose = null): array
+{
+    $price = fengbroFinanceNumber($meta['regularMarketPrice'] ?? null);
+    $percent = fengbroFinanceNumber($meta['regularMarketChangePercent'] ?? null);
+    $unknown = ['prevClose' => null, 'change' => null, 'changePercent' => $percent];
+    if ($price === null) return $unknown;
+
+    $regular = fengbroFinanceNumber($meta['regularMarketChange'] ?? null);
+    if ($regular !== null) {
+        $close = $price - $regular;
+        return ['prevClose' => $close, 'change' => $regular, 'changePercent' => $close > 0 ? $regular / $close * 100 : null];
+    }
+    $candidates = [];
+    $full = fengbroFinanceNumber($meta['fulldayChange'] ?? null);
+    if ($full !== null && fengbroFinanceNumber($meta['fulldayPrice'] ?? null) === $price
+        && ($percent !== null || ($meta['hasPrePostMarketData'] ?? null) === false)) {
+        $candidates[] = $price - $full;
+    }
+    $candidates[] = fengbroFinanceNumber($meta['regularMarketPreviousClose'] ?? null);
+    $candidates[] = fengbroFinanceNumber($meta['previousClose'] ?? null);
+    $candidates[] = $priorDailyClose;
+    foreach ($candidates as $close) {
+        if ($close === null || $close <= 0) continue;
+        $change = $price - $close;
+        $computed = $change / $close * 100;
+        if ($percent !== null &&
+            (abs($computed - $percent) > 0.005 || ($percent != 0 && ($computed <=> 0) !== ($percent <=> 0)))) continue;
+        return ['prevClose' => $close, 'change' => $change, 'changePercent' => $computed];
+    }
+    return $unknown;
+}
+
+function fengbroFinanceRedForGains(array $quote): bool
+{
+    $zone = $quote['exchangeTimezone'] ?? '';
+    if (str_starts_with($zone, 'Asia/')) return true;
+    if (str_starts_with($zone, 'America/') || str_starts_with($zone, 'Europe/')) return false;
+    if (preg_match('/\.(TW|TWO|T|KS|KQ|HK|SS|SZ|BO|NS|SI|BK|JK|KL)$|^[.^](TWII|HSI|N225|KS11|STI)$/i', $quote['symbol'] ?? '')) return true;
+    return in_array(strtolower($quote['group'] ?? ''), ['taiwan', 'asia', 'japan', 'korea'], true);
+}
+
+function fengbroFinanceWeeklyBand(array $points, string $asOf): array
+{
+    $weekStart = (new DateTimeImmutable($asOf))->modify('monday this week');
+    $end = $weekStart->format('Y-m-d');
+    $start = $weekStart->modify('-26 weeks')->format('Y-m-d');
+    $prices = [];
+    foreach ($points as $point) {
+        $date = $point['date'] ?? '';
+        if ($date >= $start && $date < $end && is_numeric($point['price'] ?? null)) $prices[] = (float) $point['price'];
+    }
+    return $prices ? ['high' => max($prices), 'low' => min($prices)] : [];
+}
+
 function fengbroFinanceYahooChart($symbol, $range = '1y', $interval = '1d')
 {
     if (!$symbol) {
@@ -1758,20 +1811,16 @@ function fengbroFinanceYahooChart($symbol, $range = '1y', $interval = '1d')
     $quote = $result['indicators']['quote'][0] ?? [];
     $highs = array_values(array_filter($quote['high'] ?? [], 'is_numeric'));
     $lows = array_values(array_filter($quote['low'] ?? [], 'is_numeric'));
-    $closes = array_values(array_filter($quote['close'] ?? [], 'is_numeric'));
     $timestamps = $result['timestamp'] ?? [];
     $marketPrice = $meta['regularMarketPrice'] ?? null;
-    $prevClose = $meta['regularMarketPreviousClose'] ?? null;
-    if ($prevClose === null && $closes) {
-        $lastIndex = count($closes) - 1;
-        $lastClose = (float) $closes[$lastIndex];
-        if ($marketPrice !== null && abs($lastClose - (float) $marketPrice) < 0.01 && $lastIndex > 0) {
-            $prevClose = $closes[$lastIndex - 1];
-        } else {
-            $prevClose = $lastClose;
-        }
+    try {
+        $zone = new DateTimeZone($meta['exchangeTimezoneName'] ?? 'UTC');
+    } catch (Exception $e) {
+        $zone = new DateTimeZone('UTC');
     }
-
+    $localDate = static fn($ts) => (new DateTimeImmutable('@' . (int) $ts))->setTimezone($zone)->format('Y-m-d');
+    $sessionDate = isset($meta['regularMarketTime']) ? $localDate($meta['regularMarketTime']) : '';
+    $priorDailyClose = null;
     $points = [];
     if (is_array($timestamps) && is_array($quote['close'] ?? null)) {
         foreach ($timestamps as $i => $ts) {
@@ -1779,19 +1828,22 @@ function fengbroFinanceYahooChart($symbol, $range = '1y', $interval = '1d')
             if (!is_numeric($close) || !is_numeric($ts)) {
                 continue;
             }
+            $date = $localDate($ts);
+            if ($interval === '1d' && $date < $sessionDate) $priorDailyClose = (float) $close;
             $points[] = [
-                'date' => date('Y-m-d', (int) $ts),
+                'date' => $date,
                 'price' => (float) $close,
             ];
         }
     }
 
-    return [
+    return fengbroFinanceSessionChange($meta, $priorDailyClose) + [
         'value' => $marketPrice,
         'open' => $meta['regularMarketOpen'] ?? null,
         'dayHigh' => $meta['regularMarketDayHigh'] ?? null,
         'dayLow' => $meta['regularMarketDayLow'] ?? null,
-        'prevClose' => $prevClose,
+        'exchangeTimezone' => $meta['exchangeTimezoneName'] ?? '',
+        'sessionDate' => $sessionDate,
         'high52' => $meta['fiftyTwoWeekHigh'] ?? ($highs ? max($highs) : null),
         'low52' => $meta['fiftyTwoWeekLow'] ?? ($lows ? min($lows) : null),
         'points' => $points,
@@ -1846,13 +1898,15 @@ function fengbroFinanceFetchSingleHistory(string $symbol, string $rangeKey = '1y
 
 function fengbroFinanceHistorySymbol(array $item): string
 {
-    if (!empty($item['historySymbol'])) {
-        return (string) $item['historySymbol'];
-    }
-    if (($item['parser'] ?? '') === 'yahoo_quote' || ($item['parser'] ?? '') === 'yahoo_tw') {
-        return (string) ($item['apiSymbol'] ?? $item['symbol'] ?? '');
-    }
-    $symbol = (string) ($item['symbol'] ?? '');
+    $symbol = strtoupper(trim(($item['historySymbol'] ?? '') ?: ($item['apiSymbol'] ?? $item['symbol'] ?? '')));
+    $aliases = [
+        '998407.O' => '^N225', '.SPX' => '^GSPC', '.COMP' => '^IXIC',
+        '@LCO.1' => 'BZ=F', '@CL.1' => 'CL=F', '@NG.1' => 'NG=F', '@GC.1' => 'GC=F',
+        '@SI.1' => 'SI=F', '@HG.1' => 'HG=F', '@PL.1' => 'PL=F', '@PA.1' => 'PA=F',
+    ];
+    if (isset($aliases[$symbol])) return $aliases[$symbol];
+    if (preg_match('/^(BTC|ETH|XRP|LTC|BCH|DOGE|SOL)\.CM=$/', $symbol, $m)) return $m[1] . '-USD';
+    if (str_starts_with($symbol, '.')) $symbol = '^' . substr($symbol, 1);
     return preg_match('/^[A-Z0-9.=^-]+$/', $symbol) ? $symbol : '';
 }
 
@@ -1913,7 +1967,7 @@ function fengbroFinanceParseYahooTwQuote($item)
 {
     $html = fengbroFinanceFetchUrl($item['url']);
     $text = fengbroFinanceText($html);
-    $chart = fengbroFinanceYahooChart($item['apiSymbol'] ?? $item['symbol']);
+    $chart = fengbroFinanceYahooChart(fengbroFinanceHistorySymbol($item));
 
     $value = '';
     if (($item['symbol'] ?? '') === '2330.TW') {
@@ -1921,6 +1975,7 @@ function fengbroFinanceParseYahooTwQuote($item)
     } elseif (preg_match('/加權指數\s+([+-]?\d[\d,]*(?:\.\d+)?)/u', $text, $m)) {
         $value = $m[1] !== '-' ? $m[1] : '';
     }
+    $useChart = $value === '';
     if ($value === '' && isset($chart['value'])) {
         $value = fengbroFinanceFormatNumber($chart['value'], 2);
     }
@@ -1929,8 +1984,6 @@ function fengbroFinanceParseYahooTwQuote($item)
     $dayHigh = fengbroFinanceFindTwNumber($text, ['最高']);
     $dayLow = fengbroFinanceFindTwNumber($text, ['最低']);
     $prevClose = fengbroFinanceFindTwNumber($text, ['昨收']);
-    $change = fengbroFinanceFindTwNumber($text, ['漲跌']);
-    $changePercent = fengbroFinanceFindTwNumber($text, ['漲跌幅']);
 
     if ($open === '' && isset($chart['open'])) {
         $open = fengbroFinanceFormatNumber($chart['open'], 2);
@@ -1941,17 +1994,27 @@ function fengbroFinanceParseYahooTwQuote($item)
     if ($dayLow === '' && isset($chart['dayLow'])) {
         $dayLow = fengbroFinanceFormatNumber($chart['dayLow'], 2);
     }
-    if ($prevClose === '' && isset($chart['prevClose'])) {
-        $prevClose = fengbroFinanceFormatNumber($chart['prevClose'], 2);
-    }
-
     $valueNumber = fengbroFinanceNumber($value);
-    $prevCloseNumber = fengbroFinanceNumber($prevClose);
-    if ($change === '' && $valueNumber !== null && $prevCloseNumber !== null) {
-        $change = fengbroFinanceFormatNumber($valueNumber - $prevCloseNumber, 2);
-    }
-    if ($changePercent === '' && $valueNumber !== null && $prevCloseNumber !== null && $prevCloseNumber != 0.0) {
-        $changePercent = fengbroFinanceFormatNumber((($valueNumber - $prevCloseNumber) / $prevCloseNumber) * 100, 2) . '%';
+    $samePrice = $valueNumber !== null && isset($chart['value']) && $valueNumber === (float) $chart['value'];
+    if ($useChart || ($prevClose === '' && $samePrice)) {
+        $prevClose = fengbroFinanceFormatNumber($chart['prevClose'] ?? null, 2);
+        $change = fengbroFinanceFormatNumber($chart['change'] ?? null, 2);
+        $changePercent = isset($chart['changePercent']) ? fengbroFinanceFormatNumber($chart['changePercent'], 2) . '%' : '';
+    } else {
+        $prevCloseNumber = fengbroFinanceNumber($prevClose);
+        if ($valueNumber !== null && $prevCloseNumber > 0) {
+            $difference = $valueNumber - $prevCloseNumber;
+            $change = fengbroFinanceFormatNumber($difference, 2);
+            $changePercent = fengbroFinanceFormatNumber($difference / $prevCloseNumber * 100, 2) . '%';
+        } else {
+            $rawChange = fengbroFinanceFindTwNumber($text, ['漲跌']);
+            $rawPercent = fengbroFinanceFindTwNumber($text, ['漲跌幅']);
+            $change = preg_match('/^[+-]/', $rawChange) || fengbroFinanceNumber($rawChange) === 0.0 ? $rawChange : '';
+            $changePercent = preg_match('/^[+-]/', $rawPercent) || fengbroFinanceNumber($rawPercent) === 0.0 ? $rawPercent : '';
+            if ($change !== '' && $changePercent !== '' && (fengbroFinanceNumber($change) <=> 0) !== (fengbroFinanceNumber($changePercent) <=> 0)) {
+                $changePercent = '';
+            }
+        }
     }
 
     $high52 = isset($chart['high52']) ? fengbroFinanceFormatNumber($chart['high52'], 2) : '';
@@ -1972,6 +2035,8 @@ function fengbroFinanceParseYahooTwQuote($item)
         'group' => $item['group'],
         'source' => $item['source'] ?? 'Yahoo股市',
         'url' => $item['url'],
+        'exchangeTimezone' => $chart['exchangeTimezone'] ?? '',
+        'sessionDate' => $chart['sessionDate'] ?? '',
         'valueLabel' => '成交',
         'value' => $value,
         'change' => $change,
@@ -1989,7 +2054,7 @@ function fengbroFinanceParseYahooTwQuote($item)
 
 function fengbroFinanceParseYahooQuote($item)
 {
-    $chart = fengbroFinanceYahooChart($item['apiSymbol'] ?? $item['symbol']);
+    $chart = fengbroFinanceYahooChart(fengbroFinanceHistorySymbol($item));
     $value = isset($chart['value']) ? fengbroFinanceFormatNumber($chart['value'], 2) : '';
     $open = isset($chart['open']) ? fengbroFinanceFormatNumber($chart['open'], 2) : '';
     $dayHigh = isset($chart['dayHigh']) ? fengbroFinanceFormatNumber($chart['dayHigh'], 2) : '';
@@ -1999,15 +2064,8 @@ function fengbroFinanceParseYahooQuote($item)
     $low52 = isset($chart['low52']) ? fengbroFinanceFormatNumber($chart['low52'], 2) : '';
 
     $valueNumber = fengbroFinanceNumber($value);
-    $prevCloseNumber = fengbroFinanceNumber($prevClose);
-    $change = '';
-    $changePercent = '';
-    if ($valueNumber !== null && $prevCloseNumber !== null) {
-        $change = fengbroFinanceFormatNumber($valueNumber - $prevCloseNumber, 2);
-    }
-    if ($valueNumber !== null && $prevCloseNumber !== null && $prevCloseNumber != 0.0) {
-        $changePercent = fengbroFinanceFormatNumber((($valueNumber - $prevCloseNumber) / $prevCloseNumber) * 100, 2) . '%';
-    }
+    $change = fengbroFinanceFormatNumber($chart['change'] ?? null, 2);
+    $changePercent = isset($chart['changePercent']) ? fengbroFinanceFormatNumber($chart['changePercent'], 2) . '%' : '';
 
     $highNumber = fengbroFinanceNumber($high52);
     $lowNumber = fengbroFinanceNumber($low52);
@@ -2025,6 +2083,8 @@ function fengbroFinanceParseYahooQuote($item)
         'group' => $item['group'],
         'source' => $item['source'] ?? 'Yahoo Finance',
         'url' => $item['url'],
+        'exchangeTimezone' => $chart['exchangeTimezone'] ?? '',
+        'sessionDate' => $chart['sessionDate'] ?? '',
         'valueLabel' => '成交',
         'value' => $value,
         'change' => $change,
@@ -2156,7 +2216,7 @@ function fengbroFinanceGetData($force = false, bool $withHistory = true)
         'imageById' => $config['imageById'] ?? [],
         'history' => $withHistory ? 1 : 0,
     ], JSON_UNESCAPED_UNICODE));
-    $dataKey = 'finance_data_v5:' . $configFingerprint;
+    $dataKey = 'finance_data_v6:' . $configFingerprint;
 
     $entry = is_array($cache[$dataKey] ?? null) ? $cache[$dataKey] : null;
     if (!$force && $entry !== null && !empty($entry['checkedAt'])) {

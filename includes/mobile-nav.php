@@ -57,7 +57,7 @@ $mTabs = [
             <span class="m-tab-label"><?php echo $t['label']; ?></span>
         </a>
     <?php endforeach; ?>
-    <button class="m-tab <?php echo $mActive === 'more' ? 'is-active' : ''; ?>" type="button" onclick="toggleMobileMenu()" aria-label="更多與全部功能">
+    <button class="m-tab <?php echo $mActive === 'more' ? 'is-active' : ''; ?>" type="button" data-module-picker onclick="toggleMobileMenu()" aria-label="更多與全部功能">
         <span class="m-tab-icon"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></span>
         <span class="m-tab-label">更多</span>
     </button>
@@ -66,6 +66,19 @@ $mTabs = [
 <button class="m-drawer-close" type="button" onclick="closeMobileMenu()" aria-label="關閉導覽選單">
     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
 </button>
+
+<dialog id="modulePicker" class="module-picker" aria-labelledby="modulePickerTitle">
+    <header>
+        <h2 id="modulePickerTitle" tabindex="-1">全部功能</h2>
+        <form method="dialog"><button type="submit" aria-label="關閉功能搜尋">關閉</button></form>
+    </header>
+    <label class="module-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" aria-label="搜尋功能" placeholder="搜尋名稱、分類或用途" autocomplete="off">
+    </label>
+    <p class="module-count" role="status" aria-live="polite"></p>
+    <button class="module-clear" type="button" hidden>清除搜尋</button>
+    <div class="module-results"></div>
+</dialog>
 
 <script>
     (function () {

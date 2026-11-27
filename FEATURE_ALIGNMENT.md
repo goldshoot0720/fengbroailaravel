@@ -1,6 +1,12 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
-最後更新：對齊 Appwrite 2026-09-06 的選單分頁記憶與鋒兄常用搜尋式網站選取器。對照 [fengbroaiappwrite](https://github.com/goldshoot0720/fengbroaiappwrite)。
+### 2026-11-27 操作與行情
+
+本次比對 [Appwrite 版 826655a](https://github.com/goldshoot0720/fengbroaiappwrite/tree/826655ae4ddb1a40c4d3c4129c17fe250b2c9502)。
+
+- 共用導覽支援搜尋分類、名稱與用途，桌面可按 Ctrl／⌘ K，手機由「更多」進入。
+- 筆記圖庫與清單依顯示寬度、換行判斷展開按鈕，複製時保留完整內容。
+- 金融報價採用交易時段的昨收與漲跌，區分交易市場的漲跌色，並以既有週線計算近 26 個已結束日曆週的收盤高低。自訂 CNBC 指數、期貨及加密貨幣可對應 Yahoo 圖表代碼。
 
 ### 2026-09-06 補齊項目
 

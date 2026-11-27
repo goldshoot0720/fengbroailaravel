@@ -1,3 +1,6 @@
+/* Hallmark · redesign: 鋒兄工作台 · scope: app · theme: existing clay paper · 2026-11-27 */
+/* The shortcut index and the dated reminder column carry the page. */
+:root { --home-heading: 'Songti TC', 'Noto Serif TC', 'PMingLiU', serif; }
 .home-workspace {
     max-width: 1440px;
     margin-inline: auto;
@@ -8,7 +11,7 @@
 .home-header {
     align-items: center;
     flex-wrap: wrap;
-    padding: 4px 0 22px;
+    padding: 12px 0 24px;
     border: 0;
     border-bottom: 1px solid var(--border-strong);
     border-radius: 0;
@@ -17,14 +20,14 @@
 }
 .home-header time {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     color: var(--muted-text);
     font-size: .88rem;
 }
 .home-view-toggle {
     display: inline-flex;
     gap: 4px;
-    padding: 3px;
+    padding: 4px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--surface-2);
@@ -33,7 +36,7 @@
     display: grid;
     place-items: center;
     min-height: 44px;
-    padding: 0 14px;
+    padding: 0 12px;
     border-radius: var(--radius-sm);
     text-decoration: none;
     color: var(--muted-text);
@@ -66,7 +69,7 @@
 .home-shortcuts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0 clamp(16px, 3vw, 40px);
 }
 .home-shortcut, .home-reminders li a {
     display: flex;
@@ -77,10 +80,9 @@
     overflow-wrap: anywhere;
 }
 .home-shortcut {
-    min-height: 76px;
-    padding: 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    min-height: 80px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--border-color);
 }
 .home-shortcut:hover, .home-reminders a:hover, .home-view-toggle a:hover {
     background: var(--accent-soft);
@@ -89,15 +91,12 @@
 .home-shortcut .home-shortcut-icon {
     display: grid;
     place-items: center;
-    flex: 0 0 36px;
-    height: 36px;
-    border-radius: var(--radius-sm);
-    background: var(--accent-soft);
+    flex: 0 0 24px;
     color: var(--accent-strong);
 }
 .home-panel small, .home-notice span {
     display: block;
-    margin-top: 3px;
+    margin-top: 4px;
     color: var(--muted-text);
     font-size: .82rem;
 }
@@ -105,20 +104,20 @@
 .home-reminders li + li { border-top: 1px solid var(--border-color); }
 .home-reminders li a { justify-content: space-between; min-height: 52px; padding-block: 8px; }
 .home-reminders li i, .home-empty { color: var(--muted-text); }
-.home-empty { display: flex; align-items: center; gap: 9px; }
+.home-empty { display: flex; align-items: center; gap: 8px; }
 .home-notice, .home-sleep-warning {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 14px;
+    padding: 8px 12px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--card-bg);
 }
 .home-sleep-warning { margin-bottom: 12px; color: var(--text-color); background: var(--warning-soft); }
-.home-sleep-warning.is-late { border-inline-start: 4px solid var(--danger); }
+.home-sleep-warning.is-late { border-color: var(--danger); }
 .home-notice { margin-top: 12px; }
-.home-notice a { flex: 1; min-width: 0; padding-block: 6px; color: var(--text-color); text-decoration: none; overflow-wrap: anywhere; }
+.home-notice a { flex: 1; min-width: 0; padding-block: 8px; color: var(--text-color); text-decoration: none; overflow-wrap: anywhere; }
 .home-notice a:hover strong { text-decoration: underline; }
 .home-notice button {
     flex: 0 0 44px;
@@ -136,7 +135,30 @@
     .home-panels { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 540px) {
-    .home-header { align-items: flex-start; gap: 12px; margin-bottom: 14px; padding-bottom: 14px; }
-    .home-shortcut { align-items: flex-start; flex-direction: column; gap: 7px; }
-    .home-shortcut .home-shortcut-icon { display: block; height: auto; flex: none; background: none; }
+    .home-header { align-items: flex-start; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; }
+    .home-shortcut strong { color: var(--accent-strong); }
+    .home-shortcut { gap: 8px; min-height: 72px; }
+}
+
+.home-header h1 {
+    font-family: var(--home-heading);
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+.home-header h1, .home-panel h2 { text-wrap: balance; }
+.home-header time { font-variant-numeric: tabular-nums; }
+.home-header { gap: clamp(12px, 3vw, 40px); }
+.home-workspace :is(a, button):focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 2px; }
+.home-workspace :is(a, button):active { color: var(--accent-strong); }
+.home-panels { padding-block: 8px; }
+.home-panels > nav { padding: 0; border: 0; background: none; }
+.home-panel h2 { padding-bottom: 12px; margin-bottom: 0; border-bottom: 1px solid var(--border-strong); }
+.home-reminders { padding: 16px 20px; background: var(--surface-2); border: 0; border-radius: var(--radius-sm); }
+.home-reminders h2 { border: 0; }
+.home-reminders small time { font-variant-numeric: tabular-nums; }
+@media (max-width: 380px) {
+    .home-shortcut .home-shortcut-icon { display: none; }
 }

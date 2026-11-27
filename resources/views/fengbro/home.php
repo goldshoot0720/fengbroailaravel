@@ -28,7 +28,7 @@ $reminderGroups = [
 <div class="home-workspace" data-initial-view="<?= $showFull ? 'full' : 'compact' ?>">
     <div class="content-header home-header">
         <div>
-            <time datetime="<?= $nowTaipei->format('Y-m-d') ?>"><?= $nowTaipei->format('Y 年 n 月 j 日') ?> · 星期<?= $weekdays[$nowTaipei->format('w')] ?></time>
+            <time datetime="<?= $nowTaipei->format('Y-m-d') ?>"><?= $nowTaipei->format('Y 年 n 月 j 日') ?> 星期<?= $weekdays[$nowTaipei->format('w')] ?></time>
             <h1>我的工作台</h1>
         </div>
         <nav class="home-view-toggle" aria-label="首頁顯示模式">
@@ -71,8 +71,8 @@ $reminderGroups = [
                                 <span>
                                     <strong><?= $label ?></strong>
                                     <small><?= htmlspecialchars((string) $first['name']) ?>
-                                        <?php if ($date !== ''): ?> · <time><?= htmlspecialchars($date) ?></time><?php endif; ?>
-                                        <?php if (count($items) > 1): ?> · 等 <?= count($items) ?> 則提醒<?php endif; ?>
+                                        <?php if ($date !== ''): ?> <time><?= htmlspecialchars($date) ?></time><?php endif; ?>
+                                        <?php if (count($items) > 1): ?> 等 <?= count($items) ?> 則提醒<?php endif; ?>
                                     </small>
                                 </span>
                                 <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
