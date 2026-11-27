@@ -72,6 +72,32 @@ class FengbroPagesTest extends TestCase
         $this->assertPageUsesLivewire('home');
     }
 
+    public function test_shopping_list_classifies_purchase_dates_and_converts_each_line_total(): void
+    {
+        $today = new \DateTimeImmutable('today', new \DateTimeZone('Asia/Taipei'));
+        foreach (['yesterday' => -1, 'today' => 0, 'third' => 3, 'fourth' => 4, 'undated' => null] as $name => $days) {
+            DB::table('shoppinglist')->insert([
+                'id' => $name,
+                'name' => $name,
+                'plannedDate' => $days === null ? null : $today->modify($days.' days')->format('Y-m-d').' 16:00:00',
+                'price' => 1,
+                'quantity' => 10,
+                'currency' => $name === 'third' ? 'JPY' : null,
+            ]);
+        }
+
+        $response = $this->get('/index.php?page=shoppinglist')->assertOk();
+        $doc = new \DOMDocument();
+        @$doc->loadHTML($response->getContent());
+        $page = new \DOMXPath($doc);
+        foreach (['yesterday' => 'expired', 'today' => 'today', 'third' => 'upcoming', 'fourth' => 'later', 'undated' => 'nodate'] as $name => $status) {
+            $this->assertSame($status, $page->evaluate("string(//article[@data-id='$name']/@data-status)"));
+        }
+        $this->assertSame('1', $page->evaluate('string(//*[@data-shopping-filter="upcoming"]/strong)'));
+        $this->assertSame('NT$ 4', $page->evaluate('string(//article[@data-id="third"]//*[@class="shopping-subtotal"])'));
+        $this->assertSame('NT$ 44', $page->evaluate('string(//*[@class="shopping-budget"]/strong)'));
+    }
+
     public function test_food_inventory_renders_each_item_once_and_counts_taipei_expiry_dates(): void
     {
         $today = new \DateTimeImmutable('today', new \DateTimeZone('Asia/Taipei'));

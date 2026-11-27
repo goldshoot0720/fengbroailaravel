@@ -1,5 +1,11 @@
 # 功能對齊清單（fengbroaiappwrite → fengbroailaravel）
 
+### 2026-11-27 鋒兄購物清單
+
+對照 [Appwrite 購物清單](https://github.com/goldshoot0720/fengbroaiappwrite/blob/6c6c899f65808c4cdafd48292d8ef617d51e5966/components/modules/ShoppingListManagement.tsx)。手機與平板用卡片，寬版用欄位清單。兩種版面共用新增、編輯與複製表單，可選擇裝置照片或貼上圖片網址，並套用既有商品名稱、商店與取貨方式。
+
+「今天要買」與「未來 3 天」分開計數，重新整理保留搜尋及狀態，批次選取只保留畫面上的商品。台幣預算以外幣單價乘上數量後換算。CSV 預覽支援含逗號、引號及多行備註的匯入與匯出。
+
 ### 2026-11-27 鋒兄食品
 
 對照 [Appwrite 食品模組](https://github.com/goldshoot0720/fengbroaiappwrite/blob/6c6c899f65808c4cdafd48292d8ef617d51e5966/components/modules/FoodManagement.tsx)。視窗未滿 1100 像素時顯示卡片，較寬時顯示表格。兩者共用同一筆食品資料與選取狀態，縮放時可接續操作。桌面可直接修改列內欄位，手機可開啟編輯表單。

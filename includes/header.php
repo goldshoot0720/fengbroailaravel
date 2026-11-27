@@ -32,6 +32,9 @@
     <?php if (($page ?? '') === 'home'): ?>
         <link rel="stylesheet" href="assets/css/home.css?v=20261127">
     <?php endif; ?>
+    <?php if (($page ?? '') === 'shoppinglist'): ?>
+        <link rel="stylesheet" href="assets/css/shoppinglist.css?v=20261127">
+    <?php endif; ?>
     <?php if (($page ?? '') === 'food'): ?>
         <link rel="stylesheet" href="assets/css/food.css?v=20261127">
     <?php endif; ?>

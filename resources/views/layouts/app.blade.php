@@ -42,6 +42,9 @@
     @if ($page === 'home')
         <link rel="stylesheet" href="assets/css/home.css?v=20261127">
     @endif
+    @if ($page === 'shoppinglist')
+        <link rel="stylesheet" href="assets/css/shoppinglist.css?v=20261127">
+    @endif
     @if ($page === 'food')
         <link rel="stylesheet" href="assets/css/food.css?v=20261127">
     @endif
